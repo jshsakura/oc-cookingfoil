@@ -83,8 +83,20 @@ test.describe('on a phone', () => {
     expect(top).toBeLessThan(844);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
-    const tops = await page.evaluate(() => ['.brand', '#adm-menu', '#up-entry', '#lang-btn', '#acct-btn'].map((s) => Math.round(document.querySelector(s)!.getBoundingClientRect().top)));
-    expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(20);
+    // Two rows on a phone, and every control keeps a real touch target that touches no other.
+    const boxes = await page.evaluate(() => ['#adm-menu', '#up-entry', '#lang-btn', '#acct-btn'].map((s) => {
+      const r = document.querySelector(s)!.getBoundingClientRect();
+      return { s, x: r.x, y: r.y, w: r.width, h: r.height };
+    }));
+    for (const b of boxes) expect(Math.round(b.h), b.s).toBeGreaterThanOrEqual(44);
+    for (const b of boxes.filter((x) => x.s !== '#lang-btn')) expect(Math.round(b.w), b.s).toBeGreaterThanOrEqual(44);
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const [a, b] = [boxes[i], boxes[j]];
+        const overlap = a.x < b.x + b.w - 1 && b.x < a.x + a.w - 1 && a.y < b.y + b.h - 1 && b.y < a.y + a.h - 1;
+        expect(overlap, `${a.s} overlaps ${b.s}`).toBe(false);
+      }
+    }
 
     // A row that is clipped fades at the hidden edge, and the open page is brought into view.
     const sub = page.locator('#lib-subtabs');

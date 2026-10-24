@@ -104,7 +104,7 @@ export function sidebarNav(current, withIds = true) {
     const g = GROUPS[key];
     const open = pages.some((p) => p.path === current?.path) ? " open" : "";
     const sum = g.sum ? `<span class="count" data-sum="${g.sum}" hidden></span>` : "";
-    rows.push(`<details class="adm-grp" data-grp="${key}"${open}><summary>${top(g.label)}${sum}</summary><div class="adm-grp-in">`);
+    rows.push(`<details class="adm-grp" data-grp="${key}"${open}><summary>${top(g.label)}${sum}${CHEV}</summary><div class="adm-grp-in">`);
     for (const page of pages) {
       if (!page.tasks) rows.push(item(page, current, withIds));
       else for (const task of page.tasks) rows.push(taskItem(page, task, current));
@@ -123,7 +123,10 @@ export function drawerHtml(current) {
 }
 
 /** The button that opens the drawer; the header shows it below the desktop width. */
-export const MENU_BUTTON_HTML = `<button class="icon-btn" id="adm-menu" type="button" aria-haspopup="dialog" aria-expanded="false" data-top-label="m.menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>`;
+export const MENU_BUTTON_HTML = `<button class="icon-btn" id="adm-menu" type="button" aria-haspopup="dialog" aria-expanded="false" data-top-label="m.menu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>`;
+
+/** The little chevron a group summary carries: it says the group opens. */
+const CHEV = `<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
 
 export const ADM_SHELL_CSS = /* css */ `
 body.adm-shell{padding:0}
@@ -142,6 +145,11 @@ body.adm-shell{display:grid;grid-template-columns:252px minmax(0,1fr);min-height
   color:var(--muted);font-weight:800;font-size:12px;letter-spacing:.02em;text-transform:uppercase}
 .adm-grp summary::-webkit-details-marker{display:none}
 .adm-grp summary:hover{background:var(--sunk)}
+.adm-grp summary:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.adm-grp summary .chev{width:14px;height:14px;margin-left:auto;flex:none;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;color:var(--muted);transition:transform .15s}
+.adm-grp[open] summary .chev{transform:rotate(180deg)}
+.adm-item:focus-visible{outline:2px solid var(--text);outline-offset:-2px}
 .adm-grp summary .count{margin-left:auto}
 .adm-grp-in{display:grid;gap:2px;margin:0 0 10px;padding-left:8px;border-left:2px solid var(--line)}
 .adm-item{display:flex;align-items:center;gap:8px;min-width:0;padding:9px 12px;border-radius:12px;position:relative;
@@ -158,10 +166,10 @@ body.adm-shell{display:grid;grid-template-columns:252px minmax(0,1fr);min-height
 .adm-drawer-hd{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:1px solid var(--line);font-weight:800}
 .adm-drawer-hd b{font-size:16px;letter-spacing:-.01em}
 .adm-drawer-hd .logo{display:block}
-#adm-drawer-close{margin-left:auto;border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer;padding:6px;border-radius:8px}
+#adm-drawer-close{margin-left:auto;border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer;width:44px;height:44px;border-radius:10px}
 #adm-drawer-close:hover{background:var(--sunk);color:var(--text)}
 @media (prefers-reduced-motion:no-preference){.adm-drawer[open]{animation:adm-drawer-in .18s ease-out}
-@keyframes adm-drawer-in{from{transform:translateX(-12px);opacity:.4}to{transform:none;opacity:1}}}
+@keyframes adm-drawer-in{from{transform:translateX(-14px)}to{transform:none}}}
 `;
 
 /**
@@ -194,7 +202,7 @@ function mark(){const p=activePath(),q=new URLSearchParams(location.search);
     if(on){a.setAttribute('aria-current','page');const g=a.closest('details.adm-grp');if(g)g.open=true;}
     else a.removeAttribute('aria-current');}}
 window.__admMark=mark;
-function sums(){window.__admSumsN=(window.__admSumsN||0)+1;
+function sums(){
   // The group sums sit inside the observed tree, so every write is made only
   // when the value really changes; an unconditional write would reissue the
   // observer and spin the page.

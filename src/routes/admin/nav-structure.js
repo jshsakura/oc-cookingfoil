@@ -12,7 +12,7 @@ export const NAV_CSS = /* css */ `
 .up-entry:hover{border-color:var(--text)}
 .up-entry svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .up-entry[aria-current="page"]{background:var(--text);color:var(--panel);border-color:var(--text)}
-@media (max-width:640px){.hdr-right{gap:6px}.lang-btn{padding:0 9px;gap:4px}.lang-btn .chev{display:none}.up-entry{width:36px;padding:0}.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+@media (max-width:640px){.hdr-right{gap:10px}.lang-btn{padding:0 12px;gap:4px}.lang-btn .chev{display:none}.up-entry{padding:0}.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 .subtabs{--fade:34px}
 .subtabs.fade-l{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade));mask-image:linear-gradient(to right,transparent 0,#000 var(--fade))}
 .subtabs.fade-r{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 var(--fade));mask-image:linear-gradient(to left,transparent 0,#000 var(--fade))}

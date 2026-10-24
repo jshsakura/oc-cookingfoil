@@ -275,14 +275,16 @@ form.add select{flex:none;min-width:9em}
 .logs-head{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .logs-body pre{margin:0;padding:14px;min-height:220px;max-height:520px;overflow:auto;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all}
 .me{margin-left:6px}
-/* Phones: tables turn into one card per row, each cell labelled. */
+/* Phones: the header wraps into two rows so every control keeps a real 44px
+   touch target: the brand alone on the first, the four controls under it. */
 @media (max-width:640px){
-body{padding:16px 16px 80px}header{margin-bottom:12px}
-/* One row: the wordmark shrinks before the four header buttons (menu, upload, language, account). */
-.brand .wm{font-size:17px;letter-spacing:-.02em}.brand img{width:30px;height:30px}
-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.hdr-right{flex:none}
-.icon-btn{width:34px;height:34px}
+body{padding:16px 16px 80px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.brand .wm{font-size:20px}.brand img{width:32px;height:32px}
+.hdr-right{flex:1 1 100%;display:flex;align-items:center;gap:10px}
+.hdr-right .icon-btn,.hdr-right .up-entry{width:44px;height:44px;min-width:44px;padding:0}
+.hdr-right .lang-btn{height:44px}
+.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 form.add input,form.add select,form.add button{flex:1 1 100%}
 .logs-view{grid-template-columns:1fr}
 table,tbody,tr,td{display:block;width:100%}table{border:0;background:none}
