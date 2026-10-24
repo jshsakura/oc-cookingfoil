@@ -20,6 +20,7 @@ import { TOP_I18N_SCRIPT, TOP_LANG_CSS } from "./top-i18n.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
 import { ADM_SHELL_CSS, admRouterScript } from "./admin-pages.js";
 import { COMMON_SCRIPT } from "./common-script.js";
+import { CHROME_SCRIPT } from "./chrome-script.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
@@ -45,7 +46,7 @@ ${open}
 </div>
 ${ASK_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${COMMON_SCRIPT}${script}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}${init}</script></body></html>`;
+<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${COMMON_SCRIPT}${CHROME_SCRIPT}${script}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}${init}</script></body></html>`;
 }
 
 const bundle = (extra) => extra;
@@ -58,11 +59,11 @@ export const SPLIT_PAGES = {
   "/admin/logs/downloads": bundle({ css: TRANSFERS_CSS + LOGS_CSS, body: TRANSFERS_HTML, script: TRANSFERS_SCRIPT, init: "setTimeout(xfOpen);" }),
   "/admin/logs/clients": bundle({
     css: LOGS_CSS, body: LOGS_CLIENT_HTML, script: LOGS_SCRIPT,
-    init: "loadClientLogs();admInterval(loadClientLogs,30000);",
+    init: "admInterval(loadClientLogs,30000);",
   }),
   "/admin/logs/security": bundle({
     css: LOGS_CSS, body: LOGS_SECURITY_HTML, script: LOGS_SCRIPT,
-    init: "loadSecurity();admInterval(loadSecurity,15000);",
+    init: "admInterval(loadSecurity,15000);",
   }),
 };
 

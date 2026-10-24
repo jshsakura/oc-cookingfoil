@@ -47,6 +47,8 @@ export const OPT_OUT = {
   "GET /admin/settings/login": "browser-only",
   "GET /admin/settings/admin": "browser-only",
   "GET /admin/settings/automation": "browser-only",
+  // The shell's four sidebar numbers: a read for the page's own badges, not a tool.
+  "GET /admin/api/counts": "browser-only",
   // Emptying the trash is the one permanent delete; only a person on the admin page does it.
   "POST /admin/api/trash/empty": "token-blocked",
   // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.

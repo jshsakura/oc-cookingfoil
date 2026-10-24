@@ -74,19 +74,18 @@ function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const ico
   else b.textContent=txt;
   b.addEventListener('click',fn);return b;}
 // Asks in a dialog that looks like the rest of the page, instead of the browser's confirm().
-// Removing, revoking and the like get a red button, and the cancel button starts focused.
-const ASK_DANGER=/삭제|폐기|회수|중지|되돌릴 수 없|휴지통|멈추고|끄면|끕니다/;
-// askText(msg,value) asks for a line of text the same way, resolving to it or null (like await askText()).
-function askDialog(msg,value){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input');
-  const typing=value!==undefined,danger=!typing&&ASK_DANGER.test(msg);
+// Removing, revoking and the like pass {danger:true}: their confirm button is red
+// and the cancel button starts focused. The message itself may be any language.
+function askDialog(msg,value,opts={}){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input');
+  const typing=value!==undefined,danger=opts.danger===true;
   $('ask-text').textContent=msg;ok.className=danger?'danger-solid':'primary';inp.hidden=!typing;inp.value=typing?value:'';
   return new Promise((resolve)=>{const done=(v)=>{ok.onclick=no.onclick=d.oncancel=inp.onkeydown=null;d.close();resolve(v);};
     const yes=()=>done(typing?inp.value:true),nope=()=>done(typing?null:false);
     ok.onclick=yes;no.onclick=nope;d.oncancel=(e)=>{e.preventDefault();nope();};
     inp.onkeydown=(e)=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();yes();}};
     d.showModal();if(typing){inp.focus();inp.select();}else(danger?no:ok).focus();});}
-const ask=(msg)=>askDialog(msg);
-const askText=(msg,value='')=>askDialog(msg,value);
+const ask=(msg,opts)=>askDialog(msg,undefined,opts);
+const askText=(msg,value='',opts)=>askDialog(msg,value,opts);
 function pill(txt,kind){return el('span',txt,'pill'+(kind?' '+kind:''));}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
 // table(mount,cols,rows,empty) is in grid.js.
@@ -108,11 +107,29 @@ async function api(url,opts={}){
   if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.code||data.error;throw e;}
   return data;}
 // A poll that a hidden tab or a left page should not keep running.
-function admInterval(fn,ms){let t=0;
-  const run=()=>{if(document.hidden)return;t=setTimeout(run,ms);fn();};
-  const wake=()=>{if(!document.hidden&&!t){t=setTimeout(run,ms);fn();}};
-  document.addEventListener('visibilitychange',wake);
-  addEventListener('pagehide',()=>{clearTimeout(t);t=0;},{once:true});
-  if(!document.hidden)run();else document.addEventListener('visibilitychange',function start(){document.removeEventListener('visibilitychange',start);wake();},{once:true});
-  return {stop(){clearTimeout(t);t=0;}};}
+// The lifecycle: hidden stops the timer and forgets its id; visible again
+// restarts it; stop() removes the listeners so the poll never comes back;
+// pagehide stops the poll and pageshow (BFCache) starts it again.
+// The first run is immediate; an async run still in flight holds the next
+// tick back so two copies never overlap.
+function admInterval(fn,ms){
+  let t=0,stopped=false,inflight=false;
+  async function tick(){
+    if(stopped||document.hidden){t=0;return;}
+    if(inflight){schedule();return;}
+    inflight=true;
+    try{await fn();}finally{inflight=false;}
+    schedule();}
+  function schedule(){if(stopped||document.hidden){t=0;return;}clearTimeout(t);t=setTimeout(tick,ms);}
+  const onVis=()=>{if(document.hidden){clearTimeout(t);t=0;}else if(!t&&!stopped)schedule();};
+  const onHide=()=>{clearTimeout(t);t=0;};
+  const onShow=()=>{if(!stopped&&!document.hidden&&!t)schedule();};
+  document.addEventListener('visibilitychange',onVis);
+  addEventListener('pagehide',onHide);
+  addEventListener('pageshow',onShow);
+  if(document.hidden)document.addEventListener('visibilitychange',function start(){document.removeEventListener('visibilitychange',start);onVis();},{once:true});
+  else tick();
+  return {stop(){stopped=true;clearTimeout(t);t=0;
+    document.removeEventListener('visibilitychange',onVis);
+    removeEventListener('pagehide',onHide);removeEventListener('pageshow',onShow);}};}
 `;

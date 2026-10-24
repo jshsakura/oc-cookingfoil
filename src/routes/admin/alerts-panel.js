@@ -103,6 +103,6 @@ $('al-chats').addEventListener('click',async()=>{$('al-msg').textContent='찾고
     if(r.ok&&r.chats.length){f.chatId.value=r.chats[0].id;const list=r.chats.map((x)=>x.title?x.title+' ('+x.id+')':x.id).join(', ');
       $('al-msg').textContent=r.chats.length>1?'대화가 여럿이라 첫 번째를 넣었습니다: '+list+'. 다른 대화라면 고쳐 넣습니다.':'채팅 ID 를 넣었습니다: '+list+'. 저장합니다.';}
     else $('al-msg').textContent=r.message;}catch(err){$('al-msg').textContent=err.message;}});
-$('al-clear').addEventListener('click',async()=>{if(!await ask('저장한 알림 설정을 삭제할까요? 환경변수에 넣은 값이 있으면 그 값으로 돌아갑니다.'))return;
+$('al-clear').addEventListener('click',async()=>{if(!await ask('저장한 알림 설정을 삭제할까요? 환경변수에 넣은 값이 있으면 그 값으로 돌아갑니다.',{danger:true}))return;
   try{await api('/admin/api/alerts/clear',{method:'POST',body:{}});toast('삭제했습니다.');loadAlerts();}catch(err){$('al-msg').textContent=err.message;}});
 `;

@@ -5,6 +5,7 @@
 import { guessUpload } from "./upload-guess.js";
 import { failureKind, hasBatches, splitUnits, tally, tallyFiles, trimHistory, unitsToSend } from "./upload-flow.js";
 import { COMMON_SCRIPT } from "./common-script.js";
+import { CHROME_SCRIPT } from "./chrome-script.js";
 import { LOGS_SCRIPT } from "./logs-pages.js";
 
 // The helpers every page shares (element, format, ask, toast, api, pagedTable)
@@ -12,6 +13,7 @@ import { LOGS_SCRIPT } from "./logs-pages.js";
 // split pages of the admin redesign inline the same block on their own.
 export const DASHBOARD_SCRIPT = /* js */ `
 ${COMMON_SCRIPT}
+${CHROME_SCRIPT}
 ${LOGS_SCRIPT}
 
 
@@ -228,7 +230,7 @@ async function loadGoogle(){
 $('google-form').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/google',{method:'POST',body:{enabled:$('g-enabled').checked,clientId:$('g-id').value,clientSecret:$('g-secret').value}});
     toast('저장했습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
-$('g-clear').addEventListener('click',async()=>{if(!await ask('구글 클라이언트 ID 와 시크릿을 지우고 구글 로그인을 끕니다.'))return;
+$('g-clear').addEventListener('click',async()=>{if(!await ask('구글 클라이언트 ID 와 시크릿을 지우고 구글 로그인을 끕니다.',{danger:true}))return;
   try{await api('/admin/api/google/clear',{method:'POST',body:{}});toast('삭제했습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
 $('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('g-redirect').textContent);toast('복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}});
 
@@ -308,7 +310,7 @@ async function approve(deviceKey){const label=await askText('이 기기를 알�
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label}});toast('승인했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function reissue(deviceKey,label){if(!await ask('새 접속 키를 발급합니다. 기기는 다음 접속 때 새 키를 받고, 지금 키는 바로 쓸 수 없게 됩니다.'))return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label:label||''}});toast('새 키를 준비했습니다.');loadDevices();}catch(err){toast(err.message);}}
-async function revoke(deviceKey){if(!await ask('이 기기의 접근 키를 회수합니다. 다시 승인하기 전까지 접속할 수 없습니다.'))return;
+async function revoke(deviceKey){if(!await ask('이 기기의 접근 키를 회수합니다. 다시 승인하기 전까지 접속할 수 없습니다.',{danger:true}))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('접근 키를 회수했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function setDeviceAdmin(deviceKey,admin,name){
   try{await api('/admin/api/devices/admin',{method:'POST',body:{deviceKey,admin}});toast(admin?name+' 에서 항목 설정을 바꿀 수 있습니다.':name+' 은(는) 다시 읽기만 합니다.');loadDevices();}catch(err){toast(err.message);loadDevices();}}
@@ -559,7 +561,7 @@ $('hb-desc-close').addEventListener('click',()=>$('hb-desc').close());
 $('hb-desc-form').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/homebrew/description',{method:'POST',body:{id:hbDescId,en:$('hb-desc-en').value,ko:$('hb-desc-ko').value}});
     $('hb-desc').close();toast('설명을 저장했습니다.');loadHomebrew();}catch(err){toast(err.message);}});
-$('hb-desc-reset').addEventListener('click',async()=>{if(!await ask('직접 쓴 설명을 지우고 GitHub 설명으로 되돌립니다.'))return;
+$('hb-desc-reset').addEventListener('click',async()=>{if(!await ask('직접 쓴 설명을 지우고 GitHub 설명으로 되돌립니다.',{danger:true}))return;
   try{await api('/admin/api/homebrew/description/reset',{method:'POST',body:{id:hbDescId}});$('hb-desc').close();toast('GitHub 기본값으로 돌렸습니다.');loadHomebrew();}catch(err){toast(err.message);}});
 async function addHbRecommended(repos){
   if(!repos.length){toast('추가할 것을 고릅니다.');return;}
@@ -895,7 +897,7 @@ $('gd-game').addEventListener('change',()=>openDesc());
 gamePicker($('gd-game'),{fill:true,edited:true,pick:()=>openDesc()});
 $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)return;
   try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{name:{ko:$('gd-name-ko').value,en:$('gd-name-en').value},description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);}catch(err){toast(err.message);}});
-$('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.'))return;
+$('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.',{danger:true}))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);}catch(err){toast(err.message);}});
 // The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
 const LIB_SUBS=['files','organize','verify','patches','saves','info','server'];let libSub='files';
@@ -1090,7 +1092,7 @@ async function loadTfa(){
   if(!s.manageable){box.append(el('span','COOK_ADMIN_TOTP_SECRET 으로 고정돼 있어 여기서 바꿀 수 없습니다.','muted'));return;}
   box.append(s.authenticator?btn('다른 앱으로 바꾸기',startTfa):btn('인증 앱 등록',startTfa,'primary'));
   if(s.password&&s.authenticator)box.append(btn('인증 앱 끄기',async()=>{
-    if(!await ask('인증 앱을 끄면 관리자 비밀번호로만 들어갑니다. 끌까요?'))return;
+    if(!await ask('인증 앱을 끄면 관리자 비밀번호로만 들어갑니다. 끌까요?',{danger:true}))return;
     try{await api('/admin/api/2fa/disable',{method:'POST',body:{}});toast('인증 앱을 껐습니다.');loadTfa();}catch(e){toast(e.message);}}));}
 // The admin password set here (stored as a hash); the compose one keeps working beside it.
 function renderAdminPassword(s){
@@ -1102,7 +1104,7 @@ $('ap-form').addEventListener('submit',async(e)=>{e.preventDefault();
   const password=$('ap-new').value;if(password!==$('ap-new2').value){toast('새 비밀번호 두 칸이 다릅니다.');return;}
   try{const s=await api('/admin/api/admin-password',{method:'POST',body:{current:$('ap-current').value,password}});
     for(const id of ['ap-current','ap-new','ap-new2'])$(id).value='';toast('관리자 비밀번호를 정했습니다.');renderAdminPassword(s);loadTfa();}catch(err){toast(err.message);}});
-$('ap-clear').addEventListener('click',async()=>{if(!await ask('여기서 정한 관리자 비밀번호를 삭제합니다.'))return;
+$('ap-clear').addEventListener('click',async()=>{if(!await ask('여기서 정한 관리자 비밀번호를 삭제합니다.',{danger:true}))return;
   try{const s=await api('/admin/api/admin-password/clear',{method:'POST',body:{current:$('ap-current').value}});
     $('ap-current').value='';toast('비밀번호를 삭제했습니다.');renderAdminPassword(s);loadTfa();}catch(err){toast(err.message);}});
 async function startTfa(){
@@ -1119,25 +1121,8 @@ $('tfa-confirm').addEventListener('click',confirmTfa);
 $('tfa-code').addEventListener('keydown',(e)=>{if(e.key==='Enter')confirmTfa();});
 $('tfa-cancel').addEventListener('click',()=>{$('tfa-setup').hidden=true;$('tfa-qr').replaceChildren();$('tfa-key').textContent='';});
 
-// Signs out of the admin page and of the web session together.
-$('logout').addEventListener('click',async()=>{try{await fetch('/admin/logout',{method:'POST'});
-  const me=await fetch('/auth/me').then((r)=>r.ok?r.json():null);if(me)await fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':me.csrf}});}
-  finally{location.href='/login?next=%2Fadmin';}});
-// The account circle in the header.
-function setAcct(open){$('acct-list').hidden=!open;$('acct-btn').setAttribute('aria-expanded',String(open));actSetOpenState(open);}
-$('acct-btn').addEventListener('click',(e)=>{e.stopPropagation();setAcct($('acct-list').hidden);});
-document.addEventListener('click',(e)=>{if(!$('acct-list').hidden&&!e.target.closest('.acct-menu'))setAcct(false);});
-document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&!$('acct-list').hidden){setAcct(false);$('acct-btn').focus();}});
-// Theme: the system setting until the switch is used here or on the web page (same key).
-const THEME_KEY='cookingfoil:theme';
-const systemLight=matchMedia('(prefers-color-scheme: light)');
-const currentTheme=()=>document.documentElement.dataset.theme||(systemLight.matches?'light':'dark');
-function syncThemeMenu(){$('theme-toggle').setAttribute('aria-checked',String(currentTheme()==='dark'));}
-$('theme-toggle').addEventListener('click',()=>{const v=currentTheme()==='dark'?'light':'dark';document.documentElement.dataset.theme=v;
-  try{localStorage.setItem(THEME_KEY,v);}catch{/* storage blocked: this visit only */}
-  syncThemeMenu();});
-systemLight.addEventListener('change',syncThemeMenu);
-syncThemeMenu();
+// The account circle, theme and sign-out wiring live in chrome-script.js,
+// shared with the split pages of the redesign.
 // The address a console is given, for the how-to on the devices tab.
 function showShopUrl(){$('shop-url').textContent=origin.replace(/[/]$/,'');}
 $('shop-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('shop-url').textContent);toast('주소를 복사했습니다');}catch{toast('복사하지 못했습니다. 주소를 직접 고릅니다');}});

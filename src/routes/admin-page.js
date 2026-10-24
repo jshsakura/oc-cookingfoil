@@ -78,6 +78,7 @@ import { mountInboxApi } from "./admin/inbox-api.js";
 import { mountServerApi } from "./admin/server-api.js";
 import { mountNszApi } from "./admin/nsz-api.js";
 import { mountTransfersApi } from "./admin/transfers-api.js";
+import * as inboxStore from "../meta/inbox.js";
 import { clientBuildStatus } from "./client-update.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
@@ -506,6 +507,27 @@ export default function adminPageRouter() {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     res.json({ edits: adminEdits.recent(req.query.limit) });
+  });
+
+  // The shell's four sidebar numbers, in one small answer: what is waiting in
+  // the share inbox, how many accounts, consoles waiting for approval and
+  // locked addresses. In-memory state only (the inbox's flat directory is
+  // counted, not read), behind the admin session, no automation-token reach.
+  router.get("/api/counts", async (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    let inbox = 0;
+    try {
+      const names = await fs.promises.readdir(inboxStore.INBOX_DIR).catch(() => []);
+      inbox = names.filter((n) => inboxStore.isEntryId?.(n) ?? /[0-9a-f]{8}-/.test(n)).length;
+    } catch { /* the inbox may not exist yet */ }
+    res.json({
+      me: withAvatar(adminActor(req)),
+      inbox,
+      accounts: users.list().length,
+      pendingDevices: store.devicesSnapshot().pending.length,
+      lockouts: store.snapshot().lockouts.length,
+    });
   });
 
   mountManageApi(router, requireSession);
