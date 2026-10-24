@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { leanCores, leanKoNames, leanRequirements, leanTrash, windowOf } from "../../src/capabilities/lean.js";
+import { leanAccounts, leanAlerts, leanCores, leanDevices, leanKoNames, leanRequirements, leanSettings, leanStorageGuide, leanTrash, windowOf } from "../../src/capabilities/lean.js";
 import { BUDGET_BYTES, fitJson } from "../../src/mcp/envelope.js";
 
 const bytes = (v) => Buffer.byteLength(JSON.stringify(v));
@@ -86,4 +86,74 @@ test("a result over the budget loses rows from its longest list and says so, at 
   const text = fitJson(big);
   assert.ok(Buffer.byteLength(text) <= BUDGET_BYTES);
   assert.ok(JSON.parse(text).truncated.dropped > 0);
+});
+
+test("device_list keeps one line a console, with who approved it and when it was last seen", () => {
+  const view = {
+    waiting: [{ code: "AABBCCDD", name: "새 콘솔", message: null, firstSeenAt: 1, lastSeenAt: 2 }],
+    downloads: [],
+    approved: Array.from({ length: 20 }, (_, i) => ({ code: `C0DE000${i}`, label: `콘솔 ${i}`, admin: false, addedBy: i % 2 ? "admin" : "google:user@example.com", addedAt: 3, lastSeenAt: i % 3 ? null : 4 })),
+  };
+  const out = leanDevices(view);
+  assert.deepEqual(Object.keys(out.approved[0]), ["code", "label", "admin", "addedBy", "lastSeenAt"]);
+  assert.deepEqual(out.waiting, view.waiting);
+  assert.ok(bytes(out) < bytes(view));
+});
+
+test("account_list keeps one line an account; the id's prefix already says its kind", () => {
+  const view = {
+    googleSignIn: true,
+    accounts: [
+      { id: "retro", kind: "password", name: "retro", role: "admin", state: "on", lastActiveAt: 5 },
+      { id: "google:123", kind: "google", name: "user@example.com", role: "user", state: "on", lastActiveAt: null },
+    ],
+  };
+  const out = leanAccounts(view);
+  assert.deepEqual(Object.keys(out.accounts[0]), ["id", "name", "role", "state", "lastActiveAt"]);
+  assert.equal(out.googleSignIn, true);
+  assert.ok(bytes(out) < bytes(view));
+});
+
+test("alerts_get keeps the latest alerts as one line each, without the wording Telegram got", () => {
+  const base = { configured: true, tokenSet: true, chatId: "915733248", buttons: true, lang: "ko", approvers: [], events: [{ id: "probe", label: "위험한 접근", on: true }] };
+  const recent = Array.from({ length: 8 }, (_, i) => ({ at: i, event: "probe", text: "차단 문서 ".repeat(30), status: i % 2 ? "failed" : "sent", detail: "d".repeat(40) }));
+  const out = leanAlerts(base, recent);
+  assert.equal(out.recent.length, 5, "only the latest five");
+  assert.deepEqual(Object.keys(out.recent[0]), ["at", "event", "status"]);
+  assert.deepEqual(out.events, base.events);
+  assert.ok(bytes(out) < bytes({ ...base, recent }) / 2);
+});
+
+test("settings_get turns the titledb regions and kept backups into counts and keeps the values whole", () => {
+  const view = {
+    values: { nszLevel: 18, mcpEnabled: true },
+    changed: ["nszLevel"],
+    adminOnly: ["mcpEnabled"],
+    titledb: { loadedAt: 1792837098866, regions: Array.from({ length: 17 }, (_, i) => ({ region: `R${i}`, file: `R${i}.json`, count: 29000, format: "slim" })), titles: 46238, fetching: false },
+    sync: { hours: 6 },
+    backup: { days: 14, last: { at: 1, day: "2026-10-24", files: 1958, bytes: 5879261, ms: 398 }, kept: Array.from({ length: 10 }, (_, i) => ({ day: `d${i}`, bytes: i })), dir: "backups" },
+  };
+  const out = leanSettings(view);
+  assert.deepEqual(out.titledb, { titles: 46238, fetching: false, loadedAt: 1792837098866, regions: 17 });
+  assert.deepEqual(out.backup, { days: 14, last: { day: "2026-10-24", files: 1958, bytes: 5879261 }, keptDays: 10, dir: "backups" });
+  assert.deepEqual(out.values, view.values);
+  assert.deepEqual(out.adminOnly, view.adminOnly);
+  assert.ok(bytes(out) < bytes(view));
+  const empty = leanSettings({ values: {}, changed: [], adminOnly: [], titledb: { loadedAt: null, regions: [], titles: 0, fetching: false }, sync: {}, backup: { days: 0, last: null, kept: [], dir: "backups" } });
+  assert.equal(empty.backup.last, null);
+});
+
+test("library_storage_guide answers a line a folder and the scan as counts, the markdown left out", () => {
+  const guide = (i) => ({ path: i < 2 ? ["games", "incoming"][i] : `retro/roms/sys${i}`, role: i < 2 ? ["games", "incoming"][i] : "retro", title: `Folder ${i}`, text: `# Folder ${i}\n\n`.repeat(40), purpose: [], accepts: [], structure: [], naming: [], server: [], doNotPut: [] });
+  const view = {
+    text: "# CookingFoil storage\n\n" + "guide line. ".repeat(300),
+    status: { at: 1792837098866, enabled: true, skipped: null, made: [{ id: "a" }], failed: [], folders: Array.from({ length: 41 }, (_, i) => ({ id: `s${i}`, name: `S ${i}`, folder: `f${i}`, made: false })) },
+    guides: Array.from({ length: 52 }, (_, i) => guide(i)),
+  };
+  const out = leanStorageGuide(view);
+  assert.equal(out.folders.length, 52);
+  assert.deepEqual(Object.keys(out.folders[0]), ["path", "role", "title"]);
+  assert.deepEqual(out.status, { at: 1792837098866, enabled: true, skipped: null, made: 1, failed: 0 });
+  assert.ok(bytes(out) < bytes(view) / 6);
+  assert.equal(leanStorageGuide({ ...view, status: null }).status, null, "before the first scan");
 });
