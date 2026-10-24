@@ -33,7 +33,7 @@ const PATCH_ROW = obj({
   unpatchable: oneOf(["arcade", "multi-file"], "why the game takes no patch"),
   missing: bool("patched, but no longer in the catalog"),
   patch: obj({
-    patches: arr(obj({ name: str("patch file name"), format: oneOf(["ips", "bps", "ups", "xdelta"]), verified: bool("source and result checksums matched"), at: str("ISO time") })),
+    patches: arr(obj({ name: str("patch file name"), format: oneOf(["ips", "bps", "ups", "xdelta", "ppf"]), verified: bool("source and result checksums matched"), at: str("ISO time") })),
     backup: str("original's path under the retro folder"),
     original: obj({ size: int("bytes") }),
   }, { description: "patches the admin applied on the server, oldest first" }),
@@ -253,7 +253,7 @@ export const retroCapabilities = [
     id: "retro_rom_patches",
     area: "retro",
     title: "Retro ROMs patched on the server",
-    description: "Lists retro games the admin patched on the server (IPS, BPS, UPS, xdelta) with each patch and its backup, and finds games by name.",
+    description: "Lists retro games the admin patched on the server (IPS, BPS, UPS, xdelta, PPF) with each patch and its backup, and finds games by name.",
     input: {
       type: "object",
       properties: { q: { type: "string", description: "Part of a game's name or file name to search for; leave empty to list only patched games" } },

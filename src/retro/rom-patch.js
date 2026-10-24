@@ -1,5 +1,5 @@
 /**
- * A patch file (IPS, BPS, UPS or xdelta) applied to one retro ROM of the library, on the admin's
+ * A patch file (IPS, BPS, UPS, xdelta or PPF) applied to one retro ROM of the library, on the admin's
  * word for that game. Nothing here runs on its own.
  *
  *   1. The result is built first, in a dot file beside the ROM (the scanner skips dot files).
@@ -9,8 +9,11 @@
  *   3. The result is renamed over the ROM: same name, so its art, bezel and id stay.
  *
  * BPS and UPS refuse a source whose size or CRC-32 is not the patch's own, and check the
- * result's; xdelta3 checks what its patch carries and exits non-zero otherwise. IPS carries no
- * checksum and is recorded as unverified. A refusal leaves the ROM as it was.
+ * BPS and UPS refuse a source whose size or CRC-32 is not the patch's own, and check the
+ * result's; xdelta3 checks what its patch carries and exits non-zero otherwise. IPS and PPF
+ * carry no whole-source checksum and are recorded as unverified (a PPF3's declared size is
+ * still checked). A refusal leaves the ROM as it was. A cue sheet game takes its patch on
+ * the first track it names, under that track's own name, so the cue keeps pointing at it.
  * restoreOriginal() moves the copy back over the ROM and forgets the patches.
  */
 import crypto from "crypto";
@@ -21,19 +24,21 @@ import { entryData, zipEntries } from "../helpers/zip-read.js";
 import { zipStore } from "../helpers/zip-store.js";
 import { RomPatchError } from "./patch-formats/error.js";
 import { applyIps } from "./patch-formats/ips.js";
+import { applyPpf } from "./patch-formats/ppf.js";
 import { applyBps } from "./patch-formats/bps.js";
 import { applyUps } from "./patch-formats/ups.js";
 import { applyXdelta } from "./patch-formats/xdelta.js";
 import { patchOf, setPatch } from "./rom-patch-records.js";
+import { cueTrack } from "./rom-index.js";
 
 export { RomPatchError };
 export const ORIGINALS_DIR = ".cookingfoil-originals";
-export const FORMATS = ["ips", "bps", "ups", "xdelta"];
+export const FORMATS = ["ips", "bps", "ups", "xdelta", "ppf"];
 // A ROM, a zip or a patch read into memory is at most this big; xdelta on a plain file reads none.
 const MEMORY_MAX = 512 * 1024 * 1024;
 const GAME_ID_RE = /^[a-z0-9_.-]{1,64}-[0-9a-f]{10}$/i;
-const MAGIC = [["ips", "PATCH"], ["bps", "BPS1"], ["ups", "UPS1"], ["xdelta", "\xd6\xc3\xc4"]].map(([f, m]) => [f, Buffer.from(m, "latin1")]);
-const IN_MEMORY = { ips: applyIps, bps: applyBps, ups: applyUps };
+const MAGIC = [["ips", "PATCH"], ["bps", "BPS1"], ["ups", "UPS1"], ["xdelta", "\xd6\xc3\xc4"], ["ppf", "PPF\x00"]].map(([f, m]) => [f, Buffer.from(m, "latin1")]);
+const IN_MEMORY = { ips: applyIps, bps: applyBps, ups: applyUps, ppf: applyPpf };
 
 /** Whether `id` has the shape of a retro game id (catalog.js gameId). Pure. */
 export const validGameId = (id) => GAME_ID_RE.test(String(id ?? ""));
@@ -41,10 +46,12 @@ export const validGameId = (id) => GAME_ID_RE.test(String(id ?? ""));
 /** The format a patch file's first bytes say it is, or null. Pure. */
 export const patchFormat = (head) => MAGIC.find(([, m]) => head.subarray(0, m.length).equals(m))?.[0] ?? null;
 
-/** Why a game cannot take a patch ("arcade" set, "multi-file" disc or folder game), or null. Pure. */
+/** Why a game cannot take a patch ("arcade" set, "multi-file" disc or folder game), or null. Pure.
+ * A cue sheet names its first track beside it, so a disc game can take a patch on that track. */
 export function unpatchable(g) {
   if (g.keepFileName) return "arcade";
-  if (!g.abs || g.extras?.length) return "multi-file";
+  if (!g.abs) return "multi-file";
+  if (g.extras?.length && path.extname(g.abs).toLowerCase() !== ".cue") return "multi-file";
   return null;
 }
 
@@ -137,8 +144,21 @@ async function backUp(abs, backupAbs) {
 const patchLabel = (name) => path.basename(String(name ?? "")).replace(/[\x00-\x1f\x7f]/g, "").slice(0, 200) || "patch";
 
 /**
+ * The file a patch goes on and its name: the first track a cue sheet names (the data track,
+ * as rom-index reads it), or the game's own file. The track must sit beside the cue, inside
+ * the roms folder; anything else is a multi-file game that takes no patch.
+ */
+async function patchTarget(dir, g) {
+  if (path.extname(g.abs).toLowerCase() !== ".cue") return { abs: g.abs, file: g.file };
+  const track = await cueTrack(g.abs);
+  if (!track || !inside(path.join(dir, "roms"), track)) throw new RomPatchError("multi-file", `game ${g.id} names no track file beside its cue`);
+  return { abs: track, file: path.basename(track) };
+}
+
+/**
  * Applies the patch file at `patchPath` (sent as `patchName`) to game `g` of the catalog of the
- * retro folder `dir`. Returns the game's patch record (rom-patch-records.js). Throws a
+ * retro folder `dir`: for a cue sheet game, to its first track, under its own name, so the cue
+ * keeps pointing at it. Returns the game's patch record (rom-patch-records.js). Throws a
  * RomPatchError, with the ROM untouched, when the game or the patch cannot be used.
  * `bin` names the xdelta3 program (tests).
  */
@@ -147,29 +167,30 @@ export async function applyRomPatch(dir, g, { patchPath, patchName, now = new Da
   if (why) throw new RomPatchError(why, `game ${g.id} is not a single ROM file`);
   if (!inside(path.join(dir, "roms"), g.abs)) throw new RomPatchError("outside", `game ${g.id} is outside the roms folder`);
   return locked(g.id, async () => {
+    const target = await patchTarget(dir, g);
     const record = patchOf(g.id);
-    const backup = record?.backup ?? path.posix.join(ORIGINALS_DIR, g.id, g.file);
+    const backup = record?.backup ?? path.posix.join(ORIGINALS_DIR, g.id, target.file);
     const backupAbs = path.join(dir, backup);
     if (record && !(await exists(backupAbs))) throw new RomPatchError("backup-missing", `the original of ${g.id} is gone from ${backup}`, 409);
     const format = patchFormat(await readHead(patchPath, 8));
-    if (!format) throw new RomPatchError("unknown-format", "the file is not an IPS, BPS, UPS or xdelta patch");
-    const size = (await fsp.stat(g.abs)).size;
-    const tmp = path.join(path.dirname(g.abs), `.${g.file}.${crypto.randomBytes(4).toString("hex")}.cf-patch`);
+    if (!format) throw new RomPatchError("unknown-format", "the file is not an IPS, BPS, UPS, xdelta or PPF patch");
+    const size = (await fsp.stat(target.abs)).size;
+    const tmp = path.join(path.dirname(target.abs), `.${target.file}.${crypto.randomBytes(4).toString("hex")}.cf-patch`);
     try {
-      await buildResult(g.abs, format, patchPath, tmp, bin);
-      if (!record) await backUp(g.abs, backupAbs);
-      await fsp.rename(tmp, g.abs);
+      await buildResult(target.abs, format, patchPath, tmp, bin);
+      if (!record) await backUp(target.abs, backupAbs);
+      await fsp.rename(tmp, target.abs);
     } catch (err) {
       await fsp.rm(tmp, { force: true });
       throw writeError(err);
     }
     const next = {
       system: g.system,
-      path: path.relative(dir, g.abs).split(path.sep).join("/"),
-      file: g.file,
+      path: path.relative(dir, target.abs).split(path.sep).join("/"),
+      file: target.file,
       backup,
       original: record?.original ?? { size },
-      patches: [...(record?.patches ?? []), { name: patchLabel(patchName), format, verified: format !== "ips", at: now.toISOString() }],
+      patches: [...(record?.patches ?? []), { name: patchLabel(patchName), format, verified: format !== "ips" && format !== "ppf", at: now.toISOString() }],
     };
     setPatch(g.id, next);
     return next;

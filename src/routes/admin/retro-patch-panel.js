@@ -9,7 +9,7 @@ export const RETRO_PATCH_HTML = `
   <div class="hd"><h2 class="first">${top("rpt.tab")}</h2></div>
   <p class="muted">${top("rpt.lead")}</p>
   <div class="row"><input type="search" id="rpt-q" ${topPh("rpt.search")} data-top-label="rpt.search" autocomplete="off"><button type="button" id="rpt-find">${top("rpt.find")}</button></div>
-  <input type="file" id="rpt-file" accept=".ips,.bps,.ups,.xdelta,.vcdiff,.delta" hidden>
+  <input type="file" id="rpt-file" accept=".ips,.bps,.ups,.xdelta,.vcdiff,.delta,.ppf" hidden>
   <h3>${top("rpt.patchedH")}</h3>
   <div class="scroll" id="rpt-patched" data-skel></div>
   <div id="rpt-found-box" hidden><h3>${top("rpt.foundH")}</h3><div class="scroll" id="rpt-found"></div></div>`;
