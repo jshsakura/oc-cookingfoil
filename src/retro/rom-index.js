@@ -114,7 +114,7 @@ export async function hashRom(stream, system, size, stopped = () => false) {
 }
 
 /** The first track file a cue sheet names, beside it, or null. */
-async function cueTrack(abs) {
+export async function cueTrack(abs) {
   const text = await fsp.readFile(abs, "latin1");
   const m = text.match(/^\s*FILE\s+(?:"([^"]+)"|(\S+))/im);
   const name = m ? path.basename(m[1] ?? m[2]) : null;

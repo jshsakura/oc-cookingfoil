@@ -4,7 +4,7 @@
  *
  *   GET  /admin/api/retro-patch?q=         { patched: [R…], games: [R…] }  the patched games, and
  *                                          up to 50 games whose name or file matches q (none without q)
- *   POST /admin/api/retro-patch/:id/apply  multipart "file": an IPS, BPS, UPS or xdelta patch;
+ *   POST /admin/api/retro-patch/:id/apply  multipart "file": an IPS, BPS, UPS, xdelta or PPF patch;
  *                                          backs the original up on the first patch, then replaces
  *                                          the ROM under the same name: { ok, game: R }
  *   POST /admin/api/retro-patch/:id/restore  puts the original back and forgets the patches: { ok, game: R }

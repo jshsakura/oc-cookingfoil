@@ -111,6 +111,30 @@ function ups(source, target) {
   return withFooter(Buffer.concat(parts), source, target);
 }
 
+/** A PPF patch of [offset, bytes] blocks; versions 2 and 3 carry an image name, version 3 also
+ * the original's size and 1024 bytes of validation data at the end. */
+function ppf(version, blocks, { name = "", fileLen = 0 } = {}) {
+  const parts = [Buffer.from([0x50, 0x50, 0x46, 0x00, version])];
+  if (version >= 2) {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(name.length);
+    parts.push(len, Buffer.from(name, "latin1"));
+  }
+  if (version === 3) {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(fileLen >>> 0);
+    parts.push(len);
+  }
+  for (const [off, bytes] of blocks) {
+    const head = Buffer.alloc(5);
+    head.writeUInt32BE(off);
+    head[4] = bytes.length;
+    parts.push(head, bytes);
+  }
+  if (version === 3) parts.push(Buffer.alloc(1024, 0xab));
+  return Buffer.concat(parts);
+}
+
 const hasXdelta = (() => {
   try {
     execFileSync("xdelta3", ["-V"], { stdio: "ignore" });
@@ -129,6 +153,9 @@ put("roms/gba/Plain Quest (Japan).gba", SOURCE);
 put("roms/gba/Other Quest (Japan).gba", rom(0x400, 5));
 put("roms/gba/Zipped Quest (Japan).zip", zlib.deflateRawSync(Buffer.alloc(1))); // replaced below
 put("roms/gba/Ips Quest (Japan).gba", rom(0x200, 9));
+put("roms/gba/Ppf Quest (Japan).gba", rom(0x400, 15));
+put("roms/ps1/Disc Quest (Japan).cue", Buffer.from('FILE "Disc Quest (Japan) (Track 1).bin" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 01 00:00:00\n', "latin1"));
+put("roms/ps1/Disc Quest (Japan) (Track 1).bin", rom(0x400, 21));
 
 const catalog = await import("../../src/retro/catalog.js");
 const { zipStore } = await import("../../src/helpers/zip-store.js");
@@ -136,7 +163,7 @@ const { zipEntries, entryData } = await import("../../src/helpers/zip-read.js");
 const { applyIps } = await import("../../src/retro/patch-formats/ips.js");
 const { applyBps } = await import("../../src/retro/patch-formats/bps.js");
 const { applyUps } = await import("../../src/retro/patch-formats/ups.js");
-const { applyRomPatch, restoreOriginal, patchFormat, ORIGINALS_DIR } = await import("../../src/retro/rom-patch.js");
+const { applyRomPatch, restoreOriginal, patchFormat, unpatchable, ORIGINALS_DIR } = await import("../../src/retro/rom-patch.js");
 const { patchOf, setPatch } = await import("../../src/retro/rom-patch-records.js");
 const { default: retroRouter } = await import("../../src/routes/retro.js");
 const { mountRetroPatchApi } = await import("../../src/routes/admin/retro-patch-api.js");
@@ -225,6 +252,7 @@ test("the format comes from the patch's first bytes", () => {
   assert.equal(patchFormat(BPS_PATCH), "bps");
   assert.equal(patchFormat(Buffer.from("UPS1....")), "ups");
   assert.equal(patchFormat(Buffer.from([0xd6, 0xc3, 0xc4, 0])), "xdelta");
+  assert.equal(patchFormat(Buffer.from([0x50, 0x50, 0x46, 0x00, 0x03])), "ppf");
   assert.equal(patchFormat(Buffer.from("hello")), null);
 });
 
@@ -267,6 +295,56 @@ test("an IPS patch is recorded as unverified, and a second patch goes on top of 
   assert.deepEqual(read(record.backup), original, "the backup is still the original from before the first patch");
   await restoreOriginal(retro, g.id);
   assert.deepEqual(read("roms/gba/Ips Quest (Japan).gba"), original);
+});
+
+test("a PPF3 patch is checked against its declared size, applied and recorded unverified", async () => {
+  const g = await gameByFile("Ppf Quest (Japan).gba");
+  const original = read("roms/gba/Ppf Quest (Japan).gba");
+  await assert.rejects(applyRomPatch(retro, g, { patchPath: patchFile("k.ppf", ppf(3, [[0, Buffer.from("PP")]], { fileLen: 0x1234 })), patchName: "k.ppf" }), { code: "source-mismatch" });
+  assert.deepEqual(read("roms/gba/Ppf Quest (Japan).gba"), original, "a wrong size leaves the ROM as it was");
+  const patch = ppf(3, [[0x40, Buffer.from("KOREAN")], [0x200, Buffer.from("Q")]], { name: "Ppf Quest (Japan)", fileLen: original.length });
+  const record = await applyRomPatch(retro, g, { patchPath: patchFile("k.ppf", patch), patchName: "k.ppf" });
+  assert.deepEqual(record.patches.map((p) => [p.format, p.verified]), [["ppf", false]]);
+  const patched = read("roms/gba/Ppf Quest (Japan).gba");
+  assert.equal(patched.subarray(0x40, 0x46).toString(), "KOREAN");
+  assert.equal(patched[0x200], 0x51);
+  assert.equal(patched.length, original.length, "the validation data is never written");
+  assert.deepEqual(read(record.backup), original);
+  await restoreOriginal(retro, g.id);
+  assert.deepEqual(read("roms/gba/Ppf Quest (Japan).gba"), original);
+});
+
+test("PPF 1.0 and 2.0 apply as well, and a broken one refuses cleanly", async () => {
+  const g = await gameByFile("Ppf Quest (Japan).gba");
+  await applyRomPatch(retro, g, { patchPath: patchFile("a.ppf", ppf(1, [[8, Buffer.from("ONE")]])), patchName: "a.ppf" });
+  assert.equal(read("roms/gba/Ppf Quest (Japan).gba").subarray(8, 11).toString(), "ONE");
+  await restoreOriginal(retro, g.id);
+  await applyRomPatch(retro, g, { patchPath: patchFile("b.ppf", ppf(2, [[0x10, Buffer.from("TWO")]], { name: "img" })), patchName: "b.ppf" });
+  assert.equal(read("roms/gba/Ppf Quest (Japan).gba").subarray(0x10, 0x13).toString(), "TWO");
+  await restoreOriginal(retro, g.id);
+  await assert.rejects(applyRomPatch(retro, g, { patchPath: patchFile("c.ppf", Buffer.from("PPF\x00\x07")), patchName: "c.ppf" }), { code: "bad-patch" });
+});
+
+test("a cue sheet game takes its patch on the first track it names, and the cue is left alone", async () => {
+  const g = await gameByFile("Disc Quest (Japan).cue");
+  assert.equal(unpatchable(g), null, "a cue with its track beside it can take a patch");
+  const binRel = "roms/ps1/Disc Quest (Japan) (Track 1).bin";
+  const cueRel = "roms/ps1/Disc Quest (Japan).cue";
+  const original = read(binRel);
+  const cue = read(cueRel);
+  const target = Buffer.from(original);
+  target.write("KOREAN", 0x80);
+  const patch = bps(original, target, [["read", 0x80], ["data", Buffer.from("KOREAN")], ["src", 0x86, original.length - 0x86]]);
+  const record = await applyRomPatch(retro, g, { patchPath: patchFile("ko.bps", patch), patchName: "ko.bps" });
+  assert.deepEqual(read(binRel), target);
+  assert.deepEqual(read(cueRel), cue, "the cue sheet is never rewritten");
+  assert.equal(record.file, "Disc Quest (Japan) (Track 1).bin");
+  assert.equal(record.path, binRel);
+  assert.equal(record.backup, `${ORIGINALS_DIR}/${g.id}/Disc Quest (Japan) (Track 1).bin`);
+  assert.deepEqual(read(record.backup), original);
+  await restoreOriginal(retro, g.id);
+  assert.deepEqual(read(binRel), original);
+  assert.deepEqual(read(cueRel), cue);
 });
 
 test("a zip ROM has the ROM inside patched and is zipped again with its other files", async () => {
