@@ -4,7 +4,8 @@
 import { defineCapability } from "./define.js";
 import * as envs from "../helpers/envs.js";
 import * as storageGuide from "../helpers/storage-guide.js";
-import { arr, nullable, obj, oneOf, str } from "./shape.js";
+import { leanStorageGuide } from "./lean.js";
+import { arr, bool, int, nullable, obj, oneOf, str } from "./shape.js";
 
 const where = () => ({ layout: envs.layout, retroDir: envs.retroDir });
 
@@ -34,19 +35,21 @@ export const libraryCapabilities = [
     id: "library_storage_guide",
     area: "library",
     title: "Storage guide",
-    description: "Every folder the server uses and what goes in it, as guides with a path each. Read first before placing files; then library_folder_guide for one folder.",
+    description: "Every folder the server uses, one line each: its path, role and title. Read one folder with library_folder_guide before placing files in it.",
     input: { type: "object", properties: {} },
     output: obj({
-      text: str("every guide as one Markdown document"),
-      status: nullable({ type: "object", description: "what the last retro scan set up; null before the first" }),
-      guides: arr(GUIDE),
+      folders: arr(obj({ path: str("the folder's path, as library_folder_guide takes it"), role: str("incoming, games, homebrew, retro, patches, saves, keys or data"), title: str() }), "one line a folder"),
+      status: nullable(obj({
+        at: int("epoch ms of the last retro scan"),
+        enabled: bool("folder making is on"),
+        skipped: nullable(str("why nothing was made")),
+        made: int("folders that scan made"),
+        failed: int("folders that scan could not make"),
+      }, { description: "what the last retro scan set up; null before the first" })),
     }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/storage-guide" },
-    handler: async () => {
-      const { text, guides, status } = storageGuide.current(where());
-      return { text, status: status ?? null, guides };
-    },
+    handler: async () => leanStorageGuide(storageGuide.current(where())),
   }),
   defineCapability({
     id: "library_folder_guide",

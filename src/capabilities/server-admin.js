@@ -5,6 +5,7 @@
  */
 import { defineCapability } from "./define.js";
 import { arr, bool, int, nullable, obj, oneOf, str } from "./shape.js";
+import { leanSettings } from "./lean.js";
 import drainer from "../security/drain.js";
 import * as serverSettings from "../security/server-settings.js";
 import { SETTINGS } from "../security/server-settings.js";
@@ -79,9 +80,9 @@ export const serverAdminCapabilities = [
       values: { type: "object", description: "setting name to its value" },
       changed: arr(str(), "names saved over the compose value"),
       adminOnly: arr(str(), "names a token cannot change; use the admin page"),
-      titledb: obj({ fetching: bool() }, { description: "also the titledb status" }),
+      titledb: obj({ titles: int("titles the loaded regions hold"), fetching: bool("a fetch is running"), loadedAt: nullable(int("epoch ms of the last load, null before the first")), regions: int("region files loaded; the admin page lists them") }),
       sync: { type: "object", description: "the folder rescan's status" },
-      backup: { type: "object", description: "the database backup's status" },
+      backup: obj({ days: int("backup files kept before pruning, 0 for none"), last: nullable(obj({ day: str("yyyymmdd"), files: int(), bytes: int() })), keptDays: int("backup files on disk"), dir: str() }, { description: "the database backup's status" }),
       compose: nullable(str("with name: the value from the compose file")),
     }, { optional: ["compose"] }),
     safety: "read",
@@ -90,7 +91,7 @@ export const serverAdminCapabilities = [
       const all = serverSettings.describe();
       if (input.name !== undefined && !Object.hasOwn(all, input.name)) throw fail(404, `no setting ${input.name}; settings_get without name lists them`);
       const names = input.name ? [input.name] : Object.keys(all);
-      return {
+      return leanSettings({
         values: Object.fromEntries(names.map((k) => [k, all[k].value])),
         changed: names.filter((k) => all[k].source === "saved"),
         adminOnly: TOKEN_LOCKED,
@@ -98,7 +99,7 @@ export const serverAdminCapabilities = [
         sync: folderSync.status(),
         backup: backups.status(),
         ...(input.name ? { compose: all[input.name].envValue === null ? null : String(all[input.name].envValue) } : {}),
-      };
+      });
     },
   }),
   defineCapability({

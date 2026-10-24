@@ -6,6 +6,7 @@
  */
 import { defineCapability } from "./define.js";
 import { arr, bool, int, nullable, obj, oneOf, str } from "./shape.js";
+import { leanDevices } from "./lean.js";
 import * as store from "../security/store.js";
 import { deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approveWaitingDevice } from "../security/pairing-approve.js";
@@ -34,7 +35,6 @@ const APPROVED = obj({
   label: str("name shown on the admin page"),
   admin: bool("may change item settings from the console"),
   addedBy: nullable(str("account that approved it")),
-  addedAt: nullable(int("epoch ms")),
   lastSeenAt: nullable(int("epoch ms")),
 });
 const WAITING = obj({
@@ -87,11 +87,11 @@ export const devicesCapabilities = [
     http: { method: "GET", path: "/admin/api/devices" },
     handler: async () => {
       const { approved, pending } = store.devicesSnapshot();
-      return {
+      return leanDevices({
         waiting: pending.map((d) => ({ code: deviceCode(d.deviceKey), name: d.name ?? null, message: d.message ?? null, firstSeenAt: d.firstSeenAt ?? null, lastSeenAt: d.lastSeenAt ?? null })),
         downloads: enrollTokens.list().filter((t) => t.state === "waiting").map((t) => ({ id: t.id, owner: t.owner, expiresAt: t.expiresAt })),
         approved: approved.map((d) => ({ code: deviceCode(d.deviceKey), label: d.label, admin: d.admin, addedBy: d.addedBy, addedAt: d.addedAt, lastSeenAt: d.lastSeenAt ?? null })),
-      };
+      });
     },
   }),
   defineCapability({

@@ -4,7 +4,8 @@
  * tokens, so those are served by MCP alone (mcp: true), behind the preview and confirm='approve'.
  */
 import { defineCapability } from "./define.js";
-import { arr, bool, nullable, obj, oneOf, str } from "./shape.js";
+import { arr, bool, nullable, num, obj, oneOf, str } from "./shape.js";
+import { leanAlerts } from "./lean.js";
 import { LANGS } from "../helpers/alert-messages.js";
 import * as integrations from "../security/integrations.js";
 import * as alerts from "../helpers/alerts.js";
@@ -26,7 +27,8 @@ export const alertsCapabilities = [
     input: { type: "object", properties: {} },
     output: obj({
       configured: bool(), tokenSet: bool("a bot token is stored"), chatId: nullable(str()), buttons: bool("approve from the alert"), lang: nullable(str()),
-      approvers: arr(str()), events: arr(EVENT), recent: arr({ type: "object", description: "the latest alerts sent, newest first" }),
+      approvers: arr(str()), events: arr(EVENT),
+      recent: arr(obj({ at: num("epoch ms"), event: str("event id, as the events list names it"), status: str("sent, failed, held or off") }), "newest first, without the wording Telegram already got"),
     }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/alerts" },
@@ -34,12 +36,11 @@ export const alertsCapabilities = [
       const d = integrations.describe().telegram;
       const { chatId, approvers } = integrations.get("telegram");
       const on = new Set(alerts.enabledEvents());
-      return {
+      return leanAlerts({
         configured: d.configured, tokenSet: d.fields.botToken.set, chatId: chatId || null, buttons: alerts.buttonsOn(), lang: alerts.alertLang() || null,
         approvers: approvers ? approvers.split(",") : [],
         events: Object.entries(alerts.EVENTS).map(([id, e]) => ({ id, label: e.label, on: on.has(id) })),
-        recent: alerts.recent().slice(0, HISTORY),
-      };
+      }, alerts.recent(), HISTORY);
     },
   }),
   defineCapability({

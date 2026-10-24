@@ -21,13 +21,14 @@ test("both storage guide routes are read tools an automation token can call", ()
 
 test("the guide tools return what the admin API serves", async () => {
   const all = await registry.byId("library_storage_guide").handler({}, {});
-  assert.ok(all.guides.length > 0);
-  assert.match(all.text, /\S/);
+  assert.ok(all.folders.length > 0);
+  assert.deepEqual(Object.keys(all.folders[0]), ["path", "role", "title"]);
   const folder = registry.byId("library_folder_guide");
-  const one = await folder.handler({}, { path: all.guides[0].path });
-  assert.equal(one.guide.path, all.guides[0].path);
+  const one = await folder.handler({}, { path: all.folders[0].path });
+  assert.equal(one.guide.path, all.folders[0].path);
+  assert.match(one.guide.text, /\S/);
   assert.deepEqual(await folder.handler({}, { path: "../games" }), { error: "bad-path" });
   const unknown = await folder.handler({}, { path: "no/such/folder" });
   assert.equal(unknown.error, "unknown");
-  assert.ok(unknown.known.includes(all.guides[0].path));
+  assert.ok(unknown.known.includes(all.folders[0].path));
 });
