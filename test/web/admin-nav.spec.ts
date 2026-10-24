@@ -75,7 +75,7 @@ test('on the files page the list comes first and the server numbers follow it', 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('the file list is on the first screen, the header fits one row and clipped menus say so', async ({ page }) => {
+  test('the file list leads, the header keeps two tidy rows of real targets and clipped menus say so', async ({ page }) => {
     await signIn(page);
     await page.goto('/admin#library');
     await expect(page.locator('#lb-list')).toContainText('Test Game');

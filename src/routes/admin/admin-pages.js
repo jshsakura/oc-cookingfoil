@@ -162,7 +162,10 @@ body.adm-shell{display:grid;grid-template-columns:252px minmax(0,1fr);min-height
 .adm-drawer{position:fixed;left:0;top:0;width:min(320px,86vw);height:100vh;max-height:100vh;margin:0;border:0;
   border-right:1px solid var(--line);border-radius:0 20px 20px 0;padding:0;background:var(--bg);color:var(--text)}
 .adm-drawer::backdrop{background:rgb(0 0 0 / .38)}
-.adm-drawer .adm-side-in{display:grid;gap:2px;overflow:auto;height:calc(100vh - 58px);padding:10px 12px 24px;box-sizing:border-box}
+.adm-drawer .adm-side-in{display:grid;gap:2px;align-content:start;grid-auto-rows:min-content;overflow:auto;height:calc(100vh - 58px);padding:10px 12px 24px;box-sizing:border-box}
+/* Phone menu rows keep a real touch height without stretching to fill. */
+.adm-drawer .adm-item{min-height:44px}
+.adm-drawer .adm-grp summary{min-height:44px;box-sizing:border-box}
 .adm-drawer-hd{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:1px solid var(--line);font-weight:800}
 .adm-drawer-hd b{font-size:16px;letter-spacing:-.01em}
 .adm-drawer-hd .logo{display:block}
