@@ -77,3 +77,45 @@ export function leanTrash(list, input = {}) {
     })),
   };
 }
+
+/** device_list() with a line a console; when it was added stays on the admin page, who added it does not. */
+export function leanDevices(list) {
+  return {
+    waiting: list.waiting,
+    downloads: list.downloads,
+    approved: list.approved.map(({ code, label, admin, addedBy, lastSeenAt }) => ({ code, label, admin, addedBy, lastSeenAt })),
+  };
+}
+
+/** account_list() with a line an account; `kind` is the id's own prefix (google: or a user name). */
+export function leanAccounts(list) {
+  return {
+    googleSignIn: list.googleSignIn,
+    accounts: list.accounts.map(({ id, name, role, state, lastActiveAt }) => ({ id, name, role, state, lastActiveAt })),
+  };
+}
+
+/** alerts_get() with the latest alerts as one line each; their wording went to Telegram already. */
+export function leanAlerts(base, recent = [], history = 5) {
+  return { ...base, recent: recent.slice(0, history).map(({ at, event, status }) => ({ at, event, status })) };
+}
+
+/** settings_get() with the titledb's region files and the kept backups as counts; values and their locks stay whole. */
+export function leanSettings(view) {
+  const t = view.titledb ?? {};
+  const b = view.backup ?? {};
+  return {
+    ...view,
+    titledb: { titles: t.titles ?? 0, fetching: t.fetching === true, loadedAt: t.loadedAt ?? null, regions: (t.regions ?? []).length },
+    backup: { days: b.days, last: b.last ? { day: b.last.day, files: b.last.files, bytes: b.last.bytes } : null, keptDays: (b.kept ?? []).length, dir: b.dir },
+  };
+}
+
+/** library_storage_guide() with a line a folder (path, role, title); library_folder_guide gives one folder whole. */
+export function leanStorageGuide(view) {
+  const s = view.status;
+  return {
+    folders: view.guides.map(({ path, role, title }) => ({ path, role, title })),
+    status: s ? { at: s.at, enabled: s.enabled, skipped: s.skipped ?? null, made: (s.made ?? []).length, failed: (s.failed ?? []).length } : null,
+  };
+}

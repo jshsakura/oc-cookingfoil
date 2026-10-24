@@ -185,8 +185,8 @@ test("each served tool's real result (a write's preview) matches its declared ou
 
 test("library_folder_guide's result matches its output for every folder, a bad path and an unknown one", async () => {
   const cap = registry.byId("library_folder_guide");
-  const { guides } = await registry.byId("library_storage_guide").handler({}, {});
-  for (const g of guides) await conforms(cap, { path: g.path });
+  const { folders } = await registry.byId("library_storage_guide").handler({}, {});
+  for (const f of folders) await conforms(cap, { path: f.path });
   await conforms(cap, { path: "../games" });
   await conforms(cap, { path: "no/such/folder" });
 });

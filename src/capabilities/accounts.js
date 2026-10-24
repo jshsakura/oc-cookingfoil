@@ -6,6 +6,7 @@
  */
 import { defineCapability } from "./define.js";
 import { arr, bool, int, nullable, obj, oneOf, str } from "./shape.js";
+import { leanAccounts } from "./lean.js";
 import * as users from "../security/users.js";
 import * as google from "../security/google-accounts.js";
 import * as store from "../security/store.js";
@@ -59,7 +60,6 @@ function reach(acct) {
 
 const ROW = obj({
   id: str("account id: the user name, or google:<sub>"),
-  kind: oneOf(["password", "google"]),
   name: str("user name, or the Google email"),
   role: oneOf(["admin", "user"]),
   state: oneOf(["on", "off", "pending"], "on may sign in; off is disabled; pending waits for approval"),
@@ -77,7 +77,7 @@ export const accountsCapabilities = [
     safety: "read",
     http: { method: "GET", path: "/admin/api/accounts" },
     also: ["GET /admin/api/users"],
-    handler: async () => ({
+    handler: async () => leanAccounts({
       googleSignIn: (await import("../security/google-config.js")).googleConfigured(),
       accounts: [
         ...users.list().map((u) => ({ id: u.name, kind: "password", name: u.name, role: u.role, state: u.enabled ? "on" : "off", lastActiveAt: lastActive(u.name) })),
