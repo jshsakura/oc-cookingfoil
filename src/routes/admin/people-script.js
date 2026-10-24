@@ -29,24 +29,6 @@ function renderUsers(list){usersShown=list;
     act.append(box);tr.append(act);return tr;};
   pagedTable('users',['이름','역할','상태',topText('acc.lastLogin'),topText('acc.lastActive'),topText('acc.lastIp'),''],configured,row,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.',{label:'계정',placeholder:'이름이나 IP 로 찾기'});}
 
-function renderUsers(list){usersShown=list;
-  const configured=list.filter((u)=>u.configured);
-  const row=(u)=>{const tr=el('tr');const self=isMe('password',u.user);
-    tr.append(nameCell(u.user,self));
-    tr.append(td(u.role==='admin'?'관리자':'일반 사용자'));
-    const active=u.lastActiveAt||u.lastAt;
-    const st=td();st.append(u.enabled?pill(active?'사용 중':'접속 기록 없음',active?'on':''):pill('사용 중지','off'));tr.append(st);
-    tr.append(loginCell(u.lastLoginAt,u.lastLoginMethod,u.lastLoginIp,()=>openLogins(u.user,u.user)),whenCell(active),td(u.lastIp||'—','ip'));
-    const act=td();const box=el('div',null,'row-actions');
-    box.append(btn('비밀번호 변경',()=>resetPassword(u.user)));
-    // Your own account can't be demoted, turned off or removed (you'd lock yourself out).
-    if(!self||u.role!=='admin')box.append(btn(u.role==='admin'?'일반 사용자로':'관리자로',()=>setRole(u.user,u.role==='admin'?'user':'admin')));
-    if(!self)box.append(btn(u.enabled?'사용 중지':'다시 사용',()=>setEnabled(u.user,!u.enabled)));
-    // Removing the very last account opens the server, so nobody is locked out by it.
-    if(!self||configured.length===1)box.append(btn('삭제',()=>removeUser(u.user),'danger'));
-    act.append(box);tr.append(act);return tr;};
-  pagedTable('users',['이름','역할','상태',topText('acc.lastLogin'),topText('acc.lastActive'),topText('acc.lastIp'),''],configured,row,'아직 사용자가 없습니다. 사용자가 없으면 비밀번호 없이 접속할 수 있습니다.',{label:'계정',placeholder:'이름이나 IP 로 찾기'});}
-
 
 
 // Wire the sub-tab bars this page carries.
@@ -118,16 +100,16 @@ async function setAccount(sub,status){
 async function removeAccount(sub,email){if(!await ask(email+' 계정을 삭제합니다. 다시 로그인하면 승인 대기로 돌아옵니다.',{danger:true}))return;
   try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast('삭제했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
 
-async function loadGoogle(){
+async function loadGoogleSettings(){
   const g=await api('/admin/api/google');$('g-enabled').checked=g.enabled;$('g-id').value=g.clientId||'';
   $('g-secret').value='';$('g-secret').placeholder=g.hasSecret?'저장된 시크릿을 씁니다 (바꿀 때만 입력)':'클라이언트 시크릿';
   $('g-redirect').textContent=g.redirectUri;
   $('g-status').textContent=g.active?'켜져 있습니다. 로그인 화면에 구글 버튼이 나옵니다.':g.enabled?'켜려면 ID 와 시크릿이 모두 필요합니다.':'꺼져 있습니다. 로그인 화면은 아이디와 비밀번호만 받습니다.';}
 if($('google-form'))$('google-form').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/google',{method:'POST',body:{enabled:$('g-enabled').checked,clientId:$('g-id').value,clientSecret:$('g-secret').value}});
-    toast('저장했습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
+    toast('저장했습니다.');loadGoogleSettings();loadAccounts();}catch(err){toast(err.message);}});
 if($('g-clear'))$('g-clear').addEventListener('click',async()=>{if(!await ask('구글 클라이언트 ID 와 시크릿을 지우고 구글 로그인을 끕니다.',{danger:true}))return;
-  try{await api('/admin/api/google/clear',{method:'POST',body:{}});toast('삭제했습니다.');loadGoogle();loadAccounts();}catch(err){toast(err.message);}});
+  try{await api('/admin/api/google/clear',{method:'POST',body:{}});toast('삭제했습니다.');loadGoogleSettings();loadAccounts();}catch(err){toast(err.message);}});
 if($('g-copy'))$('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('g-redirect').textContent);toast('복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}});
 
 // ── devices ───────────────────────────────────────────────────────────
@@ -224,7 +206,17 @@ async function loadPeople(){
   try{
     const d=await api('/admin/api/stats');
     me=d.me||null;
-    if($('users')||$('accounts'))renderUsers(d.users||[]);
-    if($('devices')||$('pending')){loadDevices();loadGoogle();}
+    // The accounts page: the local-user table and the Google approval list.
+    if($('users')){renderUsers(d.users||[]);loadAccounts();}
+    // The devices page: the pending, approved and issued-clients areas.
+    if($('devices')||$('pending'))loadDevices();
   }catch(err){if(err.message!=='session')toast(errText(err));}}
+// The Google OAuth form (settings page): a different owner from the accounts list.
+async function loadGoogleSettings(){
+  if(!$('g-enabled'))return;
+  try{const g=await api('/admin/api/google');$('g-enabled').checked=g.enabled;$('g-id').value=g.clientId||'';
+    $('g-secret').value='';$('g-secret').placeholder=g.hasSecret?'저장된 시크릿을 씁니다 (바꿀 때만 입력)':'클라이언트 시크릿';
+    $('g-redirect').textContent=g.redirectUri;
+    $('g-status').textContent=g.active?'켜져 있습니다. 로그인 화면에 구글 버튼이 나옵니다.':g.enabled?'켜려면 ID 와 시크릿이 모두 필요합니다.':'꺼져 있습니다. 로그인 화면은 아이디와 비밀번호만 받습니다.';
+  }catch(err){/* the settings page shows the error in its own way */}}
 `;

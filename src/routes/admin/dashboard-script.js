@@ -278,7 +278,7 @@ $('hb-banner-file').addEventListener('change',async()=>{const file=$('hb-banner-
   try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
     const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');toast('배경 그림을 올렸습니다.');await hbMediaReload();}
   catch(err){$('hb-banner-state').textContent=err.message;}});
-async function removeHbExtra(type,id,name){if(!await ask(topFill(type==='patch'?'t.askPatch':'t.askSave',{name},{danger:true})))return;
+async function removeHbExtra(type,id,name){if(!await ask(topFill(type==='patch'?'t.askPatch':'t.askSave',{name}),{danger:true}))return;
   try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast(topText('t.movedToast'));loadHbApps();}catch(err){toast(err.message);}}
 async function setHbEnabled(id,enabled,name){
   try{await api('/admin/api/homebrew/enabled',{method:'POST',body:{id,enabled}});toast(enabled?name+' 을(를) 다시 보여 줍니다.':name+' 을(를) 기기 목록에서 뺐습니다. 서버에는 남아 있습니다.');loadHbApps();}
@@ -302,13 +302,13 @@ async function linkHb(a){const input=await askText((a.name||a.app)+' 의 GitHub 
       await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id:a.id}});toast('GitHub 저장소로 변경했습니다.');}
     else toast(s?.error?.message?s.repo+' 을(를) 따라가지만 확인에 실패했습니다: '+s.error.message:'저장소를 추가했습니다.');
     loadHomebrew();}catch(err){toast(err.message);}}
-async function removeManualHb(id,name){if(!await ask(topFill('t.askHbApp',{name},{danger:true})))return;
+async function removeManualHb(id,name){if(!await ask(topFill('t.askHbApp',{name}),{danger:true}))return;
   try{await api('/admin/api/homebrew/manual/remove',{method:'POST',body:{id}});toast(topText('t.movedToast'));loadHomebrew();}catch(err){toast(err.message);}}
 // A new build of a hand-placed app, same format as now: the server keeps its folder, so its id and what was added by hand stay.
 function pickHbFile(a,name){const ext=a.install_type==='title'?'.nsp':'.nro';
   const input=el('input');input.type='file';input.accept=ext;
   input.addEventListener('change',()=>{const file=input.files[0];if(file)replaceHbFile(a,name,file);});input.click();}
-async function replaceHbFile(a,name,file){if(!await ask(topFill('t.askHbReplace',{name,file:file.name},{danger:true})))return;
+async function replaceHbFile(a,name,file){if(!await ask(topFill('t.askHbReplace',{name,file:file.name}),{danger:true}))return;
   toast(topFill('t.hbReplacing',{name}));
   const fd=new FormData();fd.append('replace',a.id);fd.append('files',file,file.name);
   try{const r=await fetch('/admin/api/upload/homebrew',{method:'POST',headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});
@@ -910,7 +910,7 @@ let loadErr='';
 function guarded(fn){return async(...a)=>{try{const r=await fn(...a);loadErr='';return r;}
   catch(err){const m='불러오지 못했습니다: '+(err&&err.message||err);if(m!==loadErr)toast(m);loadErr=m;}};}
 loadHealth=guarded(loadHealth);loadStats=guarded(loadStats);loadDevices=guarded(loadDevices);
-loadAccounts=guarded(loadAccounts);loadServerSettings=guarded(loadServerSettings);loadGoogle=guarded(loadGoogle);loadLibrary=guarded(loadLibrary);loadHomebrew=guarded(loadHomebrew);
-showTab();loadStats();loadDevices();loadAccounts();loadGoogle();
+loadAccounts=guarded(loadAccounts);loadServerSettings=guarded(loadServerSettings);loadGoogleSettings=guarded(loadGoogleSettings);loadLibrary=guarded(loadLibrary);loadHomebrew=guarded(loadHomebrew);
+showTab();loadStats();loadDevices();loadAccounts();loadGoogleSettings();
 setInterval(()=>{if(!$('cred-dialog').open){loadStats();loadDevices();loadAccounts();}},15000);
 `;
