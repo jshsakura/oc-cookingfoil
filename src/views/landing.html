@@ -534,7 +534,7 @@
       .recent > .game .sub { gap: 4px; }
       .recent > .game .sub .pill:nth-child(n + 3 of :not(.base, .pub, [hidden])) { display: none; }
       .recent > .game .sub .pill.base { display: none; }
-      .recent > .game .sub .pill.need { order: 1; } .recent > .game .sub .pill.sale { order: 2; }
+      .recent > .game .sub .pill.need { order: 1; }
       .recent > .game .sub .pill.update { order: 3; } .recent > .game .sub .pill.dlc { order: 4; }
       .recent > .game .sub:not(:has(.pill:not(.base))) { display: none; }
       .recent > .game .meta { gap: 4px; }
@@ -704,7 +704,6 @@
       .game .sub .pill.base { display: none; }
       .game .sub .pill.update, .game .sub .pill.dlc { background: var(--ink); border-color: var(--ink); color: var(--ground); }
       .game .sub .pill.need { background: color-mix(in srgb, var(--butter) 22%, transparent); border-color: var(--butter); color: var(--ink); }
-      .game .sub .pill.sale { background: var(--butter); border-color: var(--butter); color: var(--butter-ink); }
       .game .sub .pill.custom { background: rgba(var(--butter-rgb), 0.25); border-color: transparent; color: var(--ink); }
       .game .sub .pill.mono { font-family: var(--font-mono); font-weight: 500; }
       .game .sub .pill.ach, .modal .pill.ach { display: inline-flex; align-items: center; gap: 4px; background: var(--butter); border-color: var(--butter); color: var(--butter-ink); }
@@ -1787,7 +1786,6 @@
           "section.recent": "최근 추가",
           "row.recent": "최근 추가",
           "row.seeAll": "모두 보기", "row.collapse": "접기",
-          "row.sale": "할인 중",
           "row.new": "신작",
           "row.updated": "최근 업데이트",
           "row.popular": "인기",
@@ -1799,13 +1797,10 @@
           "score.all": "모든 평가",
           "genre.all": "모든 장르",
           "hero.new": "새로 들어온 게임",
-          "hero.sale": "할인 중",
           "hero.popular": "인기 게임",
           "hero.party": "함께 하면 더 재미있는 게임",
           "hero.today": "오늘의 추천",
           "hero.slide": (n) => `${n}번째 추천`,
-          "hero.discount": (p) => `할인가 ${p}`,
-          "hero.until": (d) => `${d.getMonth() + 1}/${d.getDate()}까지`,
           "hero.updates": (n) => `업데이트 ${n}개`,
           "hero.dlc": (n) => `DLC ${n}개`,
           "hero.released": (d) => `${d} 출시`,
@@ -1867,7 +1862,6 @@
           "chart.genres": "장르",
           "chart.total": (n) => `총 ${n}`,
           "chip.custom": "커스텀",
-          "pill.sale": "할인",
           "pill.update": "업데이트",
           "pill.needPatch": "필수 패치",
           "pill.patch": "패치",
@@ -1977,7 +1971,6 @@
           "live.connected": "라이브 갱신 켜짐",
           "live.disconnected": "재연결 시도 중…",
           "restart.notice": "서버를 다시 시작하고 있습니다. 잠시 뒤 다시 연결합니다.",
-          "modal.price": "eShop 가격",
           "modal.scoreN": (n) => `평점 · ${n.toLocaleString()}명`,
           "modal.publisher": "퍼블리셔",
           "modal.baseSize": "기본 용량",
@@ -1994,8 +1987,6 @@
           "modal.noDescSub": "아래 정보를 확인해 주세요.",
           "pill.korean": "한글",
           "pill.score": (n) => `평점 ${n}`,
-          "pill.price": (p) => `eShop ${p}`,
-          "pill.discount": (p) => `할인 ${p}`,
           "install.head": "설치할 항목",
           "integrity.modified": (what) => `${what}: 수정된 파일입니다. 개조나 한글패치처럼 원본과 다를 수 있습니다.`,
           "integrity.damaged": (what) => `${what}: 손상되었을 수 있는 파일입니다. 설치하거나 실행하지 못할 수 있습니다.`,
@@ -2139,7 +2130,6 @@
           "retro.cantRun": "Won't run",
           "row.recent": "Recently added",
           "row.seeAll": "See all", "row.collapse": "Show less",
-          "row.sale": "On sale",
           "row.new": "New releases",
           "row.updated": "Recently updated",
           "row.popular": "Popular",
@@ -2151,13 +2141,10 @@
           "score.all": "All reviews",
           "genre.all": "All genres",
           "hero.new": "Just arrived",
-          "hero.sale": "On sale",
           "hero.popular": "Popular",
           "hero.party": "Better together",
           "hero.today": "Today's pick",
           "hero.slide": (n) => `Slide ${n}`,
-          "hero.discount": (p) => `Sale ${p}`,
-          "hero.until": (d) => `until ${d.getMonth() + 1}/${d.getDate()}`,
           "hero.updates": (n) => (n === 1 ? "1 update" : `${n} updates`),
           "hero.dlc": (n) => `${n} DLC`,
           "hero.released": (d) => `Released ${d}`,
@@ -2216,7 +2203,6 @@
           "chart.genres": "Genres",
           "chart.total": (n) => `${n} total`,
           "chip.custom": "Custom",
-          "pill.sale": "Sale",
           "pill.update": "Update",
           "pill.needPatch": "Required mod",
           "pill.patch": "Mod",
@@ -2329,7 +2315,6 @@
           "live.connected": "Live updates connected",
           "live.disconnected": "Reconnecting…",
           "restart.notice": "The server is restarting. This page reconnects in a moment.",
-          "modal.price": "eShop price",
           "modal.scoreN": (n) => `Score · ${n.toLocaleString()} reviews`,
           "modal.publisher": "Publisher",
           "modal.baseSize": "Base size",
@@ -2346,8 +2331,6 @@
           "modal.noDescSub": "Please check the details below.",
           "pill.korean": "Korean",
           "pill.score": (n) => `Score ${n}`,
-          "pill.price": (p) => `eShop ${p}`,
-          "pill.discount": (p) => `Sale ${p}`,
           "install.head": "What to install",
           "integrity.modified": (what) => `${what}: This file has been modified. Like a mod or a translation patch, it may differ from the original.`,
           "integrity.damaged": (what) => `${what}: This file may be damaged. It may fail to install or run.`,
@@ -2491,7 +2474,6 @@
           "retro.cantRun": "起動できません",
           "row.recent": "最近の追加",
           "row.seeAll": "すべて見る", "row.collapse": "たたむ",
-          "row.sale": "セール中",
           "row.new": "新作",
           "row.updated": "最近のアップデート",
           "row.popular": "人気",
@@ -2503,13 +2485,10 @@
           "score.all": "すべての評価",
           "genre.all": "すべてのジャンル",
           "hero.new": "新着ゲーム",
-          "hero.sale": "セール中",
           "hero.popular": "人気ゲーム",
           "hero.party": "みんなで遊ぶともっと楽しい",
           "hero.today": "今日のおすすめ",
           "hero.slide": (n) => `${n}枚目`,
-          "hero.discount": (p) => `セール価格 ${p}`,
-          "hero.until": (d) => `${d.getMonth() + 1}/${d.getDate()}まで`,
           "hero.updates": (n) => `アップデート${n}件`,
           "hero.dlc": (n) => `DLC ${n}件`,
           "hero.released": (d) => `${d} 発売`,
@@ -2568,7 +2547,6 @@
           "chart.genres": "ジャンル",
           "chart.total": (n) => `合計 ${n}`,
           "chip.custom": "カスタム",
-          "pill.sale": "セール",
           "pill.update": "アップデート",
           "pill.needPatch": "必須パッチ",
           "pill.patch": "パッチ",
@@ -2681,7 +2659,6 @@
           "live.connected": "ライブ更新に接続しました",
           "live.disconnected": "再接続しています…",
           "restart.notice": "サーバーを再起動しています。まもなく再接続します。",
-          "modal.price": "eShop 価格",
           "modal.scoreN": (n) => `評価 · ${n.toLocaleString()}件`,
           "modal.publisher": "パブリッシャー",
           "modal.baseSize": "基本サイズ",
@@ -2698,8 +2675,6 @@
           "modal.noDescSub": "下の情報をご確認ください。",
           "pill.korean": "韓国語",
           "pill.score": (n) => `評価 ${n}`,
-          "pill.price": (p) => `eShop ${p}`,
-          "pill.discount": (p) => `セール ${p}`,
           "install.head": "インストールするもの",
           "integrity.modified": (what) => `${what}：改変されたファイルです。改造や翻訳パッチのように元のファイルと異なる場合があります。`,
           "integrity.damaged": (what) => `${what}：破損している可能性があるファイルです。インストールや起動ができない場合があります。`,
@@ -2843,7 +2818,6 @@
           "retro.cantRun": "無法執行",
           "row.recent": "最近新增",
           "row.seeAll": "查看全部", "row.collapse": "收合",
-          "row.sale": "特價中",
           "row.new": "新作",
           "row.updated": "最近更新",
           "row.popular": "熱門",
@@ -2855,13 +2829,10 @@
           "score.all": "所有評價",
           "genre.all": "所有類型",
           "hero.new": "新進遊戲",
-          "hero.sale": "特價中",
           "hero.popular": "熱門遊戲",
           "hero.party": "一起玩更有趣",
           "hero.today": "今日推薦",
           "hero.slide": (n) => `第 ${n} 張`,
-          "hero.discount": (p) => `特價 ${p}`,
-          "hero.until": (d) => `至 ${d.getMonth() + 1}/${d.getDate()}`,
           "hero.updates": (n) => `${n} 個更新`,
           "hero.dlc": (n) => `${n} 個 DLC`,
           "hero.released": (d) => `${d} 發售`,
@@ -2920,7 +2891,6 @@
           "chart.genres": "类型",
           "chart.total": (n) => `共 ${n}`,
           "chip.custom": "自訂",
-          "pill.sale": "特價",
           "pill.update": "更新",
           "pill.needPatch": "必需补丁",
           "pill.patch": "补丁",
@@ -3033,7 +3003,6 @@
           "live.connected": "已連線即時更新",
           "live.disconnected": "重新連線中…",
           "restart.notice": "伺服器正在重新啟動，稍後會重新連線。",
-          "modal.price": "eShop 價格",
           "modal.scoreN": (n) => `評分 · ${n.toLocaleString()} 則`,
           "modal.publisher": "發行商",
           "modal.baseSize": "本體大小",
@@ -3050,8 +3019,6 @@
           "modal.noDescSub": "請參考下方資訊。",
           "pill.korean": "韓文",
           "pill.score": (n) => `評分 ${n}`,
-          "pill.price": (p) => `eShop ${p}`,
-          "pill.discount": (p) => `特價 ${p}`,
           "install.head": "要安裝的項目",
           "integrity.modified": (what) => `${what}：這是經過修改的檔案。如同改造或中文化補丁，可能與原版不同。`,
           "integrity.damaged": (what) => `${what}：此檔案可能已損壞，可能無法安裝或執行。`,
@@ -3549,7 +3516,7 @@
       let genreNames = {};    // genre key → { en, ko, ja, zh }
       let scoreOf = new Map(); // base title id → { score, count, label }
       let scoreNames = {};     // score label key → { en, ko, ja, zh }
-      let sectionOf = new Map(); // base title id → its sections item (rank, players, languages, price)
+      let sectionOf = new Map(); // base title id → its sections item (rank, players, languages)
       let sectionFiles = new Map(); // "TITLEID:version" → the sections item of any file (an update's version_name)
       let featuredRows = [];     // sections.featured, the admin's picks
 
@@ -4109,14 +4076,6 @@
       const tidOf = (r) => (r.item.titleId || "").toUpperCase();
       const metaOf = (r) => sectionOf.get(tidOf(r)) || {};
       const releaseOf = (r) => r.releaseDate || metaOf(r).release_date || 0;
-      // eShop prices are re-read every 12 hours; a sale past its end no longer counts.
-      const saleOf = (r) => {
-        const m = metaOf(r);
-        if (!m.price_discount) return null;
-        const ends = m.price_discount_ends ? Date.parse(m.price_discount_ends) : NaN;
-        if (ends <= Date.now()) return null;
-        return { price: m.price_discount, ends: Number.isFinite(ends) ? new Date(ends) : null };
-      };
 
       // One theme: filter the base games, then order them like the client does.
       function browse(bases, theme) {
@@ -4124,7 +4083,6 @@
           const m = metaOf(r);
           if (theme.sort === "release" && !releaseOf(r)) return false;
           if (theme.sort === "updated" && !r.updAdded) return false;
-          if (theme.onSale && !saleOf(r)) return false;
           if (theme.minPlayers && !((m.players || 0) >= theme.minPlayers)) return false;
           if (theme.minSize && r.size < theme.minSize) return false;
           if (theme.minScore && !((scoreFor(r)?.score || 0) >= theme.minScore)) return false;
@@ -4165,7 +4123,6 @@
           slides.push({ r, key });
         };
         add("hero.new", { sort: "recent" }, false);
-        add("hero.sale", { sort: "popular", onSale: true }, true);
         add("hero.popular", { sort: "popular" }, false);
         add("hero.party", { sort: "popular", minPlayers: 2, without: PARTY }, true);
         add("hero.today", { sort: "popular", korean: true }, true);
@@ -4196,7 +4153,6 @@
           keep(title ?? t(key), items);
         };
         add("row.recent", { sort: "recent" });
-        add("row.sale", { onSale: true }, WIDE_POOL);
         add("row.new", { sort: "release" });
         add("row.updated", { sort: "updated" });
         add("row.popular", { sort: "popular" }, TOP_POOL);
@@ -4299,8 +4255,6 @@
         const sc = scoreFor(r);
         // A bare number reads as nothing, so the score says what it is when Steam gave no label.
         if (sc) addTag(sc.label ? scoreText(sc.score, sc.label) : `${t("modal.score")} ${sc.score}`).classList.add("score", scoreTier(sc));
-        const sale = saleOf(r);
-        if (sale) addTag(t("hero.discount", sale.price) + (sale.ends ? " · " + t("hero.until", sale.ends) : ""));
         // What a download decides on first; on a narrow screen the later ones give way.
         if ((m.languages || []).includes("ko")) addTag(t("pill.korean"));
         addTag(fmtBytes(r.size));
@@ -5725,7 +5679,6 @@
         // than "×N" which looked like a multiplier on the base card itself.
         // Korean uses the chip label "업데이트" so the rollup matches the
         // filter chip across the toolbar.
-        if (r.kind === "base" && saleOf(r)) addPill(t("pill.sale"), "sale");
         // A patch the game does not start without, marked on the patches page.
         // A required patch shows once, in the stronger pill; any other patch says there is one.
         const patched = r.kind === "base" ? sectionOf.get((r.item.titleId || "").toUpperCase()) : null;
@@ -6020,10 +5973,6 @@
         const td = detail;
         const m = sectionOf.get(baseId) || {};
         const group = renderedItems.filter((x) => (x.item.baseTitleId || x.item.titleId || "").toUpperCase() === baseId);
-        const p = detail.price
-          ? { regular: detail.price.regular, discount: detail.price.discount, ends: detail.price.discountEnds }
-          : m.price_regular ? { regular: m.price_regular, discount: m.price_discount, ends: m.price_discount_ends } : null;
-        const sale = Boolean(p?.discount) && !(Date.parse(p.ends) <= Date.now());
         const sc = Number.isFinite(td.score)
           ? { score: td.score, count: td.scoreCount, key: td.scoreLabelKey, label: td.scoreLabel }
           : scoreOf.has(baseId) ? { ...scoreOf.get(baseId), key: scoreOf.get(baseId).label, label: null } : null;
@@ -6034,7 +5983,6 @@
           name: pickName(r.kind === "base" ? (td.names || m.names) : null, nameWithAlias(f.name || t("misc.unnamed"), td.aliases)),
           publisher: td.publisher || m.publisher || "",
           languages: td.languages || m.languages || [],
-          price: p ? { ...p, sale } : null,
           score: sc,
           genres: Array.isArray(td.categoryLabels) ? td.categoryLabels : (m.categories || []).map(genreLabel),
           release: fmtDate(td.releaseDate || m.release_date),
@@ -6060,7 +6008,6 @@
         fillPills([
           [x.languages.includes("ko") ? t("pill.korean") : "", "need"],
           [x.score ? t("pill.score", x.score.score) : ""],
-          [x.price ? (x.price.sale ? t("pill.discount", x.price.discount) : t("pill.price", x.price.regular)) : ""],
           [genreText.length <= 24 ? genreText : ""],
         ]);
         $("modal-notes-text").textContent = x.td.notes || "";
@@ -6069,7 +6016,6 @@
         const known = (v) => (loading && !v ? null : v || "");
         const dlc = [x.dlcTotal ? t("modal.dlcOut", x.dlcTotal) : "", x.dlcHere ? t("modal.dlcHere", x.dlcHere) : ""].filter(Boolean).join(" · ");
         fillMeta([
-          [t("modal.price"), known(x.price ? (x.price.sale ? `${x.price.discount} (${x.price.regular})` : x.price.regular) : "")],
           [x.score?.count ? t("modal.scoreN", x.score.count) : t("modal.score"), known(x.score ? scoreText(x.score.score, x.score.key, x.score.label) : "")],
           [t("modal.release"), known(x.release)],
           [t("modal.publisher"), known(x.publisher)],

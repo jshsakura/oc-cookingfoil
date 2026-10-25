@@ -85,7 +85,6 @@ import * as backups from "./db/backup.js";
 import * as userPatches from "./meta/user-patches.js";
 import nszQueue, { start as startNszQueue } from "./meta/nsz-service.js";
 import verifyQueue, { start as startVerifyQueue } from "./meta/verify-service.js";
-import { loadPrices } from "./meta/eshop-price.js";
 import * as ratingSync from "./meta/rating-sync.js";
 import * as securityStore from "./security/store.js";
 import * as users from "./security/users.js";
@@ -463,8 +462,6 @@ bootstrapTitledb()
 // Variants an older server drew next to the cached eShop and game-file pictures; they live in thumbs/ now.
 removeOldVariants().catch((err) => debug.error("image cache: removing old variants failed:", err.message));
 
-// Saved eShop prices first, so the first sections build already has them.
-loadPrices();
 shopCache.init().catch((err) =>
   debug.error("shop cache init failed:", err.message)
 );

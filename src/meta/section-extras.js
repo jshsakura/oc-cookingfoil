@@ -7,7 +7,7 @@ function positiveInt(value, max = Number.MAX_SAFE_INTEGER) {
   return Number.isInteger(n) && n > 0 && n <= max ? n : undefined;
 }
 
-/** `rank` is the eShop popularity rank (lower is more popular). */
+/** `rank` is titledb's popularity rank (lower is more popular), when it has one. */
 export function sectionExtras(entry) {
   const extras = {};
   const rank = positiveInt(entry?.rank);

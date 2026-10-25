@@ -1,7 +1,7 @@
 /**
  * Every base game gets a rank, so the client's "인기" row shows the whole
- * library. Games the US eShop ranking cannot place (Japan- or Asia-only
- * releases, demos) line up after the last ranked one, newest release first.
+ * library. Games titledb does not rank line up after the last ranked one,
+ * newest release first.
  * Pure: returns new items, the inputs stay as they were.
  */
 const byRecency = (a, b) =>

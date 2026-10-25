@@ -50,8 +50,8 @@ exceptions are the prebuilt `@img/sharp-libvips-*` binaries (LGPL-3.0-or-later, 
 ## Data
 
 - **blawar/titledb**: title names, descriptions and artwork URLs, fetched at run time, not redistributed.
-- Artwork, prices and popularity come from public store services at run time and are cached
-  locally; they are not part of this repository.
+- Artwork comes from a public store service at run time and is cached
+  locally; it is not part of this repository.
 - **libretro-thumbnails** (box art) and **The Bezel Project** (bezels) are fetched from their
   GitHub repositories at run time and cached in the user's retro folder. The images belong
   to their owners and are not redistributed here.

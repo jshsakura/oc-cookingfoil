@@ -47,9 +47,7 @@ import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
 import { firmwareOf } from "./meta/rewrap/generations.js";
-import { cachedPrice, warmPrices } from "./meta/eshop-price.js";
 import * as featured from "./meta/featured.js";
-import * as popularity from "./meta/eshop-popularity.js";
 import * as userPatches from "./meta/user-patches.js";
 import * as scores from "./meta/ratings.js";
 import * as ratingSync from "./meta/rating-sync.js";
@@ -74,7 +72,6 @@ import {
   extractIcons,
   extractMaxGb,
   extractMaxBytes,
-  eshopPrices,
   langPriority,
 } from "./helpers/envs.js";
 import { addUrlEncodedFileInfo as encodeUrlObject } from "./helpers/helpers.js";
@@ -403,14 +400,6 @@ function buildSectionItem(relPath, wireItem) {
     if (fromDb?.region) item.region = fromDb.region;
     if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
     Object.assign(item, sectionExtras(fromDb));
-    // titledb's rank is empty upstream; the US eShop ranking fills it in.
-    if (!item.rank && parsed.contentType === "base") {
-      const rank = popularity.rankOf(parsed.titleId, {
-        siblings: titledbStore.artSiblings(parsed.titleId),
-        names: englishNamesOf(parsed.titleId, fromDb),
-      });
-      if (rank) item.rank = rank;
-    }
     if (parsed.contentType === "base") {
       // The name in each language titledb has (client feature "item-names").
       // A game titledb does not list still has the English name its own file carries.
@@ -524,20 +513,6 @@ function scoreFields(rating) {
   return fields;
 }
 
-// The eShop's own strings ("64,800원", "$19.99"), so the client shows them as is.
-// Prices are re-read every 12 hours, so a sale whose end has passed since is
-// dropped here rather than shown as still running.
-export function priceFields(price, now = Date.now()) {
-  if (!price) return {};
-  const fields = { price_regular: price.regular, price_country: price.country };
-  const ended = price.discountEnds && Date.parse(price.discountEnds) <= now;
-  if (price.discount && !ended) {
-    fields.price_discount = price.discount;
-    if (price.discountEnds) fields.price_discount_ends = price.discountEnds;
-  }
-  return fields;
-}
-
 /**
  * Build the sections payload from the warmed primitive state. A single "All"
  * section holds every item; per-item `app_type` drives the client's
@@ -545,20 +520,11 @@ export function priceFields(price, now = Date.now()) {
  */
 export function composeSections(filesMap, customs) {
   const items = [];
-  const nsuIds = [];
   if (filesMap) {
     for (const [relPath, wireItem] of filesMap.entries()) {
-      const item = buildSectionItem(relPath, wireItem);
-      const nsuId = item.app_type === "base" ? titledbStore.get(item.title_id)?.nsuId : null;
-      if (nsuId) {
-        nsuIds.push(nsuId);
-        Object.assign(item, priceFields(cachedPrice(nsuId)));
-      }
-      items.push(item);
+      items.push(buildSectionItem(relPath, wireItem));
     }
   }
-  // Unknown or stale prices are fetched in the background; a change rebuilds.
-  if (eshopPrices && nsuIds.length) warmPrices(nsuIds);
   for (const raw of customs ?? []) {
     const item = buildSectionItemFromCustom(raw);
     if (item) items.push(item);

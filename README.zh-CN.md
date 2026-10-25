@@ -60,7 +60,7 @@ CookingFoil 客户端不在 GitHub 上发布。服务器的 `data/client/` 中�
 
 - **游戏库目录。** 给 CookingFoil 客户端和网页用的分区列表，推荐行可以在管理页面上安排；另有给持自动化令牌的脚本用的扁平文件目录（`/games.json`）。
 - **名称与图标。** 标题、简介和图片来自 [blawar/titledb](https://github.com/blawar/titledb)；titledb 不认识的文件，则从文件本身读取（需要你自己的 `prod.keys`）。名称的语言顺序和地区都可以设置。
-- **图片、价格与评分。** 图标、横幅和截图来自公开的商店图片服务，并缓存在磁盘上。可选的商店价格、热门排序、Steam 评测分数和 IGDB 分数。每个来源都可以关闭。你也可以上传自己的图片。
+- **图片与评分。** 图标、横幅和截图来自公开的商店图片服务，并缓存在磁盘上。可选的 Steam 评测分数和 IGDB 分数。每个来源都可以关闭。你也可以上传自己的图片。
 - **来自 GitHub 的自制程序。** 添加一个仓库后会跟踪它的最新发布（一个 `.nro`，或内含 `.nro` 的 zip）。也可以手动放入应用。每个应用可以标为工具或移植版、可以关闭，也可以附带 HOME 菜单快捷方式。
 - **存档与补丁。** 把存档和补丁（按 SD 卡根目录的结构排列）放在服务器上，在客户端中选择要应用哪些。补丁可以标为必需，并记录它对应的游戏更新版本。
 - **RetroArch 复古游戏。** 按系统分类的 ROM，来自 libretro-thumbnails 的封面，来自 The Bezel Project 的边框，以及来自 LaunchBox Games Database 的游戏详情（简介、发行商、开发商、发售日期、人数、类型、截图），缺少的部分由 IGDB 补上。同一游戏的多个版本（街机的母版与克隆版，或多种语言和地区的版本）合并为一张卡片显示，其他版本再点一下即可看到。你自己提供的 RetroArch 基础包可以分发给主机，也可以为每个游戏生成 HOME 菜单快捷方式。
@@ -199,7 +199,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 | titledb 下载、地区、来源 | `COOK_TITLEDB_AUTO_FETCH`, `COOK_TITLEDB_REGIONS`, `COOK_TITLEDB_URL` | 开启、内置组合、blawar/titledb |
 | 客户端构建来源 | `COOK_CLIENT_SOURCE`, `COOK_CLIENT_RELEASE_REPO`, `COOK_CLIENT_RELEASE_TAG` | `manual`：只使用上传的构建。`github` 还会跟随 `jshsakura/oc-cookingfoil-client` 的最新发布（设置标签时跟随该标签） |
 | 从文件读取图标 | `COOK_EXTRACT_ICONS` | `missing` |
-| 商店价格、热门度、图片 | `COOK_ESHOP_PRICES`, `COOK_ESHOP_POPULARITY`, `COOK_ESHOP_ARTWORK` | 开启 |
+| 商店图片 | `COOK_ESHOP_ARTWORK` | 开启 |
 | 评测分数、复古游戏详情 | `COOK_RATING_SYNC`, `COOK_RETRO_META` | 开启 |
 | 预建复古机种文件夹 | `COOK_RETRO_SCAFFOLD` | 开启 |
 | 每次下载的连接数 | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |

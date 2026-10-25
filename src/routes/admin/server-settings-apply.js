@@ -17,7 +17,7 @@ import * as envs from "../../helpers/envs.js";
 import * as retroCatalog from "../../retro/catalog.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
-const REBUILD = new Set(["publicBaseUrl", "eshopPrices", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
+const REBUILD = new Set(["publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
 // Addresses the server fetches itself: refused when they point at a private network.
 const OUTBOUND = ["titledbSource", "publicDirectBaseUrl", "retroPackUrl"];
 // Settings that change the names themselves: reload titledb and read every file again.
