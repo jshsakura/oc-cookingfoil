@@ -119,7 +119,9 @@ const LB_ALL=['base','update','dlc','patch','save','homebrew','other'];
 const LB_CHECK={ok:['정상','on'],modified:['수정됨','warn'],damaged:['손상됨','off'],unchecked:['검사 전','']};
 const lb={kind:'all',page:1,sort:'name',order:'asc',q:'',seq:0,timer:null,pending:false};
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
-const lbDate=(s)=>s?new Date(s*1000).toLocaleString('ko-KR',{dateStyle:'medium',timeStyle:'short'}):'-';
+const lbDate=(s)=>s?new Date(s*1000).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'-';
+// A language switch re-renders the open list so dates and counts follow the new locale.
+function lbRelabel(){if(location.hash.startsWith('#library')&&!lb.pending)lbLoad();}
 function lbIndicator(){const t=$('lb-tab-'+lb.kind),ind=$('lb-ind');if(!t||!t.offsetWidth)return;
   ind.style.width=t.offsetWidth+'px';ind.style.height=t.offsetHeight+'px';ind.style.transform='translate('+t.offsetLeft+'px,'+t.offsetTop+'px)';}
 function lbSkeleton(){const m=$('lb-list');m.replaceChildren();const t=el('table');

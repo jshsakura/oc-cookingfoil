@@ -1619,7 +1619,7 @@ export const TOP_LANG_CSS = /* css */ `
 .lang-btn:hover,.lang-btn[aria-expanded="true"]{border-color:var(--text)}
 .lang-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .lang-btn .chev{width:13px;height:13px;color:var(--muted)}
-.lang-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:148px;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+.lang-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:148px;max-height:min(60vh,480px);overflow:auto;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px rgba(0,0,0,.18)}
 .lang-list[hidden]{display:none}
 .lang-list button{display:flex;justify-content:flex-start;height:auto;box-shadow:none;text-align:left;padding:9px 12px;border:0;border-radius:9px;cursor:pointer;background:transparent;color:var(--text);font:600 14px inherit;font-family:inherit}
 .lang-list button:hover:not([aria-checked="true"]){background:var(--sunk)}
@@ -1630,8 +1630,12 @@ export const TOP_LANG_CSS = /* css */ `
 export const TOP_I18N_SCRIPT = /* js */ `
 const ADMIN_LANG_KEY='cookingfoil:lang';
 const topWords=${JSON.stringify(TOP_WORDS)};
-// The web page's choice (same key); Korean until one is made, like the rest of this page.
-let adminLang=(()=>{try{const v=localStorage.getItem(ADMIN_LANG_KEY);return topWords[v]?v:'ko';}catch{return 'ko';}})();
+// The saved tag may carry a region ("pt-BR", "zh-TW"); the server's parseLang
+// folds those the same way, so any spelling the page ever saved keeps working.
+const parseAdminLang=(tag)=>{const p=String(tag??'').trim().toLowerCase().split(/[-_]/);
+  if(p[0]==='zh'){const r=p.slice(1);if(r.includes('hans'))return 'zh';return (r.includes('hant')||r.some((x)=>x==='tw'||x==='hk'||x==='mo'))?'zh-Hant':'zh';}
+  return topWords[p[0]]?p[0]:null;};
+let adminLang=(()=>{try{const v=parseAdminLang(localStorage.getItem(ADMIN_LANG_KEY));return v||'ko';}catch{return 'ko';}})();
 // The fallback chain: the picked language first, English when a key has not
 // reached it yet, Korean as the last resort (the source of truth).
 const topText=(key)=>topWords[adminLang][key]??topWords.en[key]??topWords.ko[key];
@@ -1646,7 +1650,7 @@ function applyTopI18n(relabelActivity=true){
   for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
   document.getElementById('lang-current').textContent=adminLang.toUpperCase();
   // The activity menu is declared further down and draws its own labels on start.
-  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();if(typeof trRender==='function')trRender();if(typeof accRelabel==='function')accRelabel();}}
+  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();if(typeof trRender==='function')trRender();if(typeof accRelabel==='function')accRelabel();if(typeof ovRelabel==='function')ovRelabel();if(typeof lbRelabel==='function')lbRelabel();}}
 const langList=document.getElementById('lang-list'),langBtn=document.getElementById('lang-btn');
 function setLangMenu(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',String(open));
   if(open)langList.querySelector('[aria-checked="true"]')?.focus();}

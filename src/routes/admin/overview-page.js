@@ -41,8 +41,11 @@ function renderLanes(l){const box=$('lanes');box.replaceChildren();
   if(l.pairingOnly)box.append(pill(topText('ov.pairingOnly'),'warn'));
   box.append(pill(topFill('ov.lane2fa',{v:topText(l.admin.enrolled?'ov.enrolled':'ov.notEnrolled')}),l.admin.enrolled?'on':'off'));}
 // Where game names come from (titledb, the files' own data): the operator's view of what the web page used to show.
+let ovHealth=null;
 async function loadHealth(){
   let nh=null;try{const r=await fetch('/healthz',{headers:{Accept:'application/json'}});nh=(await r.json().catch(()=>null))?.nameHealth;}catch{}
+  ovHealth=nh;renderHealth(nh);}
+function renderHealth(nh){
   const box=$('health');box.replaceChildren();if(!nh)return;
   const v=nh.verdict==='filename-only'?[topText('ov.namesFilenameOnly'),'off']:nh.verdict==='degraded'?[topText('ov.namesDegraded'),'warn']:[topText('ov.namesOk'),'on'];
   box.append(pill(v[0],v[1]));
@@ -62,7 +65,14 @@ showShopUrl();
 
 async function loadOverview(){
   try{const d=await api('/admin/api/stats');
+    ovStats=d;
     $('ts').textContent=topFill('overview.asOf',{at:fmt(d.generatedAt)});
     renderWarnings(d.warnings||[]);renderLanes(d.lanes);renderCards(d);await loadHealth();
   }catch(err){if(err.message!=='session')toast(errText(err));}}
+// A language switch repaints the last data: dates and counts follow the new locale at once.
+let ovStats=null;
+function ovRelabel(){if(!ovStats)return;
+  $('ts').textContent=topFill('overview.asOf',{at:fmt(ovStats.generatedAt)});
+  renderWarnings(ovStats.warnings||[]);renderLanes(ovStats.lanes);renderCards(ovStats);
+  if(ovHealth)renderHealth(ovHealth);}
 `;

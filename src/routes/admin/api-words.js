@@ -534,7 +534,7 @@ export const API_WORDS = {
   },
 };
 
-const wordsFor = (lang) => API_WORDS[lang] ?? (lang === "zh-Hant" ? API_WORDS.zh : API_WORDS.en);
+const wordsFor = (lang) => API_WORDS[lang] ?? API_WORDS.en;
 
 /** The message `key` in `lang` (English when it is not an admin language), placeholders filled. Pure. */
 export function apiText(lang, key, vars = {}) {

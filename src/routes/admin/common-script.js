@@ -14,12 +14,16 @@
  */
 export const COMMON_SCRIPT = /* js */ `
 const $=(id)=>document.getElementById(id);
-const fmt=(t)=>t?new Date(t).toLocaleString('ko-KR'):'—';
+// Numbers and dates follow the picked language: Korean grouping for ko, the
+// language's own locale for the rest (pt lands on pt-BR, zh-Hant on zh-TW).
+const LOCALES={ko:'ko-KR',ja:'ja-JP',zh:'zh-CN','zh-Hant':'zh-TW',es:'es',fr:'fr',de:'de',it:'it',pt:'pt-BR',nl:'nl-NL',ru:'ru',en:'en'};
+const loc=()=>LOCALES[adminLang]||'en';
+const fmt=(t)=>t?new Date(t).toLocaleString(loc()):'—';
 // Relative time in the page's own words: the same dictionary agoT reads.
 const ago=(t)=>{if(!t)return '—';const s=Math.max(0,Math.round((Date.now()-t)/1000));
   if(s<60)return topFill('acc.ago.s',{n:s});if(s<3600)return topFill('acc.ago.m',{n:Math.round(s/60)});
   if(s<86400)return topFill('acc.ago.h',{n:Math.round(s/3600)});return topFill('acc.ago.d',{n:Math.round(s/86400)});};
-const num=(n)=>Number(n||0).toLocaleString('ko-KR');
+const num=(n)=>Number(n||0).toLocaleString(loc());
 // ago in the page's language (top-i18n.js).
 const agoT=(t)=>{if(!t)return '—';const s=Math.max(0,Math.round((Date.now()-t)/1000));
   return s<60?topFill('acc.ago.s',{n:s}):s<3600?topFill('acc.ago.m',{n:Math.round(s/60)}):s<86400?topFill('acc.ago.h',{n:Math.round(s/3600)}):topFill('acc.ago.d',{n:Math.round(s/86400)});};
