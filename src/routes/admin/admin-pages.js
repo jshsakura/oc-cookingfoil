@@ -130,7 +130,8 @@ const CHEV = `<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="
 
 export const ADM_SHELL_CSS = /* css */ `
 body.adm-shell{padding:0}
-.adm-shell>.wrap{max-width:1240px;margin:0 auto;padding:24px 32px 80px;min-width:0}
+/* width:100% keeps every page the same width: a grid item with auto margins otherwise shrinks to its content. */
+.adm-shell>.wrap{width:100%;box-sizing:border-box;max-width:1240px;margin:0 auto;padding:24px 32px 80px;min-width:0}
 @media (max-width:899px){.adm-shell>.wrap{padding:18px 16px 72px}}
 .adm-side{display:none}
 #adm-menu{display:none}
