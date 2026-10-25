@@ -38,7 +38,7 @@ function fakeRes() {
 test("recordDeny captures who/what/where so the dashboard can explain a refusal", () => {
   store.clearDenials();
   const entry = recordDeny(
-    fakeReq({ headers: { "user-agent": "Tinfoil/17.0" } }),
+    fakeReq({ headers: { "user-agent": "OtherClient/17.0" } }),
     { reason: DENY.NO_DEVICE_KEY, status: 403 }
   );
 
@@ -46,7 +46,7 @@ test("recordDeny captures who/what/where so the dashboard can explain a refusal"
   assert.equal(entry.status, 403);
   assert.equal(entry.ip, "203.0.113.9");
   assert.equal(entry.path, "/api/library/sections");
-  assert.equal(entry.ua, "Tinfoil/17.0");
+  assert.equal(entry.ua, "OtherClient/17.0");
   assert.ok(entry.at > 0);
 
   const snap = store.denialsSnapshot();

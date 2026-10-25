@@ -9,7 +9,6 @@ test("how to connect, then how to start it again from the home-screen shortcut",
   assert.equal(lines.length, 2);
   assert.match(lines[0], /QR/);
   assert.match(lines[1], /바로가기 설치를 안내합니다\. 바로가기를 설치한 뒤에는 그 바로가기로 다시 실행해야 합니다\./);
-  assert.doesNotMatch(lines.join(" "), /Tinfoil|CyberFoil/);
 });
 
 test("an ID and password count once, at pairing, only where they approve the console", () => {

@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 
-// composeSections() builds the native `/api/library/sections` view CyberFoil
-// v1.4.5+ prefers. Unlike the legacy flat index (which stamps `[TID][vVER]`
+// composeSections() builds the native `/api/library/sections` view the
+// client prefers. Unlike the legacy flat index (which stamps `[TID][vVER]`
 // onto `name` so the client can scrape it back out), the native view hands
 // the client CLEAN names + first-class fields. These probes assert the schema
 // and the field derivation so titles render full info instead of the degraded

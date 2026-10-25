@@ -129,7 +129,7 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-# TINFOIL
+# Local game library
 /games/**
 
 #mantain gitkeep folders

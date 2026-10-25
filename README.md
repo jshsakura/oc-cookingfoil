@@ -165,7 +165,6 @@ The RetroArch base pack is what a console needs once before it can play: put `re
 
 ## Configuration
 
-The retired `TINFOIL_HAT_PORT` variable is no longer read. Use `COOK_PORT` for the server listener (default `80`); Docker users normally change the published port with `COOK_HOST_PORT` instead.
 
 Most settings are changed on the admin page and apply at once. A value in `.env` is only the default for the first start: once you change a setting on the admin page, the page's value wins, and "back to compose" (compose 값으로) returns to the `.env` value. [`.env.example`](./.env.example) lists and explains every variable.
 
@@ -236,7 +235,7 @@ The operator guide at `/admin/guide` covers each task and lists the API the admi
 
 ## Connecting a client
 
-Consoles connect with the CookingFoil client, in one of two ways. Both give the console its own access key, and both are on by default. Consoles never use a password for ongoing access; an ID and password can be used once, at pairing, to approve the console automatically. Tinfoil and CyberFoil are not supported clients.
+Consoles connect with the CookingFoil client, in one of two ways. Both give the console its own access key, and both are on by default. Consoles never use a password for ongoing access; an ID and password can be used once, at pairing, to approve the console automatically.
 
 **1. CookingFoil client, by QR.** Open the client from the homebrew menu and enter the server address. It shows a QR code and an 8-character device code. Scan the code with your phone (or type the device code at `/pair`), sign in and approve. The console receives its own access key. With approval mode "Consoles that sign in" (the default), an ID and password entered in the client approve it at once instead; they are checked only then, and the console uses its access key from that moment on.
 
@@ -367,7 +366,7 @@ To report a vulnerability, see [SECURITY.md](./SECURITY.md#english). Please do n
 
 Except for pairing, enrollment and `/healthz`, every endpoint needs a paired console's keys or session token, or a signed-in web page. A Basic `Authorization` header counts only on the pairing routes; everywhere else it authenticates nothing and no endpoint asks for one.
 
-Canonical catalog paths are `/api/library/*` for CookingFoil clients and `/games.json` for automation tokens. `/api/shop/*` and `/shop.json` remain temporary compatibility aliases with the same authentication and response format. Switch consumers to the canonical paths after deploying a server that provides them. The aliases will be removed only after both the client and scraper migrations are confirmed. This does not restore Tinfoil or CyberFoil support.
+Canonical catalog paths are `/api/library/*` for CookingFoil clients and `/games.json` for automation tokens. `/api/shop/*` and `/shop.json` remain temporary compatibility aliases with the same authentication and response format. Switch consumers to the canonical paths after deploying a server that provides them. The aliases will be removed only after both the client and scraper migrations are confirmed.
 
 | Endpoint | |
 |---|---|
@@ -397,7 +396,7 @@ A client should read `features` from `/api/library/info` before it uses optional
 
 **The Logs tab shows nothing, but the console says the server does not answer.** The request never reached the server. Often the router's DNS is not answering. Set the console's DNS by hand to a public resolver such as `1.1.1.1` (secondary `8.8.8.8`), or change the DNS your router hands out.
 
-**A console with a saved password gets 401.** Consoles never use a password for ongoing access. Connect the CookingFoil client by QR or with the web page's client download. Tinfoil and CyberFoil are not supported.
+**A console with a saved password gets 401.** Consoles never use a password for ongoing access. Connect the CookingFoil client by QR or with the web page's client download.
 
 **Every client is locked out at once behind a proxy.** `COOK_TRUST_PROXY` is not set, so all clients share the proxy's address. See [Reverse proxy and HTTPS](#reverse-proxy-and-https).
 
@@ -447,9 +446,7 @@ It includes no games, keys, firmware, BIOS files, RetroArch or other copyrighted
 
 ## License and credits
 
-MIT, see [LICENSE](./LICENSE). CookingFoil started as a fork of [tinfoil-hat](https://github.com/vinicioslc/tinfoil-hat) by Vinicios Clarindo (MIT).
-
-CookingFoil is now a standalone server for its own client and web page; Tinfoil and CyberFoil are not supported clients. The CookingFoil client's install engine is built on [CyberFoil](https://github.com/luketanti/CyberFoil), which also shaped the sectioned catalog this server serves. Thanks to both projects.
+MIT, see [LICENSE](./LICENSE).
 
 It builds on:
 
