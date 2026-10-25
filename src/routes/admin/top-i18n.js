@@ -1642,6 +1642,7 @@ const topText=(key)=>topWords[adminLang][key]??topWords.en[key]??topWords.ko[key
 // topText with each {name} filled from vars.
 const topFill=(key,vars)=>{let s=topText(key);if(vars)for(const x in vars)s=s.split('{'+x+'}').join(String(vars[x]));return s;};
 function applyTopI18n(relabelActivity=true){
+  document.documentElement.lang=adminLang;
   document.title=topText('title');
   for(const el of document.querySelectorAll('[data-top]'))el.textContent=el.dataset.topN===undefined?topText(el.dataset.top):topFill(el.dataset.top,{n:el.dataset.topN});
   for(const el of document.querySelectorAll('[data-top-label]'))el.setAttribute('aria-label',topText(el.dataset.topLabel));
