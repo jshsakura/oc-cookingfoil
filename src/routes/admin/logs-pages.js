@@ -88,7 +88,7 @@ async function loadClientLogs(){
   if(!(d.consoles||[]).length){box.append(el('div',topText('lg.noLogs'),'empty'));return;}
   for(const [i,c] of d.consoles.entries()){const det=el('details');det.open=i===0;
     const sum=el('summary');const name=el('b',c.label||c.prefix);
-    // Several consoles can share one name ("자동 등록"): the key's first 8 characters tell them apart.
+    // Several consoles can share one name (the auto-registered one): the key's first characters tell them apart.
     if(c.label)name.append(el('small',c.prefix));
     sum.append(name,el('span',topFill('lg.files',{n:c.files.length})));det.append(sum);
     for(const f of c.files){const b=btn('',()=>openLog(c,f,b));b.dataset.noicon='1';const t=el('span',fmtShort(f.at));t.title=fmt(f.at);b.append(t,el('span',kb(f.size),'muted'));det.append(b);}
@@ -101,15 +101,15 @@ async function openLog(c,f,button){
   $('cl-text').textContent=r.ok?await r.text():topText('lg.readFail');}
 if($('cl-refresh'))$('cl-refresh').addEventListener('click',loadClientLogs);
 const DENY_KO={
-  'rate-limited':['요청 과다','짧은 시간에 요청이 너무 많아 잠시 쉬게 했습니다. 승인된 기기와 로그인한 브라우저는 이 제한을 받지 않습니다.'],
-  'ip-locked':['잠긴 주소','비밀번호를 여러 번 틀려 잠긴 주소에서 온 요청입니다. 위 차단 목록에서 풉니다.'],
-  'probe':['공격 시도','알려진 공격 경로나 도구라 로그인 전에 걸렀습니다.'],
-  'bad-credentials':['비밀번호 틀림','아이디나 비밀번호가 맞지 않습니다. 여러 번 틀리면 그 주소를 잠급니다.'],
-  'no-device-key':['기기 키 없음','기기 키 없이 들어왔습니다. 콘솔은 CookingFoil 클라이언트로 QR 승인을 받아야 들어오고, 비밀번호만으로는 열리지 않습니다.'],
-  'device-not-approved':['승인 전 기기','아직 승인하지 않은 기기입니다. 기기 탭에서 승인합니다.'],
-  'device-bad-access-key':['기기 키 틀림','승인된 기기가 맞지 않는 접근 키를 보냈습니다. 기기 탭에서 키를 다시 냅니다.'],
-  'admin-no-session':['관리자 로그인 필요','관리 기능을 로그인 없이 요청했습니다.'],
-  'admin-bad-totp':['OTP 틀림','관리자 6자리 코드가 맞지 않았습니다.'],
+  'rate-limited':'lg.deny.rate-limited',
+  'ip-locked':'lg.deny.ip-locked',
+  'probe':'lg.deny.probe',
+  'bad-credentials':'lg.deny.bad-credentials',
+  'no-device-key':'lg.deny.no-device-key',
+  'device-not-approved':'lg.deny.device-not-approved',
+  'device-bad-access-key':'lg.deny.device-bad-access-key',
+  'admin-no-session':'lg.deny.admin-no-session',
+  'admin-bad-totp':'lg.deny.admin-bad-totp',
 };
 function renderSecurity(d){
   const locks=d.lockouts||[];const lockedNow=new Set(locks.map((l)=>l.ip));
@@ -117,10 +117,10 @@ function renderSecurity(d){
   $('unlock-all').disabled=!locks.length;
   pagedTable('lockouts',[topText('lg.colIp'),topText('lg.colReason'),topText('lg.colTime'),topText('lg.colUntil'),''],locks,(l)=>{const tr=el('tr');
     tr.append(td(l.ip,'ip'),td(l.reason||'—'),td(fmt(l.lockedAt)),td(l.until?fmt(l.until):topText('lg.untilManual')));
-    const act=td();act.append(btn('해제',()=>unlock(l.ip)));tr.append(act);return tr;},topText('lg.lockEmpty'),{label:topText('lg.lockH'),placeholder:topText('lg.lockPh')});
+    const act=td();act.append(tbtn('unlock','lg.release',()=>unlock(l.ip)));tr.append(act);return tr;},topText('lg.lockEmpty'),{label:topText('lg.lockH'),placeholder:topText('lg.lockPh')});
   pagedTable('denials',[topText('lg.colTime'),topText('lg.colReason'),topText('lg.colClient'),topText('lg.colPath'),topText('lg.colIp')],d.denials?.recent||[],(x)=>{const tr=el('tr');
     const w=td(ago(x.at));w.title=fmt(x.at);tr.append(w);
-    const [label,hint]=DENY_KO[x.reason]||[x.reason,x.hint||''];
+    const dk=DENY_KO[x.reason];const [label,hint]=dk?[topText(dk),topText(dk+'D')]:[x.reason,x.hint||''];
     const r=td();r.append(pill(label,'warn'));if(x.status)r.append(' ',pill(String(x.status)));
     // A lock that has since been lifted is history, not a live block.
     if(x.reason==='ip-locked'&&!lockedNow.has(x.ip))r.append(' ',pill(topText('lg.lifted')));

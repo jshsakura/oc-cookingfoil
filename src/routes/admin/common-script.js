@@ -87,7 +87,7 @@ const ACTION_ICONS={
   image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 8"/>',
   download:'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
   upload:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
-  rename:PENCIL,key:TRASH,
+  rename:PENCIL,key:TRASH,link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1 1"/>',
 };
 function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const icon=ICONS[txt];
   if(icon){b.classList.add('ib');b.title=txt;b.setAttribute('aria-label',txt);
