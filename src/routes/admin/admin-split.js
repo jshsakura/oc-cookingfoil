@@ -27,7 +27,7 @@ import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { BRAND_MOTION_CSS } from "../../views/brand-motion.js";
 import { ICON_CSS } from "../../views/icons.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
-import { ADMIN_HEADER_HTML, ADMIN_TITLE_HTML, ASK_DIALOG_HTML, PAGE_CSS, adminChrome } from "./dashboard-page.js";
+import { ADMIN_TITLE_HTML, ASK_DIALOG_HTML, PAGE_CSS, adminChrome } from "./dashboard-page.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { ACTIVITY_CSS, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT } from "./boxes.js";
@@ -63,7 +63,6 @@ ${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${BRAND_MOTION_CS
 <body class="adm-shell">
 ${adminChrome(current)}
 <div class="wrap">
-${ADMIN_HEADER_HTML}
 <main>
 ${open}
 </main>
