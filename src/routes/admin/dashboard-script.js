@@ -758,8 +758,13 @@ const fpState=new WeakMap();
 const fpOf=(c)=>{let s=fpState.get(c);if(!s){s={open:!c.titleIds.length,q:'',sort:'name',only:false,offset:0,data:null,asked:0,timer:0};fpState.set(c,s);}return s;};
 const fpFill=(text,vars)=>Object.entries(vars).reduce((t,[k,v])=>t.replaceAll('{'+k+'}',String(v)),text);
 // btn() with the label in the admin's language; the Korean word still picks the icon.
-function tbtn(ko,key,fn,cls){const b=btn(ko,fn,cls),t=topText(key);
-  if(b.classList.contains('ib')){b.title=t;b.setAttribute('aria-label',t);b.querySelector('span').textContent=t;}else b.textContent=t;return b;}
+// tbtn now lives in common-script.js, using ACTION_ICONS for icon lookup.
+function tbtn(action,key,fn,cls){const icon=ACTION_ICONS[action]||ICONS[action];
+  const b=el('button',null,cls);b.type='button';
+  if(icon){b.classList.add('ib');const t=topText(key);b.title=t;b.setAttribute('aria-label',t);
+    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+icon+'</svg>';b.append(el('span',t));}
+  else b.textContent=topText(key);
+  b.addEventListener('click',fn);return b;}
 function markDirty(){featuredDirty=true;fpSaveLabel();}
 function fpSaveLabel(){$('f-save').textContent=topText(featuredDirty?'fp.saveDirty':'fp.save');}
 function fpRelabel(){fpSaveLabel();renderFeatured();}

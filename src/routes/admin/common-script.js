@@ -68,6 +68,24 @@ const ICONS={'삭제':TRASH,'줄 삭제':TRASH,'폐기':TRASH,
   '지금 다운로드':'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
   '패치 올리기':'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>','세이브 올리기':'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
   'GitHub 연결':'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1 1"/>'};
+};
+// Semantic action keys: language-independent, so tbtn() picks its icon by
+// what the button does, not by the label's language. The Korean keys above
+// stay for btn() calls that have not been converted yet.
+const ACTION_ICONS={
+  delete:TRASH,edit:PENCIL,cancel:CROSS,reject:CROSS,remove:CROSS,
+  approve:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  disable:BAN,enable:BAN,unlock:BAN,
+  reissue:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
+  retry:ROTATE,restart:ROTATE,restore:'<path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  info:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
+  star:STAR,pick:STAR,
+  image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 8"/>',
+  download:'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
+  upload:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+  rename:PENCIL,key:TRASH,
+};
 function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const icon=ICONS[txt];
   if(icon){b.classList.add('ib');b.title=txt;b.setAttribute('aria-label',txt);
     b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+icon+'</svg>';b.append(el('span',txt));}
