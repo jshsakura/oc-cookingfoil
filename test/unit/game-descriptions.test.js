@@ -237,3 +237,23 @@ test("a name or text sent with an unknown language or too long is refused, sayin
   assert.equal(checkInput("name", { ko: "이름", en: "", ja: null }), null);
   assert.equal(checkInput("name", "Plain Name"), null);
 });
+
+
+test("metadata validation explains every field failure in all twelve languages", () => {
+  for (const lang of ["ko", "en", "ja", "zh", "zh-Hant", "es", "fr", "de", "it", "pt", "nl", "ru"]) {
+    for (const field of ["name", "description", "notes"]) {
+      const limit = field === "name" ? 120 : 2000;
+      for (const value of ["x".repeat(limit + 1), { ja: "x".repeat(limit + 1) }, [], { ja: 3 }]) {
+        const actual = checkInput(field, value, lang);
+        assert.equal(typeof actual, "string", `${lang} ${field} explains its refusal`);
+        assert.doesNotMatch(actual, /\{(?:limit|lang|key|keys)\}/, `${lang} substitutes its placeholders`);
+        if (lang !== "en") assert.notEqual(actual, checkInput(field, value, "en"), `${lang} has a translation`);
+      }
+    }
+    const unknown = checkInput("name", { unknown: "name" }, lang);
+    assert.match(unknown, /unknown/);
+    if (lang !== "en") assert.notEqual(unknown, checkInput("name", { unknown: "name" }, "en"));
+  }
+  assert.notEqual(checkInput("name", [], "zh-Hant"), checkInput("name", [], "zh"));
+  assert.equal(checkInput("name", [], "unsupported"), checkInput("name", [], "en"));
+});
