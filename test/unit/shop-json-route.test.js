@@ -36,7 +36,7 @@ before(async () => {
     env: {
       ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: data, COOK_GAMES_DIR: games, COOK_HOMEBREW_DIR: path.join(data, "homebrew"),
       COOK_AUTH_USERS: "alice:alice-password", COOK_DEVICE_PAIRING: "true", COOK_TITLEDB_AUTO_FETCH: "false",
-      COOK_EXTRACT_ICONS: "off", COOK_ESHOP_PRICES: "false", COOK_RATING_SYNC: "false", COOK_FIRST_RUN_SETUP: "false",
+      COOK_EXTRACT_ICONS: "off", COOK_RATING_SYNC: "false", COOK_FIRST_RUN_SETUP: "false",
     },
     stdio: "ignore",
   });

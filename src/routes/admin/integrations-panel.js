@@ -49,8 +49,6 @@ const SERVICES = [
 // Services the server uses without a key, so the admin sees everything it talks to.
 const KEYLESS = [
   ["titledb", "ig.k.titledbT", "ig.k.titledbU", "github.com/blawar/titledb", "https://github.com/blawar/titledb"],
-  ["eshopPrices", "ig.k.eshopPricesT", "ig.k.eshopPricesU", "api.ec.nintendo.com", null],
-  ["eshopPopularity", "ig.k.eshopPopularityT", "ig.k.eshopPopularityU", "algolia.net", null],
   ["steam", "ig.k.steamT", "ig.k.steamU", "store.steampowered.com", null],
   ["libretro", "ig.k.libretroT", "ig.k.libretroU", "github.com/libretro-thumbnails", "https://github.com/libretro-thumbnails"],
   ["bezel", "ig.k.bezelT", "ig.k.bezelU", "github.com/thebezelproject", "https://github.com/thebezelproject"],
@@ -106,8 +104,6 @@ async function loadIntegrations(){
       for(const [k,f] of Object.entries(s.fields)){const i=c.querySelector('input[name="'+k+'"]');if(!i)continue;
         if('value' in f)i.value=f.value||'';else{i.value='';i.placeholder=i.getAttribute('aria-label')+(f.set?topText('ig.storedSet'):'');}}
       const r=c.querySelector('[data-redirect]');if(r)r.textContent=d.dropboxRedirectUri||'';});
-    for(const [k,on] of Object.entries(d.keyless||{})){const st=document.querySelector('[data-free="'+k+'"] [data-free-state]');
-      if(st){st.textContent=on?topText('ig.noKeyOn'):topText(INTG_SOURCE.none);st.classList.toggle('on',on);st.classList.toggle('off',!on);}}
   }catch(err){toast(err.message);}
 }
 document.querySelectorAll('.intg').forEach((c)=>{const svc=c.dataset.svc;const msg=c.querySelector('[data-msg]');

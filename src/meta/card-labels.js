@@ -23,7 +23,6 @@ export const SWITCH_LABELS = {
   modified: label(31, "warn", "info", { en: "Modified", ko: "수정됨", ja: "改変あり", zh: "已修改", "zh-Hant": "已修改", es: "Modificado", fr: "Modifié", de: "Verändert", it: "Modificato", pt: "Modificado", ru: "Изменён", nl: "Aangepast" }),
   latest: label(32, "good", "check", { en: "Latest version", ko: "최신 버전", ja: "最新バージョン", zh: "最新版本", "zh-Hant": "最新版本", es: "Última versión", fr: "Dernière version", de: "Neueste Version", it: "Ultima versione", pt: "Versão mais recente", ru: "Последняя версия", nl: "Nieuwste versie" }),
   update: label(33, "neutral", "download", { en: "Update", ko: "업데이트", ja: "アップデート", zh: "更新", "zh-Hant": "更新", es: "Actualización", fr: "Mise à jour", de: "Update", it: "Aggiornamento", pt: "Atualização", ru: "Обновление", nl: "Update" }),
-  sale: label(40, "accent", "tag", { en: "eShop sale", ko: "eShop 할인", ja: "eShop セール", zh: "eShop 折扣", "zh-Hant": "eShop 折扣", es: "Oferta en eShop", fr: "Promo eShop", de: "eShop-Angebot", it: "Offerta eShop", pt: "Promoção eShop", ru: "Скидка в eShop", nl: "eShop-aanbieding" }),
   dlc: label(50, "neutral", "package", { en: "DLC {0}", ko: "DLC {0}", ja: "DLC {0}", zh: "DLC {0}", "zh-Hant": "DLC {0}", es: "DLC {0}", fr: "DLC {0}", de: "DLC {0}", it: "DLC {0}", pt: "DLC {0}", ru: "DLC {0}", nl: "DLC {0}" }),
 };
 
@@ -64,7 +63,6 @@ export function attachSwitchLabels(items) {
     else if (item.patches && !item.korean_patches) labels.push("patch");
     if (game.integrity) labels.push(game.integrity === 2 ? "damaged" : "modified");
     else if (game.update >= 0) labels.push(item.latest_version && game.update >= item.latest_version ? "latest" : "update");
-    if (item.price_discount) labels.push("sale");
     if (game.dlc) labels.push(["dlc", String(game.dlc)]);
     if (labels.length) item.labels = labels;
   }

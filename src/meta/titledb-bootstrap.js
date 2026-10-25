@@ -16,7 +16,6 @@ import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
 import * as store from "./titledb-store.js";
 import * as titledbVersions from "./titledb-versions.js";
-import * as popularity from "./eshop-popularity.js";
 import * as shopCache from "./shop-cache.js";
 import { fetchAll, getRegionsFromEnv } from "./titledb-fetcher.js";
 import { envNumber } from "../helpers/env-read.js";
@@ -51,11 +50,9 @@ async function doFetch(regions) {
       const results = await fetchAll(target, titledbCacheDir);
       // Update and DLC facts ride the same cadence as the region files.
       const versionsOk = await titledbVersions.refresh();
-      // After the regions: the ranking is matched through the US titledb.
-      const ranksOk = await popularity.refresh();
       const okCount = results.filter((r) => r.ok).length;
       debug.log("titledb fetch: ok=%d/%d", okCount, results.length);
-      if (okCount === 0 && (versionsOk || ranksOk)) shopCache.invalidate({ rename: true });
+      if (okCount === 0 && versionsOk) shopCache.invalidate({ rename: true });
       if (okCount > 0) {
         await store.load();
         debug.log("titledb store reloaded (%d titles)", store.size());
@@ -157,7 +154,6 @@ export async function bootstrap() {
 
   await store.load();
   await titledbVersions.load();
-  await popularity.load();
   // The shop-cache init runs concurrently and might have already built a
   // response while titledb-store was still loading from disk (race on cold
   // start). rename:true so the per-file items are rebuilt against the store
@@ -180,11 +176,6 @@ export async function bootstrap() {
   const onFetchFail = (label) => (err) =>
     debug.error("titledb bootstrap: %s failed: %s", label, err.message);
 
-  if (autoFetch && haveCache && !(await popularity.hasStore())) {
-    popularity.refresh()
-      .then((ok) => ok && shopCache.invalidate({ rename: true }))
-      .catch(onFetchFail("popularity"));
-  }
   if (autoFetch && haveCache && !(await titledbVersions.hasIndex())) {
     // Upgrade from a release without the update/DLC index: fetch just that.
     titledbVersions.refresh()

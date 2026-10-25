@@ -9,12 +9,12 @@ const labelsOf = (items) => attachSwitchLabels(items).find((i) => i.app_type ===
 
 test("a base card is labelled in the client's order from what its whole game holds", () => {
   const items = [
-    item("base", { korean_patches: 2, required_patches: 1, latest_version: 131072, price_discount: "₩10,000" }),
+    item("base", { korean_patches: 2, required_patches: 1, latest_version: 131072 }),
     item("update", { app_version: 65536 }),
     item("update", { app_version: 131072 }),
     item("dlc"), item("dlc"), item("dlc"),
   ];
-  assert.deepEqual(labelsOf(items), ["korean-patch", "required-patch", "latest", "sale", ["dlc", "3"]]);
+  assert.deepEqual(labelsOf(items), ["korean-patch", "required-patch", "latest", ["dlc", "3"]]);
 });
 
 test("the file-state slot holds one label: damaged, then modified, then latest or update", () => {

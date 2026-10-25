@@ -28,7 +28,7 @@ test("shop info lists the optional fields a client may rely on", () => {
   assert.equal(info.name, "CookingFoil");
   assert.equal(info.apiVersion, 1);
   assert.match(info.version, /^\d+\.\d+\.\d+/);
-  for (const feature of ["item-install-size", "item-integrity", "item-required-firmware", "item-version-name", "title-price"]) {
+  for (const feature of ["item-install-size", "item-integrity", "item-required-firmware", "item-version-name"]) {
     assert.ok(info.features.includes(feature), feature);
   }
   assert.ok(!info.features.includes("device-pairing"), "pairing is only listed when it is switched on");

@@ -212,15 +212,6 @@ let uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
 let inboxEnabled = envBool("COOK_INBOX_ENABLED", true);
 let inboxMaxBytes = envNumber("COOK_INBOX_MAX_BYTES", 2 * 1024 ** 3, { min: 1, integer: true });
 let inboxQuotaBytes = envNumber("COOK_INBOX_QUOTA_BYTES", 20 * 1024 ** 3, { min: 1, integer: true });
-// Base games in the sections list carry their eShop price, looked up in the
-// background from the public eShop price endpoint. Off for offline servers.
-let eshopPrices = envBool("COOK_ESHOP_PRICES", true);
-// The "popular" order comes from the search index the US eShop site
-// uses (Algolia). The defaults are the public search-only credentials that
-// site ships to every visitor; override them or turn the ranking off.
-let eshopPopularity = envBool("COOK_ESHOP_POPULARITY", true);
-const eshopAlgoliaAppId = envString("COOK_ESHOP_ALGOLIA_APP_ID", "U3B6GR4UA3").trim();
-const eshopAlgoliaKey = envString("COOK_ESHOP_ALGOLIA_KEY", "a29c6927638bfd8cee23993e51e721c9").trim();
 // Icons, banners and screenshots are fetched from the eShop CDN (the
 // URLs titledb lists) and cached on disk. false serves only what is cached,
 // extracted from the game files, or uploaded on the admin page.
@@ -426,8 +417,6 @@ const ENV_SETTINGS = Object.freeze({
   titledbAutoFetch,
   titledbRegions: [...titledbRegions],
   titledbSource,
-  eshopPrices,
-  eshopPopularity,
   eshopArtwork,
   ratingSync,
   retroMeta,
@@ -484,8 +473,6 @@ function applyServerSettings(saved = {}) {
   titledbAutoFetch = v.titledbAutoFetch;
   titledbRegions = [...v.titledbRegions];
   titledbSource = v.titledbSource;
-  eshopPrices = v.eshopPrices;
-  eshopPopularity = v.eshopPopularity;
   eshopArtwork = v.eshopArtwork;
   ratingSync = v.ratingSync;
   retroMeta = v.retroMeta;
@@ -586,16 +573,12 @@ export {
   inboxEnabled,
   inboxMaxBytes,
   inboxQuotaBytes,
-  eshopPrices,
-  eshopPopularity,
   telegramBotToken,
   telegramChatId,
   telegramEvents,
   telegramButtons,
   telegramLang,
   telegramApprovers,
-  eshopAlgoliaAppId,
-  eshopAlgoliaKey,
   eshopArtwork,
   patchesDir,
   retroDir,

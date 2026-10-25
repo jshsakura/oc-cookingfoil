@@ -23,7 +23,7 @@ async function gameOf(input) {
   const files = shopCache.files().filter((f) => f.baseTitleId === base);
   // The language as GET /api/title reads ?lang=: ko-KR and KO are ko, an unknown tag is English.
   const asked = input.lang ? parseLang(input.lang) ?? "en" : null;
-  const d = await titleDetail(base, { lang: asked ?? "en", asked, price: false });
+  const d = await titleDetail(base, { lang: asked ?? "en", asked });
   if (!d && !files.length) throw notFound(`no game ${base}: not in titledb, the library or the admin's edits; find ids with games_search`);
   const have = new Set(files.map((f) => `${f.titleId}@${f.version}`));
   const updateId = `${base.slice(0, 13)}800`;

@@ -5,14 +5,12 @@
  *   POST /admin/api/integrations/:service          save its fields; an empty secret keeps the saved one
  *   POST /admin/api/integrations/:service/clear    forget what was saved (env vars apply again)
  *   POST /admin/api/integrations/:service/test     try the saved key against the service: { ok, message }
- *   GET  /admin/api/integrations also says what the keyless services are set to.
  * Telegram is stored here too, but set up from the alerts tab (alerts-api.js).
  */
 import * as integrations from "../../security/integrations.js";
 import debug from "../../debug.js";
 import { redirectUriFor } from "../dropbox-bridge.js";
 import { test as testAlerts } from "../../helpers/alerts.js";
-import { eshopPopularity, eshopPrices } from "../../helpers/envs.js";
 import { apiWord } from "./api-words.js";
 import { securityError } from "../../security/security-messages.js";
 
@@ -76,7 +74,6 @@ export function mountIntegrationsApi(router, requireSession, { fetchImpl = fetch
   router.get("/api/integrations", guarded((req, res) => res.json({
     ...integrations.describe(),
     dropboxRedirectUri: redirectUriFor(req),
-    keyless: { eshopPrices, eshopPopularity },
   })));
 
   router.post("/api/integrations/:service", guarded((req, res) => {

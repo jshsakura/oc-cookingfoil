@@ -58,8 +58,6 @@ export const SETTINGS = {
   titledbAutoFetch: bool,
   titledbRegions: list(REGION_RE, 30),
   titledbSource: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || URL_RE.test(v) },
-  eshopPrices: bool,
-  eshopPopularity: bool,
   eshopArtwork: bool,
   ratingSync: bool,
   retroMeta: bool,

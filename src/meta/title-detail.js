@@ -15,7 +15,6 @@ import { normalizeCategories, normalizeGenres, genreLabel } from "./categories.j
 import { fallbacks, parseLang, pick } from "./langs.js";
 import * as scores from "./ratings.js";
 import { versionedArtwork } from "./artwork-version.js";
-import { eshopPrice } from "./eshop-price.js";
 import * as titledbVersions from "./titledb-versions.js";
 import * as userPatches from "./user-patches.js";
 import * as gameDescriptions from "./game-descriptions.js";
@@ -44,23 +43,14 @@ export function integrityFor(base, files = shopCache.files()) {
 // The admin writes names in Korean and English; a Korean or English reader gets the other one rather than none.
 const ownName = (own, lang) => (own ? pick(own, lang) ?? (lang === "ko" || lang === "en" ? own.ko ?? null : null) : null);
 
-// The detail must not wait on the price endpoint; a slow price is simply left out.
-const PRICE_WAIT_MS = 3000;
 const MAX_RATING_REASONS = 8;
-
-function priceWithin(nsuId, ms) {
-  return Promise.race([
-    eshopPrice(nsuId).catch(() => null),
-    new Promise((resolve) => setTimeout(() => resolve(null), ms).unref?.()),
-  ]);
-}
 
 /**
  * One base title's detail, or null when nothing at all is known of it. `lang` is the reader's language;
  * `asked` is it when the reader named one (?lang= or Accept-Language), else null for the server's order.
- * Artwork URLs are made absolute on `origin` when given; `price: false` skips the eShop price lookup (up to PRICE_WAIT_MS).
+ * Artwork URLs are made absolute on `origin` when given.
  */
-export async function titleDetail(base, { lang, asked = null, origin = null, price: withPrice = true }) {
+export async function titleDetail(base, { lang, asked = null, origin = null }) {
   const fromDb = titledbStore.get(base);
   const extracted = fromDb ? null : extractedMeta.get(base);
   const overrides = customArt.list(base);
@@ -79,7 +69,6 @@ export async function titleDetail(base, { lang, asked = null, origin = null, pri
   }
   const screenshots = [...slots].sort((a, b) => a - b).map((i) => art(`/api/library/screenshot/${base}/${i}`));
 
-  const price = withPrice && fromDb?.nsuId ? await priceWithin(fromDb.nsuId, PRICE_WAIT_MS) : null;
   const categories = normalizeGenres(fromDb?.category);
   // A reader who names a language gets text only in it or its fallbacks (meta/langs.js), an unknown
   // one being English: never the server's first language. The file's own title stands in when titledb
@@ -144,7 +133,6 @@ export async function titleDetail(base, { lang, asked = null, origin = null, pri
     screenshots,
     screenshotCount: screenshots.length,
     videos: titleVideos(fromDb),
-    price,
     // Published updates, oldest first: [{ version, date }], and the DLC count.
     latestVersion: titledbVersions.latestVersion(base),
     updates: titledbVersions.updateHistory(base),

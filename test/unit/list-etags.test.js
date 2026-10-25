@@ -33,7 +33,7 @@ before(async () => {
     env: { ...process.env, COOK_PORT: String(PORT), COOK_DATA_DIR: path.join(root, "data"), COOK_GAMES_DIR: path.join(root, "games"),
       COOK_SAVES_DIR: path.join(root, "saves"), COOK_PATCHES_DIR: path.join(root, "patches"), COOK_RETRO_DIR: path.join(root, "retro"),
       COOK_HOMEBREW_DIR: path.join(root, "homebrew"), COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false",
-      COOK_EXTRACT_ICONS: "off", COOK_ESHOP_PRICES: "false", COOK_RATING_SYNC: "false", COOK_FIRST_RUN_SETUP: "false" },
+      COOK_EXTRACT_ICONS: "off", COOK_RATING_SYNC: "false", COOK_FIRST_RUN_SETUP: "false" },
     stdio: "ignore",
   });
   for (let i = 0; i < 80; i++) {

@@ -56,7 +56,6 @@ export const API_VERSION = 1;
 const FEATURES = [
   "sections-etag",        // /api/library/sections answers If-None-Match with 304
   "title-detail",         // /api/title/:id with description, screenshots, categories
-  "title-price",          // detail.price { regular, discount, country } when the eShop knows it
   "title-videos",         // detail.videos
   "title-rating-content", // detail.ratingContent, the reasons behind detail.rating
   "item-rank",            // sections item.rank and item.players
@@ -68,7 +67,6 @@ const FEATURES = [
   "item-key-generation",  // item.key_generation (master key generation, 0-based) and item.key_firmware ("21.0.0"); detail.keyGeneration, detail.keyFirmware
   "item-latest-version",  // base item.latest_version and item.dlc_total, from the eShop
   "title-updates",        // detail.latestVersion, detail.updates [{ version, date }], detail.dlcTotal
-  "item-price",           // base item.price_regular, price_discount, price_discount_ends, price_country
   "item-score",           // base item.score, score_count, score_source, score_label (+ score_labels map)
   "retro-filters",        // /api/retro/systems/:id/filters, every filter one console list takes
   "card-labels",          // base item.labels (keys, or [key, value]) and sections.labels; retro games and lists the same

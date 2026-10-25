@@ -306,7 +306,6 @@ test("a game's detail lays out what the console shows, in the console's order", 
     id: '0100000000010000', name: 'Test Game', names: { ko: '테스트 게임', en: 'Test Game' }, publisher: 'Nintendo',
     description: '바다를 건너는 모험입니다.', notes: '업데이트를 함께 설치합니다.', releaseDate: 20170303, region: 'KR', rating: 12, ratingContent: ['폭력'],
     numberOfPlayers: 4, categories: ['Action', 'RPG'], categoryLabels: ['액션', 'RPG'],
-    price: { country: 'KR', regular: '64,800원', discount: '32,400원', discountEnds: '2999-01-01T00:00:00Z' },
     latestVersion: 131072, updates: [{ version: 65536, date: 20170401 }, { version: 131072, date: 20170501 }], dlcTotal: 3,
     requiredFirmware: '16.0.0', score: 92, scoreCount: 1234, scoreLabel: '압도적으로 긍정적', scoreLabelKey: 'Overwhelmingly Positive',
     screenshots: [], patches: [],
@@ -328,14 +327,14 @@ test("a game's detail lays out what the console shows, in the console's order", 
     await page.locator('#games .game').first().click();
     await expect(page.locator('#modal-title')).toHaveText('테스트 게임');
     await expect(page.locator('#modal-publisher')).toHaveText('Nintendo');
-    await expect(page.locator('#modal-pills .pill')).toHaveText(['한글', '평점 92', '할인 32,400원', '액션, RPG']);
+    await expect(page.locator('#modal-pills .pill')).toHaveText(['한글', '평점 92', '액션, RPG']);
     // Notes come before the description.
     const notesFirst = await page.evaluate(() => Boolean(document.getElementById('modal-notes')!.compareDocumentPosition(document.getElementById('modal-desc')!) & Node.DOCUMENT_POSITION_FOLLOWING));
     expect(notesFirst).toBe(true);
     const meta = page.locator('#modal-meta');
-    await expect(meta.locator('div > span')).toHaveText(['eShop 가격', '평점 · 1,234명', '출시일', '퍼블리셔', '플레이 인원', '기본 용량', '설치 용량',
+    await expect(meta.locator('div > span')).toHaveText(['평점 · 1,234명', '출시일', '퍼블리셔', '플레이 인원', '기본 용량', '설치 용량',
       '펌웨어', '연령 등급', 'DLC', '최신 버전', '파일 형식', '지역', '타이틀 ID']);
-    await expect(meta.locator('div > strong')).toHaveText(['32,400원 (64,800원)', '92 · 압도적으로 긍정적', '2017.03.03', 'Nintendo', '최대 4명', '7.45 GB', '8.38 GB',
+    await expect(meta.locator('div > strong')).toHaveText(['92 · 압도적으로 긍정적', '2017.03.03', 'Nintendo', '최대 4명', '7.45 GB', '8.38 GB',
       '16.0.0', '12 · 폭력', '3개 출시 · 여기 1개', 'v1.2.0', 'NSP', 'KR', '0100000000010000']);
     await expect(page.locator('#modal-chips .chip-line').first()).toContainText('지원 언어');
     await expect(page.locator('#modal-chips .chip-line').first().locator('.chip')).toHaveText(['한국어', '영어']);
@@ -758,7 +757,6 @@ test("a screenshot opens a full-screen gallery: arrows, keys, swipe, the count a
     id: '0100000000010000', name: 'Test Game', names: { ko: '테스트 게임', en: 'Test Game' }, publisher: 'Nintendo',
     description: '바다를 건너는 모험입니다.', notes: '업데이트를 함께 설치합니다.', releaseDate: 20170303, region: 'KR', rating: 12, ratingContent: ['폭력'],
     numberOfPlayers: 4, categories: ['Action', 'RPG'], categoryLabels: ['액션', 'RPG'],
-    price: { country: 'KR', regular: '64,800원', discount: '32,400원', discountEnds: '2999-01-01T00:00:00Z' },
     latestVersion: 131072, updates: [{ version: 65536, date: 20170401 }, { version: 131072, date: 20170501 }], dlcTotal: 3,
     requiredFirmware: '16.0.0', score: 92, scoreCount: 1234, scoreLabel: '압도적으로 긍정적', scoreLabelKey: 'Overwhelmingly Positive',
     screenshots: ['/zz-shot-1.png', '/zz-shot-2.png', '/zz-shot-3.png'], patches: [],
