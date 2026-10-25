@@ -11,11 +11,12 @@
  * Labels come from top-i18n (ko en ja zh); the sidebar renders Korean and the
  * page's language script swaps every [data-top] span on load and on change.
  */
+import { icon } from "../../views/icons.js";
 import { top } from "./top-i18n.js";
 
-/** A page: the section (tab) it opens, the sub-view inside it when there is one. */
+/** A page: the section (tab) it opens, the sub-view inside it when there is one; a page outside a group carries its sidebar icon. */
 export const ADMIN_PAGES = [
-  { path: "/admin", tab: "overview", label: "m.overview" },
+  { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
   // games group
   { path: "/admin/games", tab: "library", label: "m.library", group: "games" },
   { path: "/admin/upload", tab: "upload", label: "m.upload", group: "games" },
@@ -41,9 +42,9 @@ export const ADMIN_PAGES = [
   { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops" },
   { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops" },
   { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", count: "lock-count" },
-  { path: "/admin/notifications", tab: "alerts", label: "m.alerts" },
+  { path: "/admin/notifications", tab: "alerts", label: "m.alerts", icon: "bell" },
   // Stage A keeps the client build block inside the overview section; Stage B gives it a page of its own.
-  { path: "/admin/client", tab: "overview", label: "m.client", anchor: "client-release" },
+  { path: "/admin/client", tab: "overview", label: "m.client", anchor: "client-release", icon: "download" },
   // settings
   { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", group: "set" },
   { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", group: "set" },
@@ -56,12 +57,12 @@ export const ADMIN_PAGES = [
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 
 const GROUPS = {
-  games: { label: "m.grpGames", sum: "games" },
-  retro: { label: "m.retro" },
-  homebrew: { label: "g.homebrew" },
-  people: { label: "m.people", sum: "people" },
-  ops: { label: "m.grpOps", sum: "ops" },
-  set: { label: "m.grpSet" },
+  games: { label: "m.grpGames", sum: "games", icon: "grid" },
+  retro: { label: "m.retro", icon: "joystick" },
+  homebrew: { label: "g.homebrew", icon: "package" },
+  people: { label: "m.people", sum: "people", icon: "users" },
+  ops: { label: "m.grpOps", sum: "ops", icon: "log" },
+  set: { label: "m.grpSet", icon: "sliders" },
 };
 
 /** The page a legacy "#tab" hash belongs to, so old links land on real paths. */
@@ -77,7 +78,7 @@ const item = (page, current, withIds) => {
   const count = page.count
     ? `<span class="count"${withIds ? ` id="${page.count}"` : ` data-count-id="${page.count}"`} hidden></span>`
     : "";
-  return `<a class="adm-item" href="${page.path}"${on ? ' aria-current="page"' : ""}>${top(page.label)}${count}</a>`;
+  return `<a class="adm-item" href="${page.path}"${on ? ' aria-current="page"' : ""}>${page.icon ? icon(page.icon) : ""}${top(page.label)}${count}</a>`;
 };
 
 const taskItem = (page, task, current) => {
@@ -104,7 +105,7 @@ export function sidebarNav(current, withIds = true) {
     const g = GROUPS[key];
     const open = pages.some((p) => p.path === current?.path) ? " open" : "";
     const sum = g.sum ? `<span class="count" data-sum="${g.sum}" hidden></span>` : "";
-    rows.push(`<details class="adm-grp" data-grp="${key}"${open}><summary>${top(g.label)}${sum}${CHEV}</summary><div class="adm-grp-in">`);
+    rows.push(`<details class="adm-grp" data-grp="${key}"${open}><summary>${icon(g.icon)}${top(g.label)}${sum}${CHEV}</summary><div class="adm-grp-in">`);
     for (const page of pages) {
       if (!page.tasks) rows.push(item(page, current, withIds));
       else for (const task of page.tasks) rows.push(taskItem(page, task, current));
@@ -133,17 +134,41 @@ body.adm-shell{padding:0}
 /* width:100% keeps every page the same width: a grid item with auto margins otherwise shrinks to its content. */
 .adm-shell>.wrap{width:100%;box-sizing:border-box;max-width:1240px;margin:0 auto;padding:24px 32px 80px;min-width:0}
 @media (max-width:899px){.adm-shell>.wrap{padding:18px 16px 72px}}
-.adm-side{display:none}
+/* One frame: the brand, upload, language and account live in the sidebar, so a page starts at its own title.
+   On a phone the same block is a top bar and the menu opens in the drawer. */
+.adm-side{position:sticky;top:0;z-index:40;box-sizing:border-box;background:var(--bg)}
+.adm-side>.adm-hdr{margin:0}
 #adm-menu{display:none}
-@media (max-width:899px){#adm-menu{display:inline-flex}}
+@media (max-width:899px){
+.adm-side{padding:8px 16px;border-bottom:1px solid var(--line)}
+.adm-side>.adm-side-in{display:none}
+#adm-menu{display:inline-flex;order:-1}
+.adm-side>.adm-hdr{flex-wrap:nowrap;gap:8px}
+.adm-side .hdr-right{display:contents}
+.adm-side .up-entry{margin-left:auto}
+.adm-side .brand .wm{font-size:20px}.adm-side .brand img{width:32px;height:32px}}
+@media (max-width:479px){.adm-side .brand .wm{display:none}}
+/* The account menu spans the phone's width under the bar, inside the same gutter the page keeps. */
+@media (max-width:640px){.adm-side .activity-account>.pop-list{left:12px;right:12px;width:auto}}
+/* Desktop: the sidebar is its own pane, cut from the page by its colour like the console client.
+   The brand sits on top, the menu fills the middle, upload, language and account stay at the bottom. */
 @media (min-width:900px){
-body.adm-shell{display:grid;grid-template-columns:252px minmax(0,1fr);min-height:100vh}
-.adm-side{display:block;position:sticky;top:0;align-self:start;height:100vh;overflow:auto;box-sizing:border-box;
-  padding:20px 14px 30px;border-right:1px solid var(--line);background:var(--bg)}
-.adm-side-in{display:grid;gap:2px;padding:6px 2px 2px}}
+body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
+.adm-side{display:flex;flex-direction:column;align-self:start;height:100vh;padding:0;background:var(--panel);border-right:1px solid var(--line)}
+.adm-side>.adm-hdr{display:contents}
+.adm-side .brand{order:0;padding:26px 24px 18px}
+.adm-side .brand a{gap:10px}.adm-side .brand img{width:36px;height:36px}.adm-side .brand .wm{font-size:25px}
+.adm-side>.adm-side-in{order:1;display:grid;align-content:start;gap:2px;flex:1;min-height:0;overflow:auto;padding:4px 14px 20px}
+.adm-side .hdr-right{order:2;position:relative;display:flex;align-items:center;gap:8px;padding:14px 16px 18px;background:var(--sunk)}
+.adm-side .up-entry{flex:1;min-width:0}
+/* The menus open upward and toward the page, never off the sidebar's edges. */
+.adm-side .acct-menu{position:static}
+.adm-side :is(.pop-list,.lang-list){left:12px;right:auto;top:auto;bottom:calc(100% + 6px)}}
 .adm-grp{border:0}
-.adm-grp summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;padding:10px 12px;border-radius:12px;
-  color:var(--muted);font-weight:800;font-size:12px;letter-spacing:.02em;text-transform:uppercase}
+.adm-grp summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:10px 12px;border-radius:12px;
+  color:var(--text);font-weight:700;font-size:14.5px}
+/* Icons on the top rows, as in the console client's menu; the rows inside a group line up with the label. */
+.adm-side-in .ico{width:20px;height:20px}
 .adm-grp summary::-webkit-details-marker{display:none}
 .adm-grp summary:hover{background:var(--sunk)}
 .adm-grp summary:focus-visible{outline:2px solid var(--text);outline-offset:2px}
@@ -152,10 +177,11 @@ body.adm-shell{display:grid;grid-template-columns:252px minmax(0,1fr);min-height
 .adm-grp[open] summary .chev{transform:rotate(180deg)}
 .adm-item:focus-visible{outline:2px solid var(--text);outline-offset:-2px}
 .adm-grp summary .count{margin-left:auto}
-.adm-grp-in{display:grid;gap:2px;margin:0 0 10px;padding-left:8px;border-left:2px solid var(--line)}
-.adm-item{display:flex;align-items:center;gap:8px;min-width:0;padding:9px 12px;border-radius:12px;position:relative;
+.adm-grp-in{display:grid;gap:2px;margin:0 0 8px;padding-left:32px}
+.adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:9px 12px;border-radius:12px;position:relative;
   color:var(--text);font-weight:600;font-size:13.5px;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adm-item:hover{background:var(--sunk)}
+.adm-side-in>.adm-item{font-size:14.5px;font-weight:700}
 .adm-item[aria-current="page"]{background:var(--text);color:var(--bg)}
 .adm-item[aria-current="page"] .count{background:var(--bg);color:var(--text)}
 .adm-item .count{margin-left:auto}
