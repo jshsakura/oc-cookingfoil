@@ -32,7 +32,6 @@
     "src/routes/admin/library-page.js": 55,
     "src/routes/admin/logs-pages.js": 19,
     "src/routes/admin/nsz-panel.js": 144,
-    "src/routes/admin/overview-page.js": 54,
     "src/routes/admin/pair-page.js": 14,
     "src/routes/admin/patches-panel.js": 50,
     "src/routes/admin/retro-art-panel.js": 143,
