@@ -44,9 +44,10 @@ test.afterAll(async ({ request }) => {
   }
 });
 
-for (const [lang, labels] of LANGS) {
-  test(`the people pages follow ${lang}`, async ({ page }) => {
-    await page.goto('/admin/users');
+test('the people pages follow en, ja, zh and ko', async ({ page }) => {
+  test.setTimeout(120_000); // one signIn for all four languages
+  await page.goto('/admin/users');
+  for (const [lang, labels] of LANGS) {
     await page.locator('#lang-btn').click();
     await page.waitForTimeout(300);
     await page.locator(`#lang-list [data-admin-lang="${lang}"]`).click();
@@ -55,17 +56,12 @@ for (const [lang, labels] of LANGS) {
     await expect(page.locator('aside.adm-side')).toContainText(labels.users);
 
     await page.waitForSelector('#users .ag-row', { timeout: 10000 });
-    const header = await page.locator('#users .ag-header-row .ag-header-cell-text').first().textContent();
-    expect(header).toBe(labels.header);
+    expect(await page.locator('#users .ag-header-row .ag-header-cell-text').first().textContent()).toBe(labels.header);
 
-    // Action buttons (in .row-actions with the .ib icon class) carry an svg
-    // and a language-specific aria-label. The login-history text button has
-    // no svg by design, so scope to the action bar, not any row button.
     const actions = page.locator('#users .ag-row .row-actions button.ib');
     expect(await actions.count()).toBeGreaterThan(0);
-    const first = actions.first();
-    await expect(first.locator('svg')).toHaveCount(1);
-    const aria = await first.getAttribute('aria-label');
+    await expect(actions.first().locator('svg')).toHaveCount(1);
+    const aria = await actions.first().getAttribute('aria-label');
     expect(aria).toBeTruthy();
     expect(aria).not.toBe('');
 
@@ -76,17 +72,17 @@ for (const [lang, labels] of LANGS) {
     await page.goto('/admin/devices');
     const ph = await page.locator('#code-in').getAttribute('placeholder');
     expect(ph).toContain(labels.codePh.split(' ')[0]);
-  });
-}
+    await page.goto('/admin/users');
+  }
 
-test('a destructive confirm asks in English, cancel focused, danger colour', async ({ page }) => {
+  // Destructive confirm: switch to English, find the Delete button by its
+  // accessible name, check the dialog's message, focus and danger colour.
   await page.goto('/admin/users');
-  await page.waitForSelector('#users .ag-row', { timeout: 10000 });
+  await page.waitForSelector('#users .ag-row', { timeout: 15000 });
   await page.locator('#lang-btn').click();
   await page.waitForTimeout(300);
   await page.locator('#lang-list [data-admin-lang="en"]').click();
   await page.waitForTimeout(500);
-
   const row = page.locator('#users .ag-row', { hasText: NAME });
   await expect(row).toHaveCount(1);
   const del = row.locator('.row-actions button.ib[aria-label="Delete"]');
@@ -101,3 +97,5 @@ test('a destructive confirm asks in English, cancel focused, danger colour', asy
   await expect(dialog).toBeHidden();
   await expect(page.locator('#users .ag-row', { hasText: NAME })).toHaveCount(1);
 });
+
+
