@@ -25,9 +25,9 @@ function run(script, env = {}) {
 test("existing COOK_AUTH_USERS accounts keep their passwords after the first start", () => {
   const { out, dataDir } = run(
     `return { list: users.list().map((u) => u.name), ok: users.verify("cc", "pw-cc-123"), bad: users.verify("cc", "nope") };`,
-    { COOK_AUTH_USERS: "tinfoil:pw-tin-123,cc:pw-cc-123" },
+    { COOK_AUTH_USERS: "player:pw-tin-123,cc:pw-cc-123" },
   );
-  assert.deepEqual(out.list, ["tinfoil", "cc"]);
+  assert.deepEqual(out.list, ["player", "cc"]);
   assert.equal(out.ok, true);
   assert.equal(out.bad, false);
   const saved = everything(dataDir);
@@ -35,9 +35,9 @@ test("existing COOK_AUTH_USERS accounts keep their passwords after the first sta
 });
 
 test("once the file exists it is the source of truth, not the env", () => {
-  const { dataDir } = run(`users.remove("cc"); return null;`, { COOK_AUTH_USERS: "tinfoil:pw-tin-123,cc:pw-cc-123" });
-  const { out } = run(`return users.list().map((u) => u.name);`, { COOK_DATA_DIR: dataDir, COOK_AUTH_USERS: "tinfoil:pw-tin-123,cc:pw-cc-123" });
-  assert.deepEqual(out, ["tinfoil"]);
+  const { dataDir } = run(`users.remove("cc"); return null;`, { COOK_AUTH_USERS: "player:pw-tin-123,cc:pw-cc-123" });
+  const { out } = run(`return users.list().map((u) => u.name);`, { COOK_DATA_DIR: dataDir, COOK_AUTH_USERS: "player:pw-tin-123,cc:pw-cc-123" });
+  assert.deepEqual(out, ["player"]);
 });
 
 test("no env users and no file means auth stays off until an account is added", () => {
@@ -157,10 +157,10 @@ test("accounts made on the admin page and then all removed are not brought back 
 });
 
 test("a COOK_AUTH_USERS entry without a password is skipped instead of crashing the boot", () => {
-  const alone = run(`return users.list().map((u) => u.name);`, { COOK_AUTH_USERS: "tinfoil" });
+  const alone = run(`return users.list().map((u) => u.name);`, { COOK_AUTH_USERS: "player" });
   assert.deepEqual(alone.out, []);
-  const mixed = run(`return users.list().map((u) => u.name);`, { COOK_AUTH_USERS: "tinfoil:pw-tin-123,broken" });
-  assert.deepEqual(mixed.out, ["tinfoil"]);
+  const mixed = run(`return users.list().map((u) => u.name);`, { COOK_AUTH_USERS: "player:pw-tin-123,broken" });
+  assert.deepEqual(mixed.out, ["player"]);
 });
 
 test("COOK_AUTH_USERS makes the first account the admin and the rest regular users", () => {

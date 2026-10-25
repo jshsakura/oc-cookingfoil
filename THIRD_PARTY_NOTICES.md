@@ -58,9 +58,6 @@ exceptions are the prebuilt `@img/sharp-libvips-*` binaries (LGPL-3.0-or-later, 
 - **LaunchBox Games Database** (game details, screenshots, ratings), **IGDB** (details and
   scores, with the user's own Twitch application keys) and **Steam** review scores are read
   at run time; nothing from them is included in this repository.
-- **CyberFoil** (luketanti/CyberFoil) and **Tinfoil** are not supported clients, and this
-  server contains no code from them. The separate CookingFoil client's install engine is
-  built on CyberFoil; that client carries its own notices.
 
 ## FinalBurn Neo set list
 
