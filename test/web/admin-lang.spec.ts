@@ -23,19 +23,23 @@ test.beforeEach(async ({ page, request }) => {
       headers: { Cookie: (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; '), Origin: new URL(page.url()).origin },
       data: { name: NAME, password: '', role: 'user' },
     });
-    if (r.status() === 201) webPassword = (await r.json()).password ?? '';
+    expect(r.status()).toBe(201);
+    const d = await r.json();
+    webPassword = d.password ?? '';
+    expect(webPassword).toBeTruthy();
   }
-  // Sign in on the web so the admin pages open (the first user requires it).
+  // Sign in on the web: the first user makes the whole server ask for it.
   await page.goto('/login');
   await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
   await page.getByLabel(/^(비밀번호|Password)$/).fill(webPassword);
   await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
-  await page.waitForURL(/\/(admin|$)/, { timeout: 10000 }).catch(() => {});
+  // The login must actually succeed (not just timeout silently).
+  await expect(page).not.toHaveURL(/\/login/, { timeout: 10000 });
 });
 
 test.afterAll(async ({ request }) => {
   if (webPassword) {
-    await request.delete(`/admin/api/users/${NAME}?allowEmpty=1`).catch(() => {});
+    const r = await request.delete(`/admin/api/users/${NAME}?allowEmpty=1`);
     webPassword = '';
   }
 });

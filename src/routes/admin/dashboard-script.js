@@ -757,14 +757,8 @@ const FP_PAGE=60,FP_MAX=40,FP_WAIT=150;
 const fpState=new WeakMap();
 const fpOf=(c)=>{let s=fpState.get(c);if(!s){s={open:!c.titleIds.length,q:'',sort:'name',only:false,offset:0,data:null,asked:0,timer:0};fpState.set(c,s);}return s;};
 const fpFill=(text,vars)=>Object.entries(vars).reduce((t,[k,v])=>t.replaceAll('{'+k+'}',String(v)),text);
-// btn() with the label in the admin's language; the Korean word still picks the icon.
-// tbtn now lives in common-script.js, using ACTION_ICONS for icon lookup.
-function tbtn(action,key,fn,cls){const icon=ACTION_ICONS[action]||ICONS[action];
-  const b=el('button',null,cls);b.type='button';
-  if(icon){b.classList.add('ib');const t=topText(key);b.title=t;b.setAttribute('aria-label',t);
-    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+icon+'</svg>';b.append(el('span',t));}
-  else b.textContent=topText(key);
-  b.addEventListener('click',fn);return b;}
+// tbtn lives in common-script.js (with ACTION_ICONS), shared by the whole
+// dashboard and the split pages alike.
 function markDirty(){featuredDirty=true;fpSaveLabel();}
 function fpSaveLabel(){$('f-save').textContent=topText(featuredDirty?'fp.saveDirty':'fp.save');}
 function fpRelabel(){fpSaveLabel();renderFeatured();}

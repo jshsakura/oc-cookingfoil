@@ -152,6 +152,16 @@ function admInterval(fn,ms){
     document.removeEventListener('visibilitychange',onVis);
     removeEventListener('pagehide',onHide);removeEventListener('pageshow',onShow);}};}
 
+// A button whose icon comes from ACTION_ICONS (keyed by what the button does,
+// not by the label's language) and whose visible text comes from the dictionary.
+function tbtn(action,key,fn,cls){const icon=ACTION_ICONS[action]||ICONS[action];
+  const b=el('button',null,cls);b.type='button';
+  if(icon){b.classList.add('ib');const t=topText(key);b.title=t;b.setAttribute('aria-label',t);
+    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+icon+'</svg>';b.append(el('span',t));}
+  else b.textContent=topText(key);
+  b.addEventListener('click',fn);return b;}
+
+
 // Sub-tab bars inside a section: one area at a time, the address carries the
 // choice. Works on the whole-page dashboard and on the split pages alike.
 const SUBTABS={};
@@ -164,4 +174,5 @@ function subtabs(tab){const bar=$(tab+'-subtabs');if(!bar)return;
   for(const b of bar.querySelectorAll('[data-sub]'))b.addEventListener('click',()=>{
     history.replaceState(null,'','#'+tab+'/'+b.dataset.sub);st.show(b.dataset.sub);});
   SUBTABS[tab]=st;}
+
 `;
