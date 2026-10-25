@@ -417,7 +417,7 @@ async function raList(){
 async function raUpload(file){
   if(!file||!(file.type||'').startsWith('image/')){$('ra-msg').textContent='이미지 파일을 고릅니다';return;}
   $('ra-msg').textContent='줄여서 올리고 있습니다';
-  try{const r=await fetch('/admin/api/retro-art/cover/upload?game='+encodeURIComponent(raGame.id),{method:'POST',headers:{'Content-Type':file.type,Accept:'application/json'},body:file});
+  try{const r=await fetch('/admin/api/retro-art/cover/upload?game='+encodeURIComponent(raGame.id),{method:'POST',headers:{'Content-Type':file.type,Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
     if(r.status===401){location.reload();return;}
     const d=await r.json().catch(()=>({}));
     if(!r.ok){$('ra-msg').textContent=d.error||('HTTP '+r.status);return;}
