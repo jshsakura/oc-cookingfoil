@@ -75,7 +75,7 @@ test('on the files page the list comes first and the server numbers follow it', 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('the file list leads, the header keeps two tidy rows of real targets and clipped menus say so', async ({ page }) => {
+  test('the file list leads, the top bar keeps one row of real targets and clipped menus say so', async ({ page }) => {
     await signIn(page);
     await page.goto('/admin#library');
     await expect(page.locator('#lb-list')).toContainText('Test Game');
@@ -83,7 +83,7 @@ test.describe('on a phone', () => {
     expect(top).toBeLessThan(844);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
-    // Two rows on a phone, and every control keeps a real touch target that touches no other.
+    // One bar on a phone, and every control keeps a real touch target that touches no other.
     const boxes = await page.evaluate(() => ['#adm-menu', '#up-entry', '#lang-btn', '#acct-btn'].map((s) => {
       const r = document.querySelector(s)!.getBoundingClientRect();
       return { s, x: r.x, y: r.y, w: r.width, h: r.height };

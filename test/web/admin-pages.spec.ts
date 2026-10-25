@@ -35,7 +35,7 @@ test('every page opens its own section, marks the sidebar and keeps its address 
     await page.goto(path);
     const sel = section.startsWith('h2:') ? section : `#${section}`;
     await expect(page.locator(sel), path).toBeVisible();
-    await expect(page.locator(`aside.adm-side a[aria-current="page"]`), path).toContainText(label);
+    await expect(page.locator(`aside.adm-side > nav a[aria-current="page"]`), path).toContainText(label);
     expect(page.url().replace(/#.*$/, ''), path).toContain(path);
     await page.reload();
     await expect(page.locator(`#${section}`), `${path} after reload`).toBeVisible();
@@ -46,7 +46,7 @@ test('the retro group lists its eight jobs as items with addresses of their own'
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
-  await expect(page.locator('aside.adm-side a[aria-current="page"]')).toHaveText('코어');
+  await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('코어');
   const items = page.locator('aside.adm-side .adm-grp[data-grp="retro"] .adm-task');
   await expect(items).toHaveCount(8);
   await expect(items.first()).toHaveAttribute('href', '/admin/retro?view=art');
@@ -65,7 +65,7 @@ test('homebrew and library task choices keep their addresses and selection on re
   await page.goto('/admin/homebrew?tab=apps');
   await page.locator('#homebrew-subtabs [data-sub="sources"]').click();
   expect(new URL(page.url()).searchParams.get('tab')).toBe('sources');
-  await expect(page.locator('aside.adm-side [aria-current="page"]')).toHaveText('GitHub 저장소');
+  await expect(page.locator('aside.adm-side > nav [aria-current="page"]')).toHaveText('GitHub 저장소');
   await page.reload();
   await expect(page.locator('#homebrew-subtabs [data-sub="sources"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#hb-add')).toBeVisible();
@@ -74,6 +74,18 @@ test('homebrew and library task choices keep their addresses and selection on re
   expect(new URL(page.url()).searchParams.get('view')).toBe('info');
   await page.reload();
   await expect(page.locator('#gd-form')).toBeVisible();
+});
+
+test('every admin page draws its content at the same width', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page);
+  const widths = new Set<string>();
+  for (const path of ['/admin', '/admin/games', '/admin/retro?view=ratings', '/admin/homebrew?tab=reco', '/admin/devices', '/admin/logs/security', '/admin/settings/admin']) {
+    await page.goto(path);
+    const b = (await page.locator('body.adm-shell > .wrap').boundingBox())!;
+    widths.add(`${Math.round(b.x)}/${Math.round(b.width)}`);
+  }
+  expect([...widths]).toHaveLength(1);
 });
 
 test('a deep address without a session shows the gate and returns to the same page after the check', async ({ page }) => {
@@ -107,13 +119,24 @@ test('an in-page hash link pushes the matching page, and back returns', async ({
   expect(new URL(page.url()).pathname).toBe('/admin/games');
 });
 
+test('a page starts at its own title: brand, upload, language and account live in the sidebar', async ({ page }) => {
+  await signIn(page);
+  for (const path of ['/admin', '/admin/games', '/admin/retro?view=cores', '/admin/settings/server']) {
+    await page.goto(path);
+    await expect(page.locator('body.adm-shell > .wrap header.adm-hdr'), path).toHaveCount(0);
+    for (const id of ['#up-entry', '#lang-btn', '#acct-btn']) await expect(page.locator(`aside.adm-side ${id}`), `${path} ${id}`).toBeVisible();
+  }
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('the drawer carries the same tree and closes by keyboard', async ({ page }) => {
     await signIn(page);
     await page.goto('/admin/games');
-    await expect(page.locator('aside.adm-side')).toBeHidden();
+    // The sidebar shrinks to the top bar: the brand and account stay, the menu tree moves to the drawer.
+    await expect(page.locator('aside.adm-side #acct-btn')).toBeVisible();
+    await expect(page.locator('aside.adm-side > nav')).toBeHidden();
     const menu = page.locator('#adm-menu');
     await menu.click();
     const drawer = page.locator('#adm-drawer');

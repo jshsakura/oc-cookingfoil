@@ -320,13 +320,13 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 
 /** The header every admin page shares: brand, menu, upload, language, account and activity. */
 /** The page title and the ask dialog, shared by the whole dashboard and the split pages. */
-/** The sidebar and phone drawer around every admin page's content. */
-export const adminChrome = (current) => /* html */ `<aside class="adm-side" data-top-label="nav" aria-label="서버 관리 메뉴">${sidebarNav(current)}</aside>\n${drawerHtml(current)}`;
+/** The one frame around every admin page: brand, account and menu in the sidebar (a top bar on a phone), plus the phone drawer. */
+export const adminChrome = (current) => /* html */ `<aside class="adm-side">${ADMIN_HEADER_HTML}<nav class="adm-side-in" data-top-label="nav" aria-label="서버 관리 메뉴">${sidebarNav(current)}</nav></aside>\n${drawerHtml(current)}`;
 
 export const ADMIN_TITLE_HTML = /* html */ `<title>CookingFoil 서버 관리</title>`;
 export const ASK_DIALOG_HTML = /* html */ `<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">\n  <p id="ask-text"></p>\n  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>\n  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>\n</dialog>`;
 
-export const ADMIN_HEADER_HTML = /* html */ `<header>
+export const ADMIN_HEADER_HTML = /* html */ `<header class="adm-hdr">
   <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
   ${MENU_BUTTON_HTML}
@@ -360,7 +360,6 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
 <body class="adm-shell">
 ${adminChrome(current)}
 <div class="wrap">
-${ADMIN_HEADER_HTML}
 
 ${OVERVIEW_HTML}
 
