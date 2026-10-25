@@ -28,7 +28,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div data-sub-panel="art">
   <div class="hd"><h2 class="first">${top("ra.title")}</h2><button type="button" class="primary" id="ra-sync">${top("ra.syncAll")}</button></div>
   <p class="muted">${top("ra.lede")}</p>
-  <p class="muted ra-credit"><span data-top="rp.creditBezel">베젤: The Bezel Project 커뮤니티가 만들어 공개한 작품입니다. 감사합니다.</span> <a href="https://github.com/thebezelproject" target="_blank" rel="noopener">github.com/thebezelproject</a><br><span data-top="rp.creditCover">표지: libretro-thumbnails 가 모아 공개한 이미지입니다. 감사합니다.</span> <a href="https://github.com/libretro-thumbnails" target="_blank" rel="noopener">github.com/libretro-thumbnails</a></p>
+  <p class="muted ra-credit">${top("rp.creditBezel")} <a href="https://github.com/thebezelproject" target="_blank" rel="noopener">github.com/thebezelproject</a><br>${top("rp.creditCover")} <a href="https://github.com/libretro-thumbnails" target="_blank" rel="noopener">github.com/libretro-thumbnails</a></p>
   <p class="warn-line" id="ra-gh" hidden>${top("ra.ghWarn")} <a href="#settings/integrations">${top("ra.ghLink")}</a>${top("ra.ghWarnAfter")}</p>
   <p class="muted" id="ra-job"></p>
   <div id="ra-bios"></div>
@@ -48,8 +48,8 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="hd"><h2 class="first">${top("ra.coresTitle")}</h2><button type="button" id="rc-reload">${icon("refresh")}${top("ra.reload")}</button><button type="button" class="primary" id="rc-up-pick">${icon("upload")}${top("ra.uploadCore")}</button><input type="file" id="rc-up" accept=".nro" ${topLabel("ra.uploadCore")} hidden></div>
   <p class="muted">${top("ra.coresLede1")}<span id="rc-official"></span>${top("ra.coresLede2")}</p>
   <p class="muted" id="rc-nro"></p>
-  <div class="hd"><h3 data-top="rp.title">RetroArch 한 번에 채우기</h3><button type="button" class="primary" id="rp-fill" data-top="rp.button">한 번에 채우기</button></div>
-  <p class="muted" data-top="rp.lead">공식 RetroArch 번들에서 본체, 지금 ROM 이 있는 기종의 코어, info·assets·autoconfig 를 받아 채운 뒤 표지와 베젤을 받습니다. 직접 넣은 파일, 바꾼 파일, retroarch.cfg, system(BIOS)은 건드리지 않습니다.</p>
+  <div class="hd"><h3>${top("rp.title")}</h3><button type="button" class="primary" id="rp-fill">${top("rp.button")}</button></div>
+  <p class="muted">${top("rp.lead")}</p>
   <p class="muted" id="rp-last"></p>
   <div class="hd"><h3>${top("ra.bySystem")}</h3>
     <button type="button" id="rc-auto">${top("ac.button")}</button><button type="button" id="rc-update">${top("ac.update")}</button></div>
@@ -88,12 +88,12 @@ ${RETRO_VARIANTS_HTML}
 </dialog>
 <dialog id="rp-dialog" class="ra-dialog" aria-labelledby="rp-dtitle">
   <form method="dialog" class="ra-close"><button ${topLabel("acc.close")}>${top("acc.close")}</button></form>
-  <h3 id="rp-dtitle" data-top="rp.confirmTitle">RetroArch 팩을 채웁니다</h3>
+  <h3 id="rp-dtitle">${top("rp.confirmTitle")}</h3>
   <p id="rp-size"></p>
-  <h4 data-top="rp.install">설치할 목록</h4>
+  <h4>${top("rp.install")}</h4>
   <ul id="rp-items" class="rp-items"></ul>
   <p class="muted" id="rp-extra"></p>
-  <div class="row"><button type="button" class="primary" id="rp-go" data-top="rp.go">채우기 시작</button><button type="button" id="rp-cancel" data-top="rp.cancel">취소</button></div>
+  <div class="row"><button type="button" class="primary" id="rp-go">${top("rp.go")}</button><button type="button" id="rp-cancel">${top("rp.cancel")}</button></div>
 </dialog>
 <dialog id="rm-dialog" class="ra-dialog" aria-labelledby="rm-title">
   <form method="dialog" class="ra-close"><button ${topLabel("acc.close")}>${top("acc.close")}</button></form>
@@ -168,20 +168,21 @@ for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEvent
 function retroOpen(){if(window.__admRetro){if(RETRO_SUBS.includes(window.__admRetro))retroSub=window.__admRetro;window.__admRetro=null;}
   loadRetroArt();if(['dups','sets','trash'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
 function raCell(node){const c=el('td');c.append(node);return c;}
-const RC_ORIGIN={official:['공식 번들과 같음','on'],modified:['공식과 다름','warn'],extra:['공식 번들에 없음','']};
+const rcWord=(w)=>typeof w==='function'?w():w;
+const RC_ORIGIN={official:[()=>topText('rc.official'),'on'],modified:[()=>topText('rc.modified'),'warn'],extra:[()=>topText('rc.extra'),'']};
 const rcMb=(n)=>(n/1048576).toFixed(1)+' MB';
-function rcOrigin(o){const [t,k]=RC_ORIGIN[o]||[o,''];return pill(t,k);}
+function rcOrigin(o){const [t,k]=RC_ORIGIN[o]||[o,''];return pill(rcWord(t),k);}
 function rcHash(h){const s=el('span',h.slice(0,12),'rc-hash');s.title=h;return s;}
 async function loadRetroCores(){let d;
   try{d=await api('/admin/api/retro-cores');}catch(err){toast(err.message);return;}
   rcSources=d.sources||{repo:null,cores:{}};$('rc-repo').value=rcSources.repo||'';
   $('rc-official').textContent=d.official;rcSystems(d.systems||[]);acLast(d.auto);
-  const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
-  table('rc-list',[topText('ac.on'),topText('rt.cores'),topText('ac.source'),'쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
+  const n=d.retroarch;$('rc-nro').replaceChildren(...(n?[topFill('rc.nroLine',{size:rcMb(n.size)})+' ',rcOrigin(n.origin)]:[topText('rc.noNro')]));
+  table('rc-list',[topText('ac.on'),topText('rt.cores'),topText('ac.source'),topText('rc.colUsed'),topText('rc.colSize'),topText('rc.colModified'),topText('rc.colSource'),'SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
-    const used=c.systems.length?c.systems.map((s)=>s.name+' '+s.games+'개').join(', '):'쓰는 게임이 없습니다';
-    const rm=btn('지우기',()=>rcRemove(c));rm.setAttribute('aria-label',c.core+' 지우기');
-    tr.append(raCell(rcSwitch(c)),name,raCell(rcSource(c.core)),td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),'retroarch/cores/ 에 코어가 없습니다.');}
+    const used=c.systems.length?c.systems.map((s)=>topFill('rc.usedN',{name:s.name,n:s.games})).join(', '):topText('rc.usedNone');
+    const rm=tbtn('delete','ss.keysRemoveBtn',()=>rcRemove(c));rm.setAttribute('aria-label',topFill('rc.removeAria',{name:c.core}));
+    tr.append(raCell(rcSwitch(c)),name,raCell(rcSource(c.core)),td(used),td(rcMb(c.size)),td(fmt(c.modifiedAt*1000)),raCell(rcOrigin(c.origin)),raCell(rcHash(c.sha256)),raCell(rm));return tr;}),topText('rc.noCores'));}
 // Off leaves the core out of the console pack; the games that need it stay listed but can't be taken.
 function rcSwitch(c){const box=el('input');box.type='checkbox';box.checked=!c.off;box.setAttribute('aria-label',c.core+' '+topText('ac.on'));
   box.addEventListener('change',async()=>{const on=box.checked;const fill=(k)=>topText(k).split('{core}').join(c.core);
@@ -220,35 +221,35 @@ async function rpStart(){$('rp-go').disabled=true;
 $('rp-fill').addEventListener('click',rpOpen);$('rp-go').addEventListener('click',rpStart);$('rp-cancel').addEventListener('click',()=>$('rp-dialog').close());
 function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name+' '+topText('rt.cores'));
   const opt=(core,label)=>{const o=el('option',label);o.value=core;if(core===s.core)o.selected=true;return o;};
-  const group=(label,cores)=>{const g=el('optgroup');g.label=label;g.append(...cores.map((c)=>opt(c,c+(c===s.tableCore?' (기본값)':''))));return g;};
-  if(!s.installed)sel.append(opt(s.core,s.core+' (설치돼 있지 않습니다)'));
-  if(s.fits.length)sel.append(group('확장자가 맞는 코어',s.fits));
+  const group=(label,cores)=>{const g=el('optgroup');g.label=label;g.append(...cores.map((c)=>opt(c,c+(c===s.tableCore?' '+topText('rc.defaultTag'):''))));return g;};
+  if(!s.installed)sel.append(opt(s.core,topFill('rc.notInstalled',{name:s.core})));
+  if(s.fits.length)sel.append(group(topText('rc.fitsGroup'),s.fits));
   if(s.others.length)sel.append(group(topText('t.a.other'),s.others));
   sel.addEventListener('change',()=>rcSetSystem(s,sel.value,sel));return sel;}
 function rcSystems(list){
   table('rc-systems',[topText('rk.colSystem'),topText('m.grpGames'),topText('rt.cores'),''],list.map((s)=>{const tr=el('tr');
     const cs=s.coreState;const state=cs?acPill(cs):!s.installed?pill(topText('ac.missing.auto-off'),'warn'):'';const swap=cs?acSwap(cs):'';
-    const picked=s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
-    const back=s.core!==s.tableCore?btn('기본값으로',()=>rcSetSystem(s,s.tableCore)):'';
+    const picked=s.core!==s.tableCore?pill(topText('rc.changedFromDefault'),''):'';
+    const back=s.core!==s.tableCore?tbtn('restore','rc.toDefault',()=>rcSetSystem(s,s.tableCore)):'';
     const extra=td();if(cs)extra.append(rcSource(cs.core));if(state)extra.append(state);if(swap)extra.append(swap);if(picked)extra.append(picked);if(back)extra.append(back);
-    tr.append(td(s.name),td(s.games+'개'),raCell(rcPicker(s)),extra);return tr;}),'게임이 있는 기종이 없습니다.');}
+    tr.append(td(s.name),td(topFill('ss.nCount',{n:s.games})),raCell(rcPicker(s)),extra);return tr;}),topText('rc.noSystems'));}
 async function rcSetSystem(s,core,sel){
-  if(!await ask(s.name+' 게임 '+s.games+'개를 '+core+' 코어로 켭니다. 기기의 홈 메뉴 바로가기는 새로 받아야 합니다.')){if(sel)sel.value=s.core;return;}
-  try{await api('/admin/api/retro-cores/system',{method:'POST',body:{system:s.id,core}});toast(s.name+' 코어를 '+core+' 로 바꿨습니다.');loadRetroCores();}
+  if(!await ask(topFill('rc.setQ',{name:s.name,n:s.games,core}))){if(sel)sel.value=s.core;return;}
+  try{await api('/admin/api/retro-cores/system',{method:'POST',body:{system:s.id,core}});toast(topFill('rc.setDone',{name:s.name,core}));loadRetroCores();}
   catch(err){toast(err.message);if(sel)sel.value=s.core;}}
 async function rcRemove(c,force=false){
-  if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.',{danger:true}))return;
+  if(!force&&!await ask(topFill('rc.removeQ',{file:c.file}),{danger:true}))return;
   try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast(topText('t.movedToast'));loadRetroCores();}
   catch(err){if(err.code==='coreInUse'&&!force){
-      if(await ask(err.message+'. 지우면 그 게임들은 기기에서 켜지지 않습니다. 그래도 지울까요?'))rcRemove(c,true);return;}
+      if(await ask(topFill('rc.removeForceQ',{msg:err.message})))rcRemove(c,true);return;}
     toast(err.message);}}
 async function rcUpload(file,replace=false){
   const fd=new FormData();fd.append('files',file,file.name);if(replace)fd.append('replace','true');
   const r=await fetch('/admin/api/upload/core',{method:'POST',headers:{'Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});const d=await r.json().catch(()=>({}));
-  if(r.status===409&&!replace&&d.code==='coreExists'){if(await ask(file.name+' 코어가 이미 있습니다. 올린 파일로 바꾸고 지금 파일은 휴지통으로 옮길까요?'))return rcUpload(file,true);return;}
+  if(r.status===409&&!replace&&d.code==='coreExists'){if(await ask(topFill('rc.existsQ',{name:file.name})))return rcUpload(file,true);return;}
   if(r.status===409&&d.reason==='busy'){toast(topText('ac.uploadBusy'));return;}
   if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
-  toast(d.where+' 에 올렸습니다.');loadRetroCores();}
+  toast(topFill('rc.uploaded',{where:d.where}));loadRetroCores();}
 // The official core upkeep's state of a console's core (auto-cores.js coreStates).
 const AC_KIND={off:'',"not-in-repo":'warn',present:'ok',pinned:'',installing:'',"will-install":'',missing:'warn',held:'',"not-in-nightly":'warn',failed:'warn'};
 function acPill(cs){const k=cs.state==='missing'?'missing.'+cs.reason:cs.state;const p=pill(topText('ac.'+k),AC_KIND[cs.state]??'');
