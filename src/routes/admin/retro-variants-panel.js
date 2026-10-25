@@ -34,7 +34,7 @@ const RV_HIDDEN={missing:'실행 불가',bootleg:'부트렉',hack:'해킹',proto
 const rvMb=(n)=>n==null?'—':n<1048576?Math.max(1,Math.round(n/1024))+' KB':(n/1048576).toFixed(1)+' MB';
 const rvDate=(s)=>s?new Date(s*1000).toLocaleDateString('ko-KR'):'—';
 function rvEdition(m){const e=m.edition;if(!e)return m.region?RV_REGION[m.region]||m.region:'—';
-  return (e.source==='official'?'공식 한국어판':'한글 패치')+(e.version?' '+e.version:'');}
+  return (e.source==='official'?'공식 한국어판':topText('rpt.patched'))+(e.version?' '+e.version:'');}
 function rvTags(m){const box=el('div');
   if(m.representative)box.append(pill('추천','on'));
   if(m.class){if(m.class.region)box.append(pill(RV_REGION[m.class.region]||m.class.region));
@@ -48,13 +48,13 @@ function rvMemberRow(g,m,withSize){const tr=el('tr');
   const n=td();n.append(m.name);n.append(el('div',m.file,'muted'));
   const acts=el('div',null,'row-actions');
   const pick=btn(m.representative?'추천 버전입니다':'추천 버전으로 정합니다',()=>rvPick(g,m));pick.disabled=m.representative;pick.classList.toggle('picked',m.representative);
-  const trash=btn('삭제',()=>rvTrash(m),'danger');trash.setAttribute('aria-label',m.file+' 삭제');
+  const trash=tbtn('delete','pp.delete',()=>rvTrash(m),'danger');trash.setAttribute('aria-label',m.file+' '+topText('pp.delete'));
   acts.append(pick,trash);
   tr.append(n,td(m.variant||'—'),raCell(rvTags(m)),td(rvEdition(m)));
   if(withSize)tr.append(td(rvMb(m.size),'rv-nw'),td(rvDate(m.addedAt),'rv-nw'));
   tr.append(raCell(acts));return tr;}
 function rvMatch(g,q){return !q||g.members.some((m)=>(m.name+' '+m.file).toLowerCase().includes(q));}
-const RV_TITLE={dups:'같은 게임의 여러 버전',sets:'아케이드 세트',trash:'휴지통'};
+const RV_TITLE={dups:'같은 게임의 여러 버전',sets:topText('rt.sets'),trash:topText('s.trash')};
 function rvShow(){
   $('rv-title').textContent=RV_TITLE[rvView];
   $('rv-help').textContent=RV_HELP[rvView];$('rv-broken-wrap').hidden=rvView!=='sets';
@@ -62,7 +62,7 @@ function rvShow(){
   if(rvView==='trash'){
     const items=(rvData.trash?.items||[]).filter((i)=>!q||(i.name+' '+i.file).toLowerCase().includes(q));
     $('rv-summary').textContent=items.length?'휴지통에 '+items.length+'개 있습니다.':'';
-    table('rv-list',['이름','시스템','크기','옮긴 때',''],items.map((i)=>{const tr=el('tr');
+    table('rv-list',[topText('pp.name'),'시스템','크기',topText('lo.colAt'),''],items.map((i)=>{const tr=el('tr');
       const n=td();n.append(i.name);n.append(el('div','파일 '+i.files.length+'개','muted'));
       tr.append(n,td(i.system==='core'?'RetroArch 코어':i.system),td(rvMb(i.size)),td(fmt(i.trashedAt)),raCell(btn('되돌립니다',()=>rvRestore(i))));return tr;}),'휴지통이 비어 있습니다.');
     return;}
