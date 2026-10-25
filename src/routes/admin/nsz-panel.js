@@ -15,7 +15,9 @@
  */
 
 import { box } from "./boxes.js";
-import { top } from "./top-i18n.js";
+import { TOP_WORDS, top } from "./top-i18n.js";
+
+const ko = (key) => `${TOP_WORDS.ko[key]}`;
 
 export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="hd"><h2 class="first">${top("nz.title")}</h2>
@@ -30,7 +32,7 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="nz-cards" id="nz-cards">${`<div class="card nz-sk"><div class="v">0</div><div class="l">${top("loading")}</div></div>`.repeat(5)}</div>
   <div class="nz-active" id="nz-active"></div>
   <div class="hd nz-tools">
-    <div class="seg" id="nz-filter" role="group" aria-label="${top("nz.filterAria")}">
+    <div class="seg" id="nz-filter" role="group" data-top-label="nz.filterAria" aria-label="${ko("nz.filterAria")}">
       <button type="button" data-filter="all" class="active" aria-pressed="true">${top("t.total")}</button>
       <button type="button" data-filter="waiting" aria-pressed="false">${top("pp.waiting")}</button>
       <button type="button" data-filter="running" aria-pressed="false">${top("nz.running")}</button>
@@ -43,7 +45,7 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="nz-list" id="nz-list">${`<div class="nz-row nz-skel"><i class="nz-ico nz-sk"></i><div class="nz-main"><b class="nz-sk">${top("loading")}</b><span class="nz-sk">${top("lo.colFile")}</span></div></div>`.repeat(6)}</div>
   <div class="nz-pager" id="nz-pager"></div>
   ${box("nsz-log", top("nz.logTitle"), `<p class="muted">${top("t.nz.logDesc")}</p>
-  <input type="search" id="nz-log-q" placeholder="${top("nz.logPh")}" aria-label="${top("nz.logAria")}">
+  <input type="search" id="nz-log-q" data-top-ph="nz.logPh" placeholder="${ko("nz.logPh")}" data-top-label="nz.logAria" aria-label="${ko("nz.logAria")}">
   <div class="nz-list" id="nz-log"></div><div class="nz-pager" id="nz-log-pager" hidden></div>`)}
   ${box("nsz-settings", top("nz.settingsTitle"), `<p class="muted">${top("nz.settingsLede")}</p>
   <div class="ss-list"><section class="ss-group" id="nz-settings"></section></div>`)}
