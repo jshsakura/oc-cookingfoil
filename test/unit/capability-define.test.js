@@ -113,7 +113,7 @@ test("token reach follows TOKEN_PATHS and tokenBlocked()", () => {
   assert.equal(tokenReach({ method: "GET", path: "/admin/api/users" }), true, "TOKEN_BLOCKED_RE only stops writes");
   assert.equal(tokenReach({ method: "GET", path: "/admin/api/tokens" }), false, "but the token list is not read with a token");
   assert.equal(tokenReach({ method: "GET", path: "/api/art/x" }), false, "outside TOKEN_PATHS");
-  assert.equal(tokenReach({ method: "GET", path: "/shop.json" }), true);
+  assert.equal(tokenReach({ method: "GET", path: "/games.json" }), true);
 });
 
 test("a route tokens may never use is not a tool, whatever token says", () => {
@@ -125,8 +125,8 @@ test("a route tokens may never use is not a tool, whatever token says", () => {
 });
 
 test("token: true outside TOKEN_PATHS is refused, token: false narrows", () => {
-  hasProblem({ http: { method: "GET", path: "/api/shop/info" }, token: true }, /outside TOKEN_PATHS/);
-  assert.equal(defineCapability({ ...base(), http: { method: "GET", path: "/api/shop/info" } }).token, false);
+  hasProblem({ http: { method: "GET", path: "/api/library/info" }, token: true }, /outside TOKEN_PATHS/);
+  assert.equal(defineCapability({ ...base(), http: { method: "GET", path: "/api/library/info" } }).token, false);
   assert.equal(defineCapability({ ...base(), token: false }).token, false);
 });
 

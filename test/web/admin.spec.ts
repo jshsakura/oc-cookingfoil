@@ -21,7 +21,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-overview.png' });
 
-  await page.getByRole('link', { name: '계정·기기' }).click();
+  await page.goto("/admin/users");
   await page.getByLabel('사용자 이름').fill(NAME);
   await page.getByLabel('비밀번호', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: '사용자 추가', exact: true }).click();
@@ -33,7 +33,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await dialog.getByRole('button', { name: '닫기', exact: true }).click();
 
   for (const password of ['wrong-password', PASSWORD]) {
-    const r = await request.get('/api/shop/sections', { headers: basic(NAME, password) });
+    const r = await request.get('/api/library/sections', { headers: basic(NAME, password) });
     expect(r.status()).toBe(401);
     expect(r.headers()['www-authenticate']).toBeUndefined();
   }
@@ -47,13 +47,13 @@ test('an account created in the admin page signs in at /login, a password alone 
   await page.screenshot({ path: 'out/web/login.png' });
   await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
   await expect(page.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true })).toBeVisible();
-  await page.getByRole('link', { name: '계정·기기' }).click();
+  await page.goto("/admin/users");
   const row = page.locator('#users .ag-row', { hasText: NAME });
   await expect(row).toContainText('사용 중');
   await page.screenshot({ path: 'out/web/admin-users.png' });
   await row.getByRole('button', { name: '삭제', exact: true }).click();
   await expect(page.locator('#users')).toContainText('아직 사용자가 없습니다');
-  expect((await request.get('/api/shop/sections')).status()).toBe(200);
+  expect((await request.get('/api/library/sections')).status()).toBe(200);
 });
 
 // Whatever happened above, leave the server without accounts for the other specs.
@@ -63,7 +63,7 @@ test.afterEach(async ({ request }) => {
 
 test('library tab shows the catalog state and starts a rescan', async ({ page }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
+  await page.goto("/admin/games");
   await page.getByRole('tab', { name: '서버' }).click();
   await expect(page.locator('#settings')).toContainText('버전');
   const rescan = page.getByRole('button', { name: '다시 스캔', exact: true });
@@ -79,8 +79,8 @@ test('library tab shows the catalog state and starts a rescan', async ({ page })
 
 test('a featured row picked in the admin page reaches the sections list by base id', async ({ page, request }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
-  await page.getByRole('link', { name: '홈 추천' }).click();
+  await page.goto("/admin/games");
+  await page.goto('/admin/featured');
   await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
   await page.getByLabel('줄 제목', { exact: true }).fill('이번 주 추천');
   // A new row opens on the list of every game: ticking one puts it in the row.
@@ -91,7 +91,7 @@ test('a featured row picked in the admin page reaches the sections list by base 
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-featured.png' });
 
-  await expect.poll(async () => (await (await request.get('/api/shop/sections')).json()).featured?.[0]?.title_ids)
+  await expect.poll(async () => (await (await request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
     .toEqual(['0100000000010000']);
   await request.put('/admin/api/featured', { data: { collections: [] }, headers: { Cookie: adminCookie, Origin: new URL(page.url()).origin } });
 });
@@ -371,7 +371,7 @@ test('a game is renamed from the game editor and every list shows the new name',
   await page.locator('#gd-form').getByRole('button', { name: '저장', exact: true }).click();
   await expect(page.locator('#gd-name-original')).toContainText('직접 정한 이름을 보여 주고 있습니다.');
   expect((await (await request.get('/api/title/0100000000010000?lang=ko')).json()).name).toBe('고친 이름');
-  await expect.poll(async () => JSON.stringify(await (await request.get('/api/shop/sections')).json()), { timeout: 15000 }).toContain('고친 이름 (Fixed Name)');
+  await expect.poll(async () => JSON.stringify(await (await request.get('/api/library/sections')).json()), { timeout: 15000 }).toContain('고친 이름 (Fixed Name)');
   await page.locator('#gd-name-ko').fill('');
   await page.locator('#gd-name-en').fill('');
   await page.locator('#gd-form').getByRole('button', { name: '저장', exact: true }).click();
@@ -415,7 +415,7 @@ test('the admin password is set, changed and removed on the settings tab, and op
 test('server behaviour is switched on the settings tab, applies at once and goes back to compose', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#settings');
-  const features = async () => (await (await request.get('/api/shop/info')).json()).features as string[];
+  const features = async () => (await (await request.get('/api/library/info')).json()).features as string[];
   expect(await features()).toContain('device-pairing');
   // One group shows at a time, the first one to begin with.
   await expect(page.locator('#ss-jump').getByRole('tab', { name: '기기 연결' })).toHaveAttribute('aria-selected', 'true');
@@ -557,8 +557,8 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   await expect(page.locator('#al-msg')).toHaveText('봇 토큰과 채팅 ID 를 먼저 넣습니다');
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-alerts.png', fullPage: true });
-  // Every tab fits the desktop bar without scrolling.
-  expect(await page.locator('nav.tabs').evaluate((n) => n.scrollWidth - n.clientWidth)).toBe(0);
+  // Every menu fits the sidebar without scrolling sideways.
+  expect(await page.locator('aside.adm-side').evaluate((n) => n.scrollWidth - n.clientWidth)).toBe(0);
 
   await page.setViewportSize({ width: 390, height: 800 });
   await page.reload();
@@ -592,22 +592,17 @@ test('the overview says where game names come from', async ({ page }) => {
   await page.locator('#tab-overview').screenshot({ path: 'out/web/admin-overview-health.png' });
 });
 
-test('the settings tab shows one area at a time, opens the one in the address and keeps it on reload', async ({ page }) => {
+test('each settings page shows only its own area and keeps it on reload', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin#settings');
+  await page.goto('/admin/settings/server');
   await expect(page.locator('#ss-list')).toBeVisible();
-  await expect(page.locator('#tok-form')).toBeHidden();
-  await expect(page.locator('#ap-form')).toBeHidden();
-  await page.locator('#set-subtabs [data-ssub="tokens"]').click();
-  await expect(page.locator('#tok-form')).toBeVisible();
-  await expect(page.locator('#ss-list')).toBeHidden();
-  expect(page.url()).toContain('#settings/tokens');
+  await expect(page.locator('#tok-form')).toHaveCount(0);
+  await expect(page.locator('#ap-form')).toHaveCount(0);
+  await page.goto('/admin/settings/automation');
+  await expect(page.locator('#mcp-on')).toBeAttached();
+  await expect(page.locator('#ss-list')).toHaveCount(0);
   await page.reload();
-  await expect(page.locator('#tok-form')).toBeVisible();
-  await expect(page.locator('#set-subtabs [data-ssub="tokens"]')).toHaveAttribute('aria-selected', 'true');
-  await page.goto('/admin#settings/security');
-  await expect(page.locator('#ap-form')).toBeVisible();
-  await expect(page.locator('#ap-status')).not.toHaveText('불러오고 있습니다');
+  await expect(page.locator('#mcp-on')).toBeAttached();
   await page.screenshot({ path: 'out/web/admin-settings-tabs.png' });
 });
 
@@ -630,7 +625,7 @@ test('an approved console gets a 관리자 기기 switch, off until the admin tu
   const flag = async () => (await (await page.request.get('/admin/api/devices')).json()).approved.find((d: { deviceKey: string }) => d.deviceKey === KEY)?.admin;
   try {
     // A new load: the list was read when the page opened, before the approval.
-    await page.goto('/admin#devices/approved');
+    await page.goto('/admin/devices?tab=approved');
     await page.reload();
     const sw = page.getByRole('checkbox', { name: '관리 콘솔 관리자 기기' });
     await expect(sw).not.toBeChecked();
@@ -653,8 +648,8 @@ test("a console's address opens its IPs by day, every value shown as text", asyn
   expect((await page.request.post('/admin/api/devices/approve', { data: { code: pending.pairCode, label: '<b>IP 콘솔</b>' }, headers: origin })).status()).toBe(200);
   try {
     const { accessKey } = await (await request.get('/api/pair/status', { headers: { 'X-Device-Key': KEY } })).json();
-    expect((await request.get('/api/shop/sections', { headers: { 'X-Device-Key': KEY, 'X-Access-Key': accessKey } })).status()).toBe(200);
-    await page.goto('/admin#devices/approved');
+    expect((await request.get('/api/library/sections', { headers: { 'X-Device-Key': KEY, 'X-Access-Key': accessKey } })).status()).toBe(200);
+    await page.goto('/admin/devices?tab=approved');
     await page.reload();
     await page.getByRole('button', { name: /날짜별 IP 기록을 봅니다/ }).first().click();
     const dialog = page.locator('#ip-dialog');

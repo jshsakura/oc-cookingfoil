@@ -30,7 +30,7 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
   const approved = await (await request.get('/api/pair/status', { headers })).json();
   expect(approved.status).toBe('approved');
   expect(approved.accessKey).toBeTruthy();
-  const response = await request.get('/api/shop/sections', { headers:{ ...headers, 'X-Access-Key':approved.accessKey } });
+  const response = await request.get('/api/library/sections', { headers:{ ...headers, 'X-Access-Key':approved.accessKey } });
   expect(response.ok()).toBeTruthy();
 });
 

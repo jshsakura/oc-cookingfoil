@@ -5,12 +5,12 @@
  * release date, rating, players, plus proxied icon/banner/screenshot URLs.
  *
  * Why a dedicated endpoint: the catalog carries no `titledb` map, so this rich
- * metadata never rides along with /shop.json or the sections list. The
+ * metadata never rides along with /games.json or the sections list. The
  * data still lives in the warmed titledb store, so we surface it here — fetched
  * only when a title is opened, keeping the list itself lean. Falls back to
  * NACP-extracted metadata for titles blawar's titledb doesn't carry.
  *
- * Artwork URLs point at our proxy endpoints (/api/shop/icon|banner|screenshot)
+ * Artwork URLs point at our proxy endpoints (/api/library/icon|banner|screenshot)
  * and are made origin-absolute like the shop/sections payloads so on-device
  * clients can curl them verbatim; a same-origin browser keeps the relative form.
  */

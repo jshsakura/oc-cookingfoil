@@ -20,7 +20,7 @@ const PROBE = `
 
   const headers = JSON.parse(process.env.PROBE_HEADERS ?? "{}");
   const req = {
-    ip: "192.0.2.77", method: "GET", originalUrl: "/api/shop/sections", path: "/api/shop/sections",
+    ip: "192.0.2.77", method: "GET", originalUrl: "/api/library/sections", path: "/api/library/sections",
     headers: {},
     get: (n) => headers[n] ?? undefined,
   };
@@ -72,7 +72,7 @@ test("pairing-only + keyless client: refused as no-device-key, and it is recorde
   assert.equal(r.denyHeader, "no-device-key");
   assert.equal(r.denials.length, 1, "the refusal must leave a trail for the dashboard");
   assert.equal(r.denials[0].reason, "no-device-key");
-  assert.equal(r.denials[0].path, "/api/shop/sections");
+  assert.equal(r.denials[0].path, "/api/library/sections");
   assert.equal(r.denials[0].ua, "Tinfoil/17.0");
 });
 

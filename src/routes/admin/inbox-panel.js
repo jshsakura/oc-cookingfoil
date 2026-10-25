@@ -1,3 +1,4 @@
+import { top } from "./top-i18n.js";
 /**
  * The admin page's 임시 공유 tab: what signed-in users left in the share inbox,
  * newest first, with their files to download, 정리함 to set one aside and
@@ -5,11 +6,11 @@
  */
 
 export const INBOX_HTML = `<section id="tab-inbox" hidden>
-  <div class="hd"><h2 class="first">임시 공유</h2>
+  <div class="hd"><h2 class="first" data-top="s.inbox">${top("s.inbox")}</h2>
     <div class="seg" id="ib-show" role="group" aria-label="보기">
       <button type="button" data-show="open" aria-pressed="true" class="active">정리할 것</button>
       <button type="button" data-show="done" aria-pressed="false">정리함</button>
-      <button type="button" data-show="all" aria-pressed="false">전체</button>
+      <button type="button" data-show="all" aria-pressed="false" data-top="t.total">${top("t.total")}</button>
     </div></div>
   <p class="muted">로그인한 사용자가 대시보드에서 남긴 파일, 메모, 링크입니다. 패치, 세이브, 홈브류로 옮긴 것은 정리함으로 보내면 목록에서 숨깁니다. 서버의 data/inbox 폴더에도 그대로 있습니다.</p>
   <p class="muted" id="ib-usage"></p>
@@ -42,13 +43,13 @@ function ibCard(e){const card=el('article',null,'ib-entry'+(e.done?' done':''));
   if(e.memo)card.append(el('p',e.memo,'ib-memo'));
   if(e.links.length){const box=el('div');box.append(el('h4','링크'));const ul=el('ul');
     for(const u of e.links){const li=el('li');const a=el('a',u);a.href=u;a.target='_blank';a.rel='noopener noreferrer';li.append(a);ul.append(li);}box.append(ul);card.append(box);}
-  if(e.files.length){const box=el('div');box.append(el('h4','파일'));const ul=el('ul');
+  if(e.files.length){const box=el('div');box.append(el('h4',topText('lo.colFile')));const ul=el('ul');
     for(const f of e.files){const li=el('li');const a=el('a',f.name);a.href=f.url;a.download='';li.append(a,el('span',ibSize(f.size)));ul.append(li);}box.append(ul);card.append(box);}
   const acts=el('div',null,'row-actions');
   acts.append(btn(e.done?'정리할 것으로 되돌리기':'정리함으로',async()=>{try{await api('/admin/api/inbox/'+e.id+'/done',{method:'POST',body:{done:!e.done}});
     toast(e.done?'정리할 것으로 되돌렸습니다.':'정리함으로 옮겼습니다.');loadInbox();}catch(err){toast(err.message);}}));
-  acts.append(btn('삭제',async()=>{if(!await ask(e.user+' 님이 남긴 것을 파일까지 삭제할까요? 되돌릴 수 없습니다.'))return;
-    try{await api('/admin/api/inbox/'+e.id,{method:'DELETE'});toast('삭제했습니다.');loadInbox();}catch(err){toast(err.message);}},'danger'));
+  acts.append(tbtn('delete','pp.delete',async()=>{if(!await ask(e.user+' 님이 남긴 것을 파일까지 삭제할까요? 되돌릴 수 없습니다.',{danger:true}))return;
+    try{await api('/admin/api/inbox/'+e.id,{method:'DELETE'});toast(topText('pp.deleted'));loadInbox();}catch(err){toast(err.message);}},'danger'));
   card.append(acts);return card;}
 async function loadInbox(){let d;try{d=await api('/admin/api/inbox?show='+ibShow);}catch(err){toast(err.message);return;}
   const list=$('ib-list');

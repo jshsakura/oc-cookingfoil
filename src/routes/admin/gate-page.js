@@ -19,7 +19,7 @@ export function gatePage({ owner, mode = "code" } = {}) {
   const either = mode === "either";
   const code = mode !== "password";
   const password = mode !== "code";
-  return /* html */ `<!doctype html><html lang="ko"><head>
+  return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CookingFoil 서버 관리</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${BRAND_MOTION_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}

@@ -78,6 +78,8 @@ import { mountInboxApi } from "./admin/inbox-api.js";
 import { mountServerApi } from "./admin/server-api.js";
 import { mountNszApi } from "./admin/nsz-api.js";
 import { mountTransfersApi } from "./admin/transfers-api.js";
+import * as inboxStore from "../meta/inbox.js";
+import * as googleAccounts from "../security/google-accounts.js";
 import { clientBuildStatus } from "./client-update.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
@@ -90,6 +92,8 @@ import { isPrivateCaller, trustedHere } from "../security/net.js";
 import { gatePage } from "./admin/gate-page.js";
 import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
+import { ADMIN_PAGES, ADMIN_PAGE_BY_PATH } from "./admin/admin-pages.js";
+import { splitPageFor } from "./admin/admin-split.js";
 import * as adminEdits from "../meta/admin-edits.js";
 import debug from "../debug.js";
 import fs from "fs";
@@ -155,7 +159,7 @@ export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|
 
 // Reads a token may not make either: the token list (tokens never handle tokens), the admin
 // login's second step, and where consoles and accounts connected from.
-export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa|access-history)(?:\/|$)/i;
+export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa|access-history|counts)(?:\/|$)/i;
 
 /**
  * Whether an automation token is refused `method path`, with the path decoded and as this router
@@ -247,7 +251,7 @@ export default function adminPageRouter() {
     recordDeny(req, { reason: DENY.ADMIN_NO_SESSION, status: 403 });
     res.set("Cache-Control", "no-store");
     if (req.path.startsWith("/api/")) return res.status(403).json({ error: "admin accounts only" });
-    res.status(403).type("html").send(forbiddenPage());
+    res.status(403).type("html").send(forbiddenPage(requestLang(req)));
   });
 
   router.get("/pair/:token", (req, res) => {
@@ -283,22 +287,51 @@ export default function adminPageRouter() {
     sendVendor(req, res);
   });
 
-  router.get("/", async (req, res) => {
+  // One job per URL. Every page below goes through the same checks as "/" did:
+  // the admin account gate, the first-run enrollment and the TOTP/password check.
+  // A page served without a session renders the gate, and its own "reload after
+  // verify" lands the operator back on the very path and query they opened.
+  // Only these literal paths exist, so /api, /verify, /pair, /vendor and /guide
+  // keep their own handlers below and are never captured.
+  async function serveAdminPage(req, res, page) {
+    res.set("Cache-Control", "no-store");
     if (hasValidSession(req)) {
-      res.type("html").send(dashboardPage());
+      const raw = page.param === "tab" ? req.query.tab : req.query.view;
+      const view = typeof raw === "string" ? raw.slice(0, 40) : "";
+      // The split pages of the redesign carry only their own markup and script.
+      const split = splitPageFor(page, view);
+      if (split) {
+        res.type("html").send(split);
+        return;
+      }
+      res.type("html").send(dashboardPage(page, view));
       return;
     }
     // First run: the operator has never proven they hold the generated secret.
-    // Show it — but only to the local network, and only until they enroll.
+    // Show it, but only to the local network, and only until they enroll.
     const wantsGate = req.query.enrolled !== undefined;
     if (!adminPasswordMode() && !wantsGate && !isEnrolled() && isPrivateCaller(req)) {
       const uri = await provisioningUri();
-      res.set("Cache-Control", "no-store");
       res.type("html").send(enrollPage({ secret: adminSecret(), uri, owner: adminOwner() }));
       return;
     }
     res.type("html").send(gatePage({ owner: adminOwner(), mode: loginMode() }));
+  }
+
+  router.get("/", async (req, res) => {
+    await serveAdminPage(req, res, ADMIN_PAGE_BY_PATH.get("/admin"));
   });
+
+  // The router is mounted at /admin, so each page registers by its path with
+  // the mount prefix taken off ("/users", not "/admin/users"); the sidebar and
+  // the bridge script keep the full address for the browser.
+  for (const page of ADMIN_PAGES) {
+    const rel = page.path.slice("/admin".length) || "/";
+    if (rel === "/") continue;
+    router.get(rel, async (req, res) => {
+      await serveAdminPage(req, res, page);
+    });
+  }
 
   // The operator's guide, which is also what an AI assistant is handed with a token.
   router.get("/guide.md", (req, res) => {
@@ -475,6 +508,40 @@ export default function adminPageRouter() {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     res.json({ edits: adminEdits.recent(req.query.limit) });
+  });
+
+  // The shell's four sidebar numbers. The inbox count is the open (undone)
+  // entries: each is a directory with note.json and status.json (done: true
+  // once set aside). A 15s TTL keeps repeated polls from re-reading the disk.
+  const inboxTTL = { at: 0, n: 0 };
+  async function countOpenInbox() {
+    if (Date.now() - inboxTTL.at < 15_000) return inboxTTL.n;
+    let n = 0;
+    const names = await fs.promises.readdir(inboxStore.INBOX_DIR).catch(() => []);
+    for (const id of names.filter(inboxStore.isEntryId)) {
+      const status = await fs.promises
+        .readFile(`${inboxStore.INBOX_DIR}/${id}/status.json`, "utf8")
+        .then((t) => JSON.parse(t), () => null)
+        .catch(() => null);
+      if (!status?.done) n++;
+    }
+    inboxTTL.at = Date.now();
+    inboxTTL.n = n;
+    return n;
+  }
+  router.get("/api/counts", async (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    const inbox = await countOpenInbox();
+    let pendingAccounts = 0;
+    try { pendingAccounts = googleAccounts.list().filter((a) => a.status === "pending").length; } catch { /* none configured */ }
+    res.json({
+      me: withAvatar(adminActor(req)),
+      inbox,
+      pendingAccounts,
+      pendingDevices: store.devicesSnapshot().pending.length,
+      lockouts: store.snapshot().lockouts.length,
+    });
   });
 
   mountManageApi(router, requireSession);

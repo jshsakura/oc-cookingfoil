@@ -54,7 +54,7 @@ after(() => {
 // fetch adds "Cache-Control: no-cache" to a conditional request unless one is given; a console's curl does not.
 const get = (url, headers = {}) => fetch(BASE + url, { headers: { ...AUTH, "Cache-Control": "max-age=0", ...headers } });
 
-const LISTS = ["/api/shop/sections", `/api/title/${TID}`, "/api/patches", "/api/saves", "/api/retro/games", "/api/retro/systems", "/api/homebrew"];
+const LISTS = ["/api/library/sections", `/api/title/${TID}`, "/api/patches", "/api/saves", "/api/retro/games", "/api/retro/systems", "/api/homebrew"];
 
 for (const url of LISTS) {
   test(`${url} has an ETag and answers If-None-Match with 304`, async () => {
@@ -76,12 +76,12 @@ for (const url of LISTS) {
 
 test("lists and downloads advertise the per-console connection count; images don't", async () => {
   for (const url of LISTS) assert.equal((await get(url)).headers.get("x-cookingfoil-max-connections"), "4", url);
-  const shop = await (await get("/api/shop/sections")).json();
+  const shop = await (await get("/api/library/sections")).json();
   const download = await get(new URL(shop.sections[0].items[0].url, `${BASE}/`).pathname, { Range: "bytes=0-1" });
   assert.equal(download.status, 206);
   assert.equal(download.headers.get("x-cookingfoil-max-connections"), "4");
-  assert.equal((await get(`/api/shop/icon/${TID}`)).headers.get("x-cookingfoil-max-connections"), null);
-  const info = await (await get("/api/shop/info")).json();
+  assert.equal((await get(`/api/library/icon/${TID}`)).headers.get("x-cookingfoil-max-connections"), null);
+  const info = await (await get("/api/library/info")).json();
   assert.deepEqual(info.download, { maxConnections: 4 });
   assert.ok(info.features.includes("download-connections"));
 });
@@ -89,7 +89,7 @@ test("lists and downloads advertise the per-console connection count; images don
 // A caller that is not signed in counts against the bucket; a console with its
 // device key, a browser session and the admin skip it.
 test("callers that went through the rate limiter see RateLimit headers", async () => {
-  for (const r of [await fetch(`${BASE}/robots.txt`), await fetch(`${BASE}/api/shop/sections`)]) {
+  for (const r of [await fetch(`${BASE}/robots.txt`), await fetch(`${BASE}/api/library/sections`)]) {
     assert.equal(r.headers.get("ratelimit-limit"), "300");
     const left = Number(r.headers.get("ratelimit-remaining"));
     assert.ok(left >= 0 && left < 300, `remaining ${left}`);
@@ -98,7 +98,7 @@ test("callers that went through the rate limiter see RateLimit headers", async (
 });
 
 test("the sections get a new ETag when a game is added", async () => {
-  const etag = async () => (await get("/api/shop/sections")).headers.get("etag");
+  const etag = async () => (await get("/api/library/sections")).headers.get("etag");
   const before = await etag();
   put(`games/Other Game [0100000000DEF000][v0].nsp`, "NSP2");
   let after = before;

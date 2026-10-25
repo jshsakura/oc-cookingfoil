@@ -302,7 +302,7 @@ expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.
 // Keep admin approval and clean configuration export reachable for onboarding.
-expressApp.use(["/api/shop", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", BRIDGE_PATH], deviceContentGuard());
+expressApp.use(["/api/library", "/api/shop", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", BRIDGE_PATH], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -321,6 +321,15 @@ expressApp.use("/api/inbox", inboxRouter());
 // Authenticated title-artwork overrides; pictures are not library uploads, so the upload setting does not hold them.
 expressApp.use("/api/art", sameOriginWrites(), adminOnly(), artRouter());
 
+// Canonical library protocol. Legacy paths below share these exact handlers during migration.
+expressApp.get("/api/library/icon/:titleId", iconRoute);
+expressApp.get("/api/library/banner/:titleId", bannerRoute);
+expressApp.get("/api/library/screenshot/:titleId/:idx", screenshotRoute);
+expressApp.get("/api/library/sections", sectionsRoute);
+expressApp.get("/api/library/info", shopInfoRoute);
+expressApp.get("/games.json", shopJsonRoute);
+
+// Transitional aliases: retain until both client and scraper migrations are confirmed.
 // Locally-cached artwork. First request fetches from the eShop CDN
 // via the URL stored in titledb; subsequent requests serve from disk.
 expressApp.get("/api/shop/icon/:titleId", iconRoute);

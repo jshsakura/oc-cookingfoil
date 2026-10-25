@@ -4,6 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
+import { LANGS } from "../../src/meta/langs.js";
+import { TRASH_MESSAGES } from "../../src/library/trash-messages.js";
 
 // Every remove on the admin page sends the thing to the trash of its folder, the
 // 휴지통 tab's API lists it with who and why, puts it back, and only emptying
@@ -307,4 +309,32 @@ test("the list says which trash folders are on a disk that is not there", async 
   const l = await list();
   assert.deepEqual(l.unavailable, [{ root: "games", home: "usb/.cookingfoil-trash" }]);
   fs.writeFileSync(path.join(dirs.games, ".cookingfoil-trash", "homes.json"), "[]");
+});
+
+
+test("trash refusals follow all twelve languages without changing confirmation or stored items", async () => {
+  const before = await list();
+  for (const lang of LANGS) {
+    for (const [action, body, key] of [
+      ["restore", { ids: [] }, "pickRestore"],
+      ["empty", { confirm: "not-confirmed" }, "confirmEmpty"],
+      ["empty", { confirm: "empty", ids: [] }, "pickEmpty"],
+    ]) {
+      const response = await fetch(`${url}/trash/${action}`, {
+        method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang }, body: JSON.stringify(body),
+      });
+      assert.equal(response.status, 400, `${lang} ${action} stays refused`);
+      assert.equal((await response.json()).error, TRASH_MESSAGES[lang][key], `${lang} ${key}`);
+    }
+  }
+  for (const [tag, lang] of [["zh-TW", "zh-Hant"], ["pt-BR", "pt"], ["xx", "en"]]) {
+    const response = await fetch(`${url}/trash/restore`, {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": tag }, body: JSON.stringify({ ids: [] }),
+    });
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error, TRASH_MESSAGES[lang].pickRestore, tag);
+  }
+  const after = await list();
+  assert.deepEqual(after.items, before.items, "refused requests never change the trash");
+  assert.equal(after.version, before.version);
 });

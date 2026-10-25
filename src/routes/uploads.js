@@ -151,20 +151,15 @@ async function findUploadById(id) {
 export default function uploadsRouter() {
   const router = express.Router();
 
-  if (!uploadsEnabled) {
-    // Disabled mode: every endpoint reports the opt-in env, so users find
-    // it immediately on the network tab instead of seeing a 404 mystery.
-    router.use((_req, res) => {
-      res
-        .status(503)
-        .type("application/json")
-        .send(JSON.stringify({ error: "uploads disabled — set COOK_UPLOADS_ENABLED=true" }));
-    });
-    return router;
-  }
+  // Settings are live; a server started with uploads disabled can enable them here.
+  router.use((_req, res, next) => {
+    if (uploadsEnabled) return next();
+    res.status(503).json({ error: "uploads disabled; enable uploads in server settings or set COOK_UPLOADS_ENABLED=true" });
+  });
 
-  const upload = multer({
-    storage: makeStorage(),
+  const storage = makeStorage();
+  const upload = () => multer({
+    storage,
     limits: { fileSize: uploadMaxBytes, files: 1 },
     fileFilter: (_req, file, cb) => {
       if (!safeBaseName(file.originalname)) {
@@ -201,7 +196,7 @@ export default function uploadsRouter() {
     }
     next();
   }, (req, res, next) => {
-    upload.single("file")(req, res, (err) => {
+    upload().single("file")(req, res, (err) => {
       if (!err) return next();
       const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
       res.status(status).json({ error: err.message || "upload failed" });

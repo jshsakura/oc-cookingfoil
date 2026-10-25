@@ -1,5 +1,5 @@
 /**
- * GET /api/shop/icon/:titleId[?v=&size=sm|md|lg|xl&lang=ko|en|ja|zh]
+ * GET /api/library/icon/:titleId[?v=&size=sm|md|lg|xl&lang=ko|en|ja|zh]
  *
  * Serves the local icon cache; on miss, lazily fetches from the
  * eShop CDN URL stored in titledb (iconUrl) and writes the

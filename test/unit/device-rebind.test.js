@@ -46,7 +46,7 @@ async function boot() {
 const rebind = (to, body, headers = {}) =>
   fetch(`${BASE}/api/pair/rebind`, { method: "POST", headers: { "Content-Type": "application/json", "X-Device-Key": to, ...headers }, body: JSON.stringify(body) });
 const status = async (key, auth) => (await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": key, ...(auth ? { Authorization: auth } : {}) } })).json();
-const shop = (headers) => fetch(`${BASE}/api/shop/sections`, { headers });
+const shop = (headers) => fetch(`${BASE}/api/library/sections`, { headers });
 
 test("a console moves to its new key with its account, or with its old access key", async () => {
   const server = await boot();

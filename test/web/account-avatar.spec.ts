@@ -20,7 +20,7 @@ for (const where of ['/', '/admin']) {
 }
 
 // A reload puts the remembered picture on at once instead of the icon first; the account's answer then confirms or clears it.
-for (const [where, answer] of [['/', '**/auth/me'], ['/admin', '**/admin/api/stats']] as const) {
+for (const [where, answer] of [['/', '**/auth/me'], ['/admin', '**/admin/api/counts'], ['/admin/users', '**/admin/api/counts'], ['/admin/settings/server', '**/admin/api/counts']] as const) {
   test(`a reload shows the remembered picture before the account answers (${where})`, async ({ page }) => {
     await signIn(page);
     await page.goto(where);

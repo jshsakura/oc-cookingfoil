@@ -55,13 +55,13 @@ test("sections: recent timestamps and actual supported languages survive scan, c
       const same = await cache.getSectionsEncodedForOrigin([], "https://shop.example.com");
       assert.equal(same.etag, results[0].etag);
       const app = express();
-      app.get("/api/shop/sections", sectionsRoute);
+      app.get("/api/library/sections", sectionsRoute);
       const server = await new Promise((resolve) => {
         const s = app.listen(0, "127.0.0.1", () => resolve(s));
       });
       try {
         const baseUrl = "http://127.0.0.1:" + server.address().port;
-        for (const endpoint of ["/api/shop/sections"]) {
+        for (const endpoint of ["/api/library/sections"]) {
           const response = await fetch(baseUrl + endpoint, {
             headers: { "Accept-Encoding": "identity" }, signal: AbortSignal.timeout(5000),
           });

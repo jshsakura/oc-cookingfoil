@@ -50,7 +50,7 @@ async function pairAs(auth, key) {
 }
 
 const shop = async (key, accessKey) =>
-  (await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": key, "X-Access-Key": accessKey } })).status;
+  (await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": key, "X-Access-Key": accessKey } })).status;
 
 test("removing, disabling or re-passwording an account revokes the consoles it approved", async () => {
   const server = bootServer();
@@ -74,9 +74,9 @@ test("removing, disabling or re-passwording an account revokes the consoles it a
     for (const name of Object.keys(PEOPLE)) {
       assert.equal(await shop(consoles[name].key, consoles[name].accessKey), 401, `${name}'s console is revoked`);
     }
-    const refused = await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": consoles.bob.key, "X-Access-Key": consoles.bob.accessKey } });
+    const refused = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": consoles.bob.key, "X-Access-Key": consoles.bob.accessKey } });
     assert.equal(refused.headers.get("x-cookingfoil-session"), "revoked", "a revoked console's access key is told to pair again");
-    const wrongKey = await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": consoles.owner.key, "X-Access-Key": "f".repeat(64) } });
+    const wrongKey = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": consoles.owner.key, "X-Access-Key": "f".repeat(64) } });
     assert.equal(wrongKey.status, 401);
     assert.equal(wrongKey.headers.get("x-cookingfoil-session"), null, "a wrong key for an approved console says nothing more");
     assert.equal(await shop(consoles.owner.key, consoles.owner.accessKey), 200, "consoles of other accounts stay");
@@ -91,6 +91,11 @@ test("the new-password confirmation says the account's consoles must pair again"
   const { DASHBOARD_SCRIPT } = await import("../../src/routes/admin/dashboard-script.js");
   const ask = DASHBOARD_SCRIPT.match(/async function resetPassword\(name\)\{if\(!await ask\(([^;]*)\)\)return;/)?.[1];
   assert.ok(ask, "resetPassword asks before it acts");
-  assert.match(ask, /기기/);
-  assert.match(ask, /다시 승인/);
+  assert.match(ask, /topFill\('pp.resetAsk',\{name\}\)/);
+  const { TOP_WORDS } = await import("../../src/routes/admin/top-i18n.js");
+  assert.match(TOP_WORDS.ko["pp.resetAsk"], /기기/);
+  assert.match(TOP_WORDS.ko["pp.resetAsk"], /다시 승인/);
+  assert.match(TOP_WORDS.en["pp.resetAsk"], /approved again/);
+  assert.match(TOP_WORDS.ja["pp.resetAsk"], /再承認/);
+  assert.match(TOP_WORDS.zh["pp.resetAsk"], /重新批准/);
 });

@@ -91,7 +91,7 @@ test('landing names the shop, shows its status and links to the admin page', asy
 });
 
 test('genre chips filter the library by English key and follow the page language', async ({ page }) => {
-  await page.route('**/api/shop/sections', (route) => route.fulfill({
+  await page.route('**/api/library/sections', (route) => route.fulfill({
     json: {
       sections: [{ id: 'all', title: 'All', items: [{ app_type: 'base', title_id: '0100000000010000', categories: ['Party'] }] }],
       genres: { Party: { en: 'Party', ko: '파티', ja: 'パーティー', zh: '派對' } },
@@ -116,7 +116,7 @@ test('genre chips filter the library by English key and follow the page language
 });
 
 test('score badges read the section scores and label them in the page language', async ({ page }) => {
-  await page.route('**/api/shop/sections', (route) => route.fulfill({
+  await page.route('**/api/library/sections', (route) => route.fulfill({
     json: {
       sections: [{ id: 'all', title: 'All', items: [{
         app_type: 'base', title_id: '0100000000010000', categories: ['Party'],
@@ -175,7 +175,7 @@ test('the language menu opens on demand, shows the current code and closes on Es
 });
 
 test('card names follow the page language from the sections names, falling back to English', async ({ page }) => {
-  await page.route('**/api/shop/sections', (route) => route.fulfill({
+  await page.route('**/api/library/sections', (route) => route.fulfill({
     json: { sections: [{ id: 'all', title: 'All', items: [{
       app_type: 'base', title_id: '0100000000010000', names: { ko: '테스트 게임', en: 'Test Game EN', ja: 'テストゲーム' },
     }] }], genres: {}, score_labels: {} },
@@ -193,7 +193,7 @@ test('card names follow the page language from the sections names, falling back 
 test('a game with a patch shows a patch chip on its card, a required one the stronger chip, and a game without none', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   const game = (tid: string, name: string, over = {}) => ({ url: `${tid}.nsp`, name, size: 1e9, app_type: 'base', title_id: tid, base_title_id: tid, app_version: 0, ...over });
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: [
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: [
     game('0100000000020000', 'Patched Game', { patches: 2, patch_required: false }),
     game('0100000000030000', 'Required Game', { patches: 1, patch_required: true, required_patches: 1 }),
     game('0100000000040000', 'Plain Game'),
@@ -219,7 +219,7 @@ test('the stats panel draws composition, storage and recent-month charts from th
     { url: 'b', size: 2e9, app_type: 'base', added_at: now, title_id: '0100000000020000' },
     { url: 'c', size: 1e9, app_type: 'update', added_at: now, title_id: '0100000000010800', base_title_id: '0100000000010000' },
   ];
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
   await page.goto('/');
   await pickLang(page, 'en');
   const charts = page.locator('#charts');
@@ -311,7 +311,7 @@ test("a game's detail lays out what the console shows, in the console's order", 
     requiredFirmware: '16.0.0', score: 92, scoreCount: 1234, scoreLabel: '압도적으로 긍정적', scoreLabelKey: 'Overwhelmingly Positive',
     screenshots: [], patches: [],
   } }));
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: {
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: {
     sections: [{ id: 'all', title: 'All', items: [
       { url: 'a.nsp', name: 'Test Game', size: 8e9, added_at: 1, app_type: 'base', title_id: '0100000000010000', base_title_id: '0100000000010000', app_version: 0, languages: ['ko', 'en'], install_size: 9e9 },
       { url: 'b.nsp', name: 'Test Game', size: 5e8, added_at: 1, app_type: 'update', title_id: '0100000000010800', base_title_id: '0100000000010000', app_version: 65536 },
@@ -420,7 +420,7 @@ test('while the library loads, placeholders in the cards\' shape hold the grid, 
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
-  await page.route('**/api/shop/sections', async (route) => { await gate; await route.continue(); });
+  await page.route('**/api/library/sections', async (route) => { await gate; await route.continue(); });
   await page.goto('/#all');
 
   const skeletons = page.locator('#games .game.skel');
@@ -457,7 +457,7 @@ test('while the library loads, placeholders in the cards\' shape hold the grid, 
 
 test('the loading shimmer stands still for visitors who ask for less motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.route('**/api/shop/sections', () => { /* never answers */ });
+  await page.route('**/api/library/sections', () => { /* never answers */ });
   await page.goto('/');
   const animation = await page.locator('#games .game.skel .cover').first().evaluate((el) => getComputedStyle(el).animationName);
   expect(animation).toBe('none');
@@ -477,7 +477,7 @@ test('on a phone the search box and the sort box share the top row, the kind chi
 });
 
 test('the title count beside list and preview counts each game once', async ({ page }) => {
-  await page.route('**/api/shop/sections', async (route) => {
+  await page.route('**/api/library/sections', async (route) => {
     const res = await route.fetch();
     const body = await res.json();
     const one = body.sections[0].items[0];
@@ -495,14 +495,14 @@ test('the title count beside list and preview counts each game once', async ({ p
 });
 
 test('patches and homebrew list one line each, and a row opens its detail', async ({ page }) => {
-  await page.route('**/api/shop/info*', async (route) => {
+  await page.route('**/api/library/info*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
     await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'shop-saves', 'homebrew'] } });
   });
   const patch = { id: '0100000000010000-aaaaaaaaaaaa', title_id: '0100000000010000', name: '성능 패치', kinds: ['exefs_patches'], size: 4096, files: 3,
     hash: 'h', description: '프레임을 올립니다.', required: true, version: '1.2', game_version: '1.0.32.0', update_version: 2097152,
-    game: { name: 'Test Game', icon: '/api/shop/icon/0100000000010000' } };
+    game: { name: 'Test Game', icon: '/api/library/icon/0100000000010000' } };
   const hbPatch = { id: 'hb-bbbbbbbbbbbb', title_id: null, homebrew: 'portgame', name: 'HD 텍스처', kinds: ['romfs'], size: 8192, files: 2, hash: 'h', description: '' };
   await page.route('**/api/patches', (route) => route.fulfill({ json: { patches: [patch, hbPatch] } }));
   await page.route('**/api/saves*', (route) => route.fulfill({ json: { saves: [] } }));
@@ -593,7 +593,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
 
 test('the four charts share one row: composition, storage, recent months and genres, with no review card', async ({ page }) => {
   const item = (id: string, cats: string[], label: string) => ({ app_type: 'base', title_id: id, categories: cats, score: 80, score_count: 100, score_source: 'steam', score_label: label });
-  await page.route('**/api/shop/sections', (route) => route.fulfill({
+  await page.route('**/api/library/sections', (route) => route.fulfill({
     json: {
       sections: [{ id: 'all', title: 'All', items: [
         { ...item('0100000000010000', ['Party', 'Action', 'RPG'], 'Overwhelmingly Positive'), url: 'a', name: 'Big Game', size: 8e9, added_at: Date.now() },
@@ -642,7 +642,7 @@ test("on a phone a game's window has a close button at the top right that closes
 });
 
 test('patches and homebrew open newest update first, and the order picked is kept', async ({ page }) => {
-  await page.route('**/api/shop/info*', async (route) => {
+  await page.route('**/api/library/info*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
     await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'shop-saves', 'homebrew'] } });
@@ -688,7 +688,7 @@ test('patches and homebrew open newest update first, and the order picked is kep
 });
 
 test('saves page by game, so a game with many saves stays on one page and loads under its card when opened', async ({ page }) => {
-  await page.route('**/api/shop/info*', async (route) => {
+  await page.route('**/api/library/info*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
     await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'shop-saves'] } });
@@ -763,7 +763,7 @@ test("a screenshot opens a full-screen gallery: arrows, keys, swipe, the count a
     requiredFirmware: '16.0.0', score: 92, scoreCount: 1234, scoreLabel: '압도적으로 긍정적', scoreLabelKey: 'Overwhelmingly Positive',
     screenshots: ['/zz-shot-1.png', '/zz-shot-2.png', '/zz-shot-3.png'], patches: [],
   } }));
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: {
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: {
     sections: [{ id: 'all', title: 'All', items: [
       { url: 'a.nsp', name: 'Test Game', size: 8e9, added_at: 1, app_type: 'base', title_id: '0100000000010000', base_title_id: '0100000000010000', app_version: 0, languages: ['ko', 'en'], install_size: 9e9 },
       { url: 'b.nsp', name: 'Test Game', size: 5e8, added_at: 1, app_type: 'update', title_id: '0100000000010800', base_title_id: '0100000000010000', app_version: 65536 },
@@ -822,7 +822,7 @@ test('a preview shelf shows only whole cards (seven wide, three on a phone), pag
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   const id = (i: number) => `01000000000${String(10 + i).padStart(2, '0')}000`;
   const items = Array.from({ length: 40 }, (_, i) => ({ url: `g${i}.nsp`, name: `Game ${i}`, size: 1e9, app_type: 'base', added_at: 1000 + i, title_id: id(i), base_title_id: id(i), app_version: 0 }));
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/#preview');
   const shelf = page.locator('.home-row').first();
@@ -862,7 +862,7 @@ test('the preview banner turns with a sideways swipe, and a swipe does not open 
     const tid = `01000000000${i + 1}0000`;
     return { url: `../G${i}%20%5B${tid}%5D%5Bv0%5D.nsp`, name: `Game ${i}`, size: 1e9 * (i + 1), app_type: 'base', added_at: 100 - i, title_id: tid, base_title_id: tid, app_version: 0, languages: ['ko'] };
   });
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
   await page.goto('/#all');
   await page.locator('#subtabs button', { hasText: '미리보기' }).click();
   const hero = page.locator('#hero');
@@ -893,7 +893,7 @@ test('on a phone the list pager fits one line under its count', async ({ page })
     const tid = `0100${String(i).padStart(8, '0')}0000`;
     return { url: `../G${i}%20%5B${tid}%5D%5Bv0%5D.nsp`, name: `Game ${i}`, size: 1e9, app_type: 'base', added_at: 1000 - i, title_id: tid, base_title_id: tid, app_version: 0, languages: ['ko'] };
   });
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }));
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/#all');
   const buttons = page.locator('#pager .pager-btn');
@@ -921,7 +921,7 @@ test('on a phone the list pager fits one line under its count', async ({ page })
 test('a game kept as two base files shows one card everywhere, and its detail lists both files', async ({ page }) => {
   const dup = { name: 'Dup Game', app_type: 'base', title_id: '0100000000030000', base_title_id: '0100000000030000', release_date: 20260101, languages: ['ko'], players: 2 };
   const other = { name: 'Other Game', app_type: 'base', title_id: '0100000000040000', base_title_id: '0100000000040000', release_date: 20250101, languages: ['ko'], players: 2 };
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: {
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: {
     sections: [{ id: 'all', title: 'All', items: [
       { ...dup, url: 'dup-v0.xci', size: 4e9, added_at: 3, app_version: 0 },
       { ...dup, url: 'dup-v65536.nsp', size: 5e9, added_at: 2, app_version: 65536 },

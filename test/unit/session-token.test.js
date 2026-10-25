@@ -84,7 +84,7 @@ test("a console pairs once and then sends only its session", async () => {
   try {
     const paired = await (await get("/api/pair/status", { Authorization: ALICE, "X-Device-Key": CONSOLE })).json();
     const keys = { "X-Device-Key": CONSOLE, "X-Access-Key": paired.accessKey };
-    const features = (await (await get("/api/shop/info", keys)).json()).features;
+    const features = (await (await get("/api/library/info", keys)).json()).features;
     assert.ok(features.includes("session-token"));
     assert.ok(features.includes("pair-password-only"));
     assert.equal((await get("/api/session", { Authorization: ALICE })).status, 401, "a password alone makes no session");
@@ -94,19 +94,19 @@ test("a console pairs once and then sends only its session", async () => {
     const { token, expiresAt } = await r.json();
     assert.ok(expiresAt > Date.now());
 
-    assert.equal((await get("/api/shop/sections", { Authorization: bearer(token), "X-Device-Key": CONSOLE })).status, 200);
-    let refused = await get("/api/shop/sections", { Authorization: bearer(token), "X-Device-Key": OTHER });
+    assert.equal((await get("/api/library/sections", { Authorization: bearer(token), "X-Device-Key": CONSOLE })).status, 200);
+    let refused = await get("/api/library/sections", { Authorization: bearer(token), "X-Device-Key": OTHER });
     assert.equal(refused.status, 401, "only from the console it was made for");
     assert.equal(refused.headers.get("x-cookingfoil-session"), "invalid");
     assert.equal(refused.headers.get("www-authenticate"), null, "no Basic challenge");
-    assert.equal((await get("/api/shop/sections", { Authorization: bearer(token) })).status, 401);
-    refused = await get("/api/shop/sections", { Authorization: bearer(token.slice(0, -2) + "AA"), "X-Device-Key": CONSOLE });
+    assert.equal((await get("/api/library/sections", { Authorization: bearer(token) })).status, 401);
+    refused = await get("/api/library/sections", { Authorization: bearer(token.slice(0, -2) + "AA"), "X-Device-Key": CONSOLE });
     assert.equal(refused.status, 401);
     assert.equal((await get("/api/session", { Authorization: bearer(token), "X-Device-Key": CONSOLE })).status, 403, "a session never makes another");
 
     // An address locked out for wrong passwords at pairing stays out, session or not.
     for (let i = 0; i < 6; i++) await get("/api/pair/status", { Authorization: basic("alice", `wrong-${i}`), "X-Device-Key": OTHER });
-    assert.equal((await get("/api/shop/sections", { Authorization: bearer(token), "X-Device-Key": CONSOLE })).status, 429);
+    assert.equal((await get("/api/library/sections", { Authorization: bearer(token), "X-Device-Key": CONSOLE })).status, 429);
   } finally {
     server.kill("SIGKILL");
   }

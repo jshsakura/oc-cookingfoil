@@ -10,13 +10,13 @@ import path from "node:path";
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-capability-coverage-"));
 const { discoverRoutes, coverageProblems, ratchetProblems } = await import("../support/capability-routes.js");
 const { registry } = await import("../../src/capabilities/registry.js");
-const { routeKey, routesOf } = await import("../../src/capabilities/define.js");
+const { routesOf } = await import("../../src/capabilities/define.js");
 const { OPT_OUT, OPT_OUT_REASONS, LEGACY_UNREGISTERED } = await import("../../src/capabilities/opt-out.js");
 
 // Ratchet ceilings. LEGACY_CEILING only goes down and is never raised. Raising OPT_OUT_CEILING is a reviewed decision:
 // do it in the same change that adds the opt-out, and say why in the commit.
 const LEGACY_CEILING = 274;
-const OPT_OUT_CEILING = 16;
+const OPT_OUT_CEILING = 43;
 const HERE = "test/unit/capability-coverage.test.js";
 
 const routes = discoverRoutes();
@@ -25,7 +25,7 @@ const current = { routes, capabilities: registry.all, optOut: OPT_OUT, legacy: L
 const listed = { ...current, routes: [...registry.all.flatMap(routesOf), ...Object.keys(OPT_OUT), ...LEGACY_UNREGISTERED] };
 
 test("the walk finds the admin API and the routes outside it", () => {
-  for (const key of ["GET /admin/api/stats", "POST /admin/api/server-settings", "GET /api/admin/items/:kind/:id/fields", "GET /shop.json", "GET /api/shop/info"]) {
+  for (const key of ["GET /admin/api/stats", "POST /admin/api/server-settings", "GET /api/admin/items/:kind/:id/fields", "GET /games.json", "GET /api/library/info"]) {
     assert.ok(routes.includes(key), `${key} not found; the walk lost a router`);
   }
   assert.ok(routes.some((r) => r.startsWith("POST /api/art/")), "upload-gated /api/art routes are walked");

@@ -2,7 +2,7 @@
  * gzip (or brotli, when the client asks) for JSON replies over 1 KB: every
  * list and detail the console and the web page read. Files, tars, images and
  * event streams are never touched, so a download keeps its Content-Length and
- * Range. A reply that already names its encoding (/api/shop/sections,
+ * Range. A reply that already names its encoding (/api/library/sections,
  * /api/retro/index: compressed once and reused) goes as it is.
  */
 import compression from "compression";

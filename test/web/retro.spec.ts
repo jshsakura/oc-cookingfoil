@@ -84,8 +84,7 @@ test('the retro window fits a phone without scrolling sideways', async ({ page }
 
 test('the admin retro tab lists the versions of a game, picks the one shown and shows arcade sets', async ({ page, request }) => {
   await signIn(page);
-  await page.getByRole('link', { name: '레트로' }).click();
-  await page.locator('#retro-subtabs [data-sub="dups"]').click();
+  await page.goto('/admin/retro?view=dups');
   const list = page.locator('#rv-list');
   await expect(list).toContainText('공식 한국어판입니다');
   const patchRow = list.locator('.ag-row', { hasText: 'J-K v20130609' });
@@ -246,11 +245,49 @@ test('removing a core that games use asks again by the refusal code, whatever la
     // English text on purpose: the page must branch on the code, not on the words.
     return force ? route.fulfill({ json: { core: 'mgba', using: 3, entry: 'x' } }) : route.fulfill({ status: 409, json: { error: '3 games use this core', code: 'coreInUse', using: 3 } });
   });
-  await page.getByRole('link', { name: '레트로' }).click();
-  await page.locator('#retro-subtabs [data-sub="cores"]').click();
+  await page.goto('/admin/retro?view=cores');
   await page.getByRole('button', { name: 'mgba 지우기' }).click();
   await page.locator('#ask-ok').click();
   await expect(page.locator('#ask-dialog')).toContainText('3 games use this core');
   await page.locator('#ask-ok').click();
   await expect.poll(() => forced).toEqual([false, true]);
+});
+
+test('the retro list asks for the newest first by default and keeps the sort the visitor picks', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+
+  // What the page itself asks for, read off the real request (nothing is stubbed).
+  const asked: string[] = [];
+  await page.route('**/api/retro/games?*', (route) => {
+    asked.push(new URL(route.request().url()).searchParams.get('sort') ?? '');
+    return route.continue();
+  });
+
+  // The select opens on added, and the list's first ask carries it.
+  await page.goto('/#retro');
+  await expect(page.locator('#retro-sort')).toHaveValue('added');
+  await expect.poll(() => asked.at(-1)).toBe('added');
+
+  // The visitor's own choice is what the list asks for next...
+  await page.locator('#retro-sort').selectOption('name');
+  await expect(page.locator('#retro-sort')).toHaveValue('name');
+  await expect.poll(() => asked.at(-1)).toBe('name');
+
+  // ...and stays through a search and a system filter, which both reload the list.
+  await page.locator('#retro-search').fill('시노비');
+  await expect(page.locator('#retro-sort')).toHaveValue('name');
+  await expect.poll(() => asked.at(-1)).toBe('name');
+  await page.locator('#retro-search').fill('');
+  await page.locator('#retro-systems button.chip').nth(1).click();
+  await expect(page.locator('#retro-sort')).toHaveValue('name');
+  await expect.poll(() => asked.at(-1)).toBe('name');
+
+  // A fresh open is back on the newest first.
+  await page.reload();
+  await expect(page.locator('#retro-sort')).toHaveValue('added');
+  await expect.poll(() => asked.at(-1)).toBe('added');
+
+  // The first card on screen is the newest one the API itself names.
+  const newest = await (await page.request.get('/api/retro/games?pageSize=1&sort=added')).json();
+  await expect(page.locator('#retro-games .game').first()).toHaveAttribute('title', newest.games[0].name);
 });

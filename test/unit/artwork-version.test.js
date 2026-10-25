@@ -15,8 +15,8 @@ test("uploaded artwork changes native cache URLs and preserves other titles", ()
       await art.init();
       const base = "0100000000ABC000";
       const image = await sharp({create:{width:2,height:2,channels:3,background:"#FFC23D"}}).jpeg().toBuffer();
-      const icon = "/api/shop/icon/" + base;
-      const other = "/api/shop/icon/0100000000DEF000";
+      const icon = "/api/library/icon/" + base;
+      const other = "/api/library/icon/0100000000DEF000";
       const before = versionedArtwork(icon), untouched = versionedArtwork(other);
       await art.put(base, "icon", null, image);
       const first = versionedArtwork(icon);

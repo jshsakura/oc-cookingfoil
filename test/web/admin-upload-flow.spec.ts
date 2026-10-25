@@ -25,6 +25,29 @@ const posts = async (page: Page) => {
 };
 const gone = (names: string[]) => { for (const n of names) fs.rmSync(path.join(GAMES, n), { force: true }); };
 
+test('a quick file pick shares the initial target request and keeps the selected files', async ({ page }) => {
+  await signIn(page);
+  let requests = 0;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/admin/api/upload/targets', async (route) => {
+    requests++;
+    await gate;
+    await route.continue();
+  });
+  try {
+    await page.goto('/admin/upload');
+    await expect.poll(() => requests).toBe(1);
+    await page.locator('#up-file').setInputFiles([pkg(nsp('Quick'))]);
+    await page.waitForTimeout(100);
+    expect(requests).toBe(1);
+  } finally {
+    release();
+  }
+  await expect(page.locator('#up-chosen')).toContainText('E2E Flow Quick');
+  await expect(page.getByRole('button', { name: '올리기', exact: true })).toBeVisible();
+});
+
 test.afterEach(() => {
   gone(fs.readdirSync(GAMES).filter((n) => n.startsWith('E2E Flow')));
   fs.rmSync(path.join(SAVES, '0100000000010000', 'Flow save'), { recursive: true, force: true });
@@ -208,6 +231,7 @@ test('while files are going up the kind, console and target cannot be changed, a
   let release: () => void = () => {};
   const gate = new Promise<void>((r) => { release = r; });
   await page.route('**/admin/api/upload/**', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
     urls.push(new URL(route.request().url()).pathname);
     if (urls.length === 1) await gate;
     await route.fulfill(created('x'));

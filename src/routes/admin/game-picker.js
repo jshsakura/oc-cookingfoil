@@ -72,7 +72,7 @@ function gamePicker(input,{pick,added=()=>false,fill=false,edited=false}){
     items=d.items;list.replaceChildren();live.textContent='';
     items.forEach((g,i)=>{const o=el('li');o.id=list.id+'-'+i;o.setAttribute('role','option');
       const has=added(g.titleId);if(has)o.setAttribute('aria-disabled','true');
-      const img=el('img');img.src='/api/shop/icon/'+g.titleId+'?size=sm';img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
+      const img=el('img');img.src='/api/library/icon/'+g.titleId+'?size=sm';img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
       const t=el('span',null,'gp-t');t.append(el('span',g.name||g.titleId,'gp-n'),el('span',(g.matched?g.matched+' · ':'')+g.titleId,'gp-s'));
       o.append(img,t);
       if(has)o.append(el('span',topText('gp.added'),'gp-tag'));

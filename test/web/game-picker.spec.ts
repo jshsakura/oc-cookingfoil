@@ -14,7 +14,7 @@ async function headersOf(page: Page, cookie: string) {
 }
 
 async function openInfo(page: Page) {
-  await page.getByRole('link', { name: '파일·정리', exact: true }).click();
+  await page.goto("/admin/games");
   await page.goto(new URL('#library/info', page.url()).toString());
   return page.locator('#gd-game');
 }
@@ -93,8 +93,8 @@ test('a home picks row marks games from its list, one found by search, unmarks o
     await page.request.post('/admin/api/library/rescan', { headers, data: {} });
     await expect.poll(async () => (await (await page.request.get(`/admin/api/games/search?q=${SECOND}`, { headers })).json()).total, { timeout: 15_000 }).toBe(1);
 
-    await page.getByRole('link', { name: '파일·정리', exact: true }).click();
-    await page.getByRole('link', { name: '홈 추천' }).click();
+    await page.goto("/admin/games");
+    await page.goto('/admin/featured');
     await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
     await page.getByLabel('줄 제목', { exact: true }).fill('고른 게임');
     const list = page.getByRole('list', { name: '게임 목록' });
@@ -119,11 +119,11 @@ test('a home picks row marks games from its list, one found by search, unmarks o
 
     await page.getByRole('button', { name: /^저장/ }).click();
     await expect(page.locator('#toast')).toContainText('추천을 저장했습니다');
-    await expect.poll(async () => (await (await page.request.get('/api/shop/sections')).json()).featured?.[0]?.title_ids)
+    await expect.poll(async () => (await (await page.request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
       .toEqual([SECOND]);
     await page.reload();
-    await page.getByRole('link', { name: '파일·정리', exact: true }).click();
-    await page.getByRole('link', { name: '홈 추천' }).click();
+    await page.goto("/admin/games");
+    await page.goto('/admin/featured');
     await expect(page.locator('#f-list .fgames li')).toContainText('Picker Second Game');
 
     // A game's own page puts it in a row too.
@@ -134,7 +134,7 @@ test('a home picks row marks games from its list, one found by search, unmarks o
     await page.locator('#gd-feat-row').selectOption({ label: '고른 게임' });
     await page.getByRole('button', { name: '추천에 넣기' }).click();
     await expect(page.locator('#toast')).toContainText('추천에 넣었습니다');
-    await expect.poll(async () => (await (await page.request.get('/api/shop/sections')).json()).featured?.[0]?.title_ids)
+    await expect.poll(async () => (await (await page.request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
       .toEqual([SECOND, ID]);
   } finally {
     await page.request.put('/admin/api/featured', { data: { collections: [] }, headers });

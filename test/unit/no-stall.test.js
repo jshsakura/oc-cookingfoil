@@ -4,12 +4,20 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import net from "node:net";
 import { CONSOLE, seedConsole } from "../support/console.js";
 
 // While the patch catalog is being read for the first time (the real one takes
 // most of an hour on spinning disks), the addresses a console connects with
 // keep answering at once, and /api/patches answers with what it has so far.
-const PORT = 17100 + (process.pid % 500);
+// PID-based port ranges overlap with other suites when the full run is concurrent.
+const probe = net.createServer();
+await new Promise((resolve, reject) => {
+  probe.once("error", reject);
+  probe.listen(0, "127.0.0.1", resolve);
+});
+const PORT = probe.address().port;
+await new Promise((resolve, reject) => probe.close((error) => error ? reject(error) : resolve()));
 const BASE = `http://127.0.0.1:${PORT}`;
 // An approved console: the shop takes its keys, never a password.
 const AUTH = CONSOLE;
@@ -48,6 +56,7 @@ test("a long first patch scan never holds up the addresses consoles connect with
   });
   try {
     for (let i = 0; i < 60; i++) {
+      assert.equal(child.exitCode, null, "the isolated test server is still running");
       try { if ((await fetch(`${BASE}/healthz`)).ok) break; } catch { /* not up yet */ }
       await new Promise((r) => setTimeout(r, 100));
     }
@@ -56,7 +65,7 @@ test("a long first patch scan never holds up the addresses consoles connect with
     const deadline = Date.now() + PATCHES * PAUSE_MS + 8000;
     let done = false;
     while (!done && Date.now() < deadline) {
-      for (const [url, init] of [["/healthz", {}], ["/api/pair/status?code=AAAA", {}], ["/api/shop/sections", { headers: AUTH }]]) {
+      for (const [url, init] of [["/healthz", {}], ["/api/pair/status?code=AAAA", {}], ["/api/library/sections", { headers: AUTH }]]) {
         const r = await timed(url, init);
         assert.ok(r.ms < LIMIT_MS, `${url} answered in ${r.ms} ms`);
         assert.ok(r.status < 500 || r.headers.get("retry-after"), `${url}: ${r.status}`);

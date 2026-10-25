@@ -85,7 +85,7 @@ test("trailers go to an admin's web session only; consoles and user accounts nev
   assert.equal((await get("/api/videos/retro/no-such-game", alice)).status, 404);
 
   // What consoles read is unchanged: no IGDB trailer anywhere, and the detail's fields stay the ones they were.
-  for (const url of [`/api/title/${TID}`, "/api/shop/sections", `/api/retro/games/${game.id}`, "/api/retro/games?pageSize=50", "/api/retro/home?limit=20"]) {
+  for (const url of [`/api/title/${TID}`, "/api/library/sections", `/api/retro/games/${game.id}`, "/api/retro/games?pageSize=50", "/api/retro/home?limit=20"]) {
     const r = await get(url, consoleHeaders);
     assert.equal(r.status, 200, url);
     const text = await r.text();

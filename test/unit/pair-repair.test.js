@@ -80,7 +80,7 @@ async function poll(deviceKey, pairSecret) {
 }
 
 const shop = async (deviceKey, accessKey) =>
-  (await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": deviceKey, "X-Access-Key": accessKey } })).status;
+  (await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": deviceKey, "X-Access-Key": accessKey } })).status;
 
 const sessions = {};
 const signedIn = async (account) => (sessions[account] ??= await webSession(BASE, account, ACCOUNTS[account]));

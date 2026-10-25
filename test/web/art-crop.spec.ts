@@ -111,7 +111,7 @@ test('a game banner is cropped with a corner handle, cropped again, and the grid
   const game = page.locator('#games .game').first();
   const cover = game.locator('img.cover');
   const before = await cover.getAttribute('src');
-  const base = (await cover.getAttribute('data-art'))!.match(/\/api\/shop\/icon\/([0-9A-F]{16})/)![1];
+  const base = (await cover.getAttribute('data-art'))!.match(/\/api\/library\/icon\/([0-9A-F]{16})/)![1];
   await game.click();
   await openEdit(page, '#modal');
   const card = page.locator('#modal-art .arted');

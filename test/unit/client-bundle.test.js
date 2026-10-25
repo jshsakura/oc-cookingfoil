@@ -282,7 +282,7 @@ test("a downloaded client connects once, under the account that downloaded it", 
   const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-enroll-"));
   const server = await boot(data);
   try {
-    const info = await (await fetch(`${BASE}/api/shop/info`, { headers: ALICE })).json();
+    const info = await (await fetch(`${BASE}/api/library/info`, { headers: ALICE })).json();
     assert.ok(info.features.includes("enroll"));
     assert.equal((await bundle(ALICE, "https://evil.example")).status, 403, "never for another site");
     assert.equal((await fetch(`${BASE}/pair/api/client-bundle`, { method: "POST", headers: { Origin: BASE } })).status, 401);
@@ -298,7 +298,7 @@ test("a downloaded client connects once, under the account that downloaded it", 
     let e = await enrollWith(token, KEY_A);
     assert.equal(e.status, 200);
     const { accessKey } = await e.json();
-    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 200, "the console is in, no password");
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 200, "the console is in, no password");
     e = await enrollWith(token, KEY_B);
     assert.equal(e.status, 401, "once");
     assert.equal(e.headers.get("x-cookingfoil-enroll"), "used", "says why");
@@ -308,8 +308,8 @@ test("a downloaded client connects once, under the account that downloaded it", 
     const again1 = await e.json();
     assert.equal(again1.status, "approved");
     assert.ok(again1.accessKey && again1.accessKey !== accessKey);
-    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 401, "the earlier key is refused");
-    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": again1.accessKey } })).status, 200);
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 401, "the earlier key is refused");
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": again1.accessKey } })).status, 200);
     e = await enrollWith(token, "C3".repeat(32));
     assert.equal(e.status, 401, "any other console still is refused");
     assert.equal(e.headers.get("x-cookingfoil-enroll"), "used");
@@ -328,8 +328,8 @@ test("a downloaded client connects once, under the account that downloaded it", 
     const re = await enrollWith(again, KEY_A);
     assert.equal(re.status, 200);
     const newKey = (await re.json()).accessKey;
-    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 401, "the old key is gone");
-    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": newKey } })).status, 200);
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": accessKey } })).status, 401, "the old key is gone");
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": KEY_A, "X-Access-Key": newKey } })).status, 200);
 
     // A waiting download can be withdrawn by its owner.
     const waiting = await bundle(ALICE);

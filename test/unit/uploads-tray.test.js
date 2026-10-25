@@ -16,6 +16,7 @@ process.env.COOK_UPLOADS_ENABLED = "true";
 process.env.COOK_UPLOAD_MAX_BYTES = "1000";
 const express = (await import("express")).default;
 const { default: uploadsRouter, MAX_PENDING_UPLOADS } = await import("../../src/routes/uploads.js");
+const envs = await import("../../src/helpers/envs.js");
 
 const app = express();
 app.use("/api/uploads", uploadsRouter());
@@ -32,6 +33,22 @@ async function send(name, bytes) {
 const clear = async () => {
   for (const u of (await (await fetch(base)).json()).uploads) await fetch(`${base}/${u.id}`, { method: "DELETE" });
 };
+
+test("the existing upload router follows enabled and byte-limit settings without a restart", async () => {
+  try {
+    envs.applyServerSettings({ uploadsEnabled: false });
+    assert.equal((await fetch(base)).status, 503);
+    envs.applyServerSettings({ uploadsEnabled: true, uploadMaxBytes: 2000 });
+    assert.equal((await (await fetch(base)).json()).maxBytes, 2000);
+    assert.equal((await send("Live limit [0100000000080000][v0].nsp", 1200)).status, 201);
+    await clear();
+    envs.applyServerSettings({ uploadsEnabled: true, uploadMaxBytes: 500 });
+    assert.equal((await send("Over limit [0100000000090000][v0].nsp", 600)).status, 413);
+    assert.deepEqual((await (await fetch(base)).json()).uploads, []);
+  } finally {
+    envs.applyServerSettings();
+  }
+});
 
 test("a new upload is refused once the pending ones reach the count cap", async () => {
   for (let i = 0; i < MAX_PENDING_UPLOADS; i++) assert.equal((await send(`Game ${i} [0100000000010000][v0].nsp`, 1)).status, 201);

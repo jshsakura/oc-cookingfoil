@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('a server with no games yet says so instead of shimmering forever', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: [] }], genres: {} } }));
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: [] }], genres: {} } }));
   await page.goto('/');
   const grid = page.locator('#games');
   await expect(grid).toHaveAttribute('aria-busy', 'false');

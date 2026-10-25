@@ -40,9 +40,8 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
     } });
   });
 
-  await page.locator('nav.tabs a[data-group="ops"]').click();
-  const section = page.locator('#tab-logs');
-  await expect(section.getByRole('heading', { name: '다운로드 기록' })).toBeVisible();
+  await page.goto('/admin/logs/downloads');
+  await expect(page.getByRole('heading', { name: '다운로드 기록' })).toBeVisible();
   await expect(page.locator('#xf-cards .card')).toHaveCount(3);
   await expect(page.locator('#xf-cards .card.slow')).toContainText('터널');
   await expect(page.locator('#xf-slow')).toBeVisible();
@@ -61,7 +60,7 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
   await expect.poll(async () => rows.first().innerText(), { timeout: 8000 }).not.toBe(before);
 
   fs.mkdirSync('out/web', { recursive: true });
-  await section.screenshot({ path: 'out/web/admin-transfers.png' });
+  await page.locator('main').screenshot({ path: 'out/web/admin-transfers.png' });
 
   await page.locator('#xf-routes').getByRole('button', { name: '전용 주소' }).click();
   await expect(rows).toHaveCount(1);
@@ -76,5 +75,5 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
   expect(overflow).toBeLessThanOrEqual(0);
   await page.locator('#xf-routes').getByRole('button', { name: '전체' }).click();
   await expect(rows).toHaveCount(4);
-  await section.screenshot({ path: 'out/web/admin-transfers-phone.png' });
+  await page.locator('main').screenshot({ path: 'out/web/admin-transfers-phone.png' });
 });

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 
-// composeSections() builds the native `/api/shop/sections` view CyberFoil
+// composeSections() builds the native `/api/library/sections` view CyberFoil
 // v1.4.5+ prefers. Unlike the legacy flat index (which stamps `[TID][vVER]`
 // onto `name` so the client can scrape it back out), the native view hands
 // the client CLEAN names + first-class fields. These probes assert the schema
@@ -52,7 +52,7 @@ test("composeSections: base item carries clean name + first-class fields", () =>
   assert.equal(item.app_type, "base");
   assert.equal(item.size, 123);
   assert.ok(
-    item.icon_url.startsWith("/api/shop/icon/0100000000010000"),
+    item.icon_url.startsWith("/api/library/icon/0100000000010000"),
     "relative icon_url (route applies origin rewrite)"
   );
 });

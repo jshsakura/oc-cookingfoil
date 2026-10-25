@@ -42,7 +42,7 @@ test("a console that signs in at pairing is approved on the spot (the default); 
   try {
     assert.equal((await status(SIGNED_IN)).status, "pending");
     // The password counts at pairing only: on the shop it opens nothing and approves nothing.
-    const r = await fetch(`${BASE}/api/shop/sections`, { headers: { Authorization: ALICE, "X-Device-Key": SIGNED_IN } });
+    const r = await fetch(`${BASE}/api/library/sections`, { headers: { Authorization: ALICE, "X-Device-Key": SIGNED_IN } });
     assert.equal(r.status, 401);
     assert.equal((await status(SIGNED_IN)).status, "pending");
     await fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: ALICE, "X-Device-Key": SIGNED_IN }, body: "{}" });
@@ -51,7 +51,7 @@ test("a console that signs in at pairing is approved on the spot (the default); 
     assert.equal(first.status, "approved");
     assert.match(first.accessKey, /^[A-Za-z0-9_-]{20,}$/, "the key comes down on the next poll");
     assert.equal((await status(SIGNED_IN)).accessKey, undefined, "and only once");
-    const paired = await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": SIGNED_IN, "X-Access-Key": first.accessKey } });
+    const paired = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": SIGNED_IN, "X-Access-Key": first.accessKey } });
     assert.equal(paired.status, 200, "afterwards it connects with no password");
 
     // A console whose first call is the pairing poll, with its account: approved there and then.
@@ -61,7 +61,7 @@ test("a console that signs in at pairing is approved on the spot (the default); 
     const wrong = "Basic " + Buffer.from("alice:wrong").toString("base64");
     assert.equal((await (await fetch(`${BASE}/api/pair/status`, { headers: { Authorization: wrong, "X-Device-Key": STRANGER } })).json()).status, "pending", "a wrong password approves nothing");
 
-    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": STRANGER } })).status, 401);
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": STRANGER } })).status, 401);
     assert.equal((await status(STRANGER)).status, "pending", "no sign-in, no approval");
   } finally {
     server.kill("SIGKILL");
@@ -101,7 +101,7 @@ test("with auto-approval set to all, every console that asks is approved, signed
     const first = await status(STRANGER);
     assert.equal(first.status, "approved", "no sign-in needed");
     assert.ok(first.accessKey, "the key comes down on that poll");
-    const paired = await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": STRANGER, "X-Access-Key": first.accessKey } });
+    const paired = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": STRANGER, "X-Access-Key": first.accessKey } });
     assert.equal(paired.status, 200);
     const wrong = "Basic " + Buffer.from("alice:stale").toString("base64");
     assert.equal((await (await fetch(`${BASE}/api/pair/status`, { headers: { Authorization: wrong, "X-Device-Key": KNOCKER } })).json()).status, "approved", "a stale password doesn't hold it back");

@@ -70,7 +70,7 @@ test("patches and saves carry a 검수됨 mark that admins set and moves or dele
     const korean = listed.find((p) => p.name === "Korean");
     const fps = listed.find((p) => p.name === "Fps");
     assert.ok(korean && fps, "both patches are listed");
-    const { features } = await (await fromConsole("GET", "/api/shop/info")).json();
+    const { features } = await (await fromConsole("GET", "/api/library/info")).json();
     assert.ok(features.includes("user-patches") && features.includes("shop-saves"), "a patch and a save to hand out turn both on");
     assert.deepEqual([korean.verified, korean.verified_at], [false, null]);
     const saveList = await saves();

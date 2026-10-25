@@ -12,6 +12,7 @@
 export const OPT_OUT_REASONS = {
   "browser-only": "a page, its assets, or a sign-in step a person does in the browser",
   "token-blocked": "accounts, sign-in, devices or binaries; automation tokens may never do it",
+  "catalog-export": "bulk authenticated catalog export; interactive game queries are provided by capabilities",
   "binary-upload": "takes a file upload, which a tool call cannot carry",
   "mcp-transport": "the MCP endpoint itself, through which the capabilities are served as tools",
   "legacy-unregistered": "predates the registry; only LEGACY_UNREGISTERED may use it",
@@ -19,11 +20,44 @@ export const OPT_OUT_REASONS = {
 
 /** "METHOD /path" -> reason, one of OPT_OUT_REASONS other than legacy-unregistered. */
 export const OPT_OUT = {
+  // Canonical client protocol: same handlers and token restrictions as the transitional aliases.
+  "GET /api/library/banner/:titleId": "token-blocked",
+  "GET /api/library/icon/:titleId": "token-blocked",
+  "GET /api/library/info": "token-blocked",
+  "GET /api/library/screenshot/:titleId/:idx": "token-blocked",
+  "GET /api/library/sections": "token-blocked",
+  // A bulk export for the scraper, not an unbounded MCP tool response.
+  "GET /games.json": "catalog-export",
   // The link-preview share images, one per language: static files fetched without signing in.
   "GET /assets/og-image.png": "browser-only",
   "GET /assets/og-image-ja.png": "browser-only",
   "GET /assets/og-image-ko.png": "browser-only",
   "GET /assets/og-image-zh.png": "browser-only",
+  // The admin pages themselves, one address per job (the admin redesign, Stage A):
+  // HTML a signed-in person reads behind the admin gate; never a tool. GET /admin
+  // and GET /admin/ predate the registry and stay in LEGACY_UNREGISTERED.
+  "GET /admin/games": "browser-only",
+  "GET /admin/upload": "browser-only",
+  "GET /admin/convert": "browser-only",
+  "GET /admin/inbox": "browser-only",
+  "GET /admin/featured": "browser-only",
+  "GET /admin/trash": "browser-only",
+  "GET /admin/retro": "browser-only",
+  "GET /admin/homebrew": "browser-only",
+  "GET /admin/users": "browser-only",
+  "GET /admin/devices": "browser-only",
+  "GET /admin/logs/downloads": "browser-only",
+  "GET /admin/logs/clients": "browser-only",
+  "GET /admin/logs/security": "browser-only",
+  "GET /admin/notifications": "browser-only",
+  "GET /admin/client": "browser-only",
+  "GET /admin/settings/server": "browser-only",
+  "GET /admin/settings/integrations": "browser-only",
+  "GET /admin/settings/login": "browser-only",
+  "GET /admin/settings/admin": "browser-only",
+  "GET /admin/settings/automation": "browser-only",
+  // The shell's four sidebar numbers: a read for the page's own badges, not a tool.
+  "GET /admin/api/counts": "browser-only",
   // Emptying the trash is the one permanent delete; only a person on the admin page does it.
   "POST /admin/api/trash/empty": "token-blocked",
   // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.

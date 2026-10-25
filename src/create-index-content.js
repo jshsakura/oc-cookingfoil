@@ -1,5 +1,5 @@
 /**
- * Build the shop response payload (consumed by /shop.json and the sections
+ * Build the shop response payload (consumed by /games.json and the sections
  * view via the chokidar-warmed cache in src/meta/shop-cache.js).
  *
  * Pipeline:
@@ -8,8 +8,8 @@
  *     → per-item enrich with name + size + icon_url + titleId + kind
  *     → titledb store overlay (per-field language fallback already applied)
  *     → custom_entries.jsonc verbatim merge (with synthetic-titleId support)
- *     → rewrite every titledb image URL to the local proxy (/api/shop/...)
- *     → fold in the shop_template (welcome message, custom headers, ...)
+ *     → rewrite every titledb image URL to the local proxy (/api/library/...)
+ *     → include the configured custom library entries
  *
  * Two surfaces:
  *   - generateIndex() — convenience wrapper that does a full scan + compose.
@@ -213,7 +213,7 @@ function buildFileItem(relPath, size, mtimeMs) {
     item.baseTitleId = baseId;
     item.kind = parsed.contentType; // "base" | "update" | "dlc"
     item.version = parsed.version ?? 0;
-    item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
+    item.icon_url = withVersion(`/api/library/icon/${parsed.titleId}`);
   }
   return item;
 }
@@ -275,7 +275,7 @@ export async function loadCustoms() {
 }
 
 /**
- * A file as /shop.json lists it: its name ends in "[TITLEID][vVERSION]", the
+ * A file as /games.json lists it: its name ends in "[TITLEID][vVERSION]", the
  * form automation reading the catalog parses for the file's identity. Pure.
  */
 function catalogEntry({ version, ...item }) {
@@ -304,7 +304,7 @@ export function composeResponse(filesMap, customs) {
     const entry = { ...raw };
     const tid = normalizeTitleId(entry.titleId);
     if (tid && !entry.icon_url && !entry.iconUrl) {
-      entry.icon_url = withVersion(`/api/shop/icon/${tid}`);
+      entry.icon_url = withVersion(`/api/library/icon/${tid}`);
     }
     files.push(entry);
   }
@@ -358,7 +358,7 @@ function queueExtraction(relPath, item, baseId) {
   }
 }
 
-// ── Sections view (/api/shop/sections) ─────────────────────────────────────
+// ── Sections view (/api/library/sections) ─────────────────────────────────────
 // The catalog the CookingFoil client and the web page read: each item carries
 // its own fields (clean name, title_id, app_version, app_type, icon_url), so
 // nothing is read back out of a file name. Schema per the client's
@@ -422,7 +422,7 @@ function buildSectionItem(relPath, wireItem) {
       // Box art per language where it differs from icon_url (feature "item-icons").
       const langs = iconLangs(parsed.titleId);
       if (langs.length) {
-        item.icons = Object.fromEntries(langs.map((l) => [l, withVersion(`/api/shop/icon/${parsed.titleId}`, l)]));
+        item.icons = Object.fromEntries(langs.map((l) => [l, withVersion(`/api/library/icon/${parsed.titleId}`, l)]));
       }
       Object.assign(item, scoreFields(scores.ratingOf(parsed.titleId, { siblings: titledbStore.artSiblings(parsed.titleId) })));
       const patchCount = userPatches.countFor(parsed.titleId);
@@ -435,7 +435,7 @@ function buildSectionItem(relPath, wireItem) {
       const korean = patchCount ? userPatches.koreanFor(parsed.titleId) : 0;
       if (korean) item.korean_patches = korean;
     }
-    item.icon_url = withVersion(`/api/shop/icon/${parsed.titleId}`);
+    item.icon_url = withVersion(`/api/library/icon/${parsed.titleId}`);
     attachContentMeta(item, relPath, parsed);
   }
   return item;
@@ -502,7 +502,7 @@ function buildSectionItemFromCustom(raw) {
     if (typeof raw.version === "number") item.app_version = raw.version;
     if (raw.publisher) item.publisher = raw.publisher;
     if (raw.region) item.region = raw.region;
-    item.icon_url = raw.icon_url ?? raw.iconUrl ?? withVersion(`/api/shop/icon/${tid}`);
+    item.icon_url = raw.icon_url ?? raw.iconUrl ?? withVersion(`/api/library/icon/${tid}`);
   }
   return item;
 }

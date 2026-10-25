@@ -20,7 +20,7 @@ th{color:var(--muted);font-size:12px;font-weight:700}tr:last-child td{border-bot
 `;
 
 export function guidePage(markdown) {
-  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!doctype html><html lang="ko" class="adm"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CookingFoil 운영 안내</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${DOC_CSS}</style></head><body><main>
 <a class="back" href="/admin">← 관리 페이지</a>
 ${renderMarkdown(markdown)}

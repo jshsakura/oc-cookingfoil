@@ -22,7 +22,7 @@ async function hangulLines(page: Page) {
 test('switched to ja, en or zh, the landing shows no Korean on any tab, the client card included', async ({ page }) => {
   test.setTimeout(90_000);
   // The client card only shows when a build is published; this one is made up.
-  await page.route('**/api/shop/info', async (route) => {
+  await page.route('**/api/library/info', async (route) => {
     const info = await (await route.fetch()).json();
     info.features = [...new Set([...(info.features ?? []), 'client-update', 'enroll'])];
     await route.fulfill({ json: info });
@@ -52,16 +52,17 @@ test('switched to ja, en or zh, the landing shows no Korean on any tab, the clie
 
 test('the admin top area follows the language picked on the web, and its account menu changes it', async ({ page }) => {
   await signIn(page);
-  const games = page.locator('nav.tabs a[data-group="games"] [data-top]');
-  const files = page.locator('#group-tabs a[data-tab="library"]');
-  await expect(games).toHaveText('파일·정리');
+  const games = page.locator('aside.adm-side .adm-grp[data-grp="games"] summary [data-top]');
+  const files = page.locator('aside.adm-side a[href="/admin/games"] [data-top]');
+  await expect(games).toHaveText('게임');
+  await expect(files).toHaveText('게임 라이브러리');
 
   await page.goto('/');
   await pickLang(page, 'ja');
   await page.goto('/admin');
-  await expect(games).toHaveText('ファイル');
-  await expect(files).toContainText('ファイル');
-  await expect(page.locator('nav.tabs a[data-group="ops"] [data-top]')).toHaveText('運用');
+  await expect(games).toHaveText('ゲーム');
+  await expect(files).toHaveText('ゲームライブラリ');
+  await expect(page.locator('aside.adm-side .adm-grp[data-grp="ops"] summary [data-top]')).toHaveText('記録と運用');
   await expect(page.locator('h1.brand')).toHaveAttribute('aria-label', 'CookingFoil サーバー管理');
   await expect(page).toHaveTitle('CookingFoil サーバー管理');
 
@@ -79,19 +80,19 @@ test('the admin top area follows the language picked on the web, and its account
   await expect(page.locator('#acct-list #logout')).toHaveText('ログアウト');
   await page.keyboard.press('Escape');
   await pick('en');
-  await expect(games).toHaveText('Files');
-  await expect(files).toContainText('Files');
+  await expect(games).toHaveText('Games');
+  await expect(files).toHaveText('Game library');
   await expect(page.locator('#lang-current')).toHaveText('EN');
   await expect(page.locator('#lang-list')).toBeHidden();
   await expect(page.locator('#lang-list [data-admin-lang="en"]')).toHaveAttribute('aria-checked', 'true');
   await pick('zh');
-  await expect(games).toHaveText('文件');
+  await expect(games).toHaveText('游戏');
   await expect(page.locator('#act-heading')).toHaveText('正在运行');
   expect(await page.evaluate(() => localStorage.getItem('cookingfoil:lang'))).toBe('zh');
-  const topText = await page.evaluate(() => [...document.querySelectorAll('nav.tabs, #group-tabs')].map((n) => (n as HTMLElement).innerText).join('\n'));
+  const topText = await page.evaluate(() => [...document.querySelectorAll('aside.adm-side, #adm-drawer')].map((n) => (n as HTMLElement).innerText).join('\n'));
   expect(topText).not.toMatch(HANGUL);
 
   // Back to Korean for the specs that follow and read the admin by its Korean labels.
   await pick('ko');
-  await expect(games).toHaveText('파일·정리');
+  await expect(games).toHaveText('게임');
 });

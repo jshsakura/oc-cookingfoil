@@ -1,5 +1,5 @@
 /**
- * GET /api/shop/sections
+ * GET /api/library/sections
  *
  * The catalog the CookingFoil client and the web page read. Each item carries
  * a clean `name` and its own `title_id`/`app_version`/`app_type`/`icon_url`
@@ -8,9 +8,9 @@
  *
  * The body is built, compressed (br/gzip) and per-origin-memoized inside
  * shop-cache (getSectionsEncodedForOrigin) — one serialize per rebuild, reused
- * across requests with ETag/304, exactly like /shop.json. URLs are
+ * across requests with ETag/304, exactly like /games.json. URLs are
  * made absolute against the request origin there too, so on-device curl (which
- * resolves neither a host-relative `/api/shop/icon/...` nor a `../foo`
+ * resolves neither a host-relative `/api/library/icon/...` nor a `../foo`
  * download) receives absolute URLs.
  */
 import * as shopCache from "../meta/shop-cache.js";

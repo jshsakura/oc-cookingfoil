@@ -9,7 +9,7 @@
 [![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
 [![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-A personal, self-hosted file server and shop for Switch homebrew. Keep your files on a machine at home, manage everything from one admin page, and install them on your console with the CookingFoil client.
+A personal, self-hosted library server for Switch games, retro games and homebrew. Keep your files on a machine at home, manage everything from one admin page, and install them on your console with the CookingFoil client.
 
 <p align="center">
   <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=en"><img src="brand/buttons/website-en.svg" alt="Website" width="160" height="44" /></a>
@@ -54,11 +54,11 @@ CookingFoil runs in Docker on your own server. It looks up names and icons for t
 
 The CookingFoil client is not published on GitHub. A server offers it once a client build sits in `data/client/` (put it there, or upload it as "client" on the admin page's Upload tab), and its signed-in users download it from the web page. With the client build source set to `github` on the admin page, the server also follows the latest release of the client repository (`jshsakura/oc-cookingfoil-client`) and offers whichever build is newer.
 
-The web page, first-run setup, sign-in and device approval pages are in English, Korean, Japanese and Simplified Chinese, with a light and a dark theme. The admin page and its operator guide (`/admin/guide`) are in Korean for now.
+The web page, first-run setup, sign-in and device approval pages are in English, Korean, Japanese and Simplified Chinese, with a light and a dark theme. The admin page offers twelve language choices; remaining operational messages are being translated. Its operator guide (`/admin/guide`) is currently Korean.
 
 ## Features
 
-- **Shop sections.** A sectioned list for the CookingFoil client and the web page, with featured rows you arrange on the admin page, and a flat file catalog (`/shop.json`) for scripts with an automation token.
+- **Library catalog.** A sectioned list for the CookingFoil client and the web page, with featured rows you arrange on the admin page, and a flat file catalog (`/games.json`) for scripts with an automation token.
 - **Names and icons.** Titles, descriptions and artwork come from [blawar/titledb](https://github.com/blawar/titledb), and for files titledb does not know, from the files themselves (with your own `prod.keys`). Name language order and regions are settings.
 - **Artwork, prices and ratings.** Icons, banners and screenshots from the public store artwork service, cached on disk. Optional store prices, popularity order, Steam review scores and IGDB scores. Each source can be turned off. You can upload your own artwork too.
 - **Homebrew from GitHub.** Add a repository and its latest release is followed (a `.nro`, or a zip with one inside). Apps can also be placed by hand. Each app is marked as a tool or a port, can be turned off, and can come with a HOME menu shortcut.
@@ -165,6 +165,8 @@ The RetroArch base pack is what a console needs once before it can play: put `re
 
 ## Configuration
 
+The retired `TINFOIL_HAT_PORT` variable is no longer read. Use `COOK_PORT` for the server listener (default `80`); Docker users normally change the published port with `COOK_HOST_PORT` instead.
+
 Most settings are changed on the admin page and apply at once. A value in `.env` is only the default for the first start: once you change a setting on the admin page, the page's value wins, and "back to compose" (compose 값으로) returns to the `.env` value. [`.env.example`](./.env.example) lists and explains every variable.
 
 These have to be known before the admin page exists, or are kept out of it on purpose:
@@ -250,13 +252,13 @@ Ready-to-use files for Caddy (with HTTPS in one stack), nginx and a Cloudflare T
 
 - Set `COOK_TRUST_PROXY` to the hops that may set the client address, and nothing more: for a proxy on the same host or a private network, `loopback, uniquelocal`. `true` trusts every hop and is only safe when nothing can reach the server except through the proxy. Without this setting every client looks like the proxy's one address, so one stranger's failed sign-ins can lock everybody out. The admin page warns when it sees this. `X-Forwarded-Host` and `X-Forwarded-Proto` are also believed only from these hops; from anyone else the server uses the connection's own `Host` (or `COOK_PUBLIC_BASE_URL` when set).
 - A loopback caller that carries no forwarding header counts as this machine and skips lockout. A proxy on the same host that adds none (nginx without `proxy_set_header`, `socat`, `ssh -L`) passes every client off as that, so set `COOK_LOCKOUT_TRUST_LOOPBACK=false` there.
-- Have the proxy forward `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host`. Download and artwork URLs are absolute and are built from these headers. If your proxy rewrites `Host`, set the public address on the admin page (or `COOK_PUBLIC_BASE_URL=https://shop.example.org`).
+- Have the proxy forward `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host`. Download and artwork URLs are absolute and are built from these headers. If your proxy rewrites `Host`, set the public address on the admin page (or `COOK_PUBLIC_BASE_URL=https://library.example.org`).
 - Allow large responses and long requests. Consoles download in many Range requests, and a single file can be tens of gigabytes.
-- Development servers in front of CookingFoil (Vite and the like) may refuse unknown `Host` headers with a `403`. Test the origin directly with `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` before you blame the proxy.
+- Development servers in front of CookingFoil (Vite and the like) may refuse unknown `Host` headers with a `403`. Test the origin directly with `curl -H "Host: library.example.org" http://127.0.0.1:9080/` before you blame the proxy.
 
 ## Optional direct download address
 
-Some setups route the shop through a tunnel or CDN that is slow or limited for very large files. The direct download address lets clients that ask for it download from a second HTTPS address that carries nothing but downloads, while the lists and sign-in stay on the main address.
+Some setups route the library server through a tunnel or CDN that is slow or limited for very large files. The direct download address lets clients that ask for it download from a second HTTPS address that carries nothing but downloads, while the lists and sign-in stay on the main address.
 
 How it works:
 
@@ -299,7 +301,7 @@ CookingFoil is made to sit on the internet behind your own proxy, so it starts l
 ### Recommended setup
 
 1. **Connect every console by QR or with the web page's client download**, so each one has its own key that you can revoke alone. No console keeps a password.
-2. **Keep the admin page's second factor.** Register an authenticator app during setup. A separate admin password (`COOK_ADMIN_PASSWORD`, 12 characters or more) can stand in for it; keep it different from every shop account.
+2. **Keep the admin page's second factor.** Register an authenticator app during setup. A separate admin password (`COOK_ADMIN_PASSWORD`, 12 characters or more) can stand in for it; keep it different from every server account.
 3. **Use HTTPS from outside.** Reach the server through a reverse proxy or tunnel that terminates HTTPS, and do not publish the plain HTTP port to the internet.
 4. **Set `COOK_TRUST_PROXY` to your proxy's hops**, and nothing wider. See [Reverse proxy and HTTPS](#reverse-proxy-and-https).
 5. **Pick the approval mode on purpose.** "Consoles that sign in" (the default) and "manual" are the safe choices. "All" is only for a server that nothing but your own consoles can reach.
@@ -365,27 +367,29 @@ To report a vulnerability, see [SECURITY.md](./SECURITY.md#english). Please do n
 
 Except for pairing, enrollment and `/healthz`, every endpoint needs a paired console's keys or session token, or a signed-in web page. A Basic `Authorization` header counts only on the pairing routes; everywhere else it authenticates nothing and no endpoint asks for one.
 
+Canonical catalog paths are `/api/library/*` for CookingFoil clients and `/games.json` for automation tokens. `/api/shop/*` and `/shop.json` remain temporary compatibility aliases with the same authentication and response format. Switch consumers to the canonical paths after deploying a server that provides them. The aliases will be removed only after both the client and scraper migrations are confirmed. This does not restore Tinfoil or CyberFoil support.
+
 | Endpoint | |
 |---|---|
-| `GET /shop.json` | Flat file catalog for automation: `{ files: [...] }`, each file named with its `[TITLEID][vN]` stamp. Only an automation token (`Authorization: Bearer cft_…`) made on the admin page reads it |
-| `GET /api/shop/sections` | Sectioned list for the CookingFoil client and the web page |
-| `GET /api/shop/info` | Server version, download hints and the `features` a client may rely on |
+| `GET /games.json` | Flat file catalog for automation: `{ files: [...] }`, each file named with its `[TITLEID][vN]` stamp. Only an automation token (`Authorization: Bearer cft_…`) made on the admin page reads it |
+| `GET /api/library/sections` | Sectioned list for the CookingFoil client and the web page |
+| `GET /api/library/info` | Server version, download hints and the `features` a client may rely on |
 | `GET /api/activity` | Signed-in users can read running tasks and recent activity. Only admins can stop tasks through the admin API. |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | Detail for one entry, and its extra files |
-| `GET /api/shop/icon/:id`, `/api/shop/banner/:id`, `/api/shop/screenshot/:id/:n` | Artwork |
+| `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | Artwork |
 | `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder) and their HOME menu shortcut. Apps turned off on the admin page are left out |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | Patches |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | Save files |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | Retro games and their art, when the retro folder holds ROMs |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | The RetroArch base pack you supplied |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | The CookingFoil client build kept in `data/client/` (drop it there, or upload it on the admin page's upload tab as "client"), and its HOME menu shortcut. `latest` carries `signature` (Ed25519, made where the build is) only while `cookingfoil.nro.sig.json` beside the build names its version, size and sha256 |
-| `POST /api/pair/request`, `GET /api/pair/status` | QR device pairing (only while QR device connection is on). The console sends a random `pairSecret` (64 hex) with its request and the same value as `X-Pair-Secret` when it polls; the access key goes only to that caller. With approval mode "Consoles that sign in", an account's ID and password sent as Basic approve the console at once. Every JSON answer carries `passwordOnly: true`, and `/api/shop/info` lists feature `pair-password-only`: the password is for pairing only |
+| `POST /api/pair/request`, `GET /api/pair/status` | QR device pairing (only while QR device connection is on). The console sends a random `pairSecret` (64 hex) with its request and the same value as `X-Pair-Secret` when it polls; the access key goes only to that caller. With approval mode "Consoles that sign in", an account's ID and password sent as Basic approve the console at once. Every JSON answer carries `passwordOnly: true`, and `/api/library/info` lists feature `pair-password-only`: the password is for pairing only |
 | `POST /api/pair/enroll` | A console spends the enrollment token from its downloaded client, sent with `X-Device-Key`, for its own access key, approved under the account that downloaded it. Works for up to `COOK_ENROLL_PER_HOUR` consoles (5 unless set) within an hour of the download (one with manual approval); more consoles are approved by QR. Refusals: 401 with `X-CookingFoil-Enroll: limit` (`X-CookingFoil-Auth: enroll-limit`), `used`, `expired`, `revoked` or `invalid`; 403 with `X-CookingFoil-Auth: device-limit` when the account holds all the consoles it may |
 | `GET /api/session` | Trades a paired console's access key for a 12-hour session token (a Basic header is ignored), sent afterwards as `Authorization: Bearer cfs_…` from the same device key. A session cannot renew itself; a password change of the account that approved the console, a revoked console, or a lockout ends it at once. Feature `session-token` |
 | `POST /api/pair/rebind` | Moves a console to a new device key (its approval, name and access key), for a client that now derives the key from the console. Proof is the old key's access key, or Basic with the account that approved it. Feature `device-rebind` |
 | `GET /healthz` | Health check, used by the image's `HEALTHCHECK` |
 
-A client should read `features` from `/api/shop/info` before it uses optional fields. The admin API (`/admin/api/*`) is documented in the operator guide at `/admin/guide`.
+A client should read `features` from `/api/library/info` before it uses optional fields. The admin API (`/admin/api/*`) is documented in the operator guide at `/admin/guide`.
 
 ## FAQ and troubleshooting
 

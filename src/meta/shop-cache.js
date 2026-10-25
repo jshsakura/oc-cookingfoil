@@ -13,13 +13,13 @@
  *     header check and a Buffer write.
  *   - The whole state (Buffers + ETag) is persisted to disk after each
  *     build, so a container restart can hydrate from disk and serve
- *     /shop.json on the FIRST request before any rebuild happens. The
+ *     /games.json on the FIRST request before any rebuild happens. The
  *     fresh rebuild then runs in the background and atomically replaces
  *     the warm-loaded snapshot.
  *   - chokidar drives invalidation: any add/change/unlink under the games
  *     folder (or a change to custom_entries.jsonc) schedules a debounced
  *     rebuild. The old cache stays serveable until the new one is ready —
- *     no stale-window where /shop.json blocks behind a fresh scan.
+ *     no stale-window where /games.json blocks behind a fresh scan.
  *   - Concurrent requests share a single in-flight build promise, so a
  *     1k-file copy that touches the watcher a thousand times still yields
  *     exactly one rebuild.
@@ -82,7 +82,7 @@ const DIRECT_MEMO_MAX = 16;
 const newMemo = () => ({ plain: new Map(), direct: new Map() }); // key -> { identity, gzip, brotli, etag }
 const originMemo = newMemo();
 
-// Sections view (/api/shop/sections), built lazily from the
+// Sections view (/api/library/sections), built lazily from the
 // same filesMap and memoized per origin exactly like the shop response.
 // Invalidated on every rebuild (alongside originMemo) so it never serves a
 // stale catalog.
@@ -109,7 +109,7 @@ async function memoized(memo, origin, link, make) {
 }
 
 let cached = null;           // raw shop object (for in-process consumers)
-let serializedJson = null;   // Buffer: pre-stringified body for /shop.json
+let serializedJson = null;   // Buffer: pre-stringified body for /games.json
 let serializedGzip = null;   // Buffer: gzip variant for Accept-Encoding: gzip
 let serializedBrotli = null; // Buffer: brotli variant for Accept-Encoding: br
 let serializedEtag = null;   // Strong ETag — shared across all encodings
@@ -368,7 +368,7 @@ export function relPathsForBase(baseTitleId) {
 }
 
 /**
- * Return the pre-serialized body for /shop.json. Picks the
+ * Return the pre-serialized body for /games.json. Picks the
  * smallest variant the caller advertised — br > gzip > identity — and
  * falls back to identity when the client advertises none or when the
  * matching variant failed to encode at build time.
@@ -432,7 +432,7 @@ function rewriteDownloads(json, origin, link) {
 const memoKey = (origin, link) => (link ? `${origin}|${link.base}` : origin);
 
 async function encodeForOrigin(origin, link) {
-  // Both artwork (`/api/shop/...`) and file-download (`../foo.nsp`) URLs are made
+  // Both artwork (`/api/library/...`) and file-download (`../foo.nsp`) URLs are made
   // ABSOLUTE against this origin. The console client handles them two
   // different ways and BOTH need an absolute URL:
   //   - icons: passed straight to curl (downloadImageWithAuth) — a host-relative
@@ -480,7 +480,7 @@ async function encodeSectionsForOrigin(origin, link) {
 
 /**
  * Pre-serialized, per-origin-memoized, compressed sections payload
- * (/api/shop/sections). Mirrors getEncodedForOrigin: the body is
+ * (/api/library/sections). Mirrors getEncodedForOrigin: the body is
  * built once per rebuild and reused across requests (br/gzip/identity + ETag),
  * instead of recomputing ~1 MB of JSON on every hit. Forces a build when
  * filesMap is null so it's safe on the warm-restart path. `link` as in
@@ -599,7 +599,7 @@ const PRICE_REFRESH_MS = 12 * 60 * 60 * 1000;
 export async function init() {
   // Extractor → shop-cache: when the NACP worker finishes a record we
   // schedule a rebuild so the new name/publisher/version surfaces in
-  // /shop.json + propagates to ws subscribers without the user having
+  // /games.json + propagates to ws subscribers without the user having
   // to touch a file.
   nacpExtractor.onExtracted(({ baseTitleId }) => {
     scheduleRebuild(`nacp-extracted ${baseTitleId}`, { background: true });
@@ -615,7 +615,7 @@ export async function init() {
   setInterval(() => scheduleRebuild("eshop-prices refresh"), PRICE_REFRESH_MS).unref();
 
   // Warm-start path: if the previous run persisted state to disk, hydrate
-  // it now so the first /shop.json request after restart is served from
+  // it now so the first /games.json request after restart is served from
   // the snapshot — no fast-glob, no compression, no JSON.stringify. The
   // rebuild that catches up to any changes happens behind the scenes.
   const warm = await tryHydrateFromDisk();

@@ -1,5 +1,5 @@
 /**
- * GET /api/shop/info
+ * GET /api/library/info
  *
  * What this server can do, so a client can tell an older server from a newer
  * one by asking instead of guessing from missing fields. Each feature names a
@@ -54,7 +54,7 @@ import { firmwareOf } from "../meta/rewrap/generations.js";
 export const API_VERSION = 1;
 
 const FEATURES = [
-  "sections-etag",        // /api/shop/sections answers If-None-Match with 304
+  "sections-etag",        // /api/library/sections answers If-None-Match with 304
   "title-detail",         // /api/title/:id with description, screenshots, categories
   "title-price",          // detail.price { regular, discount, country } when the eShop knows it
   "title-videos",         // detail.videos

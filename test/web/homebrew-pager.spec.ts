@@ -16,7 +16,7 @@ test('homebrew app cards and recommended cards page and search', async ({ page }
     ? route.fulfill({ json: { recommended, sources: [], manual: [] } }) : route.continue());
   await page.route('**/admin/api/homebrew/apps', (route) => route.fulfill({ json: { apps, held: [] } }));
   await signIn(page);
-  await page.locator('nav.tabs a[data-group="homebrew"]').click();
+  await page.goto('/admin/homebrew?tab=apps');
 
   // Apps are cards, 24 to a page, with the list's own pager and search.
   const rows = page.locator('#hb-apps .src-card');

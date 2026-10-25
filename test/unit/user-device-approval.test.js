@@ -94,7 +94,7 @@ test("a signed-in user approves a console from the QR or its code", async () => 
     assert.equal((await approve({ token })).status, 409, "a replayed QR must not rotate the key");
     const deliveredA = await knock(DEVICE_A);
     assert.ok(deliveredA.accessKey);
-    r = await fetch(`${BASE}/api/shop/sections`, {
+    r = await fetch(`${BASE}/api/library/sections`, {
       headers: { "X-Device-Key": DEVICE_A, "X-Access-Key": deliveredA.accessKey },
     });
     assert.equal(r.status, 200, "the console signs in with its key, no password");

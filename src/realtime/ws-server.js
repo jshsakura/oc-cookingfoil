@@ -21,7 +21,7 @@
  *   account and past the admin's second step. No Basic: scripts poll the API.
  *
  * The page typically just listens for `shop-updated` and re-fetches
- * /api/shop/sections (the etag short-circuits to 304 when the body hasn't
+ * /api/library/sections (the etag short-circuits to 304 when the body hasn't
  * really changed, so this stays cheap). We never push the body itself.
  *
  * Auth reuses the web sign-in: a page's session cookie, only from this site's

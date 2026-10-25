@@ -1,5 +1,5 @@
 /**
- * Content versions for shop artwork URLs (/api/shop/icon|banner|screenshot).
+ * Content versions for shop artwork URLs (/api/library/icon|banner|screenshot).
  *
  * Every URL a list or detail hands out ends in ?v=<12 hex>, a hash of what
  * decides the picture's bytes:

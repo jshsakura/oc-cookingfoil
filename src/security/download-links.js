@@ -143,8 +143,8 @@ export function withShopDirect(json, link) {
 // The lists and info a token rides on; never artwork or file downloads, whose
 // responses may be cached. Matched on the path as the app sees it.
 const TOKEN_PATHS = [
-  /^\/(shop\.json|shop\.tfl)?$/i,
-  /^\/api\/(shop|remote)\/(sections|info)$/,
+  /^\/(games\.json|shop\.json)?$/i,
+  /^\/api\/(library|shop)\/(sections|info)$/,
   /^\/api\/title\/[^/]+(\/extras)?$/,
   /^\/api\/(homebrew|patches|saves)\/?$/,
   /^\/api\/client\/latest$/,

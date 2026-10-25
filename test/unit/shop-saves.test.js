@@ -97,7 +97,7 @@ test("the shop lists save files and sends one as a tar rooted at the save folder
   const server = await boot(dir);
   try {
     assert.equal((await fetch(`${BASE}/api/saves`)).status, 401);
-    assert.ok((await (await get("/api/shop/info")).json()).features.includes("shop-saves"));
+    assert.ok((await (await get("/api/library/info")).json()).features.includes("shop-saves"));
     const res = await get("/api/saves?lang=ko");
     const { saves } = await res.json();
     assert.equal(saves.length, 1, "empty, non-base and symlinked saves are left out");
@@ -113,7 +113,7 @@ test("the shop lists save files and sends one as a tar rooted at the save folder
     assert.match(s.hash, /^[0-9a-f]{64}$/);
     assert.equal(s.url, `/api/saves/${s.id}/download`);
     // By game: a summary row per game, then that game's saves alone.
-    assert.ok((await (await get("/api/shop/info")).json()).features.includes("saves-by-game"));
+    assert.ok((await (await get("/api/library/info")).json()).features.includes("saves-by-game"));
     const { games } = await (await get("/api/saves?view=games")).json();
     assert.deepEqual(games.map((g) => [g.key, g.titleId, g.count, g.size]), [[MK, MK, 1, 9]]);
     assert.equal((await (await get(`/api/saves?game=${MK}&lang=ko`)).json()).saves[0].id, s.id);
@@ -144,7 +144,7 @@ test("the shop lists save files and sends one as a tar rooted at the save folder
 test("an empty saves folder is not offered to consoles", async () => {
   const server = await boot(fs.mkdtempSync(path.join(os.tmpdir(), "saves-empty-")));
   try {
-    const { features } = await (await get("/api/shop/info")).json();
+    const { features } = await (await get("/api/library/info")).json();
     assert.ok(!features.includes("shop-saves"));
     assert.ok(!features.includes("user-patches"), "no patch to hand out either");
     assert.deepEqual((await (await get("/api/saves")).json()).saves, [], "the API answers, with nothing in it");
@@ -157,7 +157,7 @@ test("without a saves folder the API is off", async () => {
   const server = await boot(path.join(os.tmpdir(), "no-such-saves-" + process.pid));
   try {
     assert.equal((await get("/api/saves")).status, 404);
-    assert.ok(!(await (await get("/api/shop/info")).json()).features.includes("shop-saves"));
+    assert.ok(!(await (await get("/api/library/info")).json()).features.includes("shop-saves"));
   } finally {
     server.kill("SIGKILL");
   }

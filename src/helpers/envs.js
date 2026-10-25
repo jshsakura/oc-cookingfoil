@@ -10,7 +10,7 @@ import { resolveLayout, oldIncoming } from "./storage-layout.js";
  * Backward-compat env var reader.
  * Returns the first defined+non-empty value across the supplied keys.
  * The first key is the canonical (COOK_*) name; the rest are legacy
- * tinfoil-hat aliases we still accept so existing setups keep working.
+ * environment aliases retained for existing configurations.
  */
 function pickEnv(...names) {
   for (const name of names) {
@@ -51,7 +51,7 @@ const incomingInGames = (() => {
   return oldIncoming(layout) ? "incoming" : null;
 })();
 
-const appPort = pickEnv("COOK_PORT", "TINFOIL_HAT_PORT") ?? "80";
+const appPort = pickEnv("COOK_PORT") ?? "80";
 
 const authUsers = pickEnv("COOK_AUTH_USERS", "AUTH_USERS") ?? null;
 const unauthorizedMessage =
@@ -83,7 +83,7 @@ const extractedMetaDir = path.join(dataDir, "extracted-meta");
 // proxy that rewrites Host, or to force a canonical address. Trailing slash
 // trimmed. Unset = derive from each request.
 // A scheme is REQUIRED: the value is concatenated verbatim in front of the
-// proxy path ("<base>/api/shop/icon/..."), so a bare "host.tld" produces a
+// proxy path ("<base>/api/library/icon/..."), so a bare "host.tld" produces a
 // schemeless string that the client's curl treats as invalid (icons silently
 // fail, tapping a title does nothing). It's an easy footgun (operators paste
 // just the domain), so we self-heal: prepend https://
@@ -203,7 +203,7 @@ let langPriority = envString("COOK_LANG_PRIORITY", "ko,en,ja,en-US")
 
 // Upload constraints. Conservative defaults; users can override via env.
 // 32 GiB ceiling fits dual-layer XCI dumps; bump if you're shipping bigger.
-const uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min: 1 });
+let uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min: 1 });
 // Disable uploads by default: they need a signed-in account AND an explicit opt-in
 // because they let an authenticated user grow the games volume.
 let uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
@@ -275,7 +275,7 @@ const retroDir = layout.dirs.retro;
 // Homebrew (.nro apps) for clients: hand-placed ones in <dir>/<app>/<app>.nro,
 // plus the latest release of each GitHub repository in COOK_HOMEBREW_REPOS
 // ("owner/name" or github.com addresses, separated by commas or spaces).
-// /api/shop/info lists the "homebrew" feature only while at least one app is listed.
+// /api/library/info lists the "homebrew" feature only while at least one app is listed.
 const homebrewDir = layout.dirs.homebrew;
 const homebrewRepos = envString("COOK_HOMEBREW_REPOS", "")
   .split(/[\s,]+/)
@@ -337,7 +337,7 @@ let clientReleaseRepo = envString("COOK_CLIENT_RELEASE_REPO", "jshsakura/oc-cook
 let clientReleaseTag = envString("COOK_CLIENT_RELEASE_TAG", "");
 let clientReleaseAsset = envString("COOK_CLIENT_RELEASE_ASSET", "cookingfoil.nro");
 // How many connections one console may open for one download (Range requests
-// in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/shop/info
+// in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/library/info
 // download.maxConnections), not enforced: the client opens up to this many.
 let downloadMaxConnections = envNumber("COOK_DOWNLOAD_MAX_CONNECTIONS", 4, { min: 1, max: 8, integer: true });
 // The direct download address (security/download-links.js, direct-lane.js): a
@@ -416,6 +416,7 @@ const ENV_SETTINGS = Object.freeze({
   deviceLimit,
   enrollPerHour,
   uploadsEnabled,
+  uploadMaxBytes,
   inboxEnabled,
   inboxMaxBytes,
   inboxQuotaBytes,
@@ -473,6 +474,7 @@ function applyServerSettings(saved = {}) {
   deviceLimit = v.deviceLimit;
   enrollPerHour = v.enrollPerHour;
   uploadsEnabled = v.uploadsEnabled;
+  uploadMaxBytes = v.uploadMaxBytes;
   inboxEnabled = v.inboxEnabled;
   inboxMaxBytes = v.inboxMaxBytes;
   inboxQuotaBytes = v.inboxQuotaBytes;

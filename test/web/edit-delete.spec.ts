@@ -17,7 +17,7 @@ test('a game is deleted from its edit page: every file of it, after asking, and 
   let items = [...game];
   let shopReads = 0;
   const removed: string[] = [];
-  await page.route('**/api/shop/sections', (route) => { shopReads++; route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }); });
+  await page.route('**/api/library/sections', (route) => { shopReads++; route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }); });
   await page.route('**/api/art/0100000000010000', (route) => route.fulfill({ json: { icon: false, banner: false, screens: [], originals: {} } }));
   await page.route('**/api/art/0100000000010000/meta', (route) => route.fulfill({ json: { name: {}, description: {}, notes: {}, original: {} } }));
   await page.route('**/admin/api/library/files/remove', (route) => { removed.push(route.request().postDataJSON().rel); route.fulfill({ json: { ok: true } }); });

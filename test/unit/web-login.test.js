@@ -137,14 +137,14 @@ test("people sign in with a form; a password alone opens nothing else; Google is
     assert.equal(home.status, 302);
     assert.equal(home.headers.get("location"), "/login?next=%2F");
     assert.equal(home.headers.get("www-authenticate"), null);
-    const xhr = await get("/api/shop/sections", { "Sec-Fetch-Mode": "cors" });
+    const xhr = await get("/api/library/sections", { "Sec-Fetch-Mode": "cors" });
     assert.equal(xhr.status, 401);
     assert.equal(xhr.headers.get("www-authenticate"), null);
-    const stale = await get("/api/shop/sections", { "Sec-Fetch-Mode": "cors", Authorization: "Basic " + Buffer.from("alice:old").toString("base64") });
+    const stale = await get("/api/library/sections", { "Sec-Fetch-Mode": "cors", Authorization: "Basic " + Buffer.from("alice:old").toString("base64") });
     assert.equal(stale.headers.get("www-authenticate"), null, "nor with stale saved credentials");
     // Nobody is ever asked for Basic, and a right password alone is no credential.
-    assert.equal((await get("/api/shop/sections")).headers.get("www-authenticate"), null);
-    const basicOnly = await get("/api/shop/sections", { Authorization: ALICE });
+    assert.equal((await get("/api/library/sections")).headers.get("www-authenticate"), null);
+    const basicOnly = await get("/api/library/sections", { Authorization: ALICE });
     assert.equal(basicOnly.status, 401);
     assert.equal(basicOnly.headers.get("www-authenticate"), null);
 
@@ -267,10 +267,10 @@ test("a Google admin opens /admin without the admin password; other Google accou
   try {
     const page = await get("/admin", { ...PAGE, Cookie: googleCookie("t-boss") });
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /id="tab-upload"/, "the dashboard itself, not the password gate");
+    assert.match(await page.text(), /id="tab-overview"/, "the administration overview itself, not the password gate");
     assert.equal((await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: googleCookie("t-boss") } })).status, 200);
     assert.ok([401, 403].includes((await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: googleCookie("ok1") } })).status), "an approved non-admin account is turned away");
-    assert.doesNotMatch(await (await get("/admin", { ...PAGE, Cookie: googleCookie("ok1") })).text(), /id="tab-upload"/);
+    assert.doesNotMatch(await (await get("/admin", { ...PAGE, Cookie: googleCookie("ok1") })).text(), /id="tab-overview"/);
   } finally {
     server.kill("SIGKILL");
     accounts.remove("t-boss");

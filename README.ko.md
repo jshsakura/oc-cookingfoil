@@ -9,7 +9,7 @@
 [![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
 [![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-스위치 홈브류를 위한 개인용 자체 호스팅 파일 서버이자 샵입니다. 파일은 집에 있는 서버에 두고, 관리 페이지 하나로 모두 관리하며, 기기에서는 CookingFoil 클라이언트로 설치합니다.
+스위치 게임, 레트로 게임, 홈브류를 위한 개인용 자체 호스팅 라이브러리 서버입니다. 파일은 집에 있는 서버에 두고, 관리 페이지 하나로 모두 관리하며, 기기에서는 CookingFoil 클라이언트로 설치합니다.
 
 <p align="center">
   <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=ko"><img src="brand/buttons/website-ko.svg" alt="웹사이트" width="160" height="44" /></a>
@@ -54,11 +54,11 @@ CookingFoil 은 직접 운영하는 서버에서 Docker 로 실행합니다. 넣
 
 CookingFoil 클라이언트는 GitHub 에 공개하지 않습니다. 서버의 `data/client/` 에 클라이언트 빌드가 있으면(그 폴더에 넣거나 관리 페이지의 업로드 탭에서 "클라이언트" 로 올립니다) 그 서버에 로그인한 사용자가 대시보드에서 받습니다. 관리 페이지에서 클라이언트 빌드 받는 곳을 `github` 로 바꾸면 클라이언트 저장소(`jshsakura/oc-cookingfoil-client`)의 최신 릴리스도 따라가, 둘 중 버전이 높은 빌드를 내려줍니다.
 
-대시보드, 처음 설정, 로그인, 기기 승인 페이지는 영어, 한국어, 일본어, 중국어 간체로 볼 수 있고, 밝은 테마와 어두운 테마를 고를 수 있습니다. 관리 페이지와 운영 안내(`/admin/guide`)는 지금은 한국어로만 제공합니다.
+대시보드, 처음 설정, 로그인, 기기 승인 페이지는 영어, 한국어, 일본어, 중국어 간체로 볼 수 있고, 밝은 테마와 어두운 테마를 고를 수 있습니다. 관리 페이지는 12개 언어를 선택할 수 있으며, 남은 운영 문구는 번역 중입니다. 운영 안내(`/admin/guide`)는 현재 한국어로 제공합니다.
 
 ## 기능
 
-- **샵 섹션.** CookingFoil 클라이언트와 대시보드가 읽는 섹션 목록을 내려 줍니다. 위쪽 추천 줄은 관리 페이지에서 정합니다. 자동화 토큰을 가진 스크립트에는 평평한 파일 목록(`/shop.json`)도 내려 줍니다.
+- **라이브러리 목록.** CookingFoil 클라이언트와 대시보드가 읽는 섹션 목록을 내려 줍니다. 위쪽 추천 줄은 관리 페이지에서 정합니다. 자동화 토큰을 가진 스크립트에는 평평한 파일 목록(`/games.json`)도 내려 줍니다.
 - **이름과 아이콘.** 제목, 소개, 그림은 [blawar/titledb](https://github.com/blawar/titledb) 에서 가져오고, titledb 에 없는 파일은 파일 자체에서 읽습니다(직접 가진 `prod.keys` 필요). 이름 언어 순서와 지역은 설정에서 고릅니다.
 - **그림, 가격, 평점.** 아이콘, 배너, 스크린샷은 공개 스토어 그림 서비스에서 받아 디스크에 캐시합니다. 스토어 가격, 인기순, Steam 리뷰 점수, IGDB 점수는 선택입니다. 출처마다 끌 수 있고, 그림을 직접 올릴 수도 있습니다.
 - **GitHub 홈브류.** 저장소를 추가하면 최신 릴리스(`.nro`, 또는 그것이 든 zip)를 따라갑니다. 앱을 직접 넣어 둘 수도 있습니다. 앱마다 도구나 포팅으로 나누고, 끌 수 있으며, 홈 메뉴 바로가기를 함께 내려 줄 수 있습니다.
@@ -163,6 +163,8 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 
 ## 설정
 
+예전 `TINFOIL_HAT_PORT` 변수는 더 이상 읽지 않습니다. 서버의 수신 포트는 `COOK_PORT`(기본값 `80`)로 정합니다. Docker에서는 보통 `COOK_HOST_PORT`로 외부에 공개할 포트를 바꿉니다.
+
 대부분의 설정은 관리 페이지에서 바꾸고 바로 적용됩니다. `.env` 의 값은 처음 시작할 때의 기본값일 뿐입니다. 관리 페이지에서 설정을 바꾸면 그 값이 우선하고, "compose 값으로"를 누르면 `.env` 값으로 돌아갑니다. 모든 변수와 설명은 [`.env.example`](./.env.example) 에 있습니다.
 
 아래는 관리 페이지가 생기기 전에 알아야 하거나, 일부러 관리 페이지에서 뺀 것입니다.
@@ -248,13 +250,13 @@ CookingFoil 은 일반 HTTP 로 동작합니다. 집 밖에서 접속하려면 H
 
 - `COOK_TRUST_PROXY` 에는 클라이언트 주소를 정해도 되는 단계만 넣습니다. 같은 호스트나 내부망의 프록시라면 `loopback, uniquelocal` 입니다. `true` 는 모든 단계를 믿으므로, 프록시를 거치지 않고는 서버에 닿을 수 없을 때만 안전합니다. 이 설정이 없으면 모든 클라이언트가 프록시의 주소 하나로 보여서, 낯선 사람 한 명의 로그인 실패가 모두를 잠글 수 있습니다. 관리 페이지가 이 상황을 보면 경고합니다. `X-Forwarded-Host` 와 `X-Forwarded-Proto` 도 이 단계에서 온 것만 믿고, 그 밖에서 오면 연결 자체의 `Host`(설정했다면 `COOK_PUBLIC_BASE_URL`)를 씁니다.
 - 전달 헤더 없이 루프백으로 들어온 요청은 이 서버 자신으로 보고 잠금을 건너뜁니다. 같은 호스트의 프록시가 그런 헤더를 붙이지 않으면(`proxy_set_header` 없는 nginx, `socat`, `ssh -L`) 모든 클라이언트가 이 서버 자신으로 보이므로, 그때는 `COOK_LOCKOUT_TRUST_LOOPBACK=false` 로 둡니다.
-- 프록시가 `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` 를 넘기게 합니다. 다운로드와 그림 주소는 절대 주소이고 이 헤더로 만듭니다. 프록시가 `Host` 를 바꾼다면 관리 페이지에서 공개 주소를 정합니다(또는 `COOK_PUBLIC_BASE_URL=https://shop.example.org`).
+- 프록시가 `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` 를 넘기게 합니다. 다운로드와 그림 주소는 절대 주소이고 이 헤더로 만듭니다. 프록시가 `Host` 를 바꾼다면 관리 페이지에서 공개 주소를 정합니다(또는 `COOK_PUBLIC_BASE_URL=https://library.example.org`).
 - 큰 응답과 오래 걸리는 요청을 허용합니다. 기기는 Range 요청을 여러 번 나눠 받고, 파일 하나가 수십 GB 일 수 있습니다.
-- CookingFoil 앞에 둔 개발 서버(Vite 등)는 모르는 `Host` 헤더를 `403` 으로 거절할 수 있습니다. 프록시를 의심하기 전에 `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` 로 원본을 직접 확인합니다.
+- CookingFoil 앞에 둔 개발 서버(Vite 등)는 모르는 `Host` 헤더를 `403` 으로 거절할 수 있습니다. 프록시를 의심하기 전에 `curl -H "Host: library.example.org" http://127.0.0.1:9080/` 로 원본을 직접 확인합니다.
 
 ## 직접 다운로드 주소
 
-어떤 구성에서는 샵이 거치는 터널이나 CDN 이 아주 큰 파일에 느리거나 제한이 있습니다. 직접 다운로드 주소를 쓰면, 요청한 클라이언트는 다운로드만 실어 나르는 두 번째 HTTPS 주소에서 받고, 목록과 로그인은 원래 주소에 그대로 둡니다.
+어떤 구성에서는 라이브러리 서버가 거치는 터널이나 CDN 이 아주 큰 파일에 느리거나 제한이 있습니다. 직접 다운로드 주소를 쓰면, 요청한 클라이언트는 다운로드만 실어 나르는 두 번째 HTTPS 주소에서 받고, 목록과 로그인은 원래 주소에 그대로 둡니다.
 
 동작 방식은 이렇습니다.
 
@@ -297,7 +299,7 @@ CookingFoil 은 내 프록시 뒤에서 인터넷에 놓이는 것을 전제로 
 ### 권장 설정
 
 1. **모든 콘솔을 QR 이나 대시보드의 클라이언트 받기로 연결합니다.** 기기마다 따로 거둘 수 있는 자기 키를 갖게 되고, 비밀번호를 들고 있는 콘솔은 없습니다.
-2. **관리 페이지의 2단계 인증을 유지합니다.** 처음 설정할 때 인증 앱을 등록합니다. 별도의 관리자 비밀번호(`COOK_ADMIN_PASSWORD`, 12자 이상)로 대신할 수도 있는데, 샵 계정의 어느 비밀번호와도 다르게 합니다.
+2. **관리 페이지의 2단계 인증을 유지합니다.** 처음 설정할 때 인증 앱을 등록합니다. 별도의 관리자 비밀번호(`COOK_ADMIN_PASSWORD`, 12자 이상)로 대신할 수도 있는데, 서버 계정의 어느 비밀번호와도 다르게 합니다.
 3. **밖에서는 HTTPS 로만 들어옵니다.** HTTPS 를 처리하는 리버스 프록시나 터널을 거쳐 서버에 닿게 하고, 평문 HTTP 포트는 인터넷에 열지 않습니다.
 4. **`COOK_TRUST_PROXY` 에는 프록시 구간만 넣고** 그보다 넓게 잡지 않습니다. [리버스 프록시와 HTTPS](#리버스-프록시와-https) 를 봅니다.
 5. **승인 방식은 알고 고릅니다.** "로그인한 기기는 바로 승인"(기본값)과 "관리자가 하나씩 승인" 이 안전한 쪽입니다. "모두 승인" 은 내 기기만 닿을 수 있는 서버에서만 씁니다.
@@ -363,27 +365,29 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 
 기기 연결, 등록, `/healthz` 를 빼면 모든 엔드포인트에는 연결한 기기의 키나 세션 토큰, 또는 대시보드 로그인 세션이 있어야 합니다. Basic `Authorization` 헤더는 기기 연결 경로에서만 통하고, 그 밖의 곳에서는 아무것도 열지 않으며 어떤 엔드포인트도 그것을 요구하지 않습니다.
 
+카탈로그의 정식 경로는 CookingFoil 클라이언트용 `/api/library/*`와 자동화 토큰용 `/games.json`입니다. `/api/shop/*`와 `/shop.json`은 같은 인증과 응답 형식을 쓰는 임시 호환 경로로 유지합니다. 새 경로를 제공하는 서버를 배포한 뒤 소비처를 전환합니다. 클라이언트와 스크래퍼 양쪽의 전환을 확인한 뒤에만 구 경로를 제거합니다. Tinfoil이나 CyberFoil 지원을 복구하는 것은 아닙니다.
+
 | 엔드포인트 | |
 |---|---|
-| `GET /shop.json` | 자동화용 평평한 파일 목록 `{ files: [...] }`. 파일마다 `[TITLEID][vN]` 표식이 붙은 이름이 있습니다. 관리 페이지에서 만든 자동화 토큰(`Authorization: Bearer cft_…`)만 읽습니다 |
-| `GET /api/shop/sections` | CookingFoil 클라이언트와 대시보드가 읽는 섹션 목록 |
-| `GET /api/shop/info` | 서버 버전, 다운로드 힌트, 클라이언트가 믿고 쓸 수 있는 `features` |
+| `GET /games.json` | 자동화용 평평한 파일 목록 `{ files: [...] }`. 파일마다 `[TITLEID][vN]` 표식이 붙은 이름이 있습니다. 관리 페이지에서 만든 자동화 토큰(`Authorization: Bearer cft_…`)만 읽습니다 |
+| `GET /api/library/sections` | CookingFoil 클라이언트와 대시보드가 읽는 섹션 목록 |
+| `GET /api/library/info` | 서버 버전, 다운로드 힌트, 클라이언트가 믿고 쓸 수 있는 `features` |
 | `GET /api/activity` | 로그인한 사용자는 실행 중인 작업과 최근 작업을 조회합니다. 중지는 관리자 API에서 관리자만 할 수 있습니다. |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 항목 하나의 자세한 정보와 추가 파일 |
-| `GET /api/shop/icon/:id`, `/api/shop/banner/:id`, `/api/shop/screenshot/:id/:n` | 그림 |
+| `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | 그림 |
 | `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 홈브류 앱(`.nro` 하나 또는 `switch/<app>/` 폴더 전체)과 홈 메뉴 바로가기. 관리 페이지에서 끈 앱은 빠집니다 |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | 패치 |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | 세이브 파일 |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | 레트로 폴더에 롬이 있을 때 레트로 게임과 그림 |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 직접 준비한 RetroArch 기본 묶음 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(그 폴더에 넣거나 관리 페이지 업로드 탭에서 "클라이언트"로 올립니다)와 그 홈 메뉴 바로가기. `latest` 는 빌드 옆의 `cookingfoil.nro.sig.json` 이 그 빌드의 버전, 크기, sha256 과 맞을 때만 `signature`(빌드한 곳에서 만든 Ed25519 서명)를 싣습니다 |
-| `POST /api/pair/request`, `GET /api/pair/status` | QR 기기 연결(QR 기기 연결이 켜져 있을 때만). 기기는 요청할 때 임의의 `pairSecret`(16진수 64자)을 보내고 상태를 물을 때 같은 값을 `X-Pair-Secret` 로 보냅니다. 접근 키는 그 값을 보낸 쪽에만 내려갑니다. 승인 방식이 "로그인한 기기는 바로 승인" 이면 Basic 으로 보낸 계정 아이디와 비밀번호로 바로 승인합니다. JSON 응답에는 모두 `passwordOnly: true` 가 붙고, `/api/shop/info` 의 기능 목록에 `pair-password-only` 가 있습니다. 비밀번호는 연결할 때만 씁니다 |
+| `POST /api/pair/request`, `GET /api/pair/status` | QR 기기 연결(QR 기기 연결이 켜져 있을 때만). 기기는 요청할 때 임의의 `pairSecret`(16진수 64자)을 보내고 상태를 물을 때 같은 값을 `X-Pair-Secret` 로 보냅니다. 접근 키는 그 값을 보낸 쪽에만 내려갑니다. 승인 방식이 "로그인한 기기는 바로 승인" 이면 Basic 으로 보낸 계정 아이디와 비밀번호로 바로 승인합니다. JSON 응답에는 모두 `passwordOnly: true` 가 붙고, `/api/library/info` 의 기능 목록에 `pair-password-only` 가 있습니다. 비밀번호는 연결할 때만 씁니다 |
 | `POST /api/pair/enroll` | 기기가 내려받은 클라이언트에 든 등록 토큰을 `X-Device-Key` 와 함께 보내 자기 접근 키로 바꿉니다. 내려받은 계정 아래로 승인되며, 받은 뒤 1시간 안에 기기 `COOK_ENROLL_PER_HOUR` 대까지(기본 5, 수동 승인이면 한 대) 쓸 수 있고 그 이상은 QR 로 승인합니다. 거절: 401 과 `X-CookingFoil-Enroll: limit`(`X-CookingFoil-Auth: enroll-limit`), `used`, `expired`, `revoked`, `invalid`. 계정의 기기 수가 다 찼으면 403 과 `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | 연결한 기기의 접근 키를 12시간짜리 세션 토큰으로 바꿉니다(Basic 헤더는 무시합니다). 이후에는 같은 기기 키로 `Authorization: Bearer cfs_…` 만 보냅니다. 세션으로 세션을 다시 받을 수는 없고, 그 기기를 승인한 계정의 비밀번호 변경, 기기 회수, 잠금이 생기면 바로 끝납니다. 기능 이름은 `session-token` 입니다 |
 | `POST /api/pair/rebind` | 같은 기기를 새 기기 키로 옮깁니다(승인, 이름, 접근 키). 기기 키를 본체에서 만들어 내게 된 클라이언트가 씁니다. 옛 키의 접근 키, 또는 그 기기를 승인한 계정의 Basic 인증으로 증명합니다. 기능 이름은 `device-rebind` 입니다 |
 | `GET /healthz` | 상태 확인. 이미지의 `HEALTHCHECK` 가 씁니다 |
 
-클라이언트는 선택 필드를 쓰기 전에 `/api/shop/info` 의 `features` 를 먼저 읽습니다. 관리 API(`/admin/api/*`)는 `/admin/guide` 의 운영 안내에 정리돼 있습니다.
+클라이언트는 선택 필드를 쓰기 전에 `/api/library/info` 의 `features` 를 먼저 읽습니다. 관리 API(`/admin/api/*`)는 `/admin/guide` 의 운영 안내에 정리돼 있습니다.
 
 ## 자주 묻는 질문과 문제 해결
 

@@ -85,7 +85,7 @@ const serverId = () => fs.readFileSync(path.join(data, "server-id"), "utf8").tri
 const ID = "x-cookingfoil-server-id";
 
 test("an approved console's 200 carries the server id and no refusal reason", async () => {
-  const r = await ask("GET", "/api/shop/sections", { "X-Device-Key": APPROVED, "X-Access-Key": seeded.accessKey });
+  const r = await ask("GET", "/api/library/sections", { "X-Device-Key": APPROVED, "X-Access-Key": seeded.accessKey });
   assert.equal(r.status, 200);
   assert.match(r.header(ID) ?? "", /^[0-9a-f]{8}-[0-9a-f]{4}-/);
   assert.equal(r.header(ID), serverId());
@@ -112,42 +112,42 @@ test("a made-up download token on the direct address is refused without the serv
 });
 
 test("a device key without an access key is a 401 that says no-access-key, without the server id", async () => {
-  const r = await ask("GET", "/api/shop/sections", { "X-Device-Key": KEY });
+  const r = await ask("GET", "/api/library/sections", { "X-Device-Key": KEY });
   assert.equal(r.status, 401);
   assert.equal(r.header("x-cookingfoil-auth"), "no-access-key");
   assert.equal(r.header(ID), null);
 });
 
 test("nothing at all says no-credentials, without the server id", async () => {
-  const r = await ask("GET", "/api/shop/sections");
+  const r = await ask("GET", "/api/library/sections");
   assert.equal(r.status, 401);
   assert.equal(r.header("x-cookingfoil-auth"), "no-credentials");
   assert.equal(r.header(ID), null);
 });
 
 test("an approved console with a wrong access key says access-key-wrong, with the server id", async () => {
-  const r = await ask("GET", "/api/shop/sections", { "X-Device-Key": APPROVED, "X-Access-Key": "0".repeat(64) });
+  const r = await ask("GET", "/api/library/sections", { "X-Device-Key": APPROVED, "X-Access-Key": "0".repeat(64) });
   assert.equal(r.status, 401);
   assert.equal(r.header("x-cookingfoil-auth"), "access-key-wrong");
   assert.equal(r.header(ID), serverId());
 });
 
 test("a console the server never approved says device-not-approved, without the server id", async () => {
-  const r = await ask("GET", "/api/shop/sections", { "X-Device-Key": STRANGER, "X-Access-Key": "0".repeat(64) });
+  const r = await ask("GET", "/api/library/sections", { "X-Device-Key": STRANGER, "X-Access-Key": "0".repeat(64) });
   assert.equal(r.status, 401);
   assert.equal(r.header("x-cookingfoil-auth"), "device-not-approved");
   assert.equal(r.header(ID), null);
 });
 
 test("a session token that is not ours says session-invalid, without the server id", async () => {
-  const r = await ask("GET", "/api/shop/sections", { "X-Device-Key": KEY, Authorization: `Bearer ${seeded.expired.slice(0, -4)}AAAA` });
+  const r = await ask("GET", "/api/library/sections", { "X-Device-Key": KEY, Authorization: `Bearer ${seeded.expired.slice(0, -4)}AAAA` });
   assert.equal(r.status, 401);
   assert.equal(r.header("x-cookingfoil-auth"), "session-invalid");
   assert.equal(r.header(ID), null);
 });
 
 test("an expired session says session-expired and keeps the session header", async () => {
-  const r = await ask("GET", "/api/shop/sections", { "X-Device-Key": KEY, Authorization: `Bearer ${seeded.expired}` });
+  const r = await ask("GET", "/api/library/sections", { "X-Device-Key": KEY, Authorization: `Bearer ${seeded.expired}` });
   assert.equal(r.status, 401);
   assert.equal(r.header("x-cookingfoil-auth"), "session-expired");
   assert.equal(r.header("x-cookingfoil-session"), "expired");
@@ -163,7 +163,7 @@ test("an enroll with a spent download says enroll-used and keeps the enroll head
 });
 
 test("a rejected token says api-token-invalid, without the server id", async () => {
-  const r = await ask("GET", "/shop.json", { Authorization: "Bearer cft_not-a-real-token" });
+  const r = await ask("GET", "/games.json", { Authorization: "Bearer cft_not-a-real-token" });
   assert.equal(r.status, 401);
   assert.equal(r.header("x-cookingfoil-auth"), "api-token-invalid");
   assert.equal(r.header(ID), null);

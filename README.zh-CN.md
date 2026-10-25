@@ -9,7 +9,7 @@
 [![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
 [![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-一个面向 Switch 自制程序的个人自托管文件服务器和商店。把文件放在家里的机器上，用一个管理页面管理所有内容，再用主机上的 CookingFoil 客户端安装。
+一个面向 Switch 自制程序的个人自托管游戏库服务器。把文件放在家里的机器上，用一个管理页面管理所有内容，再用主机上的 CookingFoil 客户端安装。
 
 <p align="center">
   <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=zh"><img src="brand/buttons/website-zh.svg" alt="网站" width="160" height="44" /></a>
@@ -54,11 +54,11 @@ CookingFoil 以 Docker 方式运行在你自己的服务器上。它会为你放
 
 CookingFoil 客户端不在 GitHub 上发布。服务器的 `data/client/` 中有客户端构建时（放进这个文件夹，或在管理页面的上传 (업로드) 标签页以“客户端”上传），登录该服务器的用户就可以在网页上下载。在管理页面把客户端构建来源设为 `github` 后，服务器还会跟随客户端仓库（`jshsakura/oc-cookingfoil-client`）的最新发布，并分发两者中版本较高的构建。
 
-网页、首次设置、登录和设备批准页面提供英语、韩语、日语和简体中文，并可选择浅色或深色主题。管理页面及其运维指南（`/admin/guide`）目前只有韩语。
+网页、首次设置、登录和设备批准页面提供英语、韩语、日语和简体中文，并可选择浅色或深色主题。管理页面可以选择 12 种语言，剩余操作提示仍在翻译中。运维指南（`/admin/guide`）目前为韩语。
 
 ## 功能
 
-- **商店分区。** 给 CookingFoil 客户端和网页用的分区列表，推荐行可以在管理页面上安排；另有给持自动化令牌的脚本用的扁平文件目录（`/shop.json`）。
+- **游戏库目录。** 给 CookingFoil 客户端和网页用的分区列表，推荐行可以在管理页面上安排；另有给持自动化令牌的脚本用的扁平文件目录（`/games.json`）。
 - **名称与图标。** 标题、简介和图片来自 [blawar/titledb](https://github.com/blawar/titledb)；titledb 不认识的文件，则从文件本身读取（需要你自己的 `prod.keys`）。名称的语言顺序和地区都可以设置。
 - **图片、价格与评分。** 图标、横幅和截图来自公开的商店图片服务，并缓存在磁盘上。可选的商店价格、热门排序、Steam 评测分数和 IGDB 分数。每个来源都可以关闭。你也可以上传自己的图片。
 - **来自 GitHub 的自制程序。** 添加一个仓库后会跟踪它的最新发布（一个 `.nro`，或内含 `.nro` 的 zip）。也可以手动放入应用。每个应用可以标为工具或移植版、可以关闭，也可以附带 HOME 菜单快捷方式。
@@ -163,6 +163,8 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 
 ## 配置
 
+旧变量 `TINFOIL_HAT_PORT` 不再生效。服务器监听端口使用 `COOK_PORT` (默认 `80`) 设置；Docker 用户通常通过 `COOK_HOST_PORT` 修改对外发布的端口。
+
 大多数设置在管理页面上修改并立即生效。`.env` 中的值只是首次启动时的默认值：一旦你在管理页面上修改了某项设置，就以页面上的值为准，"恢复为 compose 值 (compose 값으로)"会回到 `.env` 中的值。[`.env.example`](./.env.example) 列出并解释了每一个变量。
 
 以下变量需要在管理页面存在之前就确定，或者是有意不放进管理页面的：
@@ -247,13 +249,13 @@ CookingFoil 只提供普通 HTTP。要从家外访问，请把它放在终止 HT
 可直接使用的 Caddy（一个栈内完成 HTTPS）、nginx 和 Cloudflare Tunnel 配置文件在 [`examples/`](examples/) 中。
 
 - 把 `COOK_TRUST_PROXY` 设为允许设置客户端地址的跳点，不要多设：代理在同一台主机或私有网络中时，用 `loopback, uniquelocal`。`true` 会信任所有跳点，只有在除了经过代理之外没有任何途径能访问服务器时才安全。不设置的话，所有客户端看起来都是代理的同一个地址，一个陌生人的登录失败就可能把所有人都锁在外面。管理页面发现这种情况时会给出警告。`X-Forwarded-Host` 和 `X-Forwarded-Proto` 也只在来自这些跳点时才被采信；来自其他地方时，服务器使用连接本身的 `Host`（设置了 `COOK_PUBLIC_BASE_URL` 时用它）。
-- 让代理转发 `X-Forwarded-For`、`X-Forwarded-Proto` 和 `X-Forwarded-Host`。下载和图片的 URL 是绝对地址，由这些请求头生成。如果你的代理会改写 `Host`，请在管理页面上设置公开地址（或 `COOK_PUBLIC_BASE_URL=https://shop.example.org`）。
+- 让代理转发 `X-Forwarded-For`、`X-Forwarded-Proto` 和 `X-Forwarded-Host`。下载和图片的 URL 是绝对地址，由这些请求头生成。如果你的代理会改写 `Host`，请在管理页面上设置公开地址（或 `COOK_PUBLIC_BASE_URL=https://library.example.org`）。
 - 允许大响应和长时间请求。主机会用大量 Range 请求下载，单个文件可能有几十 GB。
-- 放在 CookingFoil 前面的开发服务器（Vite 等）可能会用 `403` 拒绝未知的 `Host` 请求头。在怀疑代理之前，先用 `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` 直接测试源站。
+- 放在 CookingFoil 前面的开发服务器（Vite 等）可能会用 `403` 拒绝未知的 `Host` 请求头。在怀疑代理之前，先用 `curl -H "Host: library.example.org" http://127.0.0.1:9080/` 直接测试源站。
 
 ## 可选的直接下载地址
 
-有些部署让商店经过隧道或 CDN，而它们对超大文件很慢或有限制。直接下载地址让主动请求它的客户端从第二个只承载下载的 HTTPS 地址下载，列表和登录仍然留在主地址上。
+有些部署让游戏库服务器经过隧道或 CDN，而它们对超大文件很慢或有限制。直接下载地址让主动请求它的客户端从第二个只承载下载的 HTTPS 地址下载，列表和登录仍然留在主地址上。
 
 工作方式：
 
@@ -296,7 +298,7 @@ CookingFoil 的设计前提是放在你自己的代理后面、面向互联网�
 ### 推荐设置
 
 1. **每台主机都通过扫码或网页的“下载客户端”连接**，让每台主机都有一把可以单独撤销的密钥。主机上不保存任何密码。
-2. **保留管理页面的第二因素。** 在首次设置时登记身份验证器应用。也可以用单独的管理员密码（`COOK_ADMIN_PASSWORD`，至少 12 个字符）代替，但它要和所有商店账号的密码都不同。
+2. **保留管理页面的第二因素。** 在首次设置时登记身份验证器应用。也可以用单独的管理员密码（`COOK_ADMIN_PASSWORD`，至少 12 个字符）代替，但它要和所有服务器账号的密码都不同。
 3. **从外部只走 HTTPS。** 让请求经过终止 HTTPS 的反向代理或隧道到达服务器，不要把明文 HTTP 端口暴露到互联网。
 4. **`COOK_TRUST_PROXY` 只填写你的代理跳点**，不要放得更宽。请参阅[反向代理与 HTTPS](#反向代理与-https)。
 5. **有意识地选择批准方式。**“已登录的主机立即批准”（默认）和“管理员逐台批准”是安全的选择。“全部批准”只用于只有你自己的主机能访问的服务器。
@@ -362,27 +364,29 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 
 除了配对、注册和 `/healthz` 以外，所有端点都需要已配对主机的密钥或会话令牌，或已登录的网页。Basic `Authorization` 头只在配对路由上有效；在其他地方它不认证任何东西，也没有端点会要求它。
 
+目录的正式路径为 CookingFoil 客户端使用的 `/api/library/*` 和自动化令牌使用的 `/games.json`。`/api/shop/*` 与 `/shop.json` 暂时保留为兼容路径，认证与响应格式相同。请在部署支持新路径的服务器后切换使用方。仅在确认客户端和抓取器均完成迁移后移除旧路径。这不会恢复 Tinfoil 或 CyberFoil 支持。
+
 | 端点 | |
 |---|---|
-| `GET /shop.json` | 给自动化用的扁平文件目录：`{ files: [...] }`，每个文件名都带 `[TITLEID][vN]` 标记。只有在管理页面创建的自动化令牌（`Authorization: Bearer cft_…`）可以读取 |
-| `GET /api/shop/sections` | 给 CookingFoil 客户端和网页的分区列表 |
-| `GET /api/shop/info` | 服务器版本、下载提示，以及客户端可以依赖的 `features` |
+| `GET /games.json` | 给自动化用的扁平文件目录：`{ files: [...] }`，每个文件名都带 `[TITLEID][vN]` 标记。只有在管理页面创建的自动化令牌（`Authorization: Bearer cft_…`）可以读取 |
+| `GET /api/library/sections` | 给 CookingFoil 客户端和网页的分区列表 |
+| `GET /api/library/info` | 服务器版本、下载提示，以及客户端可以依赖的 `features` |
 | `GET /api/activity` | 已登录用户可查看运行中和最近的任务。只有管理员可以通过管理 API 停止任务。 |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 单个条目的详情及其附加文件 |
-| `GET /api/shop/icon/:id`, `/api/shop/banner/:id`, `/api/shop/screenshot/:id/:n` | 图片 |
+| `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | 图片 |
 | `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 自制程序应用（单个 `.nro` 或整个 `switch/<app>/` 文件夹）及其 HOME 菜单快捷方式。在管理页面上关闭的应用不会列出 |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | 补丁 |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | 存档文件 |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | 复古游戏及其图片，在复古文件夹中有 ROM 时可用 |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 你提供的 RetroArch 基础包 |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | 保存在 `data/client/` 中的 CookingFoil 客户端构建（放进该文件夹，或在管理页面的上传标签页以“客户端”上传）及其 HOME 菜单快捷方式。只有当构建旁边的 `cookingfoil.nro.sig.json` 与该构建的版本、大小和 sha256 一致时，`latest` 才会带上 `signature`（在构建处生成的 Ed25519 签名） |
-| `POST /api/pair/request`, `GET /api/pair/status` | 二维码设备配对（仅在开启二维码设备连接时可用）。设备在请求时发送一个随机的 `pairSecret`（64 位十六进制），查询状态时用 `X-Pair-Secret` 发送同一个值；访问密钥只下发给发送该值的一方。批准方式为“已登录的主机立即批准”时，以 Basic 发送的账号和密码会当场批准这台主机。每个 JSON 响应都带有 `passwordOnly: true`，`/api/shop/info` 列出功能 `pair-password-only`：密码只用于配对 |
+| `POST /api/pair/request`, `GET /api/pair/status` | 二维码设备配对（仅在开启二维码设备连接时可用）。设备在请求时发送一个随机的 `pairSecret`（64 位十六进制），查询状态时用 `X-Pair-Secret` 发送同一个值；访问密钥只下发给发送该值的一方。批准方式为“已登录的主机立即批准”时，以 Basic 发送的账号和密码会当场批准这台主机。每个 JSON 响应都带有 `passwordOnly: true`，`/api/library/info` 列出功能 `pair-password-only`：密码只用于配对 |
 | `POST /api/pair/enroll` | 主机把下载的客户端中的注册令牌连同 `X-Device-Key` 一起发送，换取自己的访问密钥。以下载它的账号批准，下载后 1 小时内最多可用于 `COOK_ENROLL_PER_HOUR` 台主机（默认 5，手动批准时为 1 台），更多主机请用二维码批准。拒绝：401 并带 `X-CookingFoil-Enroll: limit`（`X-CookingFoil-Auth: enroll-limit`）、`used`、`expired`、`revoked` 或 `invalid`；账户的主机数已满时为 403 并带 `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | 用已配对主机的访问密钥换取 12 小时的会话令牌（忽略 Basic 头），之后以同一设备密钥只发送 `Authorization: Bearer cfs_…`。会话不能自行续期；批准该主机的账号修改密码、撤销设备、锁定都会立即使其失效。功能名为 `session-token` |
 | `POST /api/pair/rebind` | 把同一台设备迁移到新的设备密钥（批准状态、名称和访问密钥）。供改为从主机生成设备密钥的客户端使用。用旧密钥的访问密钥，或以批准该设备的账户进行 Basic 认证来证明。功能名为 `device-rebind` |
 | `GET /healthz` | 健康检查，供镜像的 `HEALTHCHECK` 使用 |
 
-客户端在使用可选字段之前，应先读取 `/api/shop/info` 中的 `features`。管理 API（`/admin/api/*`）在 `/admin/guide` 的运维指南中有说明。
+客户端在使用可选字段之前，应先读取 `/api/library/info` 中的 `features`。管理 API（`/admin/api/*`）在 `/admin/guide` 的运维指南中有说明。
 
 ## 常见问题与故障排查
 

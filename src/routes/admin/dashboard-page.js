@@ -1,3 +1,10 @@
+import { LIBRARY_HTML } from "./library-page.js";
+import { LIST_HELPERS_CSS } from "./list-helpers.js";
+import { HOMEBREW_HTML, HOMEBREW_DIALOG_HTML } from "./homebrew-page.js";
+import { OVERVIEW_HTML } from "./overview-page.js";
+import { UPLOAD_HTML } from "./upload-page.js";
+import { GOOGLE_SETTINGS_HTML, ADMIN_SECURITY_HTML } from "./security-pages.js";
+import { FEATURED_HTML } from "./featured-page.js";
 /**
  * The operator dashboard.
  *
@@ -16,27 +23,27 @@ import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./inte
 import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
 import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
-import { LIBRARY_VERIFY_HTML, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
-import { LIB_BROWSER_CSS, LIB_BROWSER_HTML, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
-import { ORGANIZE_CSS, ORGANIZE_HTML, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
-import { CONTENT_DIALOG_HTML, GAME_PATCHES_HTML, PATCHES_CSS, PATCHES_HTML, PATCHES_SCRIPT, SAVES_HTML } from "./patches-panel.js";
+import { LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
+import { LIB_BROWSER_CSS, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
+import { ORGANIZE_CSS, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
+import { CONTENT_DIALOG_HTML, PATCHES_CSS, PATCHES_SCRIPT } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
-import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-panel.js";
-import { connectHowto } from "./connect-howto.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
+import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SECURITY_HTML } from "./logs-pages.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
+import { ADMIN_PAGE_BY_PATH, ADM_SHELL_CSS, MENU_BUTTON_HTML, admRouterScript, drawerHtml, sidebarNav } from "./admin-pages.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
-import { BOX_CSS, BOX_SCRIPT, box } from "./boxes.js";
-import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, TOP_WORDS, top, topN, topPh } from "./top-i18n.js";
-import { enrollPerHour } from "../../helpers/envs.js";
+import { BOX_CSS, BOX_SCRIPT } from "./boxes.js";
+import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
+import { USERS_HTML, devicesHtml, CRED_DIALOG_HTML, IP_DIALOG_HTML } from "./people-pages.js";
 import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
 
-const PAGE_CSS = /* css */ `
+export const PAGE_CSS = /* css */ `
 ${BRAND_MOTION_CSS}
 body{padding:28px 32px 80px}.wrap{max-width:1240px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
@@ -59,24 +66,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .seg button{border:none;border-radius:100px;padding:6px 10px;color:var(--muted)}
 .seg button.active{background:var(--text);color:var(--bg)}
 .seg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-/* The same segmented bar as the library's kind tabs: the tabs share the full width, the open one is raised. */
-nav.tabs{display:flex;gap:2px;padding:5px;margin-bottom:22px;overflow-x:auto;scrollbar-width:none;background:var(--sunk);border:1px solid var(--line);border-radius:16px}
-nav.tabs::-webkit-scrollbar{display:none}
-/* Six menus in one slim row across the full width, the icon beside each label. */
-@media (min-width:641px){nav.tabs{display:flex;padding:4px;border-radius:14px}
-  nav.tabs a{flex:1 1 0;min-width:0;flex-direction:row;gap:7px;padding:8px 10px;font-size:13.5px;border-radius:10px}nav.tabs a svg{width:16px;height:16px}
-  nav.tabs .count{margin-left:2px}}
-nav.tabs a{flex:1 0 auto;justify-content:center;padding:9px 8px;color:var(--muted);text-decoration:none;font-weight:700;border-radius:12px;white-space:nowrap;transition:color .15s,background .15s,box-shadow .15s}
-nav.tabs a:hover{color:var(--text)}
-/* The second row: the pages inside the chosen menu, the current one filled like the console's sidebar. */
-.group-tabs{display:flex;gap:6px;margin:-4px 0 22px;overflow-x:auto;scrollbar-width:none}.group-tabs::-webkit-scrollbar{display:none}
-.group-tabs[hidden]{display:none}
-.group-tabs a{flex:none;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:12px;color:var(--muted);font-weight:700;font-size:13.5px;text-decoration:none;position:relative}
-.group-tabs a svg{width:16px;height:16px}
-.group-tabs a:hover{color:var(--text);background:var(--sunk)}
-.group-tabs a[aria-current="page"]{background:var(--text);color:var(--panel)}
-.group-tabs a[hidden]{display:none}
-nav.tabs a[aria-current="page"]{color:var(--text);background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2)}
+/* The old two-row menu (nav.tabs + .group-tabs) is gone; the sidebar in admin-pages.js owns the tree. */
 .count[hidden]{display:none}
 .count{display:inline-block;min-width:18px;padding:0 6px;margin-left:6px;border-radius:100px;font-size:11px;background:rgba(var(--bad-rgb),.18);color:var(--bad)}
 section[hidden]{display:none}
@@ -280,27 +270,18 @@ h2.first{margin-top:0}
 .desc-form textarea{padding:10px 14px;border-radius:12px;border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:14px;min-height:90px;resize:vertical}
 :is(td,.gc) .desc{color:var(--muted);font-size:12px;margin-top:4px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 form.add select{flex:none;min-width:9em}
-.logs-view{display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:12px;margin-bottom:8px}
-.logs-list{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto}
-.logs-list details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
-.logs-list summary{cursor:pointer;font-weight:700;display:flex;justify-content:space-between;gap:8px}
-.logs-list summary span{color:var(--muted);font-weight:500;font-size:12px}
-.logs-list button{display:flex;width:100%;justify-content:space-between;margin-top:6px;padding:7px 10px;font-weight:500}
-.logs-list button[aria-pressed="true"]{border-color:var(--accent);background:rgba(var(--accent-rgb),.14)}
-.logs-body{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
-.logs-head{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.logs-body pre{margin:0;padding:14px;min-height:220px;max-height:520px;overflow:auto;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all}
 .me{margin-left:6px}
-/* Phones: tables turn into one card per row, each cell labelled. */
+/* Phones: the header wraps into two rows so every control keeps a real 44px
+   touch target: the brand alone on the first, the four controls under it. */
 @media (max-width:640px){
-body{padding:16px 16px 80px}header{margin-bottom:12px}
-.brand .wm{font-size:24px}.brand img{width:32px;height:32px}
-/* Every menu in sight: two rows of five, icon over label, instead of a strip that hides half of them. */
-nav.tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:6px;margin-bottom:18px;overflow:visible}
-nav.tabs a{flex-direction:column;justify-content:center;gap:3px;padding:8px 2px;font-size:12px;border-radius:10px;text-align:center}
-nav.tabs a svg{width:18px;height:18px}nav.tabs .count{position:absolute;margin:-30px 0 0 26px}nav.tabs a{position:relative}
+body{padding:16px 16px 80px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.brand .wm{font-size:20px}.brand img{width:32px;height:32px}
+.hdr-right{flex:1 1 100%;display:flex;align-items:center;gap:10px}
+.hdr-right .icon-btn,.hdr-right .up-entry{width:44px;height:44px;min-width:44px;padding:0}
+.hdr-right .lang-btn{height:44px}
+.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 form.add input,form.add select,form.add button{flex:1 1 100%}
-.logs-view{grid-template-columns:1fr}
 table,tbody,tr,td{display:block;width:100%}table{border:0;background:none}
 tr:first-child:has(th){display:none}
 tr{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;padding:6px 0}
@@ -334,39 +315,22 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 `;
 
 
-export function dashboardPage() {
-  return /* html */ `<!doctype html><html lang="ko"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-<title>CookingFoil 서버 관리</title>${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
-nav.tabs a{display:inline-flex;align-items:center;gap:7px}.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
-.pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
-.pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
-.pg-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
-.pg-n{min-width:38px;padding-left:10px;padding-right:10px;font-variant-numeric:tabular-nums}
-.pg-n[aria-current="page"]{background:var(--text);color:var(--bg);border-color:var(--text)}
-.pg-gap{color:var(--faint)}
-@media (max-width:600px){.pg-q{max-width:none;flex-basis:100%}.pg-nav{margin-left:0;width:100%;justify-content:center}}
-.logs-view{align-items:stretch}
-.logs-list summary{align-items:center}.logs-list summary>b{display:grid;gap:1px;min-width:0;font-weight:700}
-.logs-list summary>b small{font:500 11px ui-monospace,monospace;color:var(--muted);letter-spacing:.02em}
-.logs-list button{gap:10px}.logs-list button span{white-space:nowrap;font-variant-numeric:tabular-nums}
-.logs-list summary span{white-space:nowrap}
-.logs-body{min-height:320px}
-.logs-body pre{flex:1}.logs-body pre[hidden],.logs-head[hidden]{display:none}
-.logs-empty{flex:1;display:grid;place-content:center;justify-items:center;gap:6px;padding:30px 20px;text-align:center;color:var(--muted)}
-.logs-empty b{color:var(--text);font-size:15px}.logs-empty span{font-size:13px}
-.logs-empty[hidden]{display:none}.logs-empty-ico{width:38px;height:38px;color:var(--faint);stroke-width:1.5;margin-bottom:4px}
-#bug-reports table{width:100%}#bug-reports td,#bug-reports th{white-space:nowrap}#bug-reports td:nth-child(3){white-space:normal}
-tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
-.rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:100px;font-weight:800;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.rk.r1{background:#f5c542;color:#3d2e00}.rk.r2{background:#cfd3d9;color:#2a2e35}.rk.r3{background:#d9a574;color:#3b2410}
-.rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}
-${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
-<div class="wrap">
-<header>
+
+/** The accounts and devices sections, shared by the whole dashboard and the split pages. */
+
+/** The header every admin page shares: brand, menu, upload, language, account and activity. */
+/** The page title and the ask dialog, shared by the whole dashboard and the split pages. */
+/** The sidebar and phone drawer around every admin page's content. */
+export const adminChrome = (current) => /* html */ `<aside class="adm-side" data-top-label="nav" aria-label="서버 관리 메뉴">${sidebarNav(current)}</aside>\n${drawerHtml(current)}`;
+
+export const ADMIN_TITLE_HTML = /* html */ `<title>CookingFoil 서버 관리</title>`;
+export const ASK_DIALOG_HTML = /* html */ `<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">\n  <p id="ask-text"></p>\n  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>\n  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>\n</dialog>`;
+
+export const ADMIN_HEADER_HTML = /* html */ `<header>
   <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
-  <a class="up-entry" id="up-entry" href="#upload" data-top-label="up.entry" aria-label="파일 올리기">${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
+  ${MENU_BUTTON_HTML}
+  <a class="up-entry" id="up-entry" href="/admin/upload" data-top-label="up.entry" aria-label="파일 올리기">${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
   ${TOP_LANG_HTML}
   <div class="acct-menu activity-account">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
@@ -383,97 +347,29 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
     </div>
   </div>
   </div>
-</header>
+</header>`;
 
-<nav class="tabs" data-top-label="nav" aria-label="서버 관리 메뉴">
-  <a href="#overview" data-group="overview">${icon("dashboard")}${top("g.overview")}</a>
-  <a href="#library" data-group="games">${icon("folder")}${top("g.games")}<span class="count" data-sum="games" hidden></span></a>
-  <a href="#retro" data-group="retro">${icon("image")}${top("g.retro")}</a>
-  <a href="#homebrew" data-group="homebrew">${icon("package")}${top("g.homebrew")}</a>
-  <a href="#users" data-group="people">${icon("users")}${top("g.people")}<span class="count" data-sum="people" hidden></span></a>
-  <a href="#logs" data-group="ops">${icon("sliders")}${top("g.ops")}<span class="count" data-sum="ops" hidden></span></a>
-</nav>
-<nav class="group-tabs" id="group-tabs" data-top-label="subnav" aria-label="세부 메뉴">
-  <a href="#library" data-tab="library" data-in="games">${icon("folder")}${top("s.library")}</a>
-  <a href="#upload" data-tab="upload" data-in="games">${icon("upload")}${top("s.upload")}</a>
-  <a href="#nsz" data-tab="nsz" data-in="games">${icon("shrink")}${top("s.nsz")}</a>
-  <a href="#inbox" data-tab="inbox" data-in="games">${icon("inbox")}${top("s.inbox")}<span class="count" id="inbox-count" hidden></span></a>
-  <a href="#featured" data-tab="featured" data-in="games">${icon("star")}${top("s.featured")}</a>
-  <a href="#trash" data-tab="trash" data-in="games">${icon("trash")}${top("s.trash")}</a>
-  <a href="#users" data-tab="users" data-in="people">${icon("users")}${top("s.users")}<span class="count" id="account-count" hidden></span></a>
-  <a href="#devices" data-tab="devices" data-in="people">${icon("device")}${top("s.devices")}<span class="count" id="pending-count" hidden></span></a>
-  <a href="#logs" data-tab="logs" data-in="ops">${icon("log")}${top("s.logs")}<span class="count" id="lock-count" hidden></span></a>
-  <a href="#alerts" data-tab="alerts" data-in="ops">${icon("bell")}${top("s.alerts")}</a>
-  <a href="#settings" data-tab="settings" data-in="ops">${icon("sliders")}${top("s.settings")}</a>
-  <a href="#overview" data-tab="overview" data-in="overview" hidden></a>
-  <a href="#retro" data-tab="retro" data-in="retro" hidden></a>
-  <a href="#homebrew" data-tab="homebrew" data-in="homebrew" hidden></a>
-</nav>
+export function dashboardPage(page = ADMIN_PAGE_BY_PATH.get("/admin"), view = "") {
+  const current = { path: page.path, view, countId: page.count ?? "" };
+  return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
+${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+${LIST_HELPERS_CSS}
+tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
+${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
+<body class="adm-shell">
+${adminChrome(current)}
+<div class="wrap">
+${ADMIN_HEADER_HTML}
 
-<section id="tab-overview">
-  <h2 class="first">연결</h2>
-  <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy">복사</button></div>
-  ${box("connect-howto", "기기를 연결하는 방법", `<ul class="howto-list">${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>`, { level: "h3", folded: true })}
-  <div id="warnings"></div>
-  <div class="lanes" id="lanes"></div>
-  <div class="lanes" id="health"></div>
-  <p class="muted" id="health-hint" hidden></p>
-  <div class="cards" id="cards"></div>
-  ${box("client-release", "클라이언트 빌드", CLIENT_RELEASE_HTML, { meta: "기기에 내려줄 CookingFoil 을 받는 곳" })}
-  <p class="muted" id="ts"></p>
-</section>
+${OVERVIEW_HTML}
 
-<section id="tab-users" hidden>
-  <div class="subtabs" id="users-subtabs" role="tablist" aria-label="사용자 구역">
-    <button type="button" role="tab" data-sub="local" aria-selected="true">${icon("users")}계정</button>
-    <button type="button" role="tab" data-sub="google" aria-selected="false">${icon("lock")}구글 로그인 계정<span class="count" id="account-sub-count" hidden></span></button>
-  </div>
-  <div data-sub-panel="local">
-  <form class="add" id="add-user">
-    <input id="new-name" autocomplete="off" placeholder="사용자 이름 (영문, 숫자, . _ -)" aria-label="사용자 이름" required maxlength="32">
-    <input id="new-pass" type="password" autocomplete="new-password" placeholder="비밀번호 (비우면 자동 생성)" aria-label="비밀번호" maxlength="128">
-    <select id="new-role" aria-label="역할"><option value="user">일반 사용자</option><option value="admin">관리자</option></select>
-    <button class="primary" type="submit">사용자 추가</button>
-  </form>
-  <div class="scroll" id="users" data-skel></div>
-  ${box("users-help", "계정 안내", `<p class="muted">웹은 이 계정으로 /login 에서 로그인합니다. 콘솔은 비밀번호로 접속하지 않고, 연결을 요청할 때 한 번 이 아이디와 비밀번호로 승인받을 수 있습니다. 관리자만 이 관리 페이지를 엽니다. 비밀번호는 만들거나 바꿀 때 한 번만 보여 주고 서버에는 해시만 남깁니다.</p>`, { level: "h3" })}
-  </div>
-  <div data-sub-panel="google" hidden>
-  <p class="muted" id="accounthint"></p>
-  <div class="scroll" id="accounts" data-skel></div>
-  </div>
-</section>
+${USERS_HTML}
 
-<section id="tab-devices" hidden>
-  <div class="subtabs" id="devices-subtabs" role="tablist" aria-label="기기 구역">
-    <button type="button" role="tab" data-sub="pending" aria-selected="true">${icon("bell")}승인 대기<span class="count" id="pending-sub-count" hidden></span></button>
-    <button type="button" role="tab" data-sub="approved" aria-selected="false">${icon("device")}승인된 기기</button>
-    <button type="button" role="tab" data-sub="clients" aria-selected="false">${icon("download")}웹에서 받은 클라이언트</button>
-  </div>
-  <div data-sub-panel="pending">
-  <p class="muted" id="devhint"></p>
-  <form class="add" id="approve-code">
-    <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="기기 화면의 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
-    <input id="code-label" autocomplete="off" placeholder="기기 이름 (선택)" aria-label="기기 이름" maxlength="64">
-    <button class="primary" type="submit">기기 코드로 승인</button>
-  </form>
-  <div class="scroll" id="pending" data-skel></div>
-  </div>
-  <div data-sub-panel="approved" hidden>
-  <div class="add"><select id="dev-idle" data-top-label="acc.filter" aria-label="${TOP_WORDS.ko["acc.filter"]}">${["filterAll", "idle30", "idle60", "idle90"].map((k, i) =>
-    `<option value="${i * 30}" data-top="acc.${k}">${TOP_WORDS.ko[`acc.${k}`]}</option>`).join("")}</select></div>
-  <p class="muted">${top("acc.filterHint")}</p>
-  <div class="scroll" id="devices" data-skel></div>
-  </div>
-  <div data-sub-panel="clients" hidden>
-  <p class="muted">${topN("dev.clientsLead", enrollPerHour)}</p>
-  <div class="scroll" id="clients" data-skel></div>
-  <details class="ended-box" id="clients-ended-box" hidden><summary>만료되거나 취소한 항목 (<span id="clients-ended-count">0</span>)</summary><div class="scroll" id="clients-ended" data-skel></div></details>
-  </div>
-</section>
+${devicesHtml()}
 
 <section id="tab-settings" hidden>
-  <div class="subtabs" id="set-subtabs" role="tablist" aria-label="설정 구역">
+  <div class="subtabs hide-bar" id="set-subtabs" role="tablist" aria-label="설정 구역">
     <button type="button" role="tab" data-ssub="server" aria-selected="true">${icon("sliders")}서버 동작</button>
     <button type="button" role="tab" data-ssub="integrations" aria-selected="false">${icon("package")}외부 서비스</button>
     <button type="button" role="tab" data-ssub="security" aria-selected="false">${icon("lock")}로그인과 보안</button>
@@ -483,294 +379,46 @@ ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}</style></head><body>
   <div data-set-panel="integrations" hidden>${INTEGRATIONS_HTML}</div>
   <div data-set-panel="security" hidden>
   <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호나 인증 앱 코드 중 하나를 넣습니다.</p>
-  ${box("sec-google", "구글 로그인", `
-  <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
-  <form class="add google-form" id="google-form" autocomplete="off">
-    <label class="toggle"><input type="checkbox" id="g-enabled"> 구글 로그인(OAuth) 사용</label>
-    <input id="g-id" placeholder="클라이언트 ID (….apps.googleusercontent.com)" aria-label="클라이언트 ID" maxlength="200" spellcheck="false">
-    <input id="g-secret" type="password" autocomplete="new-password" placeholder="클라이언트 시크릿" aria-label="클라이언트 시크릿" maxlength="200">
-    <button class="primary" type="submit">저장</button>
-    <button type="button" id="g-clear" class="danger">키 삭제</button>
-  </form>
-  <p class="muted">구글 클라우드 콘솔의 OAuth 클라이언트(웹 애플리케이션)에 아래 리디렉션 URI를 등록합니다.</p>
-  <div class="copy-row"><code id="g-redirect">불러오고 있습니다</code><button type="button" id="g-copy">복사</button></div>
-  <p class="muted" id="g-status"></p>
-  `, { meta: "로그인 화면의 구글 버튼" })}
-  ${box("sec-tfa", "관리 페이지 2단계 인증", `
-  <div class="tfa" id="tfa">
-    <div class="tfa-ok" id="tfa-ok" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></svg><div><b>인증 앱이 등록되어 있습니다</b><span id="tfa-ok-sub"></span></div></div>
-    <p id="tfa-status" class="muted">불러오고 있습니다</p>
-    <div class="row" id="tfa-actions"></div>
-    <div class="tfa-setup" id="tfa-setup" hidden>
-      <div class="tfa-qr" id="tfa-qr" role="img" aria-label="인증 앱 QR 코드"></div>
-      <div class="tfa-steps">
-        <p class="muted">인증 앱(Google Authenticator, 1Password 등)으로 QR 을 찍거나 아래 키를 직접 넣습니다. 그다음 앱에 나온 6자리 코드를 입력하면 등록이 끝납니다. 끝내기 전까지는 지금 로그인 방식이 그대로입니다.</p>
-        <div class="tfa-key" id="tfa-key"></div>
-        <div class="row" style="margin-top:10px">
-          <input id="tfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="확인 코드">
-          <button type="button" class="primary" id="tfa-confirm">등록</button>
-          <button type="button" id="tfa-cancel">취소</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  `, { open: true, meta: "인증 앱 코드" })}
-  ${box("sec-password", "관리자 비밀번호", `
-  <form class="tfa" id="ap-form" autocomplete="off">
-    <p id="ap-status" class="muted">불러오고 있습니다</p>
-    <div class="row">
-      <input id="ap-current" type="password" autocomplete="current-password" placeholder="지금 비밀번호" aria-label="지금 비밀번호" maxlength="200">
-      <input id="ap-new" type="password" autocomplete="new-password" placeholder="새 비밀번호 (12자 이상)" aria-label="새 비밀번호" minlength="12" maxlength="200">
-      <input id="ap-new2" type="password" autocomplete="new-password" placeholder="새 비밀번호 한 번 더" aria-label="새 비밀번호 확인" maxlength="200">
-    </div>
-    <div class="row"><button class="primary" type="submit">비밀번호 정하기</button><button type="button" class="danger" id="ap-clear">여기서 정한 비밀번호 삭제</button></div>
-  </form>
-  `, { open: true, meta: "관리 페이지에 들어갈 때 넣는 비밀번호" })}
+  ${GOOGLE_SETTINGS_HTML}
+  ${ADMIN_SECURITY_HTML}
   </div>
   <div data-set-panel="tokens" hidden>${TOKENS_HTML}</div>
 </section>
 
 <section id="tab-logs" hidden>
-  <div class="subtabs" id="logs-subtabs" role="tablist" aria-label="로그 종류">
+  <div class="subtabs hide-bar" id="logs-subtabs" role="tablist" aria-label="로그 종류">
     <button type="button" role="tab" data-lsub="xfer" aria-selected="true">${icon("download")}다운로드 기록</button>
     <button type="button" role="tab" data-lsub="client" aria-selected="false">${icon("device")}클라이언트 로그</button>
     <button type="button" role="tab" data-lsub="deny" aria-selected="false">${icon("lock")}차단과 거부</button>
   </div>
   <div data-logs-panel="xfer">${TRANSFERS_HTML}</div>
-  <div data-logs-panel="client" hidden>
-  <div class="hd"><h2 class="first">클라이언트 로그</h2><button type="button" id="cl-refresh">새로 고침</button></div>
-  <p class="muted">CookingFoil 이 오류를 만나면 보내 온 기록입니다. 기기마다 최근 50개를 남깁니다.</p>
-  ${box("bug-reports", "버그 리포트 순위", `<p class="muted">사용자가 직접 보낸 버그 리포트만 셉니다. 앱이 오류 때 스스로 보내는 기록은 세지 않습니다.</p>
-  <div class="scroll" id="bug-reports" data-skel></div>`, { level: "h3", open: true })}
-  <h3 class="sub-h">기기별 기록</h3>
-  <div class="logs-view">
-    <div class="logs-list" id="cl-list"></div>
-    <div class="logs-body">
-      <div class="logs-head" id="cl-head" hidden></div>
-      <div class="logs-empty" id="cl-empty">${icon("log", "ico logs-empty-ico")}<b>기록을 고르면 여기에 내용이 나옵니다</b><span>왼쪽 기기에서 기록 하나를 누릅니다.</span></div>
-      <pre id="cl-text" tabindex="0" hidden></pre>
-    </div>
+  <div data-logs-panel="client" hidden">
+  ${LOGS_CLIENT_HTML}
   </div>
-  </div>
-  <div data-logs-panel="deny" hidden>
-  <div class="hd"><h2 class="first">차단된 IP</h2><button type="button" id="unlock-all">모두 해제</button></div>
-  <div class="scroll" id="lockouts" data-skel></div>
-  <div class="hd"><h2>거부 기록</h2><button type="button" id="clrdeny">기록 삭제</button></div>
-  <p class="muted">서버가 거절한 요청과 그 이유입니다. 클라이언트가 말없이 실패할 때 여기에 남습니다.</p>
-  <div class="scroll" id="denials" data-skel></div>
+  <div data-logs-panel="deny" hidden">
+  ${LOGS_SECURITY_HTML}
   </div>
 </section>
 
-<section id="tab-featured" hidden>
-  <div class="hd"><h2 data-top="fp.h">추천</h2>
-    <div class="actions"><button type="button" id="f-add" data-top="fp.addRow">추천 줄 추가</button>
-    <button type="button" class="primary" id="f-save">저장</button></div></div>
-  <p class="muted" data-top="fp.lead">CookingFoil 클라이언트의 홈 맨 위에 이 순서대로 줄이 나옵니다. 게임이 없는 줄은 보내지 않습니다. 저장하면 클라이언트가 다음에 목록을 받을 때 반영됩니다.</p>
-  <div id="f-list"></div>
-</section>
+${FEATURED_HTML}
 
-<section id="tab-library" hidden>
-  <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
-  <p class="muted" id="scan-status" aria-live="polite"></p>
-  <div class="subtabs" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
-    <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("folder")}파일</button>
-    <button type="button" role="tab" data-lsub="organize" aria-selected="false">${icon("inbox")}임시 폴더</button>
-    <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}검사</button>
-    <button type="button" role="tab" data-lsub="patches" aria-selected="false">${icon("package")}패치</button>
-    <button type="button" role="tab" data-lsub="saves" aria-selected="false">${icon("save")}세이브</button>
-    <button type="button" role="tab" data-lsub="info" aria-selected="false">${icon("book")}이름과 소개</button>
-    <button type="button" role="tab" data-lsub="server" aria-selected="false">${icon("sliders")}서버</button>
-  </div>
-  <div data-lib-panel="files">${LIB_BROWSER_HTML}
-  <section class="lib-ops" aria-labelledby="lib-ops-h">
-    <h3 class="sub-h" id="lib-ops-h">${top("ops.status")}</h3>
-    <div class="cards" id="lib-cards"></div>
-  </section></div>
-  <div data-lib-panel="organize" hidden>${ORGANIZE_HTML}</div>
-  <div data-lib-panel="verify" hidden>${LIBRARY_VERIFY_HTML}</div>
-  <div data-lib-panel="patches" hidden>${PATCHES_HTML}</div>
-  <div data-lib-panel="saves" hidden>${SAVES_HTML}</div>
-  <div data-lib-panel="info" hidden>
-  <h2 class="first">게임 이름, 소개, 추가 정보</h2>
-  <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
-  <form class="desc-form" id="gd-form">
-    <label>${top("gp.find")}<input id="gd-game" autocomplete="off" ${topPh("gp.ph")}></label>
-    <div id="gd-body" hidden>
-      <h3>이름</h3>
-      <p class="muted" id="gd-name-original"></p>
-      <div class="ct-pair"><label>한국어<input id="gd-name-ko" maxlength="120" autocomplete="off"></label><label>영어 (다른 언어의 기본값)<input id="gd-name-en" maxlength="120" autocomplete="off"></label></div>
-      ${GAME_PATCHES_HTML}
-      <h3>추가 정보</h3>
-      <label>한국어<textarea id="gd-notes-ko" maxlength="2000" placeholder="예: 게임 데이터 패치(약 49GB)를 함께 설치해야 실행됩니다."></textarea></label>
-      <label>영어 (다른 언어의 기본값)<textarea id="gd-notes-en" maxlength="2000"></textarea></label>
-      <h3>소개</h3>
-      <p class="muted" id="gd-original"></p>
-      <label>한국어<textarea id="gd-ko" maxlength="2000"></textarea></label>
-      <label>영어 (다른 언어의 기본값)<textarea id="gd-en" maxlength="2000"></textarea></label>
-      <h3>${top("fp.detailH")}</h3>
-      <div class="fp-detail"><label>${top("fp.detailRow")}<select id="gd-feat-row"></select></label>
-        <label id="gd-feat-title-l" hidden>${top("fp.newTitle")}<input id="gd-feat-title" maxlength="40" autocomplete="off"></label>
-        <button type="button" id="gd-feat-go">${top("fp.addTo")}</button></div>
-      <div class="row-actions"><button type="submit" class="primary">저장</button><button type="button" id="gd-reset">소개를 titledb 것으로 되돌리기</button></div>
-    </div>
-  </form>
-  </div>
-  <div data-lib-panel="server" hidden>
-  <h2 class="first">서버 설정</h2>
-  <dl class="kv" id="settings"></dl>
-  <p class="muted">바꿀 수 있는 설정은 <a href="#settings/server">설정 탭의 서버 동작</a>에 있습니다.</p>
-  </div>
-</section>
+${LIBRARY_HTML}
 
 ${RETRO_ART_HTML}
 ${ALERTS_HTML}
 ${INBOX_HTML}
 ${NSZ_HTML}
 ${TRASH_HTML}
-<section id="tab-homebrew" hidden>
-  <div class="subtabs" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
-    <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
-    <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}추천 홈브류</button>
-    <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}GitHub 저장소</button>
-  </div>
-  <div data-sub-panel="apps">
-  <div class="hd"><h2 class="first">앱</h2><div class="actions"><button type="button" id="hb-rescan">다시 읽기</button><button type="button" id="hb-adopt">폴더 등록</button></div></div>
-  <p class="muted">서버에 있는 홈브류 앱 전체입니다. 끄면 기기 목록에서 빠지고 서버에는 남습니다. GitHub 앱은 빼기로 더 따라가지 않고, 직접 넣은 앱은 GitHub 연결로 저장소를 따라가게 바꾸거나 삭제합니다.</p>
-  ${box("hb-apps-help", "앱 관리 안내", `<p class="muted">앱마다 도구나 포트로 나누고, 그 앱의 패치와 세이브를 올리거나 삭제합니다. 서버의 홈브류 폴더에 .nro 와 게임 파일이 든 폴더를 직접 넣었다면 "폴더 등록"을 누르면 폴더째 등록됩니다.</p>`, { level: "h3" })}
-  <div id="hb-held" class="hb-held" hidden></div>
-  <div class="scroll" id="hb-apps" data-skel></div>
-  </div>
-  <div data-sub-panel="reco" hidden>
-  <div class="hd"><h2 class="first">추천 홈브류</h2><div class="actions"><button type="button" id="hb-add-picked">고른 것 추가</button><button type="button" class="primary" id="hb-add-all">모두 추가</button></div></div>
-  <p class="muted">최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.</p>
-  <div class="hb-reco" id="hb-reco" data-skel></div>
-  </div>
-  <div data-sub-panel="sources" hidden>
-  <div class="hd"><h2 class="first">GitHub 저장소 추가</h2></div>
-  <form class="add" id="hb-add">
-    <input id="hb-repo" autocomplete="off" spellcheck="false" placeholder="GitHub 주소 또는 owner/name" aria-label="GitHub 저장소" required maxlength="200">
-    <input id="hb-asset" autocomplete="off" spellcheck="false" placeholder="쓸 파일 이름 (선택, 예: *-classic.nro)" aria-label="쓸 파일 이름" maxlength="100">
-    <button class="primary" type="submit">추가</button>
-  </form>
-  <p class="muted">추가하면 서버가 바로 확인해 최신 릴리스를 받아 둡니다. 릴리스에 .nro 가 여럿이면 저장소 이름과 같은 것을, 없으면 .zip 안의 .nro 를 씁니다. 다른 파일을 쓰려면 아래 목록에서 고릅니다.</p>
-  <div class="hd"><h2>등록된 GitHub 저장소</h2><button type="button" id="hb-check-all">모두 지금 확인</button></div>
-  <div class="scroll" id="hb-sources" data-skel></div>
-  </div>
-</section>
+${HOMEBREW_HTML}
 
-<section id="tab-upload" hidden>
-  <div class="hd"><h2>${top("s.upload")}</h2></div>
-  <p class="muted up-lead" id="up-lead">${top("u.lead")}</p>
-  <div class="up-drop" id="up-drop" tabindex="0" role="button" data-top-label="u.dropAria" aria-label="올릴 파일 고르기">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
-    <b id="up-drop-t">${top("u.dropT")}</b>
-    <span id="up-chosen"></span>
-    <div class="pick">
-      <button type="button" id="up-file-btn">${top("u.pickFiles")}</button>
-      <button type="button" id="up-dir-btn">${top("u.pickDir")}</button>
-    </div>
-    <input type="file" id="up-file" multiple hidden>
-    <input type="file" id="up-dir" webkitdirectory hidden>
-  </div>
-  <div class="up-guess" id="up-guess" hidden>
-    <p id="up-guess-t" aria-live="polite"></p>
-    <button type="button" id="up-change">${top("u.change")}</button>
-  </div>
-  <div id="up-kinds" role="group" data-top-label="u.kindsAria" aria-label="올릴 곳" hidden>
-  <p class="up-group">${top("u.grpSwitch")}</p>
-  <div class="up-kinds">
-    <button type="button" data-kind="game"><b>${top("u.kGame")}</b><span>${top("u.kGameD")}</span></button>
-    <button type="button" data-kind="patch"><b>${top("u.kPatch")}</b><span>${top("u.kPatchD")}</span></button>
-    <button type="button" data-kind="save"><b>${top("u.kSave")}</b><span>${top("u.kSaveD")}</span></button>
-    <button type="button" data-kind="homebrew"><b>${top("u.kHomebrew")}</b><span>${top("u.kHomebrewD")}</span></button>
-    <button type="button" data-kind="port"><b>${top("u.kPort")}</b><span>${top("u.kPortD")}</span></button>
-    <button type="button" data-kind="client"><b>${top("u.kClient")}</b><span>${top("u.kClientD")}</span></button>
-    <button type="button" data-kind="retro" data-pick="retro"><b>${top("u.kRetro")}</b><span>${top("u.kRetroD")}</span></button>
-  </div>
-  <div id="up-systems-wrap" hidden>
-  <p class="up-group">${top("u.grpRetro")}</p>
-  <div class="up-kinds up-systems" id="up-systems" data-skel></div>
-  </div>
-  </div>
-  <p class="muted up-hint" id="up-hint"></p>
-  <div id="up-note"></div>
-  <form class="up" id="up-form" hidden>
-    <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
-    <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
-    <label id="up-game-l" hidden>${top("gp.find")}<input id="up-game" autocomplete="off" ${topPh("gp.ph")}></label>
-    <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
-    <label class="check" id="up-required-l" hidden><input type="checkbox" id="up-required"> 이 패치 없이는 게임이 실행되지 않습니다 (필수)</label>
-    <label id="up-savetype-l" hidden>세이브 종류<select id="up-savetype"><option value="">백업 .meta 를 따르거나 어느 쪽에나 적용합니다</option><option value="device">본체 공용 세이브</option><option value="account">계정 세이브</option></select></label>
-    <details class="up-more" id="up-desc-l" hidden><summary>설명 넣기 (선택)</summary>
-      <label>영어 설명 (다른 언어의 기본값)<textarea id="up-desc" maxlength="2000"></textarea></label>
-      <label>한국어 설명<textarea id="up-desc-ko" maxlength="2000"></textarea></label>
-    </details>
-    <p class="up-plan" id="up-plan"></p>
-    <div class="bar" id="up-bar" hidden><i></i></div>
-    <div class="up-go"><button type="submit" class="primary" id="up-go">${top("u.go")}</button><button type="button" id="up-clear">${top("u.reset")}</button><span class="muted" id="up-progress"></span></div>
-  </form>
-  <p class="muted up-foot">${top("u.foot")} <a href="#library">${top("up.seeFiles")}</a></p>
-  <p class="up-sum" id="up-sum" role="status" aria-live="polite" hidden></p>
-  <div class="up-log" id="up-log" role="list" data-top-label="u.resultsAria" aria-label="올린 결과"></div>
-</section>
+${UPLOAD_HTML}
 </div>
 
-<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">
-  <p id="ask-text"></p>
-  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>
-  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>
-</dialog>
-<dialog id="ip-dialog" aria-labelledby="ip-title">
-  <h3 id="ip-title"></h3>
-  <p class="muted" id="ip-hint"></p>
-  <div class="ip-list" id="ip-list"></div>
-  <div class="dialog-actions"><button type="button" class="primary" id="ip-close" data-top="acc.close"></button></div>
-</dialog>
-<dialog id="cred-dialog" aria-labelledby="cred-title">
-  <h3 id="cred-title"></h3>
-  <p class="muted">이 비밀번호는 지금만 볼 수 있습니다. 창을 닫기 전에 전달합니다.</p>
-  <div class="cred" id="cred"></div>
-  <p class="muted">CookingFoil 은 설정 파일을 sdmc:/switch/cookingfoil/config.json 에 넣으면 처음 연결할 때 이 아이디와 비밀번호로 한 번 확인해 QR 없이 승인합니다. 그다음부터는 기기 키로 접속합니다.</p>
-  <div class="dialog-actions">
-    <button type="button" id="cred-config">CookingFoil 설정 파일 다운로드</button>
-    <button type="button" class="primary" id="cred-close">닫기</button>
-  </div>
-</dialog>
-<dialog id="hb-banner" class="hb-banner" aria-labelledby="hb-banner-title">
-  <h3 id="hb-banner-title"></h3>
-  <p class="muted">게임처럼 앱 정보 위쪽에 넓은 배경 그림을, 아래에 스크린샷을 보여 줍니다. 포트는 배경을 SteamGridDB 에서, 스크린샷을 IGDB 에서(키가 있을 때) 자동으로 찾아 둡니다.</p>
-  <h4>배경 그림</h4>
-  <div class="hb-banner-now" id="hb-banner-now"><img id="hb-banner-img" alt="지금 그림"><p class="muted" id="hb-banner-none">지금은 그림이 없습니다.</p></div>
-  <form class="add" id="hb-banner-search"><input id="hb-banner-q" aria-label="검색어" placeholder="영어 게임 이름"><button class="primary">SteamGridDB 에서 찾기</button></form>
-  <p class="muted" id="hb-banner-state" aria-live="polite"></p>
-  <div class="hb-banner-grid" id="hb-banner-results"></div>
-  <div class="row-actions">
-    <label class="btn-like" for="hb-banner-file">배경 올리기</label><input type="file" id="hb-banner-file" accept="image/*" hidden>
-    <button type="button" id="hb-banner-remove" class="danger">배경 빼기</button>
-  </div>
-  <h4>스크린샷 <span class="muted" id="hb-shots-count"></span></h4>
-  <div class="hb-shots" id="hb-shots"></div>
-  <p class="muted" id="hb-shots-state" aria-live="polite"></p>
-  <div class="dialog-actions">
-    <label class="btn-like" for="hb-shots-file">스크린샷 올리기</label><input type="file" id="hb-shots-file" accept="image/*" multiple hidden>
-    <button type="button" id="hb-shots-clear" class="danger">스크린샷 모두 빼기</button>
-    <button type="button" id="hb-banner-close">닫기</button>
-  </div>
-</dialog>
-<dialog id="hb-desc" aria-labelledby="hb-desc-title">
-  <h3 id="hb-desc-title"></h3>
-  <p class="muted" id="hb-desc-hint"></p>
-  <form class="desc-form" id="hb-desc-form" method="dialog">
-    <label>영어 설명 (모든 언어의 기본값)<textarea id="hb-desc-en" maxlength="2000"></textarea></label>
-    <label>한국어 설명 (한국어로 볼 때)<textarea id="hb-desc-ko" maxlength="2000"></textarea></label>
-    <div class="dialog-actions">
-      <button type="button" id="hb-desc-reset">GitHub 기본값으로</button>
-      <button type="button" id="hb-desc-close">닫기</button>
-      <button type="submit" class="primary">저장</button>
-    </div>
-  </form>
-</dialog>
+${ASK_DIALOG_HTML}
+${IP_DIALOG_HTML}
+${CRED_DIALOG_HTML}
+${HOMEBREW_DIALOG_HTML}
 ${CONTENT_DIALOG_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${CLIENT_RELEASE_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
+<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
 }

@@ -64,7 +64,7 @@ test("only a console the admin flagged reads and changes item settings, and each
     const { accessKey } = await (await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": KEY } })).json();
     const D = { "X-Device-Key": KEY, "X-Access-Key": accessKey };
     const fromConsole = (method, p, body) => fetch(`${BASE}${p}`, { method, headers: { ...D, "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
-    const features = async () => (await (await fromConsole("GET", "/api/shop/info")).json()).features;
+    const features = async () => (await (await fromConsole("GET", "/api/library/info")).json()).features;
     const apps = async () => (await (await fromConsole("GET", "/api/homebrew")).json()).homebrew;
 
     let app;

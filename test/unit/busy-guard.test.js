@@ -19,7 +19,7 @@ test("one hiccup is not busy; a loop that stays behind is, and browsers get a pa
   busyGuard()({ path: "/login", headers: { accept: "text/html" } }, res, () => { sent.next = true; });
   assert.equal(sent.status, 503);
   assert.match(sent.body, /http-equiv="refresh"/);
-  busyGuard()({ path: "/api/shop/sections", headers: {} }, res, () => {});
+  busyGuard()({ path: "/api/library/sections", headers: {} }, res, () => {});
   assert.deepEqual(sent.json, { error: "busy", retryAfter: 5 });
   let passed = false;
   busyGuard()({ path: "/healthz", headers: {} }, res, () => { passed = true; });

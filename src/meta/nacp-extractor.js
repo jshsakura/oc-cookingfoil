@@ -47,7 +47,7 @@ export function setProvider(p) {
 }
 
 // Subscribers fired AFTER a record is persisted to extracted-meta. The
-// shop-cache layer hooks this so the next /shop.json reflects the new
+// shop-cache layer hooks this so the next /games.json reflects the new
 // metadata without the user having to wait for the next chokidar event.
 const subscribers = new Set();
 export function onExtracted(fn) {

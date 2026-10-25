@@ -62,7 +62,7 @@ export function ignoreBasic(req, _res, next) {
 
 export default function authGuard() {
   return (req, res, next) => {
-    // Automation tokens: the admin API and the /shop.json catalog only, acting as the admin who made them.
+    // Automation tokens: the admin API and the /games.json catalog (legacy /shop.json alias) only, acting as the admin who made them.
     if (apiTokens.presented(req)) return tokenLane(req, res, next, clientIp(req));
 
     // Accounts are managed live from /admin: no accounts means no sign-in wall,
@@ -218,7 +218,7 @@ function ownerIsAdmin(owner) {
 const MCP_PATH = /^\/mcp\/?$/i;
 
 // What an automation token may reach: the admin API, its guide, the flat catalog and MCP.
-export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || p === "/shop.json" || MCP_PATH.test(p);
+export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || (p === "/games.json" || p === "/shop.json") || MCP_PATH.test(p);
 
 function tokenLane(req, res, next, ip) {
   if (!trustedHere(req) && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked out" });

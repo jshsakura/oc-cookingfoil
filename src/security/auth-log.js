@@ -2,7 +2,7 @@
  * One log line for every 401 and 403 the sign-in paths answer, so "the console
  * said 401" can be matched to a reason afterwards:
  *
- *   auth: 401 session-revoked GET /api/shop/sections device=AB12CD34
+ *   auth: 401 session-revoked GET /api/library/sections device=AB12CD34
  *
  * The same reason goes out as X-CookingFoil-Auth (noteRefusal).
  *
