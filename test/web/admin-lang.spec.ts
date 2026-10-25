@@ -58,10 +58,14 @@ for (const [lang, labels] of LANGS) {
     const header = await page.locator('#users .ag-header-row .ag-header-cell-text').first().textContent();
     expect(header).toBe(labels.header);
 
-    const buttons = page.locator('#users .ag-row button[aria-label]');
-    expect(await buttons.count()).toBeGreaterThan(0);
-    await expect(buttons.first().locator('svg')).toHaveCount(1);
-    const aria = await buttons.first().getAttribute('aria-label');
+    // Action buttons (in .row-actions with the .ib icon class) carry an svg
+    // and a language-specific aria-label. The login-history text button has
+    // no svg by design, so scope to the action bar, not any row button.
+    const actions = page.locator('#users .ag-row .row-actions button.ib');
+    expect(await actions.count()).toBeGreaterThan(0);
+    const first = actions.first();
+    await expect(first.locator('svg')).toHaveCount(1);
+    const aria = await first.getAttribute('aria-label');
     expect(aria).toBeTruthy();
     expect(aria).not.toBe('');
 
@@ -85,7 +89,7 @@ test('a destructive confirm asks in English, cancel focused, danger colour', asy
 
   const row = page.locator('#users .ag-row', { hasText: NAME });
   await expect(row).toHaveCount(1);
-  const del = row.locator('button').filter({ has: page.locator('svg') }).last();
+  const del = row.locator('.row-actions button.ib[aria-label="Delete"]');
   await expect(del).toHaveCount(1);
   await del.click();
   const dialog = page.locator('#ask-dialog');

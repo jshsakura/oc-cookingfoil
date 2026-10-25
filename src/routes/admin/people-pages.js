@@ -40,7 +40,7 @@ export const DEVICES_HTML = /* html */ `<section id="tab-devices" hidden>
   <div data-sub-panel="pending">
   <p class="muted" id="devhint"></p>
   <form class="add" id="approve-code">
-    <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="기기 화면의 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
+    <input id="code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" data-top-ph="pp.devCodePh" placeholder="기기 화면의 기기 코드 8자리" aria-label="기기 코드" required maxlength="9">
     <input id="code-label" autocomplete="off" placeholder="기기 이름 (선택)" aria-label="기기 이름" maxlength="64">
     <button class="primary" type="submit">기기 코드로 승인</button>
   </form>
