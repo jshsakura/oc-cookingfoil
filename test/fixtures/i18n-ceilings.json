@@ -14,7 +14,6 @@
     "src/routes/admin-page.js": 13,
     "src/routes/admin/activity-panel.js": 5,
     "src/routes/admin/alerts-panel.js": 3,
-    "src/routes/admin/client-release-panel.js": 31,
     "src/routes/admin/connect-howto.js": 7,
     "src/routes/admin/content-editor.js": 14,
     "src/routes/admin/dashboard-page.js": 18,
