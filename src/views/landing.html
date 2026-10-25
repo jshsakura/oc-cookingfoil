@@ -4096,7 +4096,7 @@
           recent: (a, b) => b.added - a.added,
           release: (a, b) => releaseOf(b) - releaseOf(a),
           updated: (a, b) => b.updAdded - a.updAdded,
-          popular: (a, b) => (metaOf(a).rank || Infinity) - (metaOf(b).rank || Infinity),
+          popular: (a, b) => (metaOf(a).rank || Number.MAX_SAFE_INTEGER) - (metaOf(b).rank || Number.MAX_SAFE_INTEGER),
           score: (a, b) => (scoreFor(b)?.score || 0) - (scoreFor(a)?.score || 0),
           largest: (a, b) => b.size - a.size,
         }[theme.sort];

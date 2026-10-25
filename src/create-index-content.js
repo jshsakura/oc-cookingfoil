@@ -52,7 +52,6 @@ import * as userPatches from "./meta/user-patches.js";
 import * as scores from "./meta/ratings.js";
 import * as ratingSync from "./meta/rating-sync.js";
 import { iconLangs } from "./meta/localized-art.js";
-import { fillMissingRanks } from "./meta/rank-fill.js";
 import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as gameDescriptions from "./meta/game-descriptions.js";
 import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
@@ -537,7 +536,7 @@ export function composeSections(filesMap, customs) {
     names: englishNamesOf(i.title_id, titledbStore.get(i.title_id)),
     year: i.release_date ? Math.floor(i.release_date / 10000) : null,
   })));
-  const body = { sections: [{ id: "all", title: "All", items: fillMissingRanks(items) }] };
+  const body = { sections: [{ id: "all", title: "All", items }] };
   // Item categories are English keys; this maps each to its label per language.
   body.genres = GENRE_LABELS;
   // score_label keys → their label per language.
