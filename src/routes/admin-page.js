@@ -299,7 +299,7 @@ export default function adminPageRouter() {
       const raw = page.param === "tab" ? req.query.tab : req.query.view;
       const view = typeof raw === "string" ? raw.slice(0, 40) : "";
       // The split pages of the redesign carry only their own markup and script.
-      const split = splitPageFor(page);
+      const split = splitPageFor(page, view);
       if (split) {
         res.type("html").send(split);
         return;

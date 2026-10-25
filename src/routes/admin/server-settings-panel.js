@@ -94,7 +94,9 @@ const ssText=(v)=>typeof v==='function'?v():v;
 const GIB=1024**3;
 const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
 const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?'켜짐':'꺼짐'):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
-async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||'저장했습니다.');ssRender(d);loadHealth();}
+// The overview owns the health summary; a standalone settings page has none.
+function ssRefreshHealth(){if(typeof loadHealth==='function')loadHealth();}
+async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||'저장했습니다.');ssRender(d);ssRefreshHealth();}
   catch(err){const row=SS_GROUPS.flatMap((g)=>g[1]).find((r)=>String(err.message).startsWith(r[0]+' '));
     toast(row?ssText(row[2])+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
 function ssControl(key,kind,s,ph){
@@ -176,11 +178,11 @@ function ssKeysRow(k){const r=el('div',null,'ss-row');r.dataset.key='prodKeys';c
   const c=el('div',null,'ss-ctl');const f=el('input');f.type='file';f.accept='.keys,text/plain';f.setAttribute('aria-label','prod.keys 파일');
   f.addEventListener('change',async()=>{const file=f.files[0];if(!file)return;
     if(file.size>65536){toast('prod.keys 는 64 KB 를 넘을 수 없습니다.');f.value='';return;}
-    try{await api('/admin/api/keys',{method:'PUT',body:{text:await file.text()}});toast('prod.keys 를 넣었습니다. 라이브러리를 다시 읽습니다.');loadServerSettings();loadHealth();}
+    try{await api('/admin/api/keys',{method:'PUT',body:{text:await file.text()}});toast('prod.keys 를 넣었습니다. 라이브러리를 다시 읽습니다.');loadServerSettings();ssRefreshHealth();}
     catch(err){toast(err.message);f.value='';}});
   c.append(f);
-  if(k.source==='upload')c.append(btn('지우기',async()=>{if(!await ask('올린 prod.keys 를 지웁니다. 서버에 따로 둔 파일이 없으면 그때부터 스위치 게임 파일을 분석하지 못하고 파일 이름으로만 알아봅니다.'))return;
-    try{await api('/admin/api/keys',{method:'DELETE'});toast('올린 prod.keys 를 지웠습니다.');loadServerSettings();loadHealth();}catch(err){toast(err.message);}}));
+  if(k.source==='upload')c.append(btn('지우기',async()=>{if(!await ask('올린 prod.keys 를 지웁니다. 서버에 따로 둔 파일이 없으면 그때부터 스위치 게임 파일을 분석하지 못하고 파일 이름으로만 알아봅니다.',{danger:true}))return;
+    try{await api('/admin/api/keys',{method:'DELETE'});toast('올린 prod.keys 를 지웠습니다.');loadServerSettings();ssRefreshHealth();}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}
 async function loadServerSettings(){ssRender(await api('/admin/api/server-settings'));}
 `;

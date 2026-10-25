@@ -36,8 +36,8 @@ import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-pan
 import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-panel.js";
 
 /** One split page: its own styles, body and scripts around the shared shell. */
-function splitPage(page, { css = "", body = "", script = "", init = "" }) {
-  const current = { path: page.path, view: "" };
+function splitPage(page, { css = "", body = "", script = "", init = "" }, view = "") {
+  const current = { path: page.path, view };
   // The panel sections ship with `hidden` for the whole-page tab switching;
   // on a page of their own the one section is the page, so it opens.
   const open = body.replace(/(<section id="tab-[a-z-]+") hidden>/, "$1>");
@@ -113,7 +113,7 @@ export const SPLIT_PAGES = {
 };
 
 /** The rendered page, or null when the path is not one of the split ones. */
-export function splitPageFor(page) {
+export function splitPageFor(page, view = "") {
   const extra = SPLIT_PAGES[page.path];
-  return extra ? splitPage(page, extra) : null;
+  return extra ? splitPage(page, extra, view) : null;
 }

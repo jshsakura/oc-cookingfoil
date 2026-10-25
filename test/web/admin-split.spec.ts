@@ -7,6 +7,9 @@ import { signIn } from './admin-sign-in';
 // polls stop when the tab hides or the page is left.
 
 const SPLIT: [string, string, string[], RegExp][] = [
+  ['/admin/settings/server', '#ss-list', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(server-settings|server\/status|counts)/],
+  ['/admin/settings/integrations', '#intg-h', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(integrations|counts)/],
+  ['/admin/settings/automation', '#mcp-on', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(tokens|server-settings|counts)/],
   ['/admin/notifications', '#al-form', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(alerts|counts)/],
   ['/admin/client', '#cr-form', ['#al-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(client-release|counts)/],
   ['/admin/trash', '#tr-list', ['#ib-list', '#nz-list', '#xf-cards', '#cl-list', '#lockouts', '#users'], /^\/admin\/api\/(trash|counts)/],
@@ -16,6 +19,25 @@ const SPLIT: [string, string, string[], RegExp][] = [
   ['/admin/logs/clients', '#cl-list', ['#tr-list', '#ib-list', '#nz-list', '#xf-cards', '#lockouts'], /^\/admin\/api\/(client-logs|counts)/],
   ['/admin/logs/security', '#lockouts', ['#tr-list', '#ib-list', '#nz-list', '#xf-cards', '#cl-list'], /^\/admin\/api\/(stats|unlock|denials|counts)/],
 ];
+
+test('a standalone server setting saves without calling the overview health panel', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/settings/server');
+  await page.locator('#ss-jump [data-group="임시 공유"]').click();
+  const control = page.locator('.ss-row[data-key="inboxEnabled"] input');
+  const before = await control.isChecked();
+  const saved = page.waitForResponse((r) => r.url().endsWith('/admin/api/server-settings') && r.request().method() === 'POST');
+  await page.locator('.ss-row[data-key="inboxEnabled"] label').click();
+  expect((await saved).ok()).toBe(true);
+  await expect(page.locator('#toast')).not.toContainText('loadHealth');
+  await expect(page.locator('#toast')).toHaveText(!before ? '임시 공유를 받습니다.' : '임시 공유를 받지 않습니다.');
+  await page.reload();
+  await page.locator('#ss-jump [data-group="임시 공유"]').click();
+  await expect(control).toBeChecked({ checked: !before });
+  const restored = page.waitForResponse((r) => r.url().endsWith('/admin/api/server-settings') && r.request().method() === 'POST');
+  await page.locator('.ss-row[data-key="inboxEnabled"] label').click();
+  expect((await restored).ok()).toBe(true);
+});
 
 for (const [path, own, foreign, api] of SPLIT) {
   test(`${path} carries only its own panel and asks only its own APIs`, async ({ page }) => {
