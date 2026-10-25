@@ -18,6 +18,8 @@ mkdir -p "$nsp" && echo "NSP $tid" > "$nsp/$tid.nsp"
 exit 0
 `, { mode: 0o755 });
 process.env.COOK_HACBREWPACK_BIN = fakeBin;
+// The real exefs is built in the Docker image; the NPDM here is its 1 KB descriptor (no code).
+process.env.COOK_FORWARDER_EXEFS = path.resolve(import.meta.dirname, "../fixtures/forwarder-exefs");
 const keysDir = path.join(root, "keys");
 fs.mkdirSync(keysDir);
 fs.writeFileSync(path.join(keysDir, "prod.keys"), `header_key = ${"ab".repeat(32)}\nkey_area_key_application_00 = ${"cd".repeat(16)}\n`);
