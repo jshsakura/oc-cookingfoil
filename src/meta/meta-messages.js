@@ -1,5 +1,5 @@
 /**
- * What the src/meta modules say when they refuse, hold something back or report a job, in the four admin
+ * What the src/meta modules say when they refuse, hold something back or report a job, in the twelve admin
  * languages.
  *
  * An error carries its message in English, the key here as `code` (or `key`, where the error's `code` is

@@ -1,5 +1,5 @@
 /**
- * What the shared trash and the operations journal answer with when they refuse, in the four
+ * What the shared trash and the operations journal answer with when they refuse, in the twelve
  * admin languages. A TrashError made from a key carries it (trash.js trashError), so the admin
  * API answers in the page's language (trash-api.js) while the error's own message, which logs and
  * other routes pass on, stays the Korean one. {name} placeholders are filled by trashText.

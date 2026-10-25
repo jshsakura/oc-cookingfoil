@@ -1,6 +1,6 @@
 /**
  * What the RetroArch core upkeep (auto-cores.js, nightly-cores.js, repo-cores.js, core-files.js) and the
- * pack fill (pack-bundle.js, pack-fill.js) say when they refuse or report, in the four admin languages.
+ * pack fill (pack-bundle.js, pack-fill.js) say when they refuse or report, in the twelve admin languages.
  *
  * An error carries its message in English, the key here as `code` and the placeholder values as `vars`
  * (PackError.of, CoreError.of). A route answers in the request's language by that code (coreError), so the
