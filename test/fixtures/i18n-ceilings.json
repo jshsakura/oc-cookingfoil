@@ -33,7 +33,6 @@
     "src/routes/admin/pair-page.js": 14,
     "src/routes/admin/patches-panel.js": 47,
     "src/routes/admin/retro-art-panel.js": 7,
-    "src/routes/admin/retro-variants-panel.js": 69,
     "src/routes/admin/security-pages.js": 46,
     "src/routes/admin/tokens-panel.js": 5,
     "src/routes/admin/transfers-panel.js": 49,
