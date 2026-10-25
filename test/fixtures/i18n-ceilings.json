@@ -32,7 +32,7 @@
     "src/routes/admin/logs-pages.js": 19,
     "src/routes/admin/nsz-panel.js": 127,
     "src/routes/admin/pair-page.js": 14,
-    "src/routes/admin/patches-panel.js": 50,
+    "src/routes/admin/patches-panel.js": 47,
     "src/routes/admin/retro-art-panel.js": 127,
     "src/routes/admin/retro-variants-panel.js": 69,
     "src/routes/admin/security-pages.js": 49,

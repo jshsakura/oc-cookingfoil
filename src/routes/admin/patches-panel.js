@@ -47,9 +47,9 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
     <div class="ct-pair" data-for="save"><label>출처 이름<input id="ct-source-name" maxlength="120"></label><label>출처 주소<input id="ct-source-url" maxlength="300" placeholder="https://"></label></div>
     <label data-game>${top("gp.move")}<span class="ct-move"><input id="ct-move" autocomplete="off" ${topPh("gp.ph")}><button type="button" id="ct-move-go">${top("gp.moveGo")}</button></span></label>
     <div class="dialog-actions">
-      <button type="button" class="danger" id="ct-remove" data-game>삭제</button>
-      <button type="button" id="ct-close">닫기</button>
-      <button type="submit" class="primary">저장</button>
+      <button type="button" class="danger" id="ct-remove" data-game data-top="pp.delete">${top("pp.delete")}</button>
+      <button type="button" id="ct-close" data-top="acc.close">${top("acc.close")}</button>
+      <button type="submit" class="primary" data-top="fp.save">${top("fp.save")}</button>
     </div>
   </form>
 </dialog>`;
