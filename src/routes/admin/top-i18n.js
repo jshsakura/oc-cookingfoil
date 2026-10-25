@@ -1666,7 +1666,8 @@ function applyTopI18n(relabelActivity=true){
   for(const el of document.querySelectorAll('[data-top]')){const v=el.dataset.topN===undefined?topText(el.dataset.top):topFill(el.dataset.top,{n:el.dataset.topN});
     if(el.dataset.topHtml===undefined)el.textContent=v;else el.innerHTML=v;}
   for(const el of document.querySelectorAll('[data-top-label]'))el.setAttribute('aria-label',topText(el.dataset.topLabel));
-  for(const el of document.querySelectorAll('[data-top-ph]'))el.placeholder=topText(el.dataset.topPh);
+  // A stored secret keeps its "stored, enter only to change" tail through a language switch: data-top-ph-tail names its key.
+  for(const el of document.querySelectorAll('[data-top-ph]'))el.placeholder=topText(el.dataset.topPh)+(el.dataset.topPhTail?topText(el.dataset.topPhTail):'');
   const who=document.getElementById('who');if(who&&Object.values(topWords).some((w)=>w.loading===who.textContent))who.textContent=topText('loading');
   for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
   document.getElementById('lang-current').textContent=adminLang.toUpperCase();

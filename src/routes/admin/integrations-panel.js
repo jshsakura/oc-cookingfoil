@@ -104,7 +104,7 @@ async function loadIntegrations(){
     document.querySelectorAll('.intg').forEach((c)=>{const s=d[c.dataset.svc];if(!s)return;
       const st=c.querySelector('[data-state]');st.textContent=s.configured?topFill('ig.on',{src:topText(INTG_SOURCE[s.source])}):topText(INTG_SOURCE.none);st.classList.toggle('on',s.configured);
       for(const [k,f] of Object.entries(s.fields)){const i=c.querySelector('input[name="'+k+'"]');if(!i)continue;
-        if('value' in f)i.value=f.value||'';else{i.value='';i.placeholder=i.getAttribute('aria-label')+(f.set?topText('ig.storedSet'):'');}}
+        if('value' in f)i.value=f.value||'';else{i.value='';if(f.set)i.dataset.topPhTail='ig.storedSet';else delete i.dataset.topPhTail;i.placeholder=i.getAttribute('aria-label')+(f.set?topText('ig.storedSet'):'');}}
       const r=c.querySelector('[data-redirect]');if(r)r.textContent=d.dropboxRedirectUri||'';});
     for(const [k,on] of Object.entries(d.keyless||{})){const st=document.querySelector('[data-free="'+k+'"] [data-free-state]');
       if(st){st.textContent=on?topText('ig.noKeyOn'):topText(INTG_SOURCE.none);st.classList.toggle('on',on);st.classList.toggle('off',!on);}}
