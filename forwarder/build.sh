@@ -7,12 +7,13 @@
 # hbl.json as an application in the 05xx title range; the server builds one
 # NSP per retro game around this exefs (src/retro/forwarder.js).
 #
-# Needs Docker. The output is committed, so the server image doesn't carry
-# devkitPro; rerun this only when the patch, the json or the tag changes.
+# Needs Docker. The server image builds the same thing in its forwarder-builder
+# stage (Dockerfile); this script is for running the server outside Docker. The
+# output is not committed. Keep the image tag and hbloader tag in step with the Dockerfile.
 set -eu
 HBLOADER_TAG=v2.4.5
 here=$(cd "$(dirname "$0")" && pwd)
-docker run --rm -v "$here:/fwd" devkitpro/devkita64:latest sh -euc "
+docker run --rm -v "$here:/fwd" devkitpro/devkita64:20260219 sh -euc "
   git clone -q --depth 1 --branch $HBLOADER_TAG https://github.com/switchbrew/nx-hbloader.git /tmp/hbl
   cd /tmp/hbl
   git apply /fwd/hbloader-romfs.patch
