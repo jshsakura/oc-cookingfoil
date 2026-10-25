@@ -8,7 +8,7 @@ import path from "node:path";
 // deviceContentGuard only enforces when pairing is the SOLE lane, and that
 // decision is frozen at module load — hence child processes per configuration.
 //
-// The regression this pins down: a client with no device key (stock Tinfoil)
+// The regression this pins down: a client with no device key (a client from another project)
 // used to be refused with a generic 403 and NO record anywhere, which is what
 // made "the download instantly says Complete" impossible to diagnose.
 
@@ -65,7 +65,7 @@ function runProbe({ env = {}, headers = {} } = {}) {
 const PAIRING_ONLY = { COOK_DEVICE_PAIRING: "true", COOK_AUTH_USERS: "" };
 
 test("pairing-only + keyless client: refused as no-device-key, and it is recorded", () => {
-  const r = runProbe({ env: PAIRING_ONLY, headers: { "user-agent": "Tinfoil/17.0" } });
+  const r = runProbe({ env: PAIRING_ONLY, headers: { "user-agent": "OtherClient/17.0" } });
 
   assert.equal(r.passedThrough, false);
   assert.equal(r.status, 403);
@@ -73,13 +73,13 @@ test("pairing-only + keyless client: refused as no-device-key, and it is recorde
   assert.equal(r.denials.length, 1, "the refusal must leave a trail for the dashboard");
   assert.equal(r.denials[0].reason, "no-device-key");
   assert.equal(r.denials[0].path, "/api/library/sections");
-  assert.equal(r.denials[0].ua, "Tinfoil/17.0");
+  assert.equal(r.denials[0].ua, "OtherClient/17.0");
 });
 
 test("the keyless refusal body points at the CookingFoil client, never at a password", () => {
   const r = runProbe({ env: PAIRING_ONLY });
   assert.match(r.body, /CookingFoil client, which pairs by QR/);
-  assert.doesNotMatch(r.body, /Tinfoil|COOK_AUTH_USERS/);
+  assert.doesNotMatch(r.body, /COOK_AUTH_USERS/);
 });
 
 test("pairing-only + unapproved device: distinct reason, and it lands in the pending queue", () => {

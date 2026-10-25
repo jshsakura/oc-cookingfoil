@@ -26,7 +26,7 @@ test("normalizeDeviceKey accepts 64-hex and canonicalises to upper/trimmed", () 
 });
 
 test("normalizeDeviceKey rejects the all-zero eMMC-read-failure fallback", () => {
-  // CyberFoil emits 64 zeros when fsDeviceOperatorGetMmcCid fails — a value
+  // The client emits 64 zeros when fsDeviceOperatorGetMmcCid fails — a value
   // shared by every broken console. It must never become a valid identity.
   assert.equal(normalizeDeviceKey("0".repeat(64)), null);
 });

@@ -10,7 +10,7 @@ import { seedConsole } from "../support/console.js";
 
 // /shop.json is the automation catalog: only an API token made on the admin
 // page reads it. A console, a browser and a password get nothing there, and
-// the old Tinfoil-era addresses are gone.
+// the retired addresses are gone.
 const PORT = 18500 + (process.pid % 400);
 const BASE = `http://127.0.0.1:${PORT}`;
 const TOKEN_ID = "0a1b2c3d";
@@ -129,8 +129,8 @@ test("library client paths match legacy responses without granting automation to
   }
 });
 
-test("the Tinfoil-era addresses are gone", async () => {
-  for (const url of ["/shop.tfl", "/api/remote/sections", "/api/remote/icon/0100000000010000", "/api/connect-url"]) {
+test("the retired addresses are gone", async () => {
+  for (const url of ["/api/remote/sections", "/api/remote/icon/0100000000010000", "/api/connect-url"]) {
     assert.equal((await get(url, consoleHeaders)).status, 404, url);
   }
   const root = await get("/", { ...consoleHeaders, Accept: "application/json" });

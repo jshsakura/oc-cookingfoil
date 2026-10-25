@@ -10,8 +10,8 @@ import path from "node:path";
 // tryHydrateFromDisk() restores `cached` (so /shop.tfl serves at once) but
 // leaves filesMap null, and get() short-circuits on `cached`. Without the
 // build-when-null guard, /api/library/sections would report an EMPTY library
-// right after a restart while /shop.tfl serves the full snapshot — exactly
-// when CyberFoil clients reconnect. Runs in a child process so env + module
+// right after a restart while the snapshot is full, exactly when clients
+// reconnect. Runs in a child process so env + module
 // state are isolated.
 
 const PROBE = `

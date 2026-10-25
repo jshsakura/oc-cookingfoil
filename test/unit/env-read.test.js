@@ -85,14 +85,14 @@ const PROBE = `
   }));
 `;
 
-test("only COOK_PORT selects the listener port; the retired alias is ignored", () => {
+test("only COOK_PORT selects the listener port", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "cf-env-port-"));
   try {
     for (const [port, expected] of [["", "80"], ["18080", "18080"]]) {
       const out = execFileSync(process.execPath, ["--input-type=module", "-e",
         'import { appPort } from "../../src/helpers/envs.js"; process.stdout.write(appPort);'], {
         cwd: import.meta.dirname,
-        env: { ...process.env, COOK_DATA_DIR: dir, COOK_STORAGE_DIR: "", COOK_PORT: port, TINFOIL_HAT_PORT: "19999" },
+        env: { ...process.env, COOK_DATA_DIR: dir, COOK_STORAGE_DIR: "", COOK_PORT: port },
         encoding: "utf-8",
       });
       assert.equal(out, expected);

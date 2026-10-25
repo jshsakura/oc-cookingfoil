@@ -24,7 +24,7 @@ test("search, SEO and AI crawlers are recognised by their published names", () =
 test("browsers, consoles, scripts and messenger link previews are let through", () => {
   for (const ua of [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
-    "CookingFoil/0.3.72", "CyberFoil/1.4.5", "Tinfoil/18.0", "curl/8.5.0", "python-requests/2.32.3", "Go-http-client/2.0",
+    "CookingFoil/0.3.72", "OtherClient/1.4.5", "AnotherClient/18.0", "curl/8.5.0", "python-requests/2.32.3", "Go-http-client/2.0",
     "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)", "TelegramBot (like TwitterBot)",
     "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)", "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)",
     "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.130 Safari/537.36 kakaotalk-scrap/1.0",
