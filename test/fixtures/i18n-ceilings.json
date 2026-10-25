@@ -35,7 +35,7 @@
     "src/routes/admin/patches-panel.js": 47,
     "src/routes/admin/retro-art-panel.js": 127,
     "src/routes/admin/retro-variants-panel.js": 69,
-    "src/routes/admin/security-pages.js": 49,
+    "src/routes/admin/security-pages.js": 46,
     "src/routes/admin/server-settings-panel.js": 179,
     "src/routes/admin/tokens-panel.js": 6,
     "src/routes/admin/transfers-panel.js": 49,

@@ -1,5 +1,6 @@
 /** Independent login and administrator-security panels, shared with the legacy shell. */
 import { box } from "./boxes.js";
+import { top } from "./top-i18n.js";
 
 export const GOOGLE_SETTINGS_HTML = /* html */ `  ${box("sec-google", "구글 로그인", `
   <p class="muted">구글 로그인은 덤입니다. 꺼 두면 아이디와 비밀번호로만 로그인하고, 켜면 로그인 화면에 구글 버튼이 붙습니다. 저장하면 바로 적용합니다.</p>
@@ -19,7 +20,7 @@ export const GOOGLE_SETTINGS_HTML = /* html */ `  ${box("sec-google", "구글 �
 export const ADMIN_SECURITY_HTML = /* html */ `  ${box("sec-tfa", "관리 페이지 2단계 인증", `
   <div class="tfa" id="tfa">
     <div class="tfa-ok" id="tfa-ok" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></svg><div><b>인증 앱이 등록되어 있습니다</b><span id="tfa-ok-sub"></span></div></div>
-    <p id="tfa-status" class="muted">불러오고 있습니다</p>
+    <p id="tfa-status" class="muted" data-top="loading">${top("loading")}</p>
     <div class="row" id="tfa-actions"></div>
     <div class="tfa-setup" id="tfa-setup" hidden>
       <div class="tfa-qr" id="tfa-qr" role="img" aria-label="인증 앱 QR 코드"></div>
@@ -29,7 +30,7 @@ export const ADMIN_SECURITY_HTML = /* html */ `  ${box("sec-tfa", "관리 페이
         <div class="row" style="margin-top:10px">
           <input id="tfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="확인 코드">
           <button type="button" class="primary" id="tfa-confirm">등록</button>
-          <button type="button" id="tfa-cancel">취소</button>
+          <button type="button" id="tfa-cancel" data-top="pp.cancelBtn">${top("pp.cancelBtn")}</button>
         </div>
       </div>
     </div>
@@ -37,7 +38,7 @@ export const ADMIN_SECURITY_HTML = /* html */ `  ${box("sec-tfa", "관리 페이
   `, { open: true, meta: "인증 앱 코드" })}
   ${box("sec-password", "관리자 비밀번호", `
   <form class="tfa" id="ap-form" autocomplete="off">
-    <p id="ap-status" class="muted">불러오고 있습니다</p>
+    <p id="ap-status" class="muted" data-top="loading">${top("loading")}</p>
     <div class="row">
       <input id="ap-current" type="password" autocomplete="current-password" placeholder="지금 비밀번호" aria-label="지금 비밀번호" maxlength="200">
       <input id="ap-new" type="password" autocomplete="new-password" placeholder="새 비밀번호 (12자 이상)" aria-label="새 비밀번호" minlength="12" maxlength="200">
