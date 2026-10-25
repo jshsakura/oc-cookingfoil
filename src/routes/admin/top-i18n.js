@@ -1604,6 +1604,8 @@ export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>
 export const topN = (key, n) => `<span data-top="${key}" data-top-n="${n}">${TOP_WORDS.ko[key].split("{n}").join(String(n))}</span>`;
 /** A placeholder in the page's first language, swapped with the rest by data-top-ph. */
 export const topPh = (key) => `data-top-ph="${key}" placeholder="${TOP_WORDS.ko[key]}"`;
+/** An aria-label in the page's first language, swapped by data-top-label. top() returns markup, which breaks out of an attribute. */
+export const topLabel = (key) => `data-top-label="${key}" aria-label="${TOP_WORDS.ko[key]}"`;
 
 // The language chip left of the account button, the same as the web page's: the current code, a list on click.
 export const TOP_LANG_HTML = /* html */ `<div class="lang-menu">
