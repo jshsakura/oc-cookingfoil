@@ -1603,7 +1603,9 @@ const ADMIN_LANG_KEY='cookingfoil:lang';
 const topWords=${JSON.stringify(TOP_WORDS)};
 // The web page's choice (same key); Korean until one is made, like the rest of this page.
 let adminLang=(()=>{try{const v=localStorage.getItem(ADMIN_LANG_KEY);return topWords[v]?v:'ko';}catch{return 'ko';}})();
-const topText=(key)=>topWords[adminLang][key]??topWords.ko[key];
+// The fallback chain: the picked language first, English when a key has not
+// reached it yet, Korean as the last resort (the source of truth).
+const topText=(key)=>topWords[adminLang][key]??topWords.en[key]??topWords.ko[key];
 // topText with each {name} filled from vars.
 const topFill=(key,vars)=>{let s=topText(key);if(vars)for(const x in vars)s=s.split('{'+x+'}').join(String(vars[x]));return s;};
 function applyTopI18n(relabelActivity=true){
