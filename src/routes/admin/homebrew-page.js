@@ -1,6 +1,7 @@
 /** Homebrew apps, recommendations and tracked repositories. */
 import { icon } from "../../views/icons.js";
 import { box } from "./boxes.js";
+import { top } from "./top-i18n.js";
 export const HOMEBREW_HTML = /* html */ `<section id="tab-homebrew" hidden>
   <div class="subtabs hide-bar" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
     <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
@@ -50,7 +51,7 @@ export const HOMEBREW_DIALOG_HTML = /* html */ `<dialog id="hb-banner" class="hb
   <div class="dialog-actions">
     <label class="btn-like" for="hb-shots-file">스크린샷 올리기</label><input type="file" id="hb-shots-file" accept="image/*" multiple hidden>
     <button type="button" id="hb-shots-clear" class="danger">스크린샷 모두 빼기</button>
-    <button type="button" id="hb-banner-close">닫기</button>
+    <button type="button" id="hb-banner-close" data-top="acc.close">${top("acc.close")}</button>
   </div>
 </dialog>
 <dialog id="hb-desc" aria-labelledby="hb-desc-title">
@@ -61,8 +62,8 @@ export const HOMEBREW_DIALOG_HTML = /* html */ `<dialog id="hb-banner" class="hb
     <label>한국어 설명 (한국어로 볼 때)<textarea id="hb-desc-ko" maxlength="2000"></textarea></label>
     <div class="dialog-actions">
       <button type="button" id="hb-desc-reset">GitHub 기본값으로</button>
-      <button type="button" id="hb-desc-close">닫기</button>
-      <button type="submit" class="primary">저장</button>
+      <button type="button" id="hb-desc-close" data-top="acc.close">${top("acc.close")}</button>
+      <button type="submit" class="primary" data-top="fp.save">${top("fp.save")}</button>
     </div>
   </form>
 </dialog>
@@ -72,7 +73,7 @@ export const HOMEBREW_SCRIPT = /* js */ `
 async function loadHomebrew(){
   const d=await api('/admin/api/homebrew');
   const reco=$('hb-reco');hbReco=d.recommended||[];
-  paged(reco,{key:'hb-reco',label:'추천 홈브류',def:12,items:d.recommended||[],
+  paged(reco,{key:'hb-reco',label:topText('ht.reco'),def:12,items:d.recommended||[],
     match:(r,q)=>(r.repo+' '+(r.purpose.ko||'')+' '+(r.purpose.en||'')).toLowerCase().includes(q),
     render:(rows)=>{reco.replaceChildren();
       for(const r of rows){const l=el('label');const c=el('input');c.type='checkbox';c.value=r.repo;c.disabled=r.added;c.checked=!r.added&&hbPicked.has(r.repo);
@@ -122,14 +123,14 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
   $('hb-held').replaceChildren(...held.map((h)=>{const p=el('p');p.append(el('b','switch/'+h.folder+'/'),' '+h.reason);return p;}));
   // Only the patches and saves an app has; uploading one is a button in the card's footer.
   const extras=(type,items)=>{if(!items.length)return null;const c=el('div',null,'hb-extras');
-    for(const it of items){const line=el('div',null,'xline');line.append(el('em',type==='patch'?'패치':'세이브','hb-xk'),el('span',it.name+' · '+mb(it.size)));
+    for(const it of items){const line=el('div',null,'xline');line.append(el('em',type==='patch'?topText('u.kPatch'):topText('u.kSave'),'hb-xk'),el('span',it.name+' · '+mb(it.size)));
       line.append(verifyPill(it.name,it.verified,async(next)=>{
         try{await api('/admin/api/content/'+type+'/verified',{method:'POST',body:{id:it.id,verified:next}});toast(next?it.name+' 에 검수됨 배지를 붙였습니다.':it.name+' 의 검수됨 배지를 뗐습니다.');}
         catch(err){toast(err.message);}loadHbApps();}));
       if(type==='patch'){const e=btn('편집',()=>ctOpen('patch',it,loadHbApps));e.setAttribute('aria-label',it.name+' 편집');line.append(e);}
-      const x=btn('삭제',()=>removeHbExtra(type,it.id,it.name),'danger');x.setAttribute('aria-label',it.name+' 삭제');line.append(x);c.append(line);}
+      const x=btn(topText('pp.delete'),()=>removeHbExtra(type,it.id,it.name),'danger');x.setAttribute('aria-label',it.name+' '+topText('pp.delete'));line.append(x);c.append(line);}
     return c;};
-  paged($('hb-apps'),{key:'hb-apps',label:'앱',def:24,items:d.apps||[],
+  paged($('hb-apps'),{key:'hb-apps',label:topText('ht.apps'),def:24,items:d.apps||[],
     match:(a,q)=>((a.name||'')+' '+(a.app||'')+' '+(a.repo_url||'')+' '+(a.title_id||'')).toLowerCase().includes(q),
     render:(rows,list,q)=>{const m=$('hb-apps');
       if(!rows.length){m.replaceChildren(el('div',q?'찾은 앱이 없습니다.':'홈브류 앱이 없습니다. 업로드 탭에서 올리거나 아래에서 저장소를 추가합니다.','empty'));return;}
@@ -162,12 +163,12 @@ function hbAppCard(a,extras){const name=a.name||a.app;const card=el('article',nu
   const desc=manual?.description||hbSources.find((s)=>s.id===a.id)?.description||{custom:null,github:a.description||null};
   const repo=(a.repo_url||'').replace('https://github.com/','');
   const foot=el('div',null,'src-foot hb-foot');
-  if(a.app)for(const [txt,type,short] of [['패치 올리기','patch','패치'],['세이브 올리기','save','세이브']]){
+  if(a.app)for(const [txt,type,short] of [[topText('rpt.apply'),'patch',topText('u.kPatch')],['세이브 올리기','save',topText('u.kSave')]]){
     const u=btn(txt,()=>uploadFor(type,a.app),'hb-up');u.querySelector('span').textContent=short;foot.append(u);}
   foot.append(btn('설명',()=>editHbDesc(a.id,name,desc)),btn('그림',()=>openHbBanner(a)));
   if(a.replaceable)foot.append(btn(topText('t.hbReplace'),()=>pickHbFile(a,name)));
-  if(a.source==='manual')foot.append(btn('GitHub 연결',()=>linkHb(a)),btn('삭제',()=>removeManualHb(a.id,name),'danger'));
-  else if(repo)foot.append(btn('지금 확인',()=>checkHb(repo)),btn('빼기',()=>removeHb(repo),'danger'));
+  if(a.source==='manual')foot.append(btn('GitHub 연결',()=>linkHb(a)),btn(topText('pp.delete'),()=>removeManualHb(a.id,name),'danger'));
+  else if(repo)foot.append(btn('지금 확인',()=>checkHb(repo)),btn(topText('fp.remove'),()=>removeHb(repo),'danger'));
   card.append(foot);return card;}
 // The picture behind an app's header: SteamGridDB's wide backgrounds, an upload, or none.
 let hbBannerApp=null;
@@ -204,7 +205,7 @@ $('hb-shots-file').addEventListener('change',async()=>{const files=[...$('hb-sho
   const st=$('hb-shots-state');let done=0;
   for(const file of files){st.textContent='올리고 있습니다 ('+(done+1)+'/'+files.length+')';
     try{const r=await fetch('/admin/api/homebrew/shots/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
-      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');done++;}
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||topText('u.rFail'));done++;}
     catch(err){st.textContent=file.name+': '+err.message;break;}}
   if(done===files.length)st.textContent=done+'장을 올렸습니다.';await hbMediaReload();});
 $('hb-banner-remove').addEventListener('click',async()=>{if(!await ask('배경 그림을 뺍니다. 포트도 다시 자동으로 채우지 않습니다.',{danger:true}))return;
@@ -212,7 +213,7 @@ $('hb-banner-remove').addEventListener('click',async()=>{if(!await ask('배경 �
 $('hb-banner-file').addEventListener('change',async()=>{const file=$('hb-banner-file').files[0];$('hb-banner-file').value='';if(!file)return;
   $('hb-banner-state').textContent='올리고 있습니다';
   try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
-    const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'올리지 못했습니다');toast('배경 그림을 올렸습니다.');await hbMediaReload();}
+    const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||topText('u.rFail'));toast('배경 그림을 올렸습니다.');await hbMediaReload();}
   catch(err){$('hb-banner-state').textContent=err.message;}});
 async function removeHbExtra(type,id,name){if(!await ask(topFill(type==='patch'?'t.askPatch':'t.askSave',{name}),{danger:true}))return;
   try{await api('/admin/api/homebrew/extra/remove',{method:'POST',body:{type,id}});toast(topText('t.movedToast'));loadHbApps();}catch(err){toast(err.message);}}
@@ -248,7 +249,7 @@ async function replaceHbFile(a,name,file){if(!await ask(topFill('t.askHbReplace'
   catch(err){toast(err.message);}}
 // Tool or port: a port (a program brought over from another system) is listed apart by the client.
 function hbKind(id,kind){const sel=el('select');sel.setAttribute('aria-label','분류');
-  for(const [v,t] of [['tool','도구'],['port','포트']]){const o=el('option',t);o.value=v;if(v===kind)o.selected=true;sel.append(o);}
+  for(const [v,t] of [['tool','도구'],['port',topText('u.kPort')]]){const o=el('option',t);o.value=v;if(v===kind)o.selected=true;sel.append(o);}
   sel.addEventListener('change',async()=>{try{await api('/admin/api/homebrew/kind',{method:'POST',body:{id,kind:sel.value}});toast(sel.value==='port'?'포트로 옮겼습니다.':'도구로 옮겼습니다.');}catch(err){toast(err.message);loadHomebrew();}});
   return sel;}
 // CPU cores for the app's HOME-menu shortcut: 4 only for an app that starts a thread on core 3.
@@ -295,7 +296,7 @@ $('hb-adopt').addEventListener('click',async()=>{const b=$('hb-adopt');b.disable
     toast(r.registered.length?r.registered.join(', ')+' 를 등록했습니다.':'새로 등록할 폴더가 없습니다.'+(r.skipped.length?' 건너뜀: '+r.skipped.map((x)=>x.folder+' ('+x.reason+')').join(', '):''));loadHomebrew();}
   catch(err){toast(err.message);}finally{b.disabled=false;}});
 async function removeHb(repo){if(!await ask(repo+' 를 더 따라가지 않고 받아 둔 파일도 삭제합니다.',{danger:true}))return;
-  try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast('삭제했습니다.');loadHomebrew();}catch(err){toast(err.message);}}
+  try{await api('/admin/api/homebrew/remove',{method:'POST',body:{repo}});toast(topText('pp.deleted'));loadHomebrew();}catch(err){toast(err.message);}}
 
 
 
