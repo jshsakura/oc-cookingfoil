@@ -7,6 +7,7 @@ import { RETRO_PATCH_WORDS } from "./retro-patch-words.js";
 import { TRASH_WORDS } from "./trash-words.js";
 import { MCP_WORDS } from "./mcp-words.js";
 import { KEYS_WORDS } from "./keys-words.js";
+import { UPLOAD_LIMIT_WORDS } from "./upload-limit-words.js";
 
 export const TOP_LANGS = [["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"]];
 
@@ -1509,7 +1510,56 @@ const BASE_WORDS = {
 };
 
 // Each panel that speaks the four languages brings its own words; one table for the page.
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code] }]));
+
+// The people pages' own dictionary: 18 keys shared by the split pages.
+const PEOPLE_WORDS = {
+  ko: {
+    "pp.localAccounts": "계정", "pp.googleAccounts": "구글 로그인 계정", "pp.addUser": "사용자 추가",
+    "pp.approveByCode": "기기 코드로 승인", "pp.endedItems": "만료되거나 취소한 항목",
+    "pp.credLead": "이 비밀번호는 지금만 볼 수 있습니다. 창을 닫기 전에 전달합니다.",
+    "pp.credConfig": "CookingFoil 은 설정 파일을 sdmc:/switch/cookingfoil/config.json 에 넣으면 처음 연결할 때 이 아이디와 비밀번호로 한 번 확인해 QR 없이 승인합니다. 그다음부터는 기기 키로 접속합니다.",
+    "pp.credDownload": "CookingFoil 설정 파일 다운로드", "pp.usersHelpTitle": "계정 안내",
+    "pp.usersHelpBody": "웹은 이 계정으로 /login 에서 로그인합니다. 콘솔은 비밀번호로 접속하지 않고, 연결을 요청할 때 한 번 이 아이디와 비밀번호로 승인받을 수 있습니다. 관리자만 이 관리 페이지를 엽니다. 비밀번호는 만들거나 바꿀 때 한 번만 보여 주고 서버에는 해시만 남깁니다.",
+    "pp.userNamePh": "사용자 이름 (영문, 숫자, . _ -)", "pp.passPh": "비밀번호 (비우면 자동 생성)",
+    "pp.devNameOpt": "기기 이름 (선택)", "pp.devCodeLabel": "기기 코드", "pp.devNameLabel": "기기 이름",
+    "pp.userNameLabel": "사용자 이름", "pp.passLabel": "비밀번호", "pp.usersArea": "사용자 구역", "pp.devicesArea": "기기 구역",
+  },
+  en: {
+    "pp.localAccounts": "Accounts", "pp.googleAccounts": "Google accounts", "pp.addUser": "Add user",
+    "pp.approveByCode": "Approve by code", "pp.endedItems": "Expired or cancelled",
+    "pp.credLead": "This password is shown only now. Share it before closing the window.",
+    "pp.credConfig": "Put the CookingFoil config file at sdmc:/switch/cookingfoil/config.json and the first connection verifies once with this username and password, approving without QR. After that the console uses its device key.",
+    "pp.credDownload": "Download CookingFoil config file", "pp.usersHelpTitle": "About accounts",
+    "pp.usersHelpBody": "The web signs in with this account at /login. Consoles do not use passwords to connect, but can be approved once with this username and password when they request pairing. Only admins open this admin page. Passwords are shown only once when created or changed; the server keeps only the hash.",
+    "pp.userNamePh": "Username (letters, numbers, . _ -)", "pp.passPh": "Password (leave blank to auto-generate)",
+    "pp.devNameOpt": "Device name (optional)", "pp.devCodeLabel": "Device code", "pp.devNameLabel": "Device name",
+    "pp.userNameLabel": "Username", "pp.passLabel": "Password", "pp.usersArea": "Users area", "pp.devicesArea": "Devices area",
+  },
+  ja: {
+    "pp.localAccounts": "アカウント", "pp.googleAccounts": "Google アカウント", "pp.addUser": "ユーザー追加",
+    "pp.approveByCode": "コードで承認", "pp.endedItems": "期限切れまたはキャンセル",
+    "pp.credLead": "このパスワードは今だけ表示されます。閉じる前に伝えます。",
+    "pp.credConfig": "CookingFoil の設定ファイルを sdmc:/switch/cookingfoil/config.json に置くと、初回接続時にこの ID とパスワードで一度確認し、QR なしで承認します。その後はデバイスキーで接続します。",
+    "pp.credDownload": "CookingFoil 設定ファイルをダウンロード", "pp.usersHelpTitle": "アカウントについて",
+    "pp.usersHelpBody": "ウェブはこのアカウントで /login にログインします。本体はパスワードで接続せず、接続要求時に一度だけこの ID とパスワードで承認できます。管理者だけがこの管理ページを開きます。パスワードは作成・変更時に一度だけ表示し、サーバーにはハッシュのみ残ります。",
+    "pp.userNamePh": "ユーザー名（英数字、. _ -）", "pp.passPh": "パスワード（空欄で自動生成）",
+    "pp.devNameOpt": "デバイス名（任意）", "pp.devCodeLabel": "デバイスコード", "pp.devNameLabel": "デバイス名",
+    "pp.userNameLabel": "ユーザー名", "pp.passLabel": "パスワード", "pp.usersArea": "ユーザーエリア", "pp.devicesArea": "デバイスエリア",
+  },
+  zh: {
+    "pp.localAccounts": "账户", "pp.googleAccounts": "Google 账户", "pp.addUser": "添加用户",
+    "pp.approveByCode": "通过代码批准", "pp.endedItems": "已过期或已取消",
+    "pp.credLead": "此密码仅现在显示。关闭窗口前请传递。",
+    "pp.credConfig": "将 CookingFoil 配置文件放在 sdmc:/switch/cookingfoil/config.json，首次连接时会用此用户名和密码验证一次，无需二维码即可批准。之后使用设备密钥连接。",
+    "pp.credDownload": "下载 CookingFoil 配置文件", "pp.usersHelpTitle": "关于账户",
+    "pp.usersHelpBody": "网页用此账户在 /login 登录。主机不通过密码连接，但可以在请求配对时用此用户名和密码批准一次。只有管理员才能打开此管理页面。密码仅在创建或更改时显示一次，服务器只保留哈希。",
+    "pp.userNamePh": "用户名（字母、数字、. _ -）", "pp.passPh": "密码（留空自动生成）",
+    "pp.devNameOpt": "设备名称（可选）", "pp.devCodeLabel": "设备代码", "pp.devNameLabel": "设备名称",
+    "pp.userNameLabel": "用户名", "pp.passLabel": "密码", "pp.usersArea": "用户区域", "pp.devicesArea": "设备区域",
+  },
+};
+
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;

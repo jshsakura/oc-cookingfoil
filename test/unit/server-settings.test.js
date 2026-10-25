@@ -27,6 +27,24 @@ test("with nothing saved every setting is the compose value", () => {
   assert.equal(d.publicBaseUrl.value, "");
 });
 
+test("the upload byte limit persists, applies to live importers and resets to compose", () => {
+  const initial = settings.describe().uploadMaxBytes.value;
+  try {
+    settings.save({ uploadMaxBytes: "1048576" });
+    settings.load();
+    assert.equal(env.uploadMaxBytes, 1048576);
+    assert.equal(settings.describe().uploadMaxBytes.source, "saved");
+    for (const bad of [0, -1, 1.5, "", "bad", 16 * 1024 ** 4 + 1]) {
+      assert.throws(() => settings.save({ uploadMaxBytes: bad }), /uploadMaxBytes/);
+      assert.equal(env.uploadMaxBytes, 1048576);
+    }
+  } finally {
+    settings.save({ uploadMaxBytes: null });
+  }
+  assert.equal(env.uploadMaxBytes, initial);
+  assert.equal(settings.describe().uploadMaxBytes.source, "env");
+});
+
 test("a saved value applies at once to importers and is kept in a private file", () => {
   const changed = settings.save({ devicePairing: true, deviceApproval: "manual", uploadsEnabled: true, publicBaseUrl: "https://files.example.org/" });
   assert.deepEqual(changed.sort(), ["deviceApproval", "devicePairing", "publicBaseUrl", "uploadsEnabled"]);

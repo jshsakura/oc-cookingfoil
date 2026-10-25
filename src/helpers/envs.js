@@ -203,7 +203,7 @@ let langPriority = envString("COOK_LANG_PRIORITY", "ko,en,ja,en-US")
 
 // Upload constraints. Conservative defaults; users can override via env.
 // 32 GiB ceiling fits dual-layer XCI dumps; bump if you're shipping bigger.
-const uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min: 1 });
+let uploadMaxBytes = envNumber("COOK_UPLOAD_MAX_BYTES", 32 * 1024 ** 3, { min: 1 });
 // Disable uploads by default: they need a signed-in account AND an explicit opt-in
 // because they let an authenticated user grow the games volume.
 let uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
@@ -416,6 +416,7 @@ const ENV_SETTINGS = Object.freeze({
   deviceLimit,
   enrollPerHour,
   uploadsEnabled,
+  uploadMaxBytes,
   inboxEnabled,
   inboxMaxBytes,
   inboxQuotaBytes,
@@ -473,6 +474,7 @@ function applyServerSettings(saved = {}) {
   deviceLimit = v.deviceLimit;
   enrollPerHour = v.enrollPerHour;
   uploadsEnabled = v.uploadsEnabled;
+  uploadMaxBytes = v.uploadMaxBytes;
   inboxEnabled = v.inboxEnabled;
   inboxMaxBytes = v.inboxMaxBytes;
   inboxQuotaBytes = v.inboxQuotaBytes;

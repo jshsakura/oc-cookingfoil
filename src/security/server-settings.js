@@ -48,6 +48,7 @@ export const SETTINGS = {
   // Different consoles one account's downloads may enroll in any rolling hour (security/enroll-tokens.js).
   enrollPerHour: whole(1, 50),
   uploadsEnabled: bool,
+  uploadMaxBytes: bytes,
   inboxEnabled: bool,
   inboxMaxBytes: bytes,
   inboxQuotaBytes: bytes,

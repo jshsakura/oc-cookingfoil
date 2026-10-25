@@ -43,6 +43,7 @@ const SS_GROUPS=[
   ]],
   ['대시보드',[
     ['uploadsEnabled','bool',()=>topText('ss.uploads'),()=>topText('ss.uploadsD')],
+    ['uploadMaxBytes','gb',()=>topText('ss.uploadMax'),()=>topText('ss.uploadMaxD')],
     ['publicBaseUrl','text','공개 주소','리버스 프록시나 터널 뒤에 둘 때 바깥에서 들어오는 주소를 넣습니다. 비우면 요청이 들어온 주소를 씁니다.','https://files.example.org'],
   ]],
   ['임시 공유',[
