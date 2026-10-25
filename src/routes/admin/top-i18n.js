@@ -1651,7 +1651,7 @@ function applyTopI18n(relabelActivity=true){
   for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
   document.getElementById('lang-current').textContent=adminLang.toUpperCase();
   // The activity menu is declared further down and draws its own labels on start.
-  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();if(typeof trRender==='function')trRender();if(typeof accRelabel==='function')accRelabel();if(typeof ovRelabel==='function')ovRelabel();if(typeof lbRelabel==='function')lbRelabel();}}
+  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();if(typeof trRender==='function')trRender();if(typeof accRelabel==='function')accRelabel();if(typeof ovRelabel==='function')ovRelabel();if(typeof lbRelabel==='function')lbRelabel();if(typeof nzRelabel==='function')nzRelabel();}}
 const langList=document.getElementById('lang-list'),langBtn=document.getElementById('lang-btn');
 function setLangMenu(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',String(open));
   if(open)langList.querySelector('[aria-checked="true"]')?.focus();}
