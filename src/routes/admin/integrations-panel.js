@@ -5,6 +5,7 @@
  */
 
 import { box } from "./boxes.js";
+import { top } from "./top-i18n.js";
 
 const SERVICES = [
   {
@@ -16,7 +17,7 @@ const SERVICES = [
       '<a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">dev.twitch.tv/console/apps</a> 에서 애플리케이션을 등록합니다. OAuth 리디렉션 URL 은 <code>http://localhost</code>, 분류는 Application Integration, 클라이언트 유형은 기밀로 고릅니다.',
       "만든 앱의 클라이언트 ID 를 복사하고, 새 시크릿을 만들어 둘 다 아래에 넣습니다.",
     ],
-    fields: [["clientId", "클라이언트 ID"], ["clientSecret", "클라이언트 시크릿", true]],
+    fields: [["clientId", "클라이언트 ID"], ["clientSecret", top("pp.clientSecret"), true]],
   },
   {
     id: "steamgriddb",
@@ -80,12 +81,12 @@ const card = (s) => `<div class="intg" data-svc="${s.id}">
   <div class="intg-hd"><h3>${s.title}</h3><span class="intg-state" data-state></span></div>
   <p class="muted">${s.use}</p>
   <ol class="intg-steps">${s.steps.map((x) => `<li>${x}</li>`).join("")}</ol>
-  ${s.redirect ? '<div class="copy-row"><code data-redirect>불러오고 있습니다</code></div>' : ""}
+  ${s.redirect ? '<div class="copy-row"><code data-redirect>'+top('loading')+'</code></div>' : ""}
   <form class="add" autocomplete="off">
     ${s.fields.map(([k, label, secret]) => `<input name="${k}" ${secret ? 'type="password" autocomplete="new-password"' : 'spellcheck="false"'} placeholder="${label}" aria-label="${label}" maxlength="300">`).join("")}
-    <button class="primary" type="submit">저장</button>
+    <button class="primary" type="submit" data-top="fp.save">${top("fp.save")}</button>
     <button type="button" data-test>연결 확인</button>
-    <button type="button" class="danger" data-clear>삭제</button>
+    <button type="button" class="danger" data-clear data-top="pp.delete">${top("pp.delete")}</button>
   </form>
   <p class="muted" data-msg></p>
 </div>`;
@@ -130,10 +131,10 @@ async function loadIntegrations(){
 document.querySelectorAll('.intg').forEach((c)=>{const svc=c.dataset.svc;const msg=c.querySelector('[data-msg]');
   c.querySelector('form').addEventListener('submit',async(e)=>{e.preventDefault();
     const body=Object.fromEntries([...c.querySelectorAll('input[name]')].map((i)=>[i.name,i.value]));
-    try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast('저장했습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
+    try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast(topText('pp.saved'));loadIntegrations();}catch(err){msg.textContent=err.message;}});
   c.querySelector('[data-test]').addEventListener('click',async()=>{msg.textContent='확인하고 있습니다';
     try{const r=await api('/admin/api/integrations/'+svc+'/test',{method:'POST',body:{}});msg.textContent=r.message;}catch(err){msg.textContent=err.message;}});
   c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!await ask('저장한 키를 삭제할까요?',{danger:true}))return;
-    try{await api('/admin/api/integrations/'+svc+'/clear',{method:'POST',body:{}});toast('삭제했습니다.');loadIntegrations();}catch(err){msg.textContent=err.message;}});
+    try{await api('/admin/api/integrations/'+svc+'/clear',{method:'POST',body:{}});toast(topText('pp.deleted'));loadIntegrations();}catch(err){msg.textContent=err.message;}});
 });
 `;
