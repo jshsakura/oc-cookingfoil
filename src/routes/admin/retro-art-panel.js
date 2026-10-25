@@ -384,7 +384,7 @@ async function rmOpen(m){let d;
   put('rm-year',rmYear(e.releaseDate)||null,rmYear(c.releaseDate));put('rm-players',e.numberOfPlayers,c.numberOfPlayers);
   const picked=new Set(e.genres||[]),auto=new Set(c.genres||[]);
   $('rm-genres').replaceChildren(...d.genres.map((g)=>{const l=el('label');const box=el('input');box.type='checkbox';box.value=g.key;box.checked=picked.has(g.key);
-    l.append(box,g.name+(auto.has(g.key)?' '+topText('ra.autoTag'):''));return l;}));
+    l.append(box,g.name+(auto.has(g.key)?' ('+topText('ra.autoTag')+')':''));return l;}));
   $('rm-dialog').showModal();}
 async function rmSave(body){
   try{const r=await api('/admin/api/retro-art/games/meta',{method:'POST',body:{game:rmGame.id,...body}});$('rm-dialog').close();toast(r.edit?topText('rm.saved'):topText('rm.reset'));}

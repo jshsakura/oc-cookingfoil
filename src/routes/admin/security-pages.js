@@ -62,7 +62,7 @@ async function loadTfa(){
   renderAdminPassword(s);
   const box=$('tfa-actions');box.replaceChildren();
   if(!s.manageable){box.append(el('span',topText('as.fixedSecret'),'muted'));return;}
-  box.append(s.authenticator?tbtn('edit','as.switchApp',startTfa):tbtn('key','as.enrollApp',startTfa,'primary'));
+  box.append(s.authenticator?tbtn('edit','as.switchApp',startTfa):btn(topText('as.enrollApp'),startTfa,'primary'));
   if(s.password&&s.authenticator)box.append(tbtn('disable','as.disableApp',async()=>{
     if(!await ask(topText('as.askDisable'),{danger:true}))return;
     try{await api('/admin/api/2fa/disable',{method:'POST',body:{}});toast(topText('as.disabledToast'));loadTfa();}catch(e){toast(e.message);}}));}

@@ -5,7 +5,7 @@
  */
 
 import { box } from "./boxes.js";
-import { top, topPh, topLabel } from "./top-i18n.js";
+import { top, topHtml, topPh, topLabel } from "./top-i18n.js";
 
 const SERVICES = [
   {
@@ -62,7 +62,7 @@ const KEYLESS = [
 const card = (s) => `<div class="intg" data-svc="${s.id}">
   <div class="intg-hd"><h3>${top(s.title)}</h3><span class="intg-state" data-state></span></div>
   <p class="muted">${top(s.use)}</p>
-  <ol class="intg-steps">${s.steps.map((x) => `<li>${top(x)}</li>`).join("")}</ol>
+  <ol class="intg-steps">${s.steps.map((x) => `<li>${topHtml(x)}</li>`).join("")}</ol>
   ${s.redirect ? '<div class="copy-row"><code data-redirect>'+top('loading')+'</code></div>' : ""}
   <form class="add" autocomplete="off">
     ${s.fields.map(([k, fk, secret]) => `<input name="${k}" ${secret ? 'type="password" autocomplete="new-password"' : 'spellcheck="false"'} ${topPh(fk)} ${topLabel(fk)} maxlength="300">`).join("")}

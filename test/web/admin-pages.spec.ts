@@ -147,3 +147,15 @@ test.describe('on a phone', () => {
     await expect(drawer).toBeHidden();
   });
 });
+
+test('dictionary text keeps its links and never shows a raw key or source', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/notifications');
+  await expect(page.locator('#tab-alerts a[href="https://t.me/BotFather"]')).toBeVisible();
+  await page.goto('/admin/settings/integrations');
+  await expect(page.locator('.intg-steps a').first()).toBeVisible();
+  expect(await page.locator('.intg-steps').evaluateAll((ns) => ns.some((n) => (n as HTMLElement).innerText.includes('<a ')))).toBe(false);
+  await page.goto('/admin/games');
+  await expect(page.locator('#lb-list')).toContainText('Test Game');
+  await expect(page.locator('#lb-list')).not.toContainText('lb.k');
+});

@@ -23,6 +23,7 @@ import { ALERTS_WORDS } from "./alerts-words.js";
 import { TRANSFERS_WORDS } from "./transfers-words.js";
 import { SECURITY_WORDS } from "./security-words.js";
 import { CLIENT_RELEASE_WORDS } from "./client-release-words.js";
+import { LOGS_WORDS } from "./logs-words.js";
 
 export const TOP_LANGS = [
   ["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"],
@@ -1606,10 +1607,12 @@ const PEOPLE_WORDS = {
   },
 };
 
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code] }]));
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;
+/** top() for a dictionary value that carries its own markup (a link, a code span); the swap keeps it as markup. */
+export const topHtml = (key) => `<span data-top="${key}" data-top-html>${TOP_WORDS.ko[key]}</span>`;
 /** top with {n} filled; the script fills it again in the stored language. */
 export const topN = (key, n) => `<span data-top="${key}" data-top-n="${n}">${TOP_WORDS.ko[key].split("{n}").join(String(n))}</span>`;
 /** A placeholder in the page's first language, swapped with the rest by data-top-ph. */
@@ -1659,7 +1662,9 @@ const topFill=(key,vars)=>{let s=topText(key);if(vars)for(const x in vars)s=s.sp
 function applyTopI18n(relabelActivity=true){
   document.documentElement.lang=adminLang;
   document.title=topText('title');
-  for(const el of document.querySelectorAll('[data-top]'))el.textContent=el.dataset.topN===undefined?topText(el.dataset.top):topFill(el.dataset.top,{n:el.dataset.topN});
+  // Values marked data-top-html are our own dictionary markup, never visitor data, so they go in as markup.
+  for(const el of document.querySelectorAll('[data-top]')){const v=el.dataset.topN===undefined?topText(el.dataset.top):topFill(el.dataset.top,{n:el.dataset.topN});
+    if(el.dataset.topHtml===undefined)el.textContent=v;else el.innerHTML=v;}
   for(const el of document.querySelectorAll('[data-top-label]'))el.setAttribute('aria-label',topText(el.dataset.topLabel));
   for(const el of document.querySelectorAll('[data-top-ph]'))el.placeholder=topText(el.dataset.topPh);
   const who=document.getElementById('who');if(who&&Object.values(topWords).some((w)=>w.loading===who.textContent))who.textContent=topText('loading');

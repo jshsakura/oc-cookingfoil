@@ -36,7 +36,7 @@ const RV_REGION={kr:()=>topText('rv.reg.kr'),world:()=>topText('rv.reg.world'),u
 const RV_HIDDEN={missing:()=>topText('rv.hid.missing'),bootleg:()=>topText('rv.tag.bootleg'),hack:()=>topText('rv.tag.hack'),prototype:()=>topText('rv.tag.prototype'),demo:()=>topText('rv.tag.demo')};
 const rvMb=(n)=>n==null?'—':n<1048576?Math.max(1,Math.round(n/1024))+' KB':(n/1048576).toFixed(1)+' MB';
 const rvDate=(s)=>s?new Date(s*1000).toLocaleDateString(typeof adminLang==='string'?adminLang:'ko'):'—';
-function rvEdition(m){const e=m.edition;if(!e)return m.region?RV_REGION[m.region]||m.region:'—';
+function rvEdition(m){const e=m.edition;if(!e)return m.region?rvT(RV_REGION[m.region])||m.region:'—';
   return (e.source==='official'?topText('rv.officialKo'):topText('rpt.patched'))+(e.version?' '+e.version:'');}
 function rvTags(m){const box=el('div');
   if(m.representative)box.append(pill(topText('rv.picked'),'on'));

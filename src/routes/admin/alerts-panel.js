@@ -4,7 +4,7 @@
  */
 
 import { icon } from "../../views/icons.js";
-import { top, topPh, topLabel } from "./top-i18n.js";
+import { top, topHtml, topPh, topLabel } from "./top-i18n.js";
 
 export const ALERTS_HTML = `<section id="tab-alerts" hidden>
   <h2 class="first">${top("al.h2")}</h2>
@@ -18,7 +18,7 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
   <form id="al-form" autocomplete="off">
     <h3>${top("al.connH")}</h3>
     <ol class="intg-steps">
-      <li>${top("al.s1")}</li>
+      <li>${topHtml("al.s1")}</li>
       <li>${top("al.s2")}</li>
       <li>${top("al.s3")}</li>
     </ol>

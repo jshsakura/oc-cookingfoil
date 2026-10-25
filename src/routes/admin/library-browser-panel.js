@@ -159,7 +159,7 @@ function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kin
   else{n.append(el('b',f.name||'-'));if(f.rel)n.append(el('div',f.rel,'muted'));}
   tr.append(n);
   const game=lbIsGame(k);
-  if(kind==='all')tr.append(td(LB_KIND[k]||k),td(f.titleId||'-','mono lb-num'));
+  if(kind==='all')tr.append(td(LB_KIND[k]?topText(LB_KIND[k]):k),td(f.titleId||'-','mono lb-num'));
   else{if(game||k==='patch'||k==='save')tr.append(td(f.titleId||'-','mono lb-num'));
     if(game||k==='homebrew')tr.append(td(f.version!=null?(game?'v'+f.version:String(f.version)):'-','lb-num'));}
   tr.append(td(lbSize(f.size),'lb-num'),td(lbDate(f.mtime),'lb-num'));
