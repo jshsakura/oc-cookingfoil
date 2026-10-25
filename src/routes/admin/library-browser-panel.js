@@ -6,7 +6,7 @@
  * Everything is scoped under #lib-files so it never restyles the rest of the page.
  */
 
-import { top } from "./top-i18n.js";
+import { top, topPh, topLabel } from "./top-i18n.js";
 
 // Line icons in the same 24px stroke style as views/icons.js, kept here so
 // this panel does not touch the shared icon list.
@@ -27,7 +27,7 @@ const PATHS = {
 };
 const svg = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name] ?? ""}</svg>`;
 
-const KINDS = [["all", "전체"], ["base", "게임"], ["update", "업데이트"], ["dlc", "DLC"], ["patch", "패치"], ["save", "세이브"], ["homebrew", "홈브류"], ["other", "기타"]];
+const KINDS = [["all", "lb.kAll"], ["base", "lb.kBase"], ["update", "lb.kUpdate"], ["dlc", "lb.kDlc"], ["patch", "lb.kPatch"], ["save", "lb.kSave"], ["homebrew", "lb.kHomebrew"], ["other", "lb.kOther"]];
 
 export const LIB_BROWSER_CSS = /* css */ `
 #lib-files{display:grid;gap:12px;margin-bottom:8px}
@@ -93,22 +93,22 @@ export const LIB_BROWSER_CSS = /* css */ `
 
 export const LIB_BROWSER_HTML = `<div id="lib-files">
     <form class="lb-bar" id="lb-bar" role="search">
-      <label class="lb-q">${svg("search")}<input type="search" id="lb-q" autocomplete="off" spellcheck="false" maxlength="200" placeholder="이름, 경로, 타이틀 ID" aria-label="파일 찾기"></label>
+      <label class="lb-q">${svg("search")}<input type="search" id="lb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("lb.qPh")} ${topLabel("lb.qLabel")}></label>
       <button type="submit" id="lb-go">${svg("search")}<span data-top="rpt.find">${top("rpt.find")}</span></button>
-      <select id="lb-sort" aria-label="정렬 기준"><option value="name">이름순</option><option value="size">크기순</option><option value="mtime">수정한 날짜순</option></select>
-      <button type="button" id="lb-order" aria-label="정렬 방향: 오름차순" title="정렬 방향을 변경합니다"><span id="lb-order-ico">${svg("asc")}</span><span id="lb-order-t">오름차순</span></button>
+      <select id="lb-sort" ${topLabel("lb.sortLabel")}><option value="name">${top("fp.byName")}</option><option value="size">${top("lb.bySize")}</option><option value="mtime">${top("lb.byMtime")}</option></select>
+      <button type="button" id="lb-order" ${topLabel("lb.orderAriaAsc")}><span id="lb-order-ico">${svg("asc")}</span><span id="lb-order-t">${top("lb.asc")}</span></button>
     </form>
     <div class="lb-filter">
       <span class="lb-filter-l" id="lb-filter-l">${top("f.type")}</span>
       <div class="lb-kinds hide-bar" id="lb-kinds" role="group" aria-labelledby="lb-filter-l">
         <span class="lb-ind" id="lb-ind" aria-hidden="true"></span>
-        ${KINDS.map(([k, label], i) => `<button type="button" id="lb-tab-${k}" data-kind="${k}" aria-controls="lb-list" aria-pressed="${i === 0}">${svg(k)}<span>${label}</span><span class="lb-n" id="lb-n-${k}">0</span></button>`).join("")}
+        ${KINDS.map(([k, label], i) => `<button type="button" id="lb-tab-${k}" data-kind="${k}" aria-controls="lb-list" aria-pressed="${i === 0}">${svg(k)}<span>${top(label)}</span><span class="lb-n" id="lb-n-${k}">0</span></button>`).join("")}
       </div>
     </div>
     <p class="muted lb-count" id="lb-count" aria-live="polite"></p>
     <div class="lb-list" id="lb-list" data-skel aria-live="polite"></div>
-    <nav class="lb-pager" id="lb-pager" aria-label="페이지" hidden></nav>
-    <p class="muted lb-note">서버가 내주는 파일을 종류별로 나눠 보여 줍니다. 기타는 게임 폴더에 있지만 게임 파일이 아닌 것입니다. 검색과 정렬은 고른 종류 안에서만 적용됩니다.</p>
+    <nav class="lb-pager" id="lb-pager" ${topLabel("lb.pagerLabel")} hidden></nav>
+    <p class="muted lb-note">${top("lb.note")}</p>
   </div>`;
 
 export const LIB_BROWSER_SCRIPT = /* js */ `
@@ -116,7 +116,7 @@ const LB_ICON=${JSON.stringify({ prev: svg("prev"), next: svg("next"), asc: svg(
 const LB_KIND=${JSON.stringify(Object.fromEntries(KINDS))};
 const LB_PER=25;
 const LB_ALL=['base','update','dlc','patch','save','homebrew','other'];
-const LB_CHECK={ok:['정상','on'],modified:['수정됨','warn'],damaged:['손상됨','off'],unchecked:['검사 전','']};
+const LB_CHECK={ok:['lb.ok','on'],modified:['lb.modified','warn'],damaged:['lb.damaged','off'],unchecked:['lb.unchecked','']};
 const lb={kind:'all',page:1,sort:'name',order:'asc',q:'',seq:0,timer:null,pending:false};
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const lbDate=(s)=>s?new Date(s*1000).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'-';
@@ -130,12 +130,12 @@ function lbSkeleton(){const m=$('lb-list');m.replaceChildren();const t=el('table
 function lbAnimate(){const m=$('lb-list');m.classList.remove('lb-in');void m.offsetWidth;m.classList.add('lb-in');}
 const lbIsGame=(k)=>k==='base'||k==='update'||k==='dlc';
 function lbCols(kind){
-  if(kind==='all')return [topText('lo.colFile'),topText('lo.colKind'),'타이틀 ID','크기','수정한 날짜','검사',''];
-  if(lbIsGame(kind))return [topText('lo.colFile'),'타이틀 ID','버전','크기','수정한 날짜','검사',''];
-  if(kind==='patch'||kind==='save')return [topText('lo.colFile'),'타이틀 ID','크기','수정한 날짜',''];
-  if(kind==='homebrew')return [topText('lo.colFile'),'버전','크기','수정한 날짜',''];
-  return [topText('lo.colFile'),'크기','수정한 날짜',''];}
-// A game's name, summary and extra notes are edited on the 이름과 소개 page: the row leads there with the game already open.
+  if(kind==='all')return [topText('lo.colFile'),topText('lo.colKind'),topText('lb.colTid'),topText('rv.colSize'),topText('lb.colMtime'),topText('lb.colCheck'),''];
+  if(lbIsGame(kind))return [topText('lo.colFile'),topText('lb.colTid'),topText('rv.colVer'),topText('rv.colSize'),topText('lb.colMtime'),topText('lb.colCheck'),''];
+  if(kind==='patch'||kind==='save')return [topText('lo.colFile'),topText('lb.colTid'),topText('rv.colSize'),topText('lb.colMtime'),''];
+  if(kind==='homebrew')return [topText('lo.colFile'),topText('rv.colVer'),topText('rv.colSize'),topText('lb.colMtime'),''];
+  return [topText('lo.colFile'),topText('rv.colSize'),topText('lb.colMtime'),''];}
+// A game's name, summary and extra notes are edited on the game-info page: the row leads there with the game already open.
 function lbGameInfo(f){const tid=/^[0-9A-F]{16}$/i.test(f.titleId||'')?f.titleId.toUpperCase():'';if(!tid)return;
   const id=f.kind==='update'?tid.slice(0,13)+'000':tid;
   if(location.hash!=='#library/info')location.hash='#library/info';
@@ -144,18 +144,18 @@ function lbGameInfo(f){const tid=/^[0-9A-F]{16}$/i.test(f.titleId||'')?f.titleId
 async function lbEditContent(f,kind){
   try{await loadPatches();}catch(err){toast(err.message);return;}
   const x=(kind==='patch'?ptData:svData).find((i)=>i.id===f.id);
-  if(!x){toast('편집할 항목을 찾지 못했습니다. 목록을 다시 불러옵니다.');lbLoad();return;}
+  if(!x){toast(topText('lb.editMiss'));lbLoad();return;}
   ctOpen(kind,x,lbLoad);}
 function lbEditButton(f,k){
-  if(lbIsGame(k)&&/^[0-9A-F]{16}$/i.test(f.titleId||'')){const b=btn('설명',()=>lbGameInfo(f));const t=(f.name||f.rel||'파일')+' 이름과 소개 편집';b.title=t;b.setAttribute('aria-label',t);return b;}
-  if((k==='patch'||k==='save')&&f.id){const b=btn('편집',()=>lbEditContent(f,k));b.setAttribute('aria-label',(f.name||'항목')+' 편집');return b;}
+  if(lbIsGame(k)&&/^[0-9A-F]{16}$/i.test(f.titleId||'')){const b=tbtn('info','hb.descBtn',()=>lbGameInfo(f));const t=topFill('lb.gameInfoTitle',{name:f.name||f.rel||topText('lo.colFile')});b.title=t;b.setAttribute('aria-label',t);return b;}
+  if((k==='patch'||k==='save')&&f.id){const b=tbtn('edit','hb.editBtn',()=>lbEditContent(f,k));b.setAttribute('aria-label',topFill('hb.editAria',{name:f.name||topText('lb.item')}));return b;}
   return null;}
 // A patch or save leads with its game, icon and name, so the list says which game each one is for.
 function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kind:kind;
   if(k==='patch'||k==='save'){const row=el('div',null,'lb-for');const ico=el('img',null,'lb-gi');ico.alt='';ico.loading='lazy';
     ico.style.visibility='hidden';ico.onload=()=>{ico.style.visibility='';};
     if(/^[0-9A-F]{16}$/i.test(f.titleId||''))ico.src='/api/library/icon/'+f.titleId+'?size=sm';
-    const t=el('div');const pic=el('span',null,'lb-gw');pic.append(ico);t.append(el('b',f.game||'알 수 없는 게임'),el('div',(f.name||'-')+(f.rel?' · '+f.rel:''),'muted'));row.append(pic,t);n.append(row);}
+    const t=el('div');const pic=el('span',null,'lb-gw');pic.append(ico);t.append(el('b',f.game||topText('lb.unknownGame')),el('div',(f.name||'-')+(f.rel?' · '+f.rel:''),'muted'));row.append(pic,t);n.append(row);}
   else{n.append(el('b',f.name||'-'));if(f.rel)n.append(el('div',f.rel,'muted'));}
   tr.append(n);
   const game=lbIsGame(k);
@@ -165,7 +165,7 @@ function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kin
   tr.append(td(lbSize(f.size),'lb-num'),td(lbDate(f.mtime),'lb-num'));
   if(game||kind==='all'){const c=td();if(game){const v=LB_CHECK[f.integrity]||LB_CHECK.unchecked;c.append(pill(v[0],v[1]));}tr.append(c);}
   const act=td();const box=el('div',null,'lb-act');const edit=lbEditButton(f,k);if(edit)box.append(edit);
-  const del=tbtn('delete','pp.delete',()=>lbRemove(f,k),'danger');del.setAttribute('aria-label',(f.name||f.rel||'파일')+' '+topText('pp.delete'));box.append(del);act.append(box);tr.append(act);
+  const del=tbtn('delete','pp.delete',()=>lbRemove(f,k),'danger');del.setAttribute('aria-label',topFill('lb.delAria',{name:f.name||f.rel||topText('lo.colFile')}));box.append(del);act.append(box);tr.append(act);
   return tr;}
 // Every kind deletes through its own endpoint; the list loads again afterwards.
 function lbRemoveCall(f,kind){
@@ -176,15 +176,15 @@ function lbRemoveCall(f,kind){
   if(f.repo)return api('/admin/api/homebrew/remove',{method:'POST',body:{repo:f.repo}});
   // A .nro lying in the games folder is a plain file of that folder: it has no homebrew record, only its path.
   if(f.rel)return api('/admin/api/library/files/remove',{method:'POST',body:{rel:f.rel}});
-  return Promise.reject(new Error('이 항목은 여기서 지울 수 없습니다.'));}
+  return Promise.reject(new Error(topText('lb.cantDelete')));}
 async function lbRemove(f,kind){
-  const name=f.name||f.rel||'이 파일';
+  const name=f.name||f.rel||topText('lb.thisFile');
   // A GitHub app's download is the server's own copy; everything else goes to the trash of its folder.
   const gone=Boolean(f.repo);
   if(!await ask(topFill(gone?'t.askUnfollow':'t.askMove',{name}),{danger:true}))return;
   try{await lbRemoveCall(f,kind);toast(gone?topText('pp.deleted'):topText('t.movedToast'));lbLoad();}catch(err){toast(err.message);}}
 function lbPageButton(label,page,{icon,current,far}={}){const b=el('button',null,'lb-pg'+(far?' lb-far':''));b.type='button';
-  if(icon){b.innerHTML=icon;b.append(el('span',label));b.setAttribute('aria-label',label+' 페이지');}else{b.textContent=String(page);b.setAttribute('aria-label',page+' 페이지');}
+  if(icon){b.innerHTML=icon;b.append(el('span',label));b.setAttribute('aria-label',topFill('lb.pageAria',{label}));}else{b.textContent=String(page);b.setAttribute('aria-label',topFill('lb.pageAria',{label:String(page)}));}
   if(current)b.setAttribute('aria-current','page');
   b.addEventListener('click',()=>{if(page!==lb.page){lb.page=page;lbLoad();}});return b;}
 function lbPager(d){const nav=$('lb-pager');nav.replaceChildren();nav.hidden=d.pages<=1;if(d.pages<=1)return;
@@ -196,15 +196,15 @@ function lbPager(d){const nav=$('lb-pager');nav.replaceChildren();nav.hidden=d.p
 async function lbLoad(){const n=++lb.seq;const kind=lb.kind;
   const skel=setTimeout(()=>{if(n===lb.seq)lbSkeleton();},150);
   const qs=new URLSearchParams({kind:kind==='all'?LB_ALL.join(','):kind,page:String(lb.page),perPage:String(LB_PER),sort:lb.sort,order:lb.order});if(lb.q)qs.set('q',lb.q);
-  let d;try{d=await api('/admin/api/library/browse?'+qs);}catch(err){clearTimeout(skel);if(n===lb.seq){$('lb-list').replaceChildren(el('div','목록을 불러오지 못했습니다. '+err.message,'empty'));}return;}
+  let d;try{d=await api('/admin/api/library/browse?'+qs);}catch(err){clearTimeout(skel);if(n===lb.seq){$('lb-list').replaceChildren(el('div',topFill('lb.loadFail',{msg:err.message}),'empty'));}return;}
   clearTimeout(skel);if(n!==lb.seq)return;
   for(const k of LB_ALL)$('lb-n-'+k).textContent=num(d.counts[k]);
   $('lb-n-all').textContent=num(LB_ALL.reduce((sum,k)=>sum+(d.counts[k]||0),0));
   lb.page=d.page;
-  const empty=kind==='all'?(lb.q?'맞는 파일이 없습니다.':'파일이 없습니다.'):lb.q?'이 종류에는 맞는 파일이 없습니다.':LB_KIND[kind]+' 파일이 없습니다.';
-  table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty,{paging:false,noFilter:kind==='all'?[topText('lo.colKind'),'검사']:[topText('lo.colKind')]});lbAnimate();
+  const empty=kind==='all'?(lb.q?topText('lb.noMatch'):topText('lb.noFiles')):lb.q?topText('lb.kindNoMatch'):topFill('lb.kindNoFiles',{kind:topText(LB_KIND[kind])});
+  table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty,{paging:false,noFilter:kind==='all'?[topText('lo.colKind'),topText('lb.colCheck')]:[topText('lo.colKind')]});lbAnimate();
   const from=d.total?(d.page-1)*d.perPage+1:0,to=Math.min(d.total,d.page*d.perPage);
-  $('lb-count').textContent=d.total?(kind==='all'?'파일':LB_KIND[kind])+' '+num(d.total)+'개 중 '+num(from)+'에서 '+num(to)+'번째를 보여 줍니다.':'';
+  $('lb-count').textContent=d.total?topFill('lb.showing',{kind:kind==='all'?topText('lo.colFile'):topText(LB_KIND[kind]),total:num(d.total),from:num(from),to:num(to)}):'';
   lbPager(d);lbIndicator();
   // The first walk of a big folder is still running on the server: ask again, once it may be done.
   lb.pending=Boolean(d.pending);}
@@ -216,8 +216,9 @@ $('lb-kinds').addEventListener('click',(e)=>{const b=e.target.closest('button[da
 $('lb-bar').addEventListener('submit',(e)=>{e.preventDefault();clearTimeout(lb.timer);lb.q=$('lb-q').value.trim();lb.page=1;lbLoad();});
 $('lb-q').addEventListener('input',()=>{clearTimeout(lb.timer);lb.timer=setTimeout(()=>{const q=$('lb-q').value.trim();if(q===lb.q)return;lb.q=q;lb.page=1;lbLoad();},300);});
 $('lb-sort').addEventListener('change',()=>{lb.sort=$('lb-sort').value;lb.order=lb.sort==='name'?'asc':'desc';lbOrderLabel();lb.page=1;lbLoad();});
-function lbOrderLabel(){const asc=lb.order==='asc';$('lb-order-ico').innerHTML=asc?LB_ICON.asc:LB_ICON.desc;$('lb-order-t').textContent=asc?'오름차순':'내림차순';
-  $('lb-order').setAttribute('aria-label','정렬 방향: '+(asc?'오름차순':'내림차순'));}
+function lbOrderLabel(){const asc=lb.order==='asc';$('lb-order-ico').innerHTML=asc?LB_ICON.asc:LB_ICON.desc;$('lb-order-t').textContent=asc?topText('lb.asc'):topText('lb.desc');
+  $('lb-order').title=topText('lb.orderTitle');$('lb-order').setAttribute('aria-label',topText(asc?'lb.orderAriaAsc':'lb.orderAriaDesc'));}
 $('lb-order').addEventListener('click',()=>{lb.order=lb.order==='asc'?'desc':'asc';lbOrderLabel();lb.page=1;lbLoad();});
 window.addEventListener('resize',()=>lbIndicator());
+lbOrderLabel();
 `;

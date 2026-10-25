@@ -25,7 +25,6 @@
     "src/routes/admin/guide-page.js": 2,
     "src/routes/admin/homebrew-page.js": 5,
     "src/routes/admin/inbox-panel.js": 20,
-    "src/routes/admin/library-browser-panel.js": 61,
     "src/routes/admin/library-files-panel.js": 36,
     "src/routes/admin/library-page.js": 53,
     "src/routes/admin/logs-pages.js": 19,
