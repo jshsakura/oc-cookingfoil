@@ -94,7 +94,7 @@ export const LIB_BROWSER_CSS = /* css */ `
 export const LIB_BROWSER_HTML = `<div id="lib-files">
     <form class="lb-bar" id="lb-bar" role="search">
       <label class="lb-q">${svg("search")}<input type="search" id="lb-q" autocomplete="off" spellcheck="false" maxlength="200" placeholder="이름, 경로, 타이틀 ID" aria-label="파일 찾기"></label>
-      <button type="submit" id="lb-go">${svg("search")}<span>찾기</span></button>
+      <button type="submit" id="lb-go">${svg("search")}<span data-top="rpt.find">${top("rpt.find")}</span></button>
       <select id="lb-sort" aria-label="정렬 기준"><option value="name">이름순</option><option value="size">크기순</option><option value="mtime">수정한 날짜순</option></select>
       <button type="button" id="lb-order" aria-label="정렬 방향: 오름차순" title="정렬 방향을 변경합니다"><span id="lb-order-ico">${svg("asc")}</span><span id="lb-order-t">오름차순</span></button>
     </form>
@@ -130,11 +130,11 @@ function lbSkeleton(){const m=$('lb-list');m.replaceChildren();const t=el('table
 function lbAnimate(){const m=$('lb-list');m.classList.remove('lb-in');void m.offsetWidth;m.classList.add('lb-in');}
 const lbIsGame=(k)=>k==='base'||k==='update'||k==='dlc';
 function lbCols(kind){
-  if(kind==='all')return ['파일','종류','타이틀 ID','크기','수정한 날짜','검사',''];
-  if(lbIsGame(kind))return ['파일','타이틀 ID','버전','크기','수정한 날짜','검사',''];
-  if(kind==='patch'||kind==='save')return ['파일','타이틀 ID','크기','수정한 날짜',''];
-  if(kind==='homebrew')return ['파일','버전','크기','수정한 날짜',''];
-  return ['파일','크기','수정한 날짜',''];}
+  if(kind==='all')return [topText('lo.colFile'),topText('lo.colKind'),'타이틀 ID','크기','수정한 날짜','검사',''];
+  if(lbIsGame(kind))return [topText('lo.colFile'),'타이틀 ID','버전','크기','수정한 날짜','검사',''];
+  if(kind==='patch'||kind==='save')return [topText('lo.colFile'),'타이틀 ID','크기','수정한 날짜',''];
+  if(kind==='homebrew')return [topText('lo.colFile'),'버전','크기','수정한 날짜',''];
+  return [topText('lo.colFile'),'크기','수정한 날짜',''];}
 // A game's name, summary and extra notes are edited on the 이름과 소개 page: the row leads there with the game already open.
 function lbGameInfo(f){const tid=/^[0-9A-F]{16}$/i.test(f.titleId||'')?f.titleId.toUpperCase():'';if(!tid)return;
   const id=f.kind==='update'?tid.slice(0,13)+'000':tid;
@@ -165,7 +165,7 @@ function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kin
   tr.append(td(lbSize(f.size),'lb-num'),td(lbDate(f.mtime),'lb-num'));
   if(game||kind==='all'){const c=td();if(game){const v=LB_CHECK[f.integrity]||LB_CHECK.unchecked;c.append(pill(v[0],v[1]));}tr.append(c);}
   const act=td();const box=el('div',null,'lb-act');const edit=lbEditButton(f,k);if(edit)box.append(edit);
-  const del=btn('삭제',()=>lbRemove(f,k),'danger');del.setAttribute('aria-label',(f.name||f.rel||'파일')+' 삭제');box.append(del);act.append(box);tr.append(act);
+  const del=btn(topText('pp.delete'),()=>lbRemove(f,k),'danger');del.setAttribute('aria-label',(f.name||f.rel||'파일')+' '+topText('pp.delete'));box.append(del);act.append(box);tr.append(act);
   return tr;}
 // Every kind deletes through its own endpoint; the list loads again afterwards.
 function lbRemoveCall(f,kind){
@@ -182,17 +182,17 @@ async function lbRemove(f,kind){
   // A GitHub app's download is the server's own copy; everything else goes to the trash of its folder.
   const gone=Boolean(f.repo);
   if(!await ask(topFill(gone?'t.askUnfollow':'t.askMove',{name}),{danger:true}))return;
-  try{await lbRemoveCall(f,kind);toast(gone?'삭제했습니다.':topText('t.movedToast'));lbLoad();}catch(err){toast(err.message);}}
+  try{await lbRemoveCall(f,kind);toast(gone?topText('pp.deleted'):topText('t.movedToast'));lbLoad();}catch(err){toast(err.message);}}
 function lbPageButton(label,page,{icon,current,far}={}){const b=el('button',null,'lb-pg'+(far?' lb-far':''));b.type='button';
   if(icon){b.innerHTML=icon;b.append(el('span',label));b.setAttribute('aria-label',label+' 페이지');}else{b.textContent=String(page);b.setAttribute('aria-label',page+' 페이지');}
   if(current)b.setAttribute('aria-current','page');
   b.addEventListener('click',()=>{if(page!==lb.page){lb.page=page;lbLoad();}});return b;}
 function lbPager(d){const nav=$('lb-pager');nav.replaceChildren();nav.hidden=d.pages<=1;if(d.pages<=1)return;
-  const prev=lbPageButton('이전',Math.max(1,d.page-1),{icon:LB_ICON.prev});prev.disabled=d.page<=1;nav.append(prev);
+  const prev=lbPageButton(topText('fp.prev'),Math.max(1,d.page-1),{icon:LB_ICON.prev});prev.disabled=d.page<=1;nav.append(prev);
   const want=new Set([1,d.pages,d.page-2,d.page-1,d.page,d.page+1,d.page+2].filter((p)=>p>=1&&p<=d.pages));
   let last=0;for(const p of [...want].sort((a,b)=>a-b)){if(p-last>1)nav.append(el('span','…','lb-gap'));
     nav.append(lbPageButton('',p,{current:p===d.page,far:Math.abs(p-d.page)>1&&p!==1&&p!==d.pages}));last=p;}
-  const next=lbPageButton('다음',Math.min(d.pages,d.page+1),{icon:LB_ICON.next});next.disabled=d.page>=d.pages;nav.append(next);}
+  const next=lbPageButton(topText('fp.next'),Math.min(d.pages,d.page+1),{icon:LB_ICON.next});next.disabled=d.page>=d.pages;nav.append(next);}
 async function lbLoad(){const n=++lb.seq;const kind=lb.kind;
   const skel=setTimeout(()=>{if(n===lb.seq)lbSkeleton();},150);
   const qs=new URLSearchParams({kind:kind==='all'?LB_ALL.join(','):kind,page:String(lb.page),perPage:String(LB_PER),sort:lb.sort,order:lb.order});if(lb.q)qs.set('q',lb.q);
@@ -202,7 +202,7 @@ async function lbLoad(){const n=++lb.seq;const kind=lb.kind;
   $('lb-n-all').textContent=num(LB_ALL.reduce((sum,k)=>sum+(d.counts[k]||0),0));
   lb.page=d.page;
   const empty=kind==='all'?(lb.q?'맞는 파일이 없습니다.':'파일이 없습니다.'):lb.q?'이 종류에는 맞는 파일이 없습니다.':LB_KIND[kind]+' 파일이 없습니다.';
-  table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty,{paging:false,noFilter:kind==='all'?['종류','검사']:['종류']});lbAnimate();
+  table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty,{paging:false,noFilter:kind==='all'?[topText('lo.colKind'),'검사']:[topText('lo.colKind')]});lbAnimate();
   const from=d.total?(d.page-1)*d.perPage+1:0,to=Math.min(d.total,d.page*d.perPage);
   $('lb-count').textContent=d.total?(kind==='all'?'파일':LB_KIND[kind])+' '+num(d.total)+'개 중 '+num(from)+'에서 '+num(to)+'번째를 보여 줍니다.':'';
   lbPager(d);lbIndicator();
