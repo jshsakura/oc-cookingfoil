@@ -40,7 +40,7 @@ test('an upload deep link retains the homebrew target when files are chosen', as
 test('a standalone server setting saves without calling the overview health panel', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/settings/server');
-  await page.locator('#ss-jump [data-group="임시 공유"]').click();
+  await page.locator('#ss-jump [data-group="inbox"]').click();
   const control = page.locator('.ss-row[data-key="inboxEnabled"] input');
   const before = await control.isChecked();
   const saved = page.waitForResponse((r) => r.url().endsWith('/admin/api/server-settings') && r.request().method() === 'POST');
@@ -49,7 +49,7 @@ test('a standalone server setting saves without calling the overview health pane
   await expect(page.locator('#toast')).not.toContainText('loadHealth');
   await expect(page.locator('#toast')).toHaveText(!before ? '임시 공유를 받습니다.' : '임시 공유를 받지 않습니다.');
   await page.reload();
-  await page.locator('#ss-jump [data-group="임시 공유"]').click();
+  await page.locator('#ss-jump [data-group="inbox"]').click();
   await expect(control).toBeChecked({ checked: !before });
   const restored = page.waitForResponse((r) => r.url().endsWith('/admin/api/server-settings') && r.request().method() === 'POST');
   await page.locator('.ss-row[data-key="inboxEnabled"] label').click();

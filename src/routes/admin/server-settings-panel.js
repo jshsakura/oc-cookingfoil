@@ -33,7 +33,7 @@ export const SERVER_SETTINGS_CSS = `
 `;
 
 export const SERVER_SETTINGS_SCRIPT = /* js */ `
-const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLogin'),dashboard:()=>topText('ss.grpDashboard'),'prod.keys':'prod.keys',gameinfo:()=>topText('ss.grpGameinfo'),download:()=>topText('ss.grpDownload'),restart:()=>topText('ss.grpRestart'),sync:()=>topText('ss.grpSync')};
+const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLogin'),dashboard:()=>topText('ss.grpDashboard'),'prod.keys':'prod.keys',gameinfo:()=>topText('ss.grpGameinfo'),download:()=>topText('ss.grpDownload'),restart:()=>topText('ss.grpRestart'),sync:()=>topText('ss.grpSync'),inbox:()=>topText('ss.grpInbox'),names:()=>topText('ss.grpNames'),lookups:()=>topText('ss.grpLookups')};
 const SS_GROUPS=[
   ['device',[
     ['devicePairing','bool','QR 로 기기 연결','CookingFoil 클라이언트가 QR 을 띄우고, 휴대폰으로 찍어 승인합니다. 끄면 콘솔이 접속할 수 없습니다.'],
@@ -49,12 +49,12 @@ const SS_GROUPS=[
     ['uploadMaxBytes','gb',()=>topText('ss.uploadMax'),()=>topText('ss.uploadMaxD')],
     ['publicBaseUrl','text','공개 주소','리버스 프록시나 터널 뒤에 둘 때 바깥에서 들어오는 주소를 넣습니다. 비우면 요청이 들어온 주소를 씁니다.','https://files.example.org'],
   ]],
-  ['임시 공유',[
+  ['inbox',[
     ['inboxEnabled','bool','임시 공유 받기','로그인한 사용자가 대시보드의 계정 메뉴에서 파일, 메모, 링크를 남길 수 있습니다. 남긴 것은 임시 공유 탭에서 봅니다.'],
     ['inboxMaxBytes','gb','한 번에 올리는 크기','파일을 모두 합친 크기입니다. GB 단위로 넣습니다.'],
     ['inboxQuotaBytes','gb','임시 공유함 전체 크기','이만큼 차면 새로 올리는 것을 받지 않고 가득 찼다고 알립니다. GB 단위로 넣습니다.'],
   ]],
-  ['이름과 아이콘',[
+  ['names',[
     ['extractIcons',[['missing','목록에 없는 것만 파일에서 읽습니다'],['all','모든 파일에서 읽습니다'],['off','파일에서 읽지 않습니다']],'파일에서 이름과 아이콘 읽기','바꾸면 라이브러리를 다시 읽습니다.'],
     ['langPriority','list','이름 언어 순서','앞에 둔 언어의 이름부터 씁니다. 쉼표로 나눕니다.','ko,en,ja'],
   ]],
@@ -82,7 +82,7 @@ const SS_GROUPS=[
     ['retroScaffold','bool',()=>topText('ss.scaffold'),()=>topText('ss.scaffoldD')],
     ['logKeepDays',[['7','7일'],['30','30일 (기본)'],['90','90일'],['180','180일'],['365','1년']],'기록 보관 기간','변환 기록과 다운로드 기록을 이 기간만큼 남기고, 지난 것은 지웁니다. 줄이면 바로 적용됩니다.'],
   ]],
-  ['외부 정보',[
+  ['lookups',[
     ['eshopPrices','bool','공식 스토어 가격','게임 상세에 가격과 할인을 보여 줍니다.'],
     ['eshopPopularity','bool','인기순','인기순 정렬에 쓰는 순위를 받습니다.'],
     ['eshopArtwork','bool','공식 이미지','아이콘, 배너, 스크린샷을 받아 둡니다. 끄면 받아 둔 것, 파일에서 읽은 것, 직접 올린 것만 씁니다.'],
