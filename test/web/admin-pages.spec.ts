@@ -21,11 +21,11 @@ const PAGES: [string, string, string][] = [
   ['/admin/logs/security', 'lockouts', '차단과 거부'],
   ['/admin/notifications', 'tab-alerts', '알림 설정'],
   ['/admin/client', 'tab-client', '클라이언트 배포'],
-  ['/admin/settings/server', 'tab-settings', '서버 동작'],
-  ['/admin/settings/integrations', 'tab-settings', '외부 서비스'],
+  ['/admin/settings/server', 'ss-list', '서버 동작'],
+  ['/admin/settings/integrations', 'intg-h', '외부 서비스'],
   ['/admin/settings/login', 'tab-settings', '사용자 로그인'],
   ['/admin/settings/admin', 'tab-settings', '관리자 보안'],
-  ['/admin/settings/automation', 'tab-settings', '자동화와 MCP'],
+  ['/admin/settings/automation', 'mcp-on', '자동화와 MCP'],
 ];
 
 test('every page opens its own section, marks the sidebar and keeps its address on reload', async ({ page }) => {
@@ -33,7 +33,8 @@ test('every page opens its own section, marks the sidebar and keeps its address 
   await signIn(page);
   for (const [path, section, label] of PAGES) {
     await page.goto(path);
-    await expect(page.locator(`#${section}`), path).toBeVisible();
+    const sel = section.startsWith('h2:') ? section : `#${section}`;
+    await expect(page.locator(sel), path).toBeVisible();
     await expect(page.locator(`aside.adm-side a[aria-current="page"]`), path).toContainText(label);
     expect(page.url().replace(/#.*$/, ''), path).toContain(path);
     await page.reload();
@@ -54,8 +55,9 @@ test('the retro group lists its eight jobs as items with addresses of their own'
 test('a settings page opens its own area', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/settings/automation');
-  await expect(page.locator('[data-set-panel="tokens"]')).toBeVisible();
-  await expect(page.locator('[data-set-panel="server"]')).toBeHidden();
+  // The tokens panel is the page itself now, not a subtab of a settings section.
+  await expect(page.locator('#mcp-on')).toBeAttached();
+  await expect(page.locator('[data-set-panel="server"]')).toHaveCount(0);
 });
 
 test('a deep address without a session shows the gate and returns to the same page after the check', async ({ page }) => {

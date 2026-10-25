@@ -95,7 +95,7 @@ const keyless = ([id, title, use, host, href]) => `<div class="intg-free" data-f
   <p class="muted">${use} <span class="intg-host">${href ? `<a href="${href}" target="_blank" rel="noopener">${host}</a>` : host}</span></p>
 </div>`;
 
-export const INTEGRATIONS_HTML = `<h2>외부 서비스 키</h2>
+export const INTEGRATIONS_HTML = `<h2 id="intg-h">외부 서비스 키</h2>
 <p class="muted">키는 이 서버의 데이터 폴더에만 저장하고 화면에는 다시 보여 주지 않습니다. 저장하면 바로 적용합니다. 지우면 compose 환경변수에 넣은 값이 있을 때 그 값으로 돌아갑니다.</p>
 ${SERVICES.map(card).join("\n")}
 ${box("keyless", "키 없이 쓰는 외부 서비스", `<p class="muted">이 서버가 키 없이 읽어 오는 곳입니다. 넣을 것은 없고, 무엇에 쓰는지 확인하는 용도입니다.</p>

@@ -29,6 +29,10 @@ import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SCRIPT, LOGS_SECURITY_HTML } from "./l
 import { PEOPLE_SCRIPT } from "./people-script.js";
 import { CRED_DIALOG_HTML, DEVICES_HTML, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
 import { ALERTS_CSS, ALERTS_SCRIPT, ALERTS_HTML } from "./alerts-panel.js";
+import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
+import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
+import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
+import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
 import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-panel.js";
 
 /** One split page: its own styles, body and scripts around the shared shell. */
@@ -78,6 +82,24 @@ export const SPLIT_PAGES = {
     body: `<section id="tab-client"><div class="hd"><h2 class="first">${top("m.client")}</h2></div>${CLIENT_RELEASE_HTML}</section>`,
     script: CLIENT_RELEASE_SCRIPT,
     init: "loadClientRelease();",
+  }),
+  // Settings pages: each area is its own page now.
+  "/admin/settings/server": bundle({
+    css: SERVER_SETTINGS_CSS, body: SERVER_SETTINGS_HTML,
+    script: SERVER_SETTINGS_SCRIPT, init: "loadServerSettings();",
+  }),
+  "/admin/settings/integrations": bundle({
+    css: INTEGRATIONS_CSS, body: INTEGRATIONS_HTML,
+    script: INTEGRATIONS_SCRIPT, init: "loadIntegrations();",
+  }),
+  "/admin/settings/automation": bundle({
+    body: TOKENS_HTML,
+    script: TOKENS_SCRIPT, init: "loadTokens();loadMcp();",
+  }),
+  // The retro games page: all eight sub-views in one section with their own subtabs.
+  "/admin/retro": bundle({
+    css: RETRO_ART_CSS, body: RETRO_ART_HTML, script: RETRO_ART_SCRIPT,
+    init: "setTimeout(retroOpen,0);",
   }),
   // Second bundle: the people pages carry their own credential and IP dialogs.
   "/admin/users": bundle({
