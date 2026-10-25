@@ -177,7 +177,7 @@ async function loadRetroCores(){let d;
   rcSources=d.sources||{repo:null,cores:{}};$('rc-repo').value=rcSources.repo||'';
   $('rc-official').textContent=d.official;rcSystems(d.systems||[]);acLast(d.auto);
   const n=d.retroarch;$('rc-nro').replaceChildren(...(n?['RetroArch 본체 retroarch.nro · '+rcMb(n.size)+' · ',rcOrigin(n.origin)]:['RetroArch 본체(retroarch.nro)가 없습니다.']));
-  table('rc-list',[topText('ac.on'),'코어',topText('ac.source'),'쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
+  table('rc-list',[topText('ac.on'),topText('rt.cores'),topText('ac.source'),'쓰는 기종','크기','수정일','출처','SHA-256',''],d.cores.map((c)=>{const tr=el('tr');
     const name=td();name.append(c.name||c.core);name.append(el('div',c.file,'muted'));
     const used=c.systems.length?c.systems.map((s)=>s.name+' '+s.games+'개').join(', '):'쓰는 게임이 없습니다';
     const rm=btn('지우기',()=>rcRemove(c));rm.setAttribute('aria-label',c.core+' 지우기');
@@ -218,16 +218,16 @@ async function rpStart(){$('rp-go').disabled=true;
   try{await api('/admin/api/retro-pack/fill',{method:'POST',body:{confirm:true}});toast(rpT('started'));$('rp-dialog').close();}
   catch(err){toast(err.message);}finally{$('rp-go').disabled=false;}}
 $('rp-fill').addEventListener('click',rpOpen);$('rp-go').addEventListener('click',rpStart);$('rp-cancel').addEventListener('click',()=>$('rp-dialog').close());
-function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name+' 코어');
+function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name+' '+topText('rt.cores'));
   const opt=(core,label)=>{const o=el('option',label);o.value=core;if(core===s.core)o.selected=true;return o;};
   const group=(label,cores)=>{const g=el('optgroup');g.label=label;g.append(...cores.map((c)=>opt(c,c+(c===s.tableCore?' (기본값)':''))));return g;};
   if(!s.installed)sel.append(opt(s.core,s.core+' (설치돼 있지 않습니다)'));
   if(s.fits.length)sel.append(group('확장자가 맞는 코어',s.fits));
-  if(s.others.length)sel.append(group('기타',s.others));
+  if(s.others.length)sel.append(group(topText('t.a.other'),s.others));
   sel.addEventListener('change',()=>rcSetSystem(s,sel.value,sel));return sel;}
 function rcSystems(list){
-  table('rc-systems',['기종','게임','코어',''],list.map((s)=>{const tr=el('tr');
-    const cs=s.coreState;const state=cs?acPill(cs):!s.installed?pill('코어가 없습니다','warn'):'';const swap=cs?acSwap(cs):'';
+  table('rc-systems',[topText('rk.colSystem'),topText('m.grpGames'),topText('rt.cores'),''],list.map((s)=>{const tr=el('tr');
+    const cs=s.coreState;const state=cs?acPill(cs):!s.installed?pill(topText('ac.missing.auto-off'),'warn'):'';const swap=cs?acSwap(cs):'';
     const picked=s.core!==s.tableCore?pill('기본값에서 바꿈',''):'';
     const back=s.core!==s.tableCore?btn('기본값으로',()=>rcSetSystem(s,s.tableCore)):'';
     const extra=td();if(cs)extra.append(rcSource(cs.core));if(state)extra.append(state);if(swap)extra.append(swap);if(picked)extra.append(picked);if(back)extra.append(back);
@@ -238,7 +238,7 @@ async function rcSetSystem(s,core,sel){
   catch(err){toast(err.message);if(sel)sel.value=s.core;}}
 async function rcRemove(c,force=false){
   if(!force&&!await ask(c.file+' 코어를 휴지통으로 옮깁니다. 휴지통 탭에서 되돌릴 수 있습니다.',{danger:true}))return;
-  try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast('휴지통으로 옮겼습니다.');loadRetroCores();}
+  try{await api('/admin/api/retro-cores/remove',{method:'POST',body:{core:c.core,force}});toast(topText('t.movedToast'));loadRetroCores();}
   catch(err){if(err.code==='coreInUse'&&!force){
       if(await ask(err.message+'. 지우면 그 게임들은 기기에서 켜지지 않습니다. 그래도 지울까요?'))rcRemove(c,true);return;}
     toast(err.message);}}
@@ -287,7 +287,7 @@ async function loadRetroArt(){
     (r.updatedAt?'마지막 갱신: '+fmt(r.updatedAt):'아직 받은 평점이 없습니다')+(rj&&rj.summary?' · '+Object.entries(rj.summary).map(([k,v])=>k+' '+v).join(', '):'');
   clearTimeout(raTimer);if((j&&!j.finishedAt&&!actLive)||rRunning)raTimer=setTimeout(loadRetroArt,3000);
   table('ra-systems',['시스템','항목','표지','다른 세트 표지','베젤',''],raData.systems.map((s)=>{const tr=el('tr');
-    const b=el('button','다운로드');b.type='button';b.setAttribute('aria-label',s.name+' 다운로드');b.addEventListener('click',()=>raSync(s.id));
+    const b=el('button',topText('pp.download'));b.type='button';b.setAttribute('aria-label',s.name+' '+topText('pp.download'));b.addEventListener('click',()=>raSync(s.id));
     const pct=(n)=>n+' ('+Math.round(n*100/Math.max(1,s.games))+'%)';
     tr.append(td(s.name),td(String(s.games)),td(pct(s.boxart)),td(s.borrowed?String(s.borrowed):'—'),td(pct(s.bezel)),raCell(b));return tr;}),'레트로 폴더에 항목이 없습니다.');
   raList();
@@ -361,8 +361,8 @@ function raBios(list,unread,pack,shadowed=[]){
 }
 function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'변경':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
-  const del=btn('삭제',()=>raRemove(m),'danger');del.setAttribute('aria-label',m.name+' 삭제');
-  const nm=btn('이름',()=>raName(m));nm.setAttribute('aria-label',m.name+' 이름');
+  const del=btn(topText('pp.delete'),()=>raRemove(m),'danger');del.setAttribute('aria-label',m.name+' '+topText('pp.delete'));
+  const nm=btn(topText('pp.name'),()=>raName(m));nm.setAttribute('aria-label',m.name+' '+topText('pp.name'));
   const info=btn('정보',()=>rmOpen(m));info.setAttribute('aria-label',m.name+' 정보');const box=el('div',null,'row-actions');box.append(b,nm,info,del);
   const n=td();n.append(m.title?.ko||m.title?.en||m.name);if(m.title)n.append(el('div','파일: '+m.name,'muted'));
   tr.append(td(m.system),n);if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(box));return tr;}
@@ -403,7 +403,7 @@ const RA_PAGE=50;
 function raShow(){
   const pages=Math.max(1,Math.ceil(raRows.length/RA_PAGE));raAt=Math.min(raAt,pages-1);
   const rows=raRows.slice(raAt*RA_PAGE,(raAt+1)*RA_PAGE).map((m)=>raRow(m,raFound));
-  table('ra-missing',raFound?['시스템','이름','표지','']:['시스템','이름',''],rows,raFound?'맞는 항목이 없습니다.':'표지가 빠진 항목이 없습니다.');
+  table('ra-missing',raFound?['시스템',topText('pp.name'),'표지','']:['시스템',topText('pp.name'),''],rows,raFound?'맞는 항목이 없습니다.':'표지가 빠진 항목이 없습니다.');
   $('ra-pager').hidden=pages<2;$('ra-page').textContent=(raAt+1)+' / '+pages+' · '+raRows.length+'개';
   $('ra-prev').disabled=raAt===0;$('ra-next').disabled=raAt>=pages-1;
 }
