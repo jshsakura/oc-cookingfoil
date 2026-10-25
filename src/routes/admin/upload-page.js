@@ -221,9 +221,14 @@ function upDropBatch(){
   const rest=unitsToSend(upUnits);
   if(rest.length<upUnits.length){upFiles=rest.flatMap((u)=>u.files);if(!rest.some((u)=>u.paths))upPaths=null;}
   upUnits=[];}
+// Initial page load and a quick file pick share the same target lookup.
+let upInfoFlight=null;
 async function loadUploadInfo(){
   if(upInfo)return true;
-  try{upInfo=await api('/admin/api/upload/targets');}catch(e){toast(e.message);return false;}
+  if(!upInfoFlight)upInfoFlight=fetchUploadInfo().finally(()=>{upInfoFlight=null;});
+  return upInfoFlight;}
+async function fetchUploadInfo(){
+  try{upInfo=await api('/admin/api/upload/targets');
   $('up-system').replaceChildren(...upInfo.systems.map((s)=>{const o=el('option',s.name+' ('+s.extensions.join(' ')+')');o.value=s.id;return o;}));
   // Every retro console is its own tile, so a ROM goes where it was meant to and not where its extension guesses.
   $('up-systems').replaceChildren(...upInfo.systems.map((s)=>{const b=el('button');b.type='button';b.dataset.kind='retro';b.dataset.system=s.id;
@@ -234,7 +239,7 @@ async function loadUploadInfo(){
   if(!upInfo.systems.length)$('up-systems').append(el('div','서버에 레트로 기종이 없습니다.','empty'));
   // A homebrew app's patch or save goes into its own switch/<app>/ folder.
   for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}
-  return true;}
+  return true;}catch(e){upInfo=null;toast(errText(e));return false;}}
 async function loadUpload(){
   if(!await loadUploadInfo())return;
   // Sent here from an app card: the app and what to add to it are already chosen.

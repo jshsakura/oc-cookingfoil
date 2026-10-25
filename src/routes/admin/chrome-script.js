@@ -42,7 +42,7 @@ async function chromeCounts(){
   try{const r=await fetch('/admin/api/counts',{headers:{Accept:'application/json'}});
     if(!r.ok)return;const d=await r.json();
     if($('who'))$('who').textContent=(d.me&&((d.me.name)||d.me.email))||'admin';
-    if(typeof acctPut==='function'&&d.me&&d.me.avatar)acctPut(d.me.avatar);
+    if(typeof acctAvatar==='function')acctAvatar(d.me?.avatar||null);
     const set=(id,n)=>{const el=$(id);if(el){el.textContent=n;el.hidden=!n;}};
     set('inbox-count',d.inbox??0);set('account-count',d.pendingAccounts??0);
     set('pending-count',d.pendingDevices??0);set('lock-count',d.lockouts??0);
