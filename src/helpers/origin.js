@@ -56,12 +56,12 @@ export function resolveOrigin(req, publicBaseUrl, { trusted = trustsForwardedHea
  * our own proxy endpoints (`"/api/library/...`, plus legacy `/api/shop/...`): file-download URLs use the
  * "../" form, and externally-supplied custom-entry icon URLs are absolute
  * ("https://...") — neither starts with `"/api/shop/`, so both pass through
- * untouched. A falsy origin is a no-op (relative URLs preserved).
+ * untouched. Legacy host-relative artwork paths use the canonical namespace.
+ * A falsy origin leaves those canonical URLs relative.
  */
 export function rewriteArtworkOrigin(json, origin) {
-  if (!origin) return json;
-  return json.replaceAll('"/api/library/', `"${origin}/api/library/`)
-    .replaceAll('"/api/shop/', `"${origin}/api/shop/`);
+  const canonical = json.replaceAll('"/api/shop/', '"/api/library/');
+  return origin ? canonical.replaceAll('"/api/library/', `"${origin}/api/library/`) : canonical;
 }
 
 /**

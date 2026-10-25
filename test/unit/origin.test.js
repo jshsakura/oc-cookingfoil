@@ -102,6 +102,16 @@ test("rewriteArtworkOrigin: empty origin is a no-op", () => {
   assert.equal(rewriteArtworkOrigin(json, ""), json);
 });
 
+test("rewriteArtworkOrigin: legacy local artwork is canonical while external URLs stay unchanged", () => {
+  const input = JSON.stringify({ icon: '/api/shop/icon/X', external: 'https://cdn.example.org/api/shop/icon/X', file: '../game.nsp' });
+  const relative = JSON.parse(rewriteArtworkOrigin(input, ''));
+  assert.equal(relative.icon, '/api/library/icon/X');
+  const absolute = JSON.parse(rewriteArtworkOrigin(input, 'https://library.example.org'));
+  assert.equal(absolute.icon, 'https://library.example.org/api/library/icon/X');
+  assert.equal(absolute.external, 'https://cdn.example.org/api/shop/icon/X');
+  assert.equal(absolute.file, '../game.nsp');
+});
+
 test("rewriteDownloadOrigin: anchors only ../ download URLs at the origin", () => {
   const json = JSON.stringify({
     files: [
