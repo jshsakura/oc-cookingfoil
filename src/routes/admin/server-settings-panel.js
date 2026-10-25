@@ -33,17 +33,18 @@ export const SERVER_SETTINGS_CSS = `
 `;
 
 export const SERVER_SETTINGS_SCRIPT = /* js */ `
+const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLogin'),dashboard:()=>topText('ss.grpDashboard'),'prod.keys':'prod.keys',gameinfo:()=>topText('ss.grpGameinfo'),download:()=>topText('ss.grpDownload'),restart:()=>topText('ss.grpRestart'),sync:()=>topText('ss.grpSync')};
 const SS_GROUPS=[
-  ['기기 연결',[
+  ['device',[
     ['devicePairing','bool','QR 로 기기 연결','CookingFoil 클라이언트가 QR 을 띄우고, 휴대폰으로 찍어 승인합니다. 끄면 콘솔이 접속할 수 없습니다.'],
     ['deviceApproval',[['manual','관리자가 하나씩 승인합니다'],['signin','연결할 때 아이디와 비밀번호를 넣은 기기는 바로 승인합니다'],['all','연결을 요청하는 기기를 모두 승인합니다']],'승인 방식','콘솔은 접속할 때 비밀번호를 쓰지 않습니다. 아이디와 비밀번호는 연결할 때 한 번만 받아서 그 기기를 바로 승인하는 데 씁니다. 모두 승인은 내 기기만 닿을 수 있는 서버에서만 씁니다.'],
     ['deviceLimit',[['0',()=>topText('ss.deviceLimitNone')],...[1,2,3,5,10,15,20,30,50].map((n)=>[String(n),()=>topFill(n===10?'ss.deviceLimitDefault':'ss.deviceLimitN',{n})])],()=>topText('ss.deviceLimit'),()=>topText('ss.deviceLimitD')],
     ['enrollPerHour',[1,2,3,5,10,15,20].map((n)=>[String(n),()=>topFill(n===5?'ss.deviceLimitDefault':'ss.deviceLimitN',{n})]),()=>topText('ss.enrollPerHour'),()=>topText('ss.enrollPerHourD')],
   ]],
-  ['로그인',[
+  ['login',[
     ['passwordLogin','bool','아이디·비밀번호 로그인','끄면 대시보드와 관리 페이지에는 Google 계정으로만 로그인하고, 계정 비밀번호는 어디서도 받지 않습니다. 비밀번호로 로그인해 있던 사람과 비밀번호 계정이 만든 토큰도 그동안 쓸 수 없습니다. 이미 승인된 콘솔은 기기 키로 계속 붙고, 새 콘솔은 QR 로 승인합니다. Google 로그인이 켜져 있고 관리자로 승인된 Google 계정이 있어야 끌 수 있으며, 나중에 둘 중 하나라도 없어지면 비밀번호 로그인이 저절로 다시 켜집니다. Google 쪽이 고장 나 들어올 수 없으면 compose 에 COOK_PASSWORD_LOGIN_FORCE=true 를 넣고 다시 시작합니다.'],
   ]],
-  ['대시보드',[
+  ['dashboard',[
     ['uploadsEnabled','bool',()=>topText('ss.uploads'),()=>topText('ss.uploadsD')],
     ['uploadMaxBytes','gb',()=>topText('ss.uploadMax'),()=>topText('ss.uploadMaxD')],
     ['publicBaseUrl','text','공개 주소','리버스 프록시나 터널 뒤에 둘 때 바깥에서 들어오는 주소를 넣습니다. 비우면 요청이 들어온 주소를 씁니다.','https://files.example.org'],
@@ -58,22 +59,22 @@ const SS_GROUPS=[
     ['langPriority','list','이름 언어 순서','앞에 둔 언어의 이름부터 씁니다. 쉼표로 나눕니다.','ko,en,ja'],
   ]],
   ['prod.keys',[]],
-  ['게임 정보',[
+  ['gameinfo',[
     ['titledbAutoFetch','bool','자동으로 다운로드','게임 이름과 설명 목록(titledb)을 하루에 한 번 새로 받습니다. 끄면 받아 둔 것만 씁니다.'],
     ['titledbRegions','list','받을 지역','비우면 기본 지역을 모두 받습니다. 쉼표로 나눕니다.','KR.ko,US.en,JP.ja'],
     ['titledbSource','text','다운로드 주소','지역별 파일(KR.ko.json 등)이 있는 주소입니다. 비우면 blawar/titledb 에서 받습니다. 원본이 멈추면 포크나 미러 주소로 변경합니다. 바꾼 뒤 지금 받기를 누르면 새 주소에서 받습니다.','https://raw.githubusercontent.com/<계정>/titledb/master'],
   ]],
-  ['다운로드',[
+  ['download',[
     ['downloadMaxConnections',[['1','1개'],['2','2개'],['3','3개'],['4','4개 (기본)'],['5','5개'],['6','6개'],['7','7개'],['8','8개']],'기기당 동시 연결','기기 하나가 파일 하나를 받을 때 동시에 여는 연결 수의 상한을 클라이언트에 알려 줍니다. 서버가 막지는 않으며, 줄이면 서버 부담이 줄고 늘리면 먼 곳에서 빨라질 수 있습니다.'],
     ['directDownloads','bool','외부 다운로드 전용 주소 사용','끄면 아래 주소를 지우지 않고 쉬게 합니다. 모든 기기가 목록에 적힌 공개 주소(터널)로 받습니다. 두 경로의 속도를 비교할 때 씁니다.'],
     ['publicDirectBaseUrl','text','외부 다운로드 전용 주소','https 주소만 넣을 수 있습니다. 넣으면 이 기능을 지원하는 클라이언트가 https 로 로그인했을 때 다운로드 토큰을 함께 받고, 목록의 다운로드 주소가 이 주소로 바뀝니다. 집 안에서 http 로 서버에 바로 붙은 기기는 지금처럼 그 주소로 받습니다. 이 주소 앞의 프록시는 Bearer 토큰이 붙은 GET/HEAD 요청만 이 서버로 넘겨야 하고, 이 주소로는 다운로드만 받을 수 있습니다. 다른 클라이언트와 브라우저는 지금처럼 받습니다. 비우면 쓰지 않습니다.','https://dl.example.org:38443'],
     ['downloadLinkTtl',[['3600','1시간'],['21600','6시간 (기본)'],['43200','12시간'],['86400','하루'],['259200','3일'],['604800','일주일']],'토큰 유효 시간','다운로드 토큰은 이 시간이 지나면 쓸 수 없습니다. 클라이언트는 목록을 다시 받을 때 새 토큰을 받습니다.'],
   ]],
-  ['다시 시작',[
+  ['restart',[
     ['restartRetryAfter','sec','재요청 대기 시간','다시 시작하는 동안 들어온 요청에 이 시간만큼 기다렸다가 다시 요청하라고 알립니다(Retry-After). 서버가 다시 켜지는 데 걸리는 시간에 맞춥니다.'],
     ['restartGrace','sec','받던 것을 기다리는 시간','다시 시작할 때 이미 받고 있던 요청이 끝나기를 이만큼까지 기다리고, 그때도 남은 것은 끊습니다. compose 의 stop_grace_period(40초) 안에 들도록 35초까지 넣습니다.'],
   ]],
-  ['동기화와 백업',[
+  ['sync',[
     ['syncHours',[['0','누를 때만'],['1','1시간마다'],['3','3시간마다'],['6','6시간마다 (기본)'],['12','12시간마다'],['24','하루마다']],'모든 폴더 다시 읽기','게임, 홈브류, 세이브, 패치, 레트로 폴더를 이 주기로 처음부터 다시 읽습니다. 넣은 파일은 폴더 감시가 바로 잡으니, 이것은 놓친 것을 채우는 용도입니다.'],
     ['verifyHours',[['2-7','새벽 2시~7시 (기본)'],['0-6','자정~6시'],['1-7','새벽 1시~7시'],['3-8','새벽 3시~8시'],['22-6','밤 10시~아침 6시'],['always','언제나'],['off','하지 않습니다']],'파일 검사 시간','라이브러리 파일이 수정되거나 손상됐는지 이 시간에만 읽어 확인합니다. 디스크를 오래 읽으니 쓰지 않는 시간에 둡니다. 시간이 끝나면 읽던 파일까지만 마치고 다음 날 이어서 합니다. 관리자가 직접 다시 검사를 누른 파일은 시간과 상관없이 바로 합니다.'],
     ['backupDays',[['0','하지 않습니다'],['7','7일'],['14','14일 (기본)'],['30','30일'],['90','90일']],'매일 백업 보관','계정, 기기, 토큰, 설정, 감사 기록, 다운로드 기록, 손으로 고친 이름과 설명을 하루에 한 번 데이터 폴더의 backups 에 복사하고, 이 기간이 지난 것은 삭제합니다. 롬과 이미지처럼 다시 받을 수 있는 것은 넣지 않습니다.'],
@@ -121,8 +122,8 @@ let ssLast=null;
 // Drawn again in the new language when the admin switches it.
 function ssRelabel(){if(ssLast)ssRender(ssLast);}
 function ssRender(d){ssLast=d;const list=$('ss-list');list.replaceChildren();const jump=$('ss-jump');jump.replaceChildren();
-  for(const [title,rows] of SS_GROUPS){const box=boxEl('ss-'+SS_GROUPS.findIndex((x)=>x[0]===title),title,'','ss-group');const g=box.querySelector('.box-b');
-    const a=el('button',title);a.type='button';a.setAttribute('role','tab');a.dataset.group=title;a.addEventListener('click',()=>ssShowGroup(title));jump.append(a);box.dataset.group=title;
+  for(const [title,rows] of SS_GROUPS){const t=ssText(SS_TITLES[title]);const box=boxEl('ss-'+SS_GROUPS.findIndex((x)=>x[0]===title),t,'','ss-group');const g=box.querySelector('.box-b');
+    const a=el('button',t);a.type='button';a.setAttribute('role','tab');a.dataset.group=title;a.addEventListener('click',()=>ssShowGroup(title));jump.append(a);box.dataset.group=title;
     for(const [key,kind,label,desc,ph] of rows){const s=d.settings[key];if(!s)continue;const r=el('div',null,'ss-row');r.dataset.key=key;
       const t=el('div');t.append(el('b',ssText(label)),el('p',ssText(desc)));const c=el('div',null,'ss-ctl');c.append(ssControl(key,kind,s,ph));
       if(key==='publicDirectBaseUrl'&&d.directDownload?.configured)t.append(el('p',ssDirectNote(d.directDownload),'muted'));
@@ -130,13 +131,13 @@ function ssRender(d){ssLast=d;const list=$('ss-list');list.replaceChildren();con
       if(s.source==='saved'){src.append('여기서 정한 값입니다. compose 값은 '+ssShow(key,s.envValue)+' 입니다.');
         src.append(btn('compose 값으로',()=>ssSave({[key]:null},'compose 값으로 돌렸습니다.')));}
       r.append(t,c);if(src.childNodes.length)r.append(src);g.append(r);}
-    if(title==='게임 정보'){const r=el('div',null,'ss-row');const t=el('div');const tdb=d.titledb||{};
+    if(title==='gameinfo'){const r=el('div',null,'ss-row');const t=el('div');const tdb=d.titledb||{};
       t.append(el('b','지금 새로 다운로드'),el('p',tdb.fetching?'다운로드하고 있습니다.':(tdb.titles?'게임 '+tdb.titles.toLocaleString()+'개의 정보가 있습니다'+(tdb.loadedAt?'. 마지막으로 읽은 때: '+fmt(tdb.loadedAt):'')+'.':'아직 받은 게임 정보가 없습니다.')));
       const c=el('div',null,'ss-ctl');c.append(btn('지금 다운로드',async()=>{try{const x=await api('/admin/api/server-settings/titledb-refresh',{method:'POST',body:{}});toast(x.message);loadServerSettings();}catch(err){toast(err.message);}}));
       r.append(t,c);g.append(r);}
     if(title==='prod.keys')g.append(ssKeysRow(d.keys||{}));
-    if(title==='다시 시작')g.append(ssRestartRow());
-    if(title==='동기화와 백업')g.append(ssSyncRow(d.sync||{}),ssBackupRow(d.backup||{}));
+    if(title==='restart')g.append(ssRestartRow());
+    if(title==='sync')g.append(ssSyncRow(d.sync||{}),ssBackupRow(d.backup||{}));
     list.append(box);}
   ssShowGroup(ssGroup());}
 // One group on screen at a time; the last one picked comes back after a reload.

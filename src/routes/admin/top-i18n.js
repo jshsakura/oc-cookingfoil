@@ -10,6 +10,7 @@ import { KEYS_WORDS } from "./keys-words.js";
 import { UPLOAD_LIMIT_WORDS } from "./upload-limit-words.js";
 import { WIDE_WORDS } from "./wide-words.js";
 import { OV_WORDS } from "./overview-words.js";
+import { SETTINGS_WORDS } from "./settings-words.js";
 
 export const TOP_LANGS = [
   ["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"],
@@ -1593,7 +1594,7 @@ const PEOPLE_WORDS = {
   },
 };
 
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code] }]));
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...SETTINGS_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;
