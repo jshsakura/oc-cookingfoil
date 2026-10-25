@@ -1,3 +1,4 @@
+import { top } from "./top-i18n.js";
 /**
  * The overview tab's client build block: how the CookingFoil client build
  * reaches this server (uploaded by hand, or also followed on GitHub), the
@@ -12,7 +13,7 @@ export const CLIENT_RELEASE_HTML = `<p class="muted">기기에 내려줄 Cooking
   <input id="cr-repo" placeholder="소유자/저장소 (jshsakura/oc-cookingfoil-client)" aria-label="저장소" maxlength="140" spellcheck="false">
   <input id="cr-tag" placeholder="태그 (비우면 최신 릴리즈)" aria-label="태그" maxlength="100" spellcheck="false">
   <input id="cr-asset" placeholder="자산 이름 (.nro)" aria-label="자산 이름" maxlength="104" spellcheck="false">
-  <button type="submit">저장</button>
+  <button type="submit" data-top="fp.save">${top("fp.save")}</button>
   <button class="primary" type="button" id="cr-check">지금 가져오기</button>
 </form>
 <p class="muted" id="cr-token-hint" hidden>비공개 저장소라면 연동의 GitHub 토큰을 씁니다. 공개 저장소는 토큰 없이 받습니다.</p>
@@ -43,7 +44,7 @@ $('cr-mode').addEventListener('change',crShowFields);
 $('cr-form').addEventListener('submit',async(e)=>{e.preventDefault();
   const body={clientSource:$('cr-mode').value};
   if(body.clientSource==='github')Object.assign(body,{clientReleaseRepo:$('cr-repo').value.trim(),clientReleaseTag:$('cr-tag').value.trim(),clientReleaseAsset:$('cr-asset').value.trim()});
-  try{await api('/admin/api/server-settings',{method:'POST',body});toast('저장했습니다.');crCheck(true);}
+  try{await api('/admin/api/server-settings',{method:'POST',body});toast(topText('pp.saved'));crCheck(true);}
   catch(err){toast(/clientReleaseRepo/.test(err.message)?'저장소는 소유자/저장소 꼴로 넣습니다.':/clientReleaseTag/.test(err.message)?'태그에는 영문, 숫자, 점, 밑줄, 하이픈만 씁니다.':/clientReleaseAsset/.test(err.message)?'자산 이름은 .nro 로 끝나야 합니다.':err.message);}});
 $('cr-check').addEventListener('click',()=>crCheck(false));
 `;

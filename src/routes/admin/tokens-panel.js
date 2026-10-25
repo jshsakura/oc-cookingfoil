@@ -1,3 +1,4 @@
+import { top } from "./top-i18n.js";
 /**
  * The settings tab's automation token panel: make a token for a script or an AI
  * assistant (shown once), see when each was last used, and revoke it; turn the MCP
@@ -11,7 +12,7 @@ export const TOKENS_HTML = `<div class="hd"><h2>자동화 토큰</h2></div>
   <input id="tok-label" placeholder="어디에 쓸지 (예: Claude)" aria-label="토큰 이름" maxlength="64">
   <button class="primary" type="submit">토큰 만들기</button>
 </form>
-<div class="copy-row" id="tok-new" hidden><code id="tok-value"></code><button type="button" id="tok-copy">복사</button></div>
+<div class="copy-row" id="tok-new" hidden><code id="tok-value"></code><button type="button" id="tok-copy" data-top="ov.copy">${top("ov.copy")}</button></div>
 <p class="muted" id="tok-note" hidden>이 토큰은 지금 한 번만 보입니다. 복사해 두고 화면을 떠나면 다시 볼 수 없습니다.</p>
 <div class="scroll" id="tok-list" data-skel></div>
 <div class="hd"><h2 data-top="mcp.title"></h2></div>

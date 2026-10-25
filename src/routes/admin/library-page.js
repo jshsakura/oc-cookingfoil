@@ -33,7 +33,7 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
   <form class="desc-form" id="gd-form">
     <label>${top("gp.find")}<input id="gd-game" autocomplete="off" ${topPh("gp.ph")}></label>
     <div id="gd-body" hidden>
-      <h3>이름</h3>
+      <h3 data-top="pp.name">${top("pp.name")}</h3>
       <p class="muted" id="gd-name-original"></p>
       <div class="ct-pair"><label>한국어<input id="gd-name-ko" maxlength="120" autocomplete="off"></label><label>영어 (다른 언어의 기본값)<input id="gd-name-en" maxlength="120" autocomplete="off"></label></div>
       ${GAME_PATCHES_HTML}
@@ -53,7 +53,7 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
   </form>
   </div>
   <div data-lib-panel="server" hidden>
-  <h2 class="first">서버 설정</h2>
+  <h2 class="first" data-top="s.settings">${top("s.settings")}</h2>
   <dl class="kv" id="settings"></dl>
   <p class="muted">바꿀 수 있는 설정은 <a href="#settings/server">설정 탭의 서버 동작</a>에 있습니다.</p>
   </div>

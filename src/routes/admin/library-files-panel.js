@@ -20,7 +20,7 @@ async function lvLoad(){let d;try{d=await api('/admin/api/library/verify');}catc
   const card=(l,v,cls)=>{const e=el('div',null,'card'+(cls?' '+cls:''));e.append(el('div',num(v),'v'),el('div',l,'l'));return e;};
   cards.append(card('정상',c.ok||0),card('수정됨',c.modified||0),card('손상됨',c.damaged||0,c.damaged?'alert':''),card('검사 전',c.unchecked||0),card('이름 다름',c.misnamed||0));
   $('lv-state').textContent=(LV_STATUS[d.status]||'')+(d.current?' ('+d.current.path+')':'')+'. 남은 파일 '+num(d.pending)+'개, 해시를 기다리는 파일 '+num(d.hashPending)+'개입니다.';
-  table('lv-list',['파일','결과','이유',''],(d.flagged||[]).map((f)=>{const tr=el('tr');const n=td();n.append(el('b',f.path.split('/').pop()));n.append(el('div',f.path,'muted'));
+  table('lv-list',[topText('lo.colFile'),'결과',topText('lo.colReason'),''],(d.flagged||[]).map((f)=>{const tr=el('tr');const n=td();n.append(el('b',f.path.split('/').pop()));n.append(el('div',f.path,'muted'));
     const again=btn('다시 검사',()=>lvRecheck(f));again.setAttribute('aria-label',f.path+' 다시 검사');const a=td();a.append(again);
     tr.append(n,td(LV_VERDICT[f.verdict]||f.verdict),td((LV_REASON[f.reason]||f.reason||'—')+(f.contentId?'. 파일 안의 ID 는 '+f.contentId+' 입니다':'')),a);return tr;}),'수정되거나 손상된 파일, 이름이 다른 파일이 없습니다.');}
 async function lvRecheck(f){try{await api('/admin/api/library/verify/recheck',{method:'POST',body:{rel:f.path}});toast('다시 검사합니다.');lvLoad();}catch(err){toast(err.message);}}

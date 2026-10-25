@@ -51,7 +51,7 @@ $('ct-form').addEventListener('submit',async(e)=>{e.preventDefault();
     version:$('ct-version').value,author:$('ct-author').value,gameVersion:$(ctKind==='patch'?'ct-p-game-version':'ct-game-version').value,saveType:$('ct-save-type').value,
     ...(ctKind==='patch'&&!ctItem.homebrew?{updateVersion:$('ct-update').value}:{}),
     sourceName:$('ct-source-name').value,sourceUrl:$('ct-source-url').value};
-  try{await api('/admin/api/content/'+ctKind+'/meta',{method:'POST',body});ctDone('저장했습니다.');}catch(err){toast(err.message);}});
+  try{await api('/admin/api/content/'+ctKind+'/meta',{method:'POST',body});ctDone(topText('pp.saved'));}catch(err){toast(err.message);}});
 gamePicker($('ct-move'),{fill:true,pick:()=>$('ct-move-go').focus()});
 $('ct-move-go').addEventListener('click',async()=>{const m=$('ct-move').value.match(/[0-9A-Fa-f]{16}/);
   if(!m){toast('옮길 게임을 고릅니다.');return;}const to=m[0].toUpperCase();
