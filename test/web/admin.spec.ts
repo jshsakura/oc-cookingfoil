@@ -592,22 +592,17 @@ test('the overview says where game names come from', async ({ page }) => {
   await page.locator('#tab-overview').screenshot({ path: 'out/web/admin-overview-health.png' });
 });
 
-test('the settings tab shows one area at a time, opens the one in the address and keeps it on reload', async ({ page }) => {
+test('each settings page shows only its own area and keeps it on reload', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin#settings');
+  await page.goto('/admin/settings/server');
   await expect(page.locator('#ss-list')).toBeVisible();
-  await expect(page.locator('#tok-form')).toBeHidden();
-  await expect(page.locator('#ap-form')).toBeHidden();
-  await page.locator('#set-subtabs [data-ssub="tokens"]').click();
-  await expect(page.locator('#tok-form')).toBeVisible();
-  await expect(page.locator('#ss-list')).toBeHidden();
-  expect(page.url()).toContain('#settings/tokens');
+  await expect(page.locator('#tok-form')).toHaveCount(0);
+  await expect(page.locator('#ap-form')).toHaveCount(0);
+  await page.goto('/admin/settings/automation');
+  await expect(page.locator('#mcp-on')).toBeAttached();
+  await expect(page.locator('#ss-list')).toHaveCount(0);
   await page.reload();
-  await expect(page.locator('#tok-form')).toBeVisible();
-  await expect(page.locator('#set-subtabs [data-ssub="tokens"]')).toHaveAttribute('aria-selected', 'true');
-  await page.goto('/admin#settings/security');
-  await expect(page.locator('#ap-form')).toBeVisible();
-  await expect(page.locator('#ap-status')).not.toHaveText('불러오고 있습니다');
+  await expect(page.locator('#mcp-on')).toBeAttached();
   await page.screenshot({ path: 'out/web/admin-settings-tabs.png' });
 });
 
@@ -630,7 +625,7 @@ test('an approved console gets a 관리자 기기 switch, off until the admin tu
   const flag = async () => (await (await page.request.get('/admin/api/devices')).json()).approved.find((d: { deviceKey: string }) => d.deviceKey === KEY)?.admin;
   try {
     // A new load: the list was read when the page opened, before the approval.
-    await page.goto('/admin#devices/approved');
+    await page.goto('/admin/devices?tab=approved');
     await page.reload();
     const sw = page.getByRole('checkbox', { name: '관리 콘솔 관리자 기기' });
     await expect(sw).not.toBeChecked();
@@ -654,7 +649,7 @@ test("a console's address opens its IPs by day, every value shown as text", asyn
   try {
     const { accessKey } = await (await request.get('/api/pair/status', { headers: { 'X-Device-Key': KEY } })).json();
     expect((await request.get('/api/shop/sections', { headers: { 'X-Device-Key': KEY, 'X-Access-Key': accessKey } })).status()).toBe(200);
-    await page.goto('/admin#devices/approved');
+    await page.goto('/admin/devices?tab=approved');
     await page.reload();
     await page.getByRole('button', { name: /날짜별 IP 기록을 봅니다/ }).first().click();
     const dialog = page.locator('#ip-dialog');

@@ -195,7 +195,7 @@ async function reissue(deviceKey,label){if(!await ask(topText('pp.reissueAsk'),{
 async function revoke(deviceKey){if(!await ask(topText('pp.revokeAsk'),{danger:true}))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast(topText('pp.keyRevoked'));loadDevices();}catch(err){toast(err.message);}}
 async function setDeviceAdmin(deviceKey,admin,name){
-  try{await api('/admin/api/devices/admin',{method:'POST',body:{deviceKey,admin}});toast(admin?name+topText('pp.canChangeItems'):name+topText('pp.readOnly'));loadDevices();}catch(err){toast(err.message);loadDevices();}}
+  try{await api('/admin/api/devices/admin',{method:'POST',body:{deviceKey,admin}});toast(admin?topFill('pp.canChangeItems',{name}):topFill('pp.readOnly',{name}));loadDevices();}catch(err){toast(err.message);loadDevices();}}
 async function renameDevice(deviceKey,label){const next=await askText(topText('pp.renameDevicePh'),label||'');if(next===null)return;
   try{await api('/admin/api/devices/label',{method:'POST',body:{deviceKey,label:next}});toast(topText('pp.renamed'));loadDevices();}catch(err){toast(err.message);}}
 
