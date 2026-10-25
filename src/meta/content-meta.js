@@ -257,7 +257,7 @@ export function retryFailed() {
   return n;
 }
 
-/** How far the background read has come, for /api/shop/info. */
+/** How far the background read has come, for /api/library/info. */
 export function progress() {
   return { read: known.size, pending: queue.length };
 }

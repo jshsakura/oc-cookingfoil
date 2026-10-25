@@ -94,8 +94,8 @@ function libShowSub(sub,quiet){if(!LIB_SUBS.includes(sub))return;libSub=sub;
 for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.addEventListener('click',()=>libShowSub(b.dataset.lsub));
 addEventListener('hashchange',()=>{
   const [tab,sub]=location.hash.slice(1).split('/');if(tab==='library')libShowSub(sub||'files');});
-async function loadLibrary(){
-  libLoadSub();
+async function loadLibrary(refreshPanel=true){
+  if(refreshPanel)libLoadSub();
   const d=await api('/admin/api/library');
   const cards=$('lib-cards');cards.replaceChildren();
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};
@@ -111,10 +111,17 @@ const scanTook=(f)=>'파일 '+num(f.files)+'개, '+(f.ms/1000).toFixed(1)+'초';
 function scanShow(s){const b=$('rescan');b.disabled=scanBusy(s);b.setAttribute('aria-busy',String(scanBusy(s)));
   $('scan-status').textContent=s.state==='running'?'게임 폴더를 읽고 있습니다.':s.fullPending?'곧 게임 폴더를 다시 읽습니다.'
     :s.lastFull?'마지막으로 전부 읽은 때는 '+fmt(s.lastFull.at)+'입니다. '+scanTook(s.lastFull)+' 걸렸습니다.':'';}
-async function scanWatch(since){
-  while(!$('tab-library').hidden){await new Promise((r)=>setTimeout(r,1000));
-    let d;try{d=await loadLibrary();}catch{return;}const s=d.scan||{};
-    if(!scanBusy(s)&&s.lastFull&&s.lastFull.at>=since){toast('다시 스캔을 마쳤습니다. '+scanTook(s.lastFull)+' 걸렸습니다.');return;}}}
+let scanPoll=null;
+function scanWatch(since){
+  if(scanPoll)scanPoll.stop();let lastError='';
+  const poll=admInterval(async()=>{
+    let d;try{d=await loadLibrary(false);lastError='';}catch(err){
+      if(err.message!=='session'&&err.message!==lastError)toast(errText(err));lastError=err.message;return;}
+    const status=d.scan||{};
+    if(!scanBusy(status)&&status.lastFull&&status.lastFull.at>=since){
+      poll.stop();if(scanPoll===poll)scanPoll=null;
+      toast('다시 스캔을 마쳤습니다. '+scanTook(status.lastFull)+' 걸렸습니다.');}
+  },1000);scanPoll=poll;}
 $('rescan').addEventListener('click',async()=>{$('rescan').disabled=true;
   try{const r=await api('/admin/api/library/rescan',{method:'POST',body:{}});
     toast(r.already?'이미 다시 스캔을 기다리고 있습니다.':'다시 스캔을 시작했습니다.');scanShow({fullPending:true});scanWatch(r.requestedAt);}

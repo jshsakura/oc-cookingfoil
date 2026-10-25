@@ -171,8 +171,8 @@ test("only signed-in clients that declare direct-token get a token and direct UR
   assert.equal(links.directUrl("/api/homebrew/x/file?path=a%2Fb", link), `${DL}/api/homebrew/x/file?path=a%2Fb`);
   assert.equal(links.directUrl(null, link), null);
   assert.equal(links.directUrl("https://cdn.example.org/a.png", link), "https://cdn.example.org/a.png");
-  const json = JSON.stringify({ files: [{ url: `../${ENC}`, variants: [{ url: "../Game%2Fv.nsp" }] }], icon: "/api/shop/icon/x" });
-  assert.equal(links.withShopDirect(json, link), JSON.stringify({ files: [{ url: `${DL}/${ENC}`, variants: [{ url: `${DL}/Game%2Fv.nsp` }] }], icon: "/api/shop/icon/x" }));
+  const json = JSON.stringify({ files: [{ url: `../${ENC}`, variants: [{ url: "../Game%2Fv.nsp" }] }], icon: "/api/library/icon/x" });
+  assert.equal(links.withShopDirect(json, link), JSON.stringify({ files: [{ url: `${DL}/${ENC}`, variants: [{ url: `${DL}/Game%2Fv.nsp` }] }], icon: "/api/library/icon/x" }));
 });
 
 test("the effective scheme decides: https takes the direct address, http keeps same-origin URLs", () => {
@@ -295,7 +295,7 @@ test("which paths the lane can reach", () => {
   assert.equal(laneOf(`/${ENC}`), "file");
   assert.equal(laneOf("/api/retro/games/snes-0123456789/rom"), "route");
   assert.equal(laneOf("/api/homebrew/gh-0123456789ab/file"), "route");
-  for (const p of ["/", "/admin", "/api/admin/users", "/api/retro/games", "/api/shop/sections", "/api/shop/info", "/shop.json", "/login", "/API/retro/games/x/rom", "/api/inbox/upload"]) {
+  for (const p of ["/", "/admin", "/api/admin/users", "/api/retro/games", "/api/library/sections", "/api/library/info", "/games.json", "/login", "/API/retro/games/x/rom", "/api/inbox/upload"]) {
     assert.equal(laneOf(p), null, p);
   }
 });
@@ -340,7 +340,7 @@ test("on the direct address a valid token opens downloads; nothing else is there
   assert.equal((await get(port, url, bearer(token, { "cf-connecting-ip": "198.51.100.9" }))).headers["x-lane"], "main");
   assert.equal((await get(port, url, { headers: { host: "shop.example.org", authorization: `Bearer ${token}` } })).headers["x-lane"], "main");
   // No pages, no lists, no writes, even with a good token.
-  for (const p of ["/admin", "/api/admin/users", "/api/homebrew", "/api/shop/info", "/shop.json"]) {
+  for (const p of ["/admin", "/api/admin/users", "/api/homebrew", "/api/library/info", "/games.json"]) {
     const r = await get(port, p, bearer(token));
     assert.equal(r.status, 404, p);
     assert.equal(r.headers["x-lane"], undefined, p);

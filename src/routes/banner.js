@@ -1,5 +1,5 @@
 /**
- * GET /api/shop/banner/:titleId[?v=&size=sm|md|lg|xl&lang=] — local-cached banner artwork.
+ * GET /api/library/banner/:titleId[?v=&size=sm|md|lg|xl&lang=] — local-cached banner artwork.
  * Same lazy-fetch pattern as the icon route; the upstream URL comes
  * from titledb's bannerUrl field. Same caching too: immutable for the
  * current ?v=, `public, max-age=300` with an ETag otherwise.

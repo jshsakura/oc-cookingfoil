@@ -50,7 +50,7 @@ async function pairAs(auth, key) {
 }
 
 const shop = async (key, accessKey) =>
-  (await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": key, "X-Access-Key": accessKey } })).status;
+  (await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": key, "X-Access-Key": accessKey } })).status;
 
 test("removing, disabling or re-passwording an account revokes the consoles it approved", async () => {
   const server = bootServer();
@@ -74,9 +74,9 @@ test("removing, disabling or re-passwording an account revokes the consoles it a
     for (const name of Object.keys(PEOPLE)) {
       assert.equal(await shop(consoles[name].key, consoles[name].accessKey), 401, `${name}'s console is revoked`);
     }
-    const refused = await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": consoles.bob.key, "X-Access-Key": consoles.bob.accessKey } });
+    const refused = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": consoles.bob.key, "X-Access-Key": consoles.bob.accessKey } });
     assert.equal(refused.headers.get("x-cookingfoil-session"), "revoked", "a revoked console's access key is told to pair again");
-    const wrongKey = await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": consoles.owner.key, "X-Access-Key": "f".repeat(64) } });
+    const wrongKey = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": consoles.owner.key, "X-Access-Key": "f".repeat(64) } });
     assert.equal(wrongKey.status, 401);
     assert.equal(wrongKey.headers.get("x-cookingfoil-session"), null, "a wrong key for an approved console says nothing more");
     assert.equal(await shop(consoles.owner.key, consoles.owner.accessKey), 200, "consoles of other accounts stay");

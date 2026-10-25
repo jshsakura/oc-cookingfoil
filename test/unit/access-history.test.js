@@ -91,7 +91,7 @@ test("console activity and account sign-ins are kept across a restart and droppe
     assert.ok(devices.activitySince > 0);
 
     for (let i = 0; i < 3; i++) {
-      assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { ...CONSOLE, ...FROM } })).status, 200);
+      assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: { ...CONSOLE, ...FROM } })).status, 200);
     }
     devices = await call("GET", "/admin/api/devices");
     mine = row(devices, CONSOLE_KEY);
@@ -153,7 +153,7 @@ test("the admin sees each console's IPs by day and each account's sign-ins, and 
     await waitReady();
     let call = await asAdmin();
 
-    const shop = (ip) => fetch(`${BASE}/api/shop/sections`, { headers: { ...CONSOLE, "X-Forwarded-For": ip } });
+    const shop = (ip) => fetch(`${BASE}/api/library/sections`, { headers: { ...CONSOLE, "X-Forwarded-For": ip } });
     for (const ip of ["192.0.2.10", "192.0.2.10", "198.51.100.7", ...Array.from({ length: 8 }, (_, i) => `203.0.113.${i + 1}`)]) {
       assert.equal((await shop(ip)).status, 200);
     }

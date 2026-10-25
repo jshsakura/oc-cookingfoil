@@ -80,7 +80,7 @@ test("admin accounts run the admin page; nobody locks themselves out; console lo
     const { accessKey } = await (await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": KEY } })).json();
     let devices = await (await call("GET", "/admin/api/devices")).json();
     assert.equal(devices.approved[0].lastSeenAt, null);
-    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: { "X-Device-Key": KEY, "X-Access-Key": accessKey } })).status, 200);
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": KEY, "X-Access-Key": accessKey } })).status, 200);
     assert.equal((await call("POST", "/admin/api/devices/label", { deviceKey: KEY, label: "안방" })).status, 200);
     devices = await (await call("GET", "/admin/api/devices")).json();
     assert.equal(devices.approved[0].label, "안방");

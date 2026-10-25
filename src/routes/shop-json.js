@@ -1,8 +1,8 @@
 /**
- * GET /shop.json: the whole library as one flat list, for automation that runs
+ * GET /games.json: the whole library as one flat list, for automation that runs
  * with an API token the admin made on the admin page (security/api-tokens.js).
  * Anything else signed in (a console's keys, a browser) is answered 404; the
- * CookingFoil client and the web page read /api/shop/sections instead.
+ * CookingFoil client and the web page read /api/library/sections instead.
  *
  *   → { files: [{ url, name, size, mtime?, titleId?, baseTitleId?, kind?, icon_url? }] }
  *

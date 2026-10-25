@@ -73,14 +73,14 @@ test("resolveOrigin: returns empty string when no host is known", () => {
 test("rewriteArtworkOrigin: prefixes only our proxy endpoints", () => {
   const json = JSON.stringify({
     files: [
-      { url: "../%5B0100%5D.nsz", icon_url: "/api/shop/icon/0100ABC?v=0.7" },
+      { url: "../%5B0100%5D.nsz", icon_url: "/api/library/icon/0100ABC?v=0.7" },
       { url: "../x.nsp", icon_url: "https://cdn.example.com/x.png" },
     ],
     titledb: {
       "0100ABC": {
-        iconUrl: "/api/shop/icon/0100ABC?v=0.7",
-        bannerUrl: "/api/shop/banner/0100ABC?v=0.7",
-        screenshots: ["/api/shop/screenshot/0100ABC/0?v=0.7"],
+        iconUrl: "/api/library/icon/0100ABC?v=0.7",
+        bannerUrl: "/api/library/banner/0100ABC?v=0.7",
+        screenshots: ["/api/library/screenshot/0100ABC/0?v=0.7"],
       },
     },
   });
@@ -88,24 +88,24 @@ test("rewriteArtworkOrigin: prefixes only our proxy endpoints", () => {
   const out = JSON.parse(rewriteArtworkOrigin(json, "http://host:9080"));
 
   // Our endpoints become absolute…
-  assert.equal(out.files[0].icon_url, "http://host:9080/api/shop/icon/0100ABC?v=0.7");
-  assert.equal(out.titledb["0100ABC"].iconUrl, "http://host:9080/api/shop/icon/0100ABC?v=0.7");
-  assert.equal(out.titledb["0100ABC"].bannerUrl, "http://host:9080/api/shop/banner/0100ABC?v=0.7");
-  assert.equal(out.titledb["0100ABC"].screenshots[0], "http://host:9080/api/shop/screenshot/0100ABC/0?v=0.7");
+  assert.equal(out.files[0].icon_url, "http://host:9080/api/library/icon/0100ABC?v=0.7");
+  assert.equal(out.titledb["0100ABC"].iconUrl, "http://host:9080/api/library/icon/0100ABC?v=0.7");
+  assert.equal(out.titledb["0100ABC"].bannerUrl, "http://host:9080/api/library/banner/0100ABC?v=0.7");
+  assert.equal(out.titledb["0100ABC"].screenshots[0], "http://host:9080/api/library/screenshot/0100ABC/0?v=0.7");
   // …while download URLs and external icon URLs are left untouched.
   assert.equal(out.files[0].url, "../%5B0100%5D.nsz");
   assert.equal(out.files[1].icon_url, "https://cdn.example.com/x.png");
 });
 
 test("rewriteArtworkOrigin: empty origin is a no-op", () => {
-  const json = '{"icon_url":"/api/shop/icon/X"}';
+  const json = '{"icon_url":"/api/library/icon/X"}';
   assert.equal(rewriteArtworkOrigin(json, ""), json);
 });
 
 test("rewriteDownloadOrigin: anchors only ../ download URLs at the origin", () => {
   const json = JSON.stringify({
     files: [
-      { url: "../Armello%20%5B0100%5D.nsp", icon_url: "/api/shop/icon/0100?v=0.7" },
+      { url: "../Armello%20%5B0100%5D.nsp", icon_url: "/api/library/icon/0100?v=0.7" },
       { url: "../Sub%20Folder%2FGame.nsz" },
       { url: "https://fan.example.com/homebrew.nro" }, // custom entry — absolute
     ],
@@ -118,7 +118,7 @@ test("rewriteDownloadOrigin: anchors only ../ download URLs at the origin", () =
   assert.equal(out.files[1].url, "http://host:9080/Sub%20Folder%2FGame.nsz");
   // …absolute custom URLs and non-download fields are left untouched.
   assert.equal(out.files[2].url, "https://fan.example.com/homebrew.nro");
-  assert.equal(out.files[0].icon_url, "/api/shop/icon/0100?v=0.7");
+  assert.equal(out.files[0].icon_url, "/api/library/icon/0100?v=0.7");
 });
 
 test("rewriteDownloadOrigin: empty origin is a no-op", () => {

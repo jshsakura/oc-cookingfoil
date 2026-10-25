@@ -33,7 +33,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await dialog.getByRole('button', { name: '닫기', exact: true }).click();
 
   for (const password of ['wrong-password', PASSWORD]) {
-    const r = await request.get('/api/shop/sections', { headers: basic(NAME, password) });
+    const r = await request.get('/api/library/sections', { headers: basic(NAME, password) });
     expect(r.status()).toBe(401);
     expect(r.headers()['www-authenticate']).toBeUndefined();
   }
@@ -53,7 +53,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await page.screenshot({ path: 'out/web/admin-users.png' });
   await row.getByRole('button', { name: '삭제', exact: true }).click();
   await expect(page.locator('#users')).toContainText('아직 사용자가 없습니다');
-  expect((await request.get('/api/shop/sections')).status()).toBe(200);
+  expect((await request.get('/api/library/sections')).status()).toBe(200);
 });
 
 // Whatever happened above, leave the server without accounts for the other specs.
@@ -91,7 +91,7 @@ test('a featured row picked in the admin page reaches the sections list by base 
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-featured.png' });
 
-  await expect.poll(async () => (await (await request.get('/api/shop/sections')).json()).featured?.[0]?.title_ids)
+  await expect.poll(async () => (await (await request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
     .toEqual(['0100000000010000']);
   await request.put('/admin/api/featured', { data: { collections: [] }, headers: { Cookie: adminCookie, Origin: new URL(page.url()).origin } });
 });
@@ -371,7 +371,7 @@ test('a game is renamed from the game editor and every list shows the new name',
   await page.locator('#gd-form').getByRole('button', { name: '저장', exact: true }).click();
   await expect(page.locator('#gd-name-original')).toContainText('직접 정한 이름을 보여 주고 있습니다.');
   expect((await (await request.get('/api/title/0100000000010000?lang=ko')).json()).name).toBe('고친 이름');
-  await expect.poll(async () => JSON.stringify(await (await request.get('/api/shop/sections')).json()), { timeout: 15000 }).toContain('고친 이름 (Fixed Name)');
+  await expect.poll(async () => JSON.stringify(await (await request.get('/api/library/sections')).json()), { timeout: 15000 }).toContain('고친 이름 (Fixed Name)');
   await page.locator('#gd-name-ko').fill('');
   await page.locator('#gd-name-en').fill('');
   await page.locator('#gd-form').getByRole('button', { name: '저장', exact: true }).click();
@@ -415,7 +415,7 @@ test('the admin password is set, changed and removed on the settings tab, and op
 test('server behaviour is switched on the settings tab, applies at once and goes back to compose', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin#settings');
-  const features = async () => (await (await request.get('/api/shop/info')).json()).features as string[];
+  const features = async () => (await (await request.get('/api/library/info')).json()).features as string[];
   expect(await features()).toContain('device-pairing');
   // One group shows at a time, the first one to begin with.
   await expect(page.locator('#ss-jump').getByRole('tab', { name: '기기 연결' })).toHaveAttribute('aria-selected', 'true');
@@ -648,7 +648,7 @@ test("a console's address opens its IPs by day, every value shown as text", asyn
   expect((await page.request.post('/admin/api/devices/approve', { data: { code: pending.pairCode, label: '<b>IP 콘솔</b>' }, headers: origin })).status()).toBe(200);
   try {
     const { accessKey } = await (await request.get('/api/pair/status', { headers: { 'X-Device-Key': KEY } })).json();
-    expect((await request.get('/api/shop/sections', { headers: { 'X-Device-Key': KEY, 'X-Access-Key': accessKey } })).status()).toBe(200);
+    expect((await request.get('/api/library/sections', { headers: { 'X-Device-Key': KEY, 'X-Access-Key': accessKey } })).status()).toBe(200);
     await page.goto('/admin/devices?tab=approved');
     await page.reload();
     await page.getByRole('button', { name: /날짜별 IP 기록을 봅니다/ }).first().click();

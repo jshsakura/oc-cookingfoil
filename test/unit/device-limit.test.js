@@ -174,7 +174,7 @@ test("unless set an account holds ten consoles and its downloads connect five an
     assert.equal((await enroll(key("1"), token)).status, 200, "a console already counted enrolls again");
 
     const WEB = await webSession(BASE, "alice", ACCOUNTS.alice);
-    const info = await (await fetch(`${BASE}/api/shop/info`, { headers: WEB })).json();
+    const info = await (await fetch(`${BASE}/api/library/info`, { headers: WEB })).json();
     assert.deepEqual(info.enroll, { perHour: 2 }, "the web page reads the number here");
     const pairPage = await (await fetch(`${BASE}/pair`, { headers: { ...WEB, "Accept-Language": "en" } })).text();
     assert.match(pairPage, /Up to 2 consoles connect on their own/);

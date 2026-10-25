@@ -114,14 +114,14 @@ async function ready(url, headers, has) {
 }
 
 test("the shop list: fixed direct URLs and a token for direct-token clients, today's list for everyone else", async () => {
-  const plain = await ready("/api/shop/sections", SIGNED_IN, (b) => itemsOf(b).length);
+  const plain = await ready("/api/library/sections", SIGNED_IN, (b) => itemsOf(b).length);
   const plainFile = itemsOf(plain).find((f) => f.url.endsWith(".nsp"));
   assert.ok(plainFile.url.startsWith(BASE), "url stays on the shop's own address");
   assert.equal(JSON.stringify(plain).includes(DL_HOST), false);
-  const plainRes = await fetchOk("/api/shop/sections", SIGNED_IN);
+  const plainRes = await fetchOk("/api/library/sections", SIGNED_IN);
   assert.equal(tokenOf(plainRes), null, "no token without the feature");
 
-  const res = await fetchOk("/api/shop/sections", DIRECT);
+  const res = await fetchOk("/api/library/sections", DIRECT);
   const token = tokenOf(res);
   assert.ok(token);
   assert.match(res.headers.get("cache-control"), /^private\b/);
@@ -131,29 +131,29 @@ test("the shop list: fixed direct URLs and a token for direct-token clients, tod
   const file = itemsOf(listed).find((f) => f.url.endsWith(".nsp"));
   assert.equal(file.url, `${DL}${new URL(plainFile.url).pathname}`);
   assert.equal(JSON.stringify(listed).includes("direct_url"), false);
-  assert.equal(JSON.stringify(itemsOf(await json("/api/shop/sections", DIRECT))), JSON.stringify(itemsOf(listed)), "the same on every refresh");
+  assert.equal(JSON.stringify(itemsOf(await json("/api/library/sections", DIRECT))), JSON.stringify(itemsOf(listed)), "the same on every refresh");
   // fetch() would add Cache-Control: no-cache to a conditional request, so this one goes by hand.
   const cached = await new Promise((resolve, reject) => {
-    http.get({ port: PORT, host: "127.0.0.1", path: "/api/shop/sections", headers: { ...DIRECT, "If-None-Match": res.headers.get("etag") } }, (r) => resolve(r.resume())).on("error", reject);
+    http.get({ port: PORT, host: "127.0.0.1", path: "/api/library/sections", headers: { ...DIRECT, "If-None-Match": res.headers.get("etag") } }, (r) => resolve(r.resume())).on("error", reject);
   });
   assert.equal(cached.statusCode, 304);
   assert.equal(cached.headers["x-cookingfoil-download-token"], token, "the token comes with a 304 too");
   assert.notEqual(res.headers.get("etag"), plainRes.headers.get("etag"));
 
-  const sections = await fetchOk("/api/shop/sections", DIRECT);
+  const sections = await fetchOk("/api/library/sections", DIRECT);
   assert.ok(tokenOf(sections));
   const text = await sections.text();
   assert.ok(text.includes(`"${DL}/`));
   assert.equal(text.includes("direct_url"), false);
-  const info = await fetchOk("/api/shop/info", DIRECT);
+  const info = await fetchOk("/api/library/info", DIRECT);
   assert.equal(tokenOf(info), token);
-  assert.equal(tokenOf(await fetchOk("/api/shop/info", SIGNED_IN)), null);
+  assert.equal(tokenOf(await fetchOk("/api/library/info", SIGNED_IN)), null);
   // A console at home talking plain http to the server: same-origin URLs and no token, feature or not.
-  const lanRes = await fetchOk("/api/shop/sections", { ...SIGNED_IN, "X-CookingFoil-Features": "direct-token" });
+  const lanRes = await fetchOk("/api/library/sections", { ...SIGNED_IN, "X-CookingFoil-Features": "direct-token" });
   assert.equal(tokenOf(lanRes), null);
   assert.ok(itemsOf(await lanRes.json()).find((f) => f.url.endsWith(".nsp")).url.startsWith(BASE), "http stays http on the same origin");
   // Artwork never carries the token, whatever the client declares.
-  const icon = await fetch(`${BASE}/api/shop/icon/0100000000010000`, { headers: DIRECT });
+  const icon = await fetch(`${BASE}/api/library/icon/0100000000010000`, { headers: DIRECT });
   assert.equal(tokenOf(icon), null);
   const download = await fetch(`${BASE}${new URL(plainFile.url).pathname}`, { headers: DIRECT });
   assert.equal(download.status, 200);
@@ -161,7 +161,7 @@ test("the shop list: fixed direct URLs and a token for direct-token clients, tod
 });
 
 test("a direct URL opens through the proxy with the token, never without it, never through the tunnel", async () => {
-  const res = await fetchOk("/api/shop/sections", DIRECT);
+  const res = await fetchOk("/api/library/sections", DIRECT);
   const token = tokenOf(res);
   const url = itemsOf(await res.json()).find((f) => f.url.endsWith(".nsp")).url;
   const ok = await viaProxy(url, token);
@@ -188,7 +188,7 @@ test("a direct URL opens through the proxy with the token, never without it, nev
   assert.equal(tunnel.status, 200);
   assert.equal(await tunnel.text(), "NSPDATA");
   // Two consoles get the same list and their own tokens; both open.
-  const otherRes = await fetchOk("/api/shop/sections", { ...DIRECT, "X-Device-Key": KEY_B, "X-Access-Key": ACCESS_B });
+  const otherRes = await fetchOk("/api/library/sections", { ...DIRECT, "X-Device-Key": KEY_B, "X-Access-Key": ACCESS_B });
   const other = tokenOf(otherRes);
   assert.notEqual(other, token);
   assert.equal(itemsOf(await otherRes.json()).find((f) => f.url.endsWith(".nsp")).url, url);
@@ -196,7 +196,7 @@ test("a direct URL opens through the proxy with the token, never without it, nev
 });
 
 test("retro, saves, patches and extras are on the direct address; artwork is not", async () => {
-  const res = await fetchOk("/api/shop/info", DIRECT);
+  const res = await fetchOk("/api/library/info", DIRECT);
   const token = tokenOf(res);
   const games = await ready("/api/retro/games", DIRECT, (b) => b.games?.length);
   const g = games.games[0];
@@ -225,16 +225,16 @@ test("retro, saves, patches and extras are on the direct address; artwork is not
 });
 
 test("the direct address opens nothing but downloads, and the shop's own pages keep their sign-in", async () => {
-  const token = tokenOf(await fetchOk("/api/shop/info", DIRECT));
-  for (const p of ["/healthz", "/api/admin/users", "/api/retro/games", "/api/shop/sections", "/api/shop/info", "/admin", "/api/inbox"]) {
+  const token = tokenOf(await fetchOk("/api/library/info", DIRECT));
+  for (const p of ["/healthz", "/api/admin/users", "/api/retro/games", "/api/library/sections", "/api/library/info", "/admin", "/api/inbox"]) {
     assert.equal((await viaProxy(`${DL}${p}`, token)).status, 404, p);
   }
   // Without a token too: the health page is mounted ahead of the lane and still stays shut.
   assert.equal((await viaProxy(`${DL}/healthz`, null)).status, 404);
   assert.equal((await fetch(`${BASE}/healthz`)).status, 200, "the server's own health check still works");
   // A token straight to the server (not from the proxy) signs nothing in.
-  assert.equal((await fetch(`${BASE}/api/shop/info`, { headers: { Authorization: `Bearer ${token}` } })).status, 401);
-  assert.equal((await fetch(`${BASE}/api/shop/info`)).status, 401);
+  assert.equal((await fetch(`${BASE}/api/library/info`, { headers: { Authorization: `Bearer ${token}` } })).status, 401);
+  assert.equal((await fetch(`${BASE}/api/library/info`)).status, 401);
   // A MAC that fails on a token of our shape reads as a replaced key: fetch the lists again.
   const forged = await viaProxy(`${DL}/${encodeURIComponent("Game/readme.txt")}`, `${token.split(".")[0]}.${"Q".repeat(43)}`);
   assert.equal(forged.status, 401);
@@ -246,7 +246,7 @@ test("the direct address opens nothing but downloads, and the shop's own pages k
 test("nothing inside a dot-folder is served or listed, on the shop or the direct address, encoded or not", async () => {
   // The NSZ conversion's work folder sits inside the games folder (made while a conversion runs).
   put(games, ".cookingfoil-nsz-work/x/Game.nsz", "WORKDATA");
-  const token = tokenOf(await fetchOk("/api/shop/info", DIRECT));
+  const token = tokenOf(await fetchOk("/api/library/info", DIRECT));
   const paths = ["/.cookingfoil-nsz-work/x/Game.nsz", "/%2ecookingfoil-nsz-work/x/Game.nsz", "/%2Ecookingfoil-nsz-work/x/Game.nsz", "/Game/..%2f.cookingfoil-nsz-work/x/Game.nsz", "/.cookingfoil-nsz-work/x/", "/.cookingfoil-nsz-work/"];
   for (const p of paths) {
     const shop = await fetch(`${BASE}${p}`, { headers: SIGNED_IN, redirect: "manual" });

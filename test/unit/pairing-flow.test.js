@@ -76,7 +76,7 @@ test("pairing lane: request → approve → deliver key → access → revoke", 
     assert.ok(!pending.pairUrl.includes(DEVICE_KEY));
 
     // 2) Content is locked before approval (sole lane, no creds) → 403.
-    for (const route of ["/api/shop/sections", "/api/title/0100000000000000", "/api/uploads", "/api/art/0100000000000000"]) {
+    for (const route of ["/api/library/sections", "/api/title/0100000000000000", "/api/uploads", "/api/art/0100000000000000"]) {
       r = await fetch(BASE + route, { headers: { "X-Device-Key": DEVICE_KEY } });
       assert.equal(r.status, 403, `${route} must not bypass pairing-only approval`);
     }
@@ -114,13 +114,13 @@ test("pairing lane: request → approve → deliver key → access → revoke", 
     assert.equal((await r.json()).accessKey, undefined);
 
     // 7) Device pulls content with (device key + accessKey) → allowed.
-    r = await fetch(`${BASE}/api/shop/sections`, {
+    r = await fetch(`${BASE}/api/library/sections`, {
       headers: { "X-Device-Key": DEVICE_KEY, "X-Access-Key": accessKey },
     });
     assert.equal(r.status, 200, "approved device passes the content guard");
 
     // 8) Wrong accessKey → blocked.
-    r = await fetch(`${BASE}/api/shop/sections`, {
+    r = await fetch(`${BASE}/api/library/sections`, {
       headers: { "X-Device-Key": DEVICE_KEY, "X-Access-Key": "wrong" },
     });
     assert.equal(r.status, 403);
@@ -132,7 +132,7 @@ test("pairing lane: request → approve → deliver key → access → revoke", 
       body: JSON.stringify({ deviceKey: DEVICE_KEY }),
     });
     assert.equal(r.status, 200);
-    r = await fetch(`${BASE}/api/shop/sections`, {
+    r = await fetch(`${BASE}/api/library/sections`, {
       headers: { "X-Device-Key": DEVICE_KEY, "X-Access-Key": accessKey },
     });
     assert.equal(r.status, 403, "revoked device is locked back out");
@@ -215,7 +215,7 @@ test("QR approval authenticates the admin and delivers the key only to the devic
     assert.ok(approved.accessKey);
     assert.ok(!approvedPage.includes(approved.accessKey));
     assert.equal((await (await fetch(`${BASE}/api/pair/status`, { headers })).json()).accessKey, undefined);
-    r = await fetch(`${BASE}/api/shop/sections`, { headers: { ...headers, "X-Access-Key": approved.accessKey } });
+    r = await fetch(`${BASE}/api/library/sections`, { headers: { ...headers, "X-Access-Key": approved.accessKey } });
     assert.equal(r.status, 200);
   } finally {
     server.kill("SIGKILL");
@@ -244,7 +244,7 @@ test("a console pairs by QR on a shop with accounts, and never carries a passwor
     });
     assert.equal(r.status, 200);
     const approved = await (await fetch(`${BASE}/api/pair/status`, { headers: deviceHeaders })).json();
-    r = await fetch(`${BASE}/api/shop/sections`, {
+    r = await fetch(`${BASE}/api/library/sections`, {
       headers: { ...deviceHeaders, "X-Access-Key": approved.accessKey },
     });
     assert.equal(r.status, 200, "the device keys are the console's only credential");
@@ -261,7 +261,7 @@ test("a refused request is visible on the admin dashboard, with a reason and a h
     await waitReady();
 
     // A request with no device key and no credentials.
-    const refused = await fetch(`${BASE}/api/shop/sections`, { headers: { "User-Agent": "SomeClient/1.0" } });
+    const refused = await fetch(`${BASE}/api/library/sections`, { headers: { "User-Agent": "SomeClient/1.0" } });
     assert.equal(refused.status, 403);
     assert.equal(
       refused.headers.get("x-cookingfoil-deny"),
@@ -282,7 +282,7 @@ test("a refused request is visible on the admin dashboard, with a reason and a h
 
     const denial = stats.denials.recent.find((d) => d.reason === "no-device-key");
     assert.ok(denial, "the refusal must appear in the denial log");
-    assert.equal(denial.path, "/api/shop/sections");
+    assert.equal(denial.path, "/api/library/sections");
     assert.equal(denial.ua, "SomeClient/1.0");
     assert.match(denial.hint, /pairs by QR/, "the row must state the fix");
     assert.ok(stats.totals.denied24h >= 1);

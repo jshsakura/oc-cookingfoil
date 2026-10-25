@@ -30,6 +30,6 @@ export function gameOf(titleId, origin = "") {
   if (!name) return null;
   const game = { name, names };
   // Absolute, like the shop's artwork URLs, so curl-style clients can fetch it with the shop's auth.
-  if (entry?.iconUrl || titledbStore.iconsOf(titleId) || extracted?.iconPath) game.icon = `${origin}${versionedArtwork(`/api/shop/icon/${titleId}`)}`;
+  if (entry?.iconUrl || titledbStore.iconsOf(titleId) || extracted?.iconPath) game.icon = `${origin}${versionedArtwork(`/api/library/icon/${titleId}`)}`;
   return game;
 }

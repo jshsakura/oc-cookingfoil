@@ -92,8 +92,8 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
   assert.ok(r.artworkOnly.body.bannerUrl.includes("/0100000000DDD000?"));
   assert.ok(r.artworkOnly.body.screenshots[0].includes("/2?"));
   // screenshots/banner point at the proxy endpoints (relative — no origin in mock req)
-  assert.equal(r.shot0, "/api/shop/screenshot/0100000000ABC000/0?v=" + r.shot0.split("v=")[1]);
-  assert.ok(r.banner.startsWith("/api/shop/banner/0100000000ABC000"), "banner proxied");
+  assert.equal(r.shot0, "/api/library/screenshot/0100000000ABC000/0?v=" + r.shot0.split("v=")[1]);
+  assert.ok(r.banner.startsWith("/api/library/banner/0100000000ABC000"), "banner proxied");
   // The console client reads category as text; the array stays under categories
   // (same name the shop sections use) for the web dashboard.
   assert.equal(r.category, "Adventure, Action");

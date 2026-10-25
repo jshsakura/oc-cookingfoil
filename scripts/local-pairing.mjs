@@ -10,7 +10,7 @@
  * server with COOK_DEVICE_PAIRING forced on and a fresh temp data dir, then:
  *   - prints the server + admin URLs and the LIVE admin TOTP code,
  *   - if COOK_LOCAL_DEVICES is set: pre-approves each device and prints its
- *     one-time accessKey so you can curl /api/shop/sections immediately,
+ *     one-time accessKey so you can curl /api/library/sections immediately,
  *   - prints ready-to-paste curl examples for whichever lanes are on.
  *
  * Ctrl+C tears the server down (and the temp data dir unless COOK_LOCAL_KEEP_DATA).
@@ -168,7 +168,7 @@ async function main() {
   console.log();
   rule();
   console.log(bold("  Server ready"));
-  console.log(`  ${cyn("shop")}    ${BASE}/api/shop/sections`);
+  console.log(`  ${cyn("library")}    ${BASE}/api/library/sections`);
   if (totpSecret) console.log(`  ${cyn("admin")}   ${BASE}/admin   (TOTP ${grn(code)})`);
   console.log(`  ${cyn("knock")}   ${BASE}/api/pair/status?deviceKey=<KEY>`);
   rule();
@@ -195,7 +195,7 @@ async function main() {
     console.log(dim(`  # knock (auto-registers as pending)`));
     console.log(`  curl "${BASE}/api/pair/status?deviceKey=${dk}"`);
     console.log(dim(`  # pull shop with the printed accessKey`));
-    console.log(`  curl ${BASE}/api/shop/sections -H "X-Device-Key: ${dk}" -H "X-Access-Key: <KEY>"`);
+    console.log(`  curl ${BASE}/api/library/sections -H "X-Device-Key: ${dk}" -H "X-Access-Key: <KEY>"`);
   }
   console.log();
   console.log(dim(`  Ctrl+C to stop. ${keepData ? "(data kept at local-test/data)" : "(temp data dir removed on exit)"}`));

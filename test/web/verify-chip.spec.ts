@@ -32,7 +32,7 @@ async function signedInVoter(page: Page, start = { up: 2, down: 1 }) {
 }
 
 async function openTools(page: Page, app = APP) {
-  await page.route('**/api/shop/info*', async (route) => {
+  await page.route('**/api/library/info*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
     await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'homebrew'] } });

@@ -35,20 +35,21 @@ const loVar=(v)=>v&&typeof v==='object'?(v[adminLang]??v.en??''):String(v??'');
 const loReason=(code,detail,text,vars)=>{let t=code&&(loReasons[adminLang]?.[code]??loReasons.ko[code]);
   if(t&&vars)t=t.replace(/\\{(\\w+)\\}/g,(m,k)=>k in vars?loVar(vars[k]):m);
   return t?t+(detail?': '+detail:''):text||'';};
-let loTimer=null,loLast=null;
+let loLast=null;
 function loCell(main,sub){const c=td();c.append(el('b',main));if(sub)c.append(el('div',sub,'muted'));return c;}
 function loKind(m){return LO_KIND[m.kind]?loT(LO_KIND[m.kind]):m.root==='retro'?loT('kRetro'):m.root==='homebrew'?loT('kHomebrew'):'-';}
-function loRender(d){clearTimeout(loTimer);loLast=d;
+function loRender(d){loLast=d;
   $('lo-sweep').disabled=d.running;
   $('lo-path').textContent=d.incoming||'';
   $('lo-systems').replaceChildren(...(d.systems||[]).map((s)=>{const p=pill('');p.replaceChildren(el('code',s.folder),document.createTextNode(' '+s.name));return p;}));
   $('lo-state').textContent=d.error?loReason(d.errorCode,d.errorDetail,d.error):(d.sweptAt?loT('checked',{at:new Date(d.sweptAt).toLocaleString()})+(d.waiting?' '+loT('waiting',{n:num(d.waiting)}):''):loT('notYet'));
   table('lo-held',[loT('colFile'),loT('colReason'),loT('colKind')],(d.held||[]).map((h)=>{const tr=el('tr');tr.append(loCell(h.rel.split('/').pop(),'incoming/'+h.rel),td(loReason(h.code,h.detail,h.reason,h.vars)),td(LO_KIND[h.kind]?loT(LO_KIND[h.kind]):'-'));return tr;}),loT('empty'),{tall:true});
   table('lo-recent',[loT('colFile'),loT('colTo'),loT('colKind'),loT('colAt')],(d.recent||[]).map((m)=>{const tr=el('tr');tr.append(loCell(m.to.split('/').pop(),'incoming/'+m.from),loCell(m.to,[LO_ROOT[m.root]&&loT(LO_ROOT[m.root]),m.folderIsNew&&loT('newFolder')].filter(Boolean).join(' · ')),td(loKind(m)),td(new Date(m.at).toLocaleString()));return tr;}),loT('noRecent'));
-  if(d.running||d.waiting)loTimer=setTimeout(loLoad,5000);}
+}
 // The language menu calls this so the tables follow the new language.
 function loRelabel(){if(loLast)loRender(loLast);}
 async function loLoad(){try{loRender(await api('/admin/api/library/organize'));}catch(err){toast(err.message);}}
+admInterval(async()=>{if((loLast?.running||loLast?.waiting)&&$('lo-held').offsetParent!==null)await loLoad();},5000);
 $('lo-sweep').addEventListener('click',async()=>{$('lo-sweep').disabled=true;
   try{const d=await api('/admin/api/library/organize/sweep',{method:'POST',body:{}});toast(d.moved?loT('moved',{n:num(d.moved)}):loT('nothing'));loRender(d);}
   catch(err){toast(err.message);loLoad();}});

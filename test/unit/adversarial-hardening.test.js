@@ -79,7 +79,7 @@ test("a user-role account reads the shop but cannot change artwork or see upload
     const { webSession } = await import("../support/web-session.js");
     const bob = await webSession(base, "bob", "bob-password-1");
     const alice = await webSession(base, "alice", "alice-password");
-    assert.equal((await fetch(`${base}/api/shop/sections`, { headers: bob })).status, 200, "bob reads the shop");
+    assert.equal((await fetch(`${base}/api/library/sections`, { headers: bob })).status, 200, "bob reads the shop");
     assert.equal((await fetch(`${base}/api/uploads`, { headers: bob })).status, 403);
     const write = (headers) => fetch(`${base}/api/art/0100000000010000/description`, { method: "POST", headers: { ...headers, "Content-Type": "application/json", Origin: base }, body: JSON.stringify({ description: "x" }) });
     assert.equal((await write(bob)).status, 403, "bob cannot rewrite a description");

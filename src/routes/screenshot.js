@@ -1,5 +1,5 @@
 /**
- * GET /api/shop/screenshot/:titleId/:idx[?v=&size=sm|md|lg|xl] — one screenshot
+ * GET /api/library/screenshot/:titleId/:idx[?v=&size=sm|md|lg|xl] — one screenshot
  * from titledb, or the admin's upload in that slot.
  * Bounds the index to a sane upper limit (no infinite range requests).
  * Immutable for the current ?v=, `public, max-age=300` with an ETag otherwise.

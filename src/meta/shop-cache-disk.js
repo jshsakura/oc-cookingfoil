@@ -17,7 +17,8 @@
 import { readFile, writeFile, rename, mkdir } from "fs/promises";
 import path from "path";
 
-const MAGIC = Buffer.from("OC_SHOP1");
+// Version 2 rebuilds cached payloads with canonical /api/library artwork URLs.
+const MAGIC = Buffer.from("OC_SHOP2");
 const CACHE_FILE = "shop-cache.bin";
 
 function u32(n) {

@@ -1,9 +1,9 @@
 /**
- * Absolute-URL hardening for the shop response.
+ * Absolute-URL hardening for the library response.
  *
  * Why this exists: the CookingFoil client downloads per-item artwork by handing
  * the item's icon URL straight to curl (shopInstall.cpp::downloadImageWithAuth).
- * A host-relative "/api/shop/icon/<id>" has no host for curl to resolve, so
+ * A host-relative "/api/library/icon/<id>" has no host for curl to resolve, so
  * the icon silently fails on-device even though the browser dashboard — which
  * resolves the relative URL against its own origin — shows it fine. Emitting
  * ABSOLUTE artwork URLs keyed to the request's own origin fixes the on-device
@@ -23,7 +23,7 @@ function firstHeaderValue(value) {
 
 /**
  * Resolve the absolute origin (scheme://host[:port]) to prefix onto the
- * shop response's artwork URLs.
+ * library response's artwork URLs.
  *
  * Precedence:
  *   1. publicBaseUrl       — operator-pinned (COOK_PUBLIC_BASE_URL), wins.
@@ -50,17 +50,18 @@ export function resolveOrigin(req, publicBaseUrl, { trusted = trustsForwardedHea
 }
 
 /**
- * Prefix every artwork proxy URL in a serialized shop response with `origin`.
+ * Prefix every artwork proxy URL in a serialized library response with `origin`.
  *
  * The match is anchored on the opening JSON-string quote so it only rewrites
- * our own proxy endpoints (`"/api/shop/...`): file-download URLs use the
+ * our own proxy endpoints (`"/api/library/...`, plus legacy `/api/shop/...`): file-download URLs use the
  * "../" form, and externally-supplied custom-entry icon URLs are absolute
  * ("https://...") — neither starts with `"/api/shop/`, so both pass through
  * untouched. A falsy origin is a no-op (relative URLs preserved).
  */
 export function rewriteArtworkOrigin(json, origin) {
   if (!origin) return json;
-  return json.replaceAll('"/api/shop/', `"${origin}/api/shop/`);
+  return json.replaceAll('"/api/library/', `"${origin}/api/library/`)
+    .replaceAll('"/api/shop/', `"${origin}/api/shop/`);
 }
 
 /**

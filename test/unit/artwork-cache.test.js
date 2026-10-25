@@ -40,21 +40,21 @@ writeFileSync(path.join(extracted, `${BASE}.banner.jpg`), await jpeg(1920, 1080)
 writeFileSync(path.join(extracted, `${BASE}.screen.0.jpg`), await jpeg(1920, 1080));
 
 const app = express();
-app.get("/api/shop/icon/:titleId", iconRoute);
-app.get("/api/shop/banner/:titleId", bannerRoute);
-app.get("/api/shop/screenshot/:titleId/:idx", screenshotRoute);
+app.get("/api/library/icon/:titleId", iconRoute);
+app.get("/api/library/banner/:titleId", bannerRoute);
+app.get("/api/library/screenshot/:titleId/:idx", screenshotRoute);
 const server = app.listen(0);
 after(() => { server.close(); rmSync(data, { recursive: true, force: true }); });
 const origin = `http://127.0.0.1:${server.address().port}`;
 const IMMUTABLE = "public, max-age=31536000, immutable";
 
 test("artwork URLs carry ?v= of 12 hex characters, the same for every size", () => {
-  const url = versionedArtwork(`/api/shop/icon/${BASE}`);
-  assert.match(url, /^\/api\/shop\/icon\/0100000000ABC000\?v=[0-9a-f]{12}$/);
+  const url = versionedArtwork(`/api/library/icon/${BASE}`);
+  assert.match(url, /^\/api\/library\/icon\/0100000000ABC000\?v=[0-9a-f]{12}$/);
   assert.equal(url.split("v=")[1], artworkVersion("icon", BASE));
-  assert.match(versionedArtwork(`/api/shop/screenshot/${BASE}/0`), /\/0\?v=[0-9a-f]{12}$/);
+  assert.match(versionedArtwork(`/api/library/screenshot/${BASE}/0`), /\/0\?v=[0-9a-f]{12}$/);
   assert.equal(artworkVersion("icon", "0100000000ABC800"), artworkVersion("icon", BASE), "an update shares its game's icon");
-  assert.match(versionedArtwork(`/api/shop/icon/${BASE}`, "ja"), /\?v=[0-9a-f]{12}&lang=ja$/);
+  assert.match(versionedArtwork(`/api/library/icon/${BASE}`, "ja"), /\?v=[0-9a-f]{12}&lang=ja$/);
 });
 
 test("v changes with the source: a new titledb image, and an uploaded icon", async () => {
@@ -81,9 +81,9 @@ test("a game titledb does not know is versioned by its icon file", async () => {
 });
 
 for (const [kind, url, size] of [
-  ["icon", `/api/shop/icon/${BASE}`, "md"],
-  ["banner", `/api/shop/banner/${BASE}`, "xl"],
-  ["screenshot", `/api/shop/screenshot/${BASE}/0`, "xl"],
+  ["icon", `/api/library/icon/${BASE}`, "md"],
+  ["banner", `/api/library/banner/${BASE}`, "xl"],
+  ["screenshot", `/api/library/screenshot/${BASE}/0`, "xl"],
 ]) {
   test(`${kind}: immutable only for the current v; otherwise short, with ETag and 304`, async () => {
     const current = versionedArtwork(url);
@@ -108,7 +108,7 @@ for (const [kind, url, size] of [
 const ACCEPTS = ["image/webp,image/*;q=0.8", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8", null];
 
 test("every image route answers WebP to the console, a browser and a client without Accept, at every size", async () => {
-  for (const url of [`/api/shop/icon/${BASE}`, `/api/shop/banner/${BASE}`, `/api/shop/screenshot/${BASE}/0`]) {
+  for (const url of [`/api/library/icon/${BASE}`, `/api/library/banner/${BASE}`, `/api/library/screenshot/${BASE}/0`]) {
     for (const size of [null, "sm", "md", "lg", "xl"]) {
       for (const accept of ACCEPTS) {
         const r = await fetch(`${origin}${versionedArtwork(url)}${size ? `&size=${size}` : ""}`, accept ? { headers: { Accept: accept } } : {});

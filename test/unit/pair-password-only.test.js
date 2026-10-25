@@ -53,7 +53,7 @@ test("the right ID and password on /api/pair/status approve the console; its key
   assert.equal(paired.passwordOnly, true);
   assert.ok(paired.accessKey);
   keys = { "X-Device-Key": KEY, "X-Access-Key": paired.accessKey };
-  assert.equal((await get("/api/shop/sections", keys)).status, 200);
+  assert.equal((await get("/api/library/sections", keys)).status, 200);
   const again = await (await get("/api/pair/status", { Authorization: ALICE, "X-Device-Key": KEY })).json();
   assert.deepEqual(again, { status: "approved", passwordOnly: true }, "the key is handed down once");
   const request = await (await fetch(`${BASE}/api/pair/request`, { method: "POST", headers: { "Content-Type": "application/json", ...keys }, body: "{}" })).json();
@@ -61,9 +61,9 @@ test("the right ID and password on /api/pair/status approve the console; its key
 });
 
 test("keys win over a Basic header that comes along, even a wrong one", async () => {
-  const r = await get("/api/shop/sections", { ...keys, Authorization: basic("alice", "not-the-password") });
+  const r = await get("/api/library/sections", { ...keys, Authorization: basic("alice", "not-the-password") });
   assert.equal(r.status, 200);
-  const info = await (await get("/api/shop/info", { ...keys, Authorization: ALICE })).json();
+  const info = await (await get("/api/library/info", { ...keys, Authorization: ALICE })).json();
   assert.ok(info.features.includes("pair-password-only"));
   assert.ok(!info.features.includes("device-logins"));
 });
@@ -73,20 +73,20 @@ test("/api/session issues the token by the keys and ignores Basic", async () => 
   assert.equal(withBasic.status, 200);
   const { token } = await withBasic.json();
   assert.ok(token);
-  assert.equal((await get("/api/shop/sections", { "X-Device-Key": KEY, Authorization: `Bearer ${token}` })).status, 200);
+  assert.equal((await get("/api/library/sections", { "X-Device-Key": KEY, Authorization: `Bearer ${token}` })).status, 200);
   const basicOnly = await get("/api/session", { Authorization: ALICE, "X-Device-Key": KEY });
   assert.equal(basicOnly.status, 401, "a password alone makes no session");
   assert.equal((await get("/api/session", { Authorization: ALICE })).status, 401);
 });
 
 test("Basic alone on the shop is the same as nothing: 401, no challenge, and the console waits for approval", async () => {
-  const nothing = await get("/api/shop/sections");
-  const r = await get("/api/shop/sections", { Authorization: ALICE });
+  const nothing = await get("/api/library/sections");
+  const r = await get("/api/library/sections", { Authorization: ALICE });
   assert.equal(r.status, 401);
   assert.equal(r.status, nothing.status);
   assert.equal(r.headers.get("www-authenticate"), null, "no password prompt");
   assert.equal(await r.text(), await nothing.text());
-  const unpaired = await get("/api/shop/sections", { Authorization: ALICE, "X-Device-Key": STRANGER });
+  const unpaired = await get("/api/library/sections", { Authorization: ALICE, "X-Device-Key": STRANGER });
   assert.equal(unpaired.status, 401);
   // The queue reaches the database on its next flush.
   let queued = false;
@@ -107,7 +107,7 @@ test("a wrong password at pairing leaves the console waiting and counts toward t
   // The same stale password while polling counts once; new guesses each count.
   await get("/api/pair/status", { Authorization: basic("alice", "wrong-1"), "X-Device-Key": STRANGER });
   for (let i = 2; i <= MAX_FAILURES; i++) await get("/api/pair/status", { Authorization: basic("alice", `wrong-${i}`), "X-Device-Key": STRANGER });
-  assert.equal((await get("/api/shop/sections")).status, 429, "the address is locked out");
+  assert.equal((await get("/api/library/sections")).status, 429, "the address is locked out");
   const locked = await get("/api/pair/status", { Authorization: ALICE, "X-Device-Key": STRANGER });
   assert.equal(locked.status, 429, "a locked-out address is not approved even with the right password");
 });

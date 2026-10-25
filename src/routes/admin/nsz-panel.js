@@ -121,7 +121,7 @@ const NZ_SETTINGS=[
   ['nszXci','bool','XCI 도 XCZ 로 변환','XCI 파일도 XCZ 로 압축합니다.'],
 ];
 function nzIcon(it,cls){if(!it.titleId){const i=el('i',null,'nz-ico'+(cls?' '+cls:''));return i;}
-  const img=el('img',null,'nz-ico'+(cls?' '+cls:''));img.alt='';img.loading='lazy';img.src='/api/shop/icon/'+it.titleId+'?size=sm';img.onerror=()=>{img.style.visibility='hidden';};return img;}
+  const img=el('img',null,'nz-ico'+(cls?' '+cls:''));img.alt='';img.loading='lazy';img.src='/api/library/icon/'+it.titleId+'?size=sm';img.onerror=()=>{img.style.visibility='hidden';};return img;}
 const nzName=(it)=>it.name||it.rel.split('/').pop().replace(/\\.(nsp|xci)$/i,'');
 const nzFile=(it)=>it.rel.split('/').pop();
 const nzPickable=()=>nzFilter==='all'||nzFilter==='waiting'||nzFilter==='failed';

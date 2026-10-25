@@ -56,7 +56,7 @@ test("a long first patch scan never holds up the addresses consoles connect with
     const deadline = Date.now() + PATCHES * PAUSE_MS + 8000;
     let done = false;
     while (!done && Date.now() < deadline) {
-      for (const [url, init] of [["/healthz", {}], ["/api/pair/status?code=AAAA", {}], ["/api/shop/sections", { headers: AUTH }]]) {
+      for (const [url, init] of [["/healthz", {}], ["/api/pair/status?code=AAAA", {}], ["/api/library/sections", { headers: AUTH }]]) {
         const r = await timed(url, init);
         assert.ok(r.ms < LIMIT_MS, `${url} answered in ${r.ms} ms`);
         assert.ok(r.status < 500 || r.headers.get("retry-after"), `${url}: ${r.status}`);

@@ -12,7 +12,7 @@ const store = await import("../../src/security/store.js");
 const { recordDeny, denyResponse, DENY } = await import("../../src/security/deny.js");
 const { hintFor } = await import("../../src/security/deny-reasons.js");
 
-function fakeReq({ ip = "203.0.113.9", method = "GET", url = "/api/shop/sections", headers = {} } = {}) {
+function fakeReq({ ip = "203.0.113.9", method = "GET", url = "/api/library/sections", headers = {} } = {}) {
   return {
     ip,
     method,
@@ -45,7 +45,7 @@ test("recordDeny captures who/what/where so the dashboard can explain a refusal"
   assert.equal(entry.reason, DENY.NO_DEVICE_KEY);
   assert.equal(entry.status, 403);
   assert.equal(entry.ip, "203.0.113.9");
-  assert.equal(entry.path, "/api/shop/sections");
+  assert.equal(entry.path, "/api/library/sections");
   assert.equal(entry.ua, "Tinfoil/17.0");
   assert.ok(entry.at > 0);
 

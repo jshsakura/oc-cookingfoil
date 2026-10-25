@@ -137,14 +137,14 @@ test("people sign in with a form; a password alone opens nothing else; Google is
     assert.equal(home.status, 302);
     assert.equal(home.headers.get("location"), "/login?next=%2F");
     assert.equal(home.headers.get("www-authenticate"), null);
-    const xhr = await get("/api/shop/sections", { "Sec-Fetch-Mode": "cors" });
+    const xhr = await get("/api/library/sections", { "Sec-Fetch-Mode": "cors" });
     assert.equal(xhr.status, 401);
     assert.equal(xhr.headers.get("www-authenticate"), null);
-    const stale = await get("/api/shop/sections", { "Sec-Fetch-Mode": "cors", Authorization: "Basic " + Buffer.from("alice:old").toString("base64") });
+    const stale = await get("/api/library/sections", { "Sec-Fetch-Mode": "cors", Authorization: "Basic " + Buffer.from("alice:old").toString("base64") });
     assert.equal(stale.headers.get("www-authenticate"), null, "nor with stale saved credentials");
     // Nobody is ever asked for Basic, and a right password alone is no credential.
-    assert.equal((await get("/api/shop/sections")).headers.get("www-authenticate"), null);
-    const basicOnly = await get("/api/shop/sections", { Authorization: ALICE });
+    assert.equal((await get("/api/library/sections")).headers.get("www-authenticate"), null);
+    const basicOnly = await get("/api/library/sections", { Authorization: ALICE });
     assert.equal(basicOnly.status, 401);
     assert.equal(basicOnly.headers.get("www-authenticate"), null);
 

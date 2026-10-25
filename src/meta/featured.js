@@ -109,7 +109,7 @@ export function forSections() {
     .filter((c) => c.titleIds.length)
     .map((c) => {
       const out = { id: c.id, title: c.title, title_ids: [...c.titleIds] };
-      if (c.bannerTitleId) out.banner_url = versionedArtwork(`/api/shop/banner/${c.bannerTitleId}`);
+      if (c.bannerTitleId) out.banner_url = versionedArtwork(`/api/library/banner/${c.bannerTitleId}`);
       return out;
     });
 }

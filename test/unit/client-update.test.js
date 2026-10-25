@@ -73,7 +73,7 @@ test("the client finds its newest build, downloads it and sees a replaced one", 
       version: "0.1.123", size: first.length, sha256: crypto.createHash("sha256").update(first).digest("hex"), url: "/api/client/cookingfoil.nro",
       forwarder_url: null, forwarder_title_id: null, forwarder_size: null,
     }, "no prod.keys here, so no shortcut");
-    const info = await (await fetch(`${BASE}/api/shop/info`, { headers: AUTH })).json();
+    const info = await (await fetch(`${BASE}/api/library/info`, { headers: AUTH })).json();
     assert.ok(info.features.includes("client-update"));
 
     const dl = await fetch(BASE + latest.url, { headers: AUTH });
@@ -231,7 +231,7 @@ test("a failing GitHub release leaves the server serving what it has, or no buil
   try {
     const r = await fetch(`${BASE}/api/client/latest`, { headers: AUTH });
     assert.equal(r.status, 404);
-    assert.equal((await fetch(`${BASE}/api/shop/sections`, { headers: AUTH })).status, 200, "the shop is unaffected");
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: AUTH })).status, 200, "the shop is unaffected");
     assert.equal((await fetch(`${BASE}/healthz`)).status, 200);
     // A build dropped in afterwards is offered at once.
     fs.mkdirSync(path.join(data, "client"), { recursive: true });

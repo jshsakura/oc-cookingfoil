@@ -187,7 +187,7 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
     assert.equal(allowed.status, 200, "other settings still change");
     assert.deepEqual((await allowed.json()).changed, ["backupDays"]);
     assert.equal((await viaToken("/admin/api/library/rescan", { method: "POST", body: "{}" })).status < 400, true, "library work still runs");
-    assert.equal((await viaToken("/api/shop/info")).status, 401, "nothing outside the admin API");
+    assert.equal((await viaToken("/api/library/info")).status, 401, "nothing outside the admin API");
     assert.equal((await viaToken("/admin/api/integrations", {}, made.token.slice(0, -2) + "xx")).status, 401);
     await post(`/admin/api/tokens/${made.id}/revoke`, {});
     assert.equal((await viaToken("/admin/api/integrations")).status, 401, "a revoked token stops at once");

@@ -117,7 +117,7 @@ const LB_KIND=${JSON.stringify(Object.fromEntries(KINDS))};
 const LB_PER=25;
 const LB_ALL=['base','update','dlc','patch','save','homebrew','other'];
 const LB_CHECK={ok:['정상','on'],modified:['수정됨','warn'],damaged:['손상됨','off'],unchecked:['검사 전','']};
-const lb={kind:'all',page:1,sort:'name',order:'asc',q:'',seq:0,timer:null};
+const lb={kind:'all',page:1,sort:'name',order:'asc',q:'',seq:0,timer:null,pending:false};
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const lbDate=(s)=>s?new Date(s*1000).toLocaleString('ko-KR',{dateStyle:'medium',timeStyle:'short'}):'-';
 function lbIndicator(){const t=$('lb-tab-'+lb.kind),ind=$('lb-ind');if(!t||!t.offsetWidth)return;
@@ -152,7 +152,7 @@ function lbEditButton(f,k){
 function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kind:kind;
   if(k==='patch'||k==='save'){const row=el('div',null,'lb-for');const ico=el('img',null,'lb-gi');ico.alt='';ico.loading='lazy';
     ico.style.visibility='hidden';ico.onload=()=>{ico.style.visibility='';};
-    if(/^[0-9A-F]{16}$/i.test(f.titleId||''))ico.src='/api/shop/icon/'+f.titleId+'?size=sm';
+    if(/^[0-9A-F]{16}$/i.test(f.titleId||''))ico.src='/api/library/icon/'+f.titleId+'?size=sm';
     const t=el('div');const pic=el('span',null,'lb-gw');pic.append(ico);t.append(el('b',f.game||'알 수 없는 게임'),el('div',(f.name||'-')+(f.rel?' · '+f.rel:''),'muted'));row.append(pic,t);n.append(row);}
   else{n.append(el('b',f.name||'-'));if(f.rel)n.append(el('div',f.rel,'muted'));}
   tr.append(n);
@@ -205,7 +205,8 @@ async function lbLoad(){const n=++lb.seq;const kind=lb.kind;
   $('lb-count').textContent=d.total?(kind==='all'?'파일':LB_KIND[kind])+' '+num(d.total)+'개 중 '+num(from)+'에서 '+num(to)+'번째를 보여 줍니다.':'';
   lbPager(d);lbIndicator();
   // The first walk of a big folder is still running on the server: ask again, once it may be done.
-  if(d.pending){clearTimeout(lb.again);lb.again=setTimeout(()=>{if(n===lb.seq)lbLoad();},4000);}}
+  lb.pending=Boolean(d.pending);}
+admInterval(async()=>{if(lb.pending&&$('lb-list').offsetParent!==null)await lbLoad();},4000);
 function lbSelect(kind){if(kind===lb.kind)return;lb.kind=kind;lb.page=1;
   for(const b of $('lb-kinds').querySelectorAll('button[data-kind]'))b.setAttribute('aria-pressed',String(b.dataset.kind===kind));
   lbIndicator();lbLoad();}

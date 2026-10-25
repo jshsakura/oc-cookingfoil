@@ -75,12 +75,12 @@ async function pairStatus(i, account) {
 /** After the access key: session token, then the lists with it. Returns each status. */
 async function useShop(i, accessKey) {
   const keys = { "X-Device-Key": KEYS[i], "X-Access-Key": accessKey };
-  const info = await get("/api/shop/info", keys);
+  const info = await get("/api/library/info", keys);
   const s = await get("/api/session", keys);
   assert.equal(s.status, 200, `console ${i}: /api/session`);
   const { token } = await s.json();
   const bearer = { "X-Device-Key": KEYS[i], Authorization: `Bearer ${token}` };
-  const [sections, shop] = await Promise.all([get("/api/shop/sections", bearer), get("/api/homebrew", bearer)]);
+  const [sections, shop] = await Promise.all([get("/api/library/sections", bearer), get("/api/homebrew", bearer)]);
   return { info: info.status, sections: sections.status, shop: shop.status, session: sections.headers.get("x-cookingfoil-session"), bearer };
 }
 
@@ -102,7 +102,7 @@ for (const [name, owners] of [
       for (const [i, u] of used.entries()) assert.deepEqual([u.info, u.sections, u.shop], [200, 200, 200], `console ${i}`);
       // Signing in again (the next refresh, with the password still saved) ends nobody's session.
       await Promise.all(consoles(4).map((i) => pairStatus(i, owners[i])));
-      const again = await Promise.all(used.map((u) => get("/api/shop/sections", u.bearer)));
+      const again = await Promise.all(used.map((u) => get("/api/library/sections", u.bearer)));
       assert.deepEqual(again.map((r) => r.status), [200, 200, 200, 200]);
     } finally {
       stop(server);
@@ -173,7 +173,7 @@ test("auto-approve: a download connects five consoles; the sixth, even with a fr
     const pending = await (await get("/api/pair/status", { "X-Device-Key": many[5] })).json();
     assert.equal(pending.status, "pending", "it pairs by QR");
     for (const [i, k] of keys.slice(1).entries()) {
-      const r = await get("/api/shop/sections", { "X-Device-Key": many[i + 1], "X-Access-Key": k.accessKey });
+      const r = await get("/api/library/sections", { "X-Device-Key": many[i + 1], "X-Access-Key": k.accessKey });
       assert.equal(r.status, 200, `console ${i + 1} stays in`);
     }
   } finally {

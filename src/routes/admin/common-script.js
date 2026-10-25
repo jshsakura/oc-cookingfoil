@@ -129,8 +129,8 @@ async function api(url,opts={}){
 // and document.hidden (the tab's own visibility). An in-flight run always
 // finishes; the finally block schedules the next tick only when no lifecycle
 // bit paused or stopped the poll, so an async completion during pagehide
-// cannot resurrect the timer. fn's rejection is the caller's business: the
-// poll keeps going (the finally runs regardless of the promise's outcome).
+// cannot resurrect the timer. A failed poll reports its error without an
+// unhandled rejection, and the next visible tick can recover.
 function admInterval(fn,ms){
   let t=0,stopped=false,pageHidden=false,inflight=false;
   function held(){return stopped||pageHidden||document.hidden;}
@@ -139,7 +139,8 @@ function admInterval(fn,ms){
     if(held())return;
     if(inflight){schedule();return;}
     inflight=true;
-    try{await fn();}finally{inflight=false;if(!held())schedule();}}
+    try{await fn();}catch(err){if(err?.message!=='session')toast(errText(err));}
+    finally{inflight=false;if(!held())schedule();}}
   function schedule(){if(held())return;clearTimeout(t);t=setTimeout(tick,ms);}
   const onVis=()=>{if(document.hidden){clearTimeout(t);t=0;}else if(!stopped&&!pageHidden&&!t&&!inflight)schedule();};
   const onHide=()=>{pageHidden=true;clearTimeout(t);t=0;};

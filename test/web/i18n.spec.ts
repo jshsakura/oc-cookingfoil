@@ -22,7 +22,7 @@ async function hangulLines(page: Page) {
 test('switched to ja, en or zh, the landing shows no Korean on any tab, the client card included', async ({ page }) => {
   test.setTimeout(90_000);
   // The client card only shows when a build is published; this one is made up.
-  await page.route('**/api/shop/info', async (route) => {
+  await page.route('**/api/library/info', async (route) => {
     const info = await (await route.fetch()).json();
     info.features = [...new Set([...(info.features ?? []), 'client-update', 'enroll'])];
     await route.fulfill({ json: info });

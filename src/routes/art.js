@@ -369,7 +369,7 @@ export default function artRouter() {
   // urls: the shop addresses with their new ?v=, so the page shows a changed picture at once.
   // folder: the game's folder under metadata/games, where pictures may also be put by hand (null before it has one).
   const gameArt = (base) => ({ ...customArt.list(base), originals: customArt.originals(base), folder: gameMeta.entry(base)?.folder ?? null,
-    urls: { icon: versionedArtwork(`/api/shop/icon/${base}`), banner: versionedArtwork(`/api/shop/banner/${base}`) } });
+    urls: { icon: versionedArtwork(`/api/library/icon/${base}`), banner: versionedArtwork(`/api/library/banner/${base}`) } });
   router.get("/:baseTitleId", (req, res) => {
     const base = requireBase(req, res);
     if (!base) return;

@@ -102,7 +102,7 @@ test("the kept original is no longer than 2048 pixels on a side", async () => {
 
 test("cutting again uses the kept original and only the new area", async () => {
   const up = await (await post(`/${BASE}/icon`, form(await halves(), { x: 0.5, y: 0, w: 0.5, h: 1 }))).json();
-  assert.match(up.urls.icon, new RegExp(`^/api/shop/icon/${BASE}\\?v=[0-9a-f]{12}$`));
+  assert.match(up.urls.icon, new RegExp(`^/api/library/icon/${BASE}\\?v=[0-9a-f]{12}$`));
   const art = customArt.pathFor(BASE, "icon", null);
   assert.ok(isBlue(await color(art)));
 
@@ -217,7 +217,7 @@ test("the admin reads one game's folder again, or every game's, and sees what wa
   const body = await r.json();
   assert.equal(body.banner, true);
   assert.equal(body.folder, `Hand [${ID}]`);
-  assert.match(body.urls.banner, new RegExp(`^/api/shop/banner/${ID}\\?v=`));
+  assert.match(body.urls.banner, new RegExp(`^/api/library/banner/${ID}\\?v=`));
   assert.ok(fs.existsSync(path.join(dir, "banner.webp")) && !fs.existsSync(path.join(dir, "banner.png")));
 
   fs.rmSync(path.join(dir, "banner.webp"));

@@ -9,10 +9,10 @@ const patch = (tid: string | null, name: string, homebrew?: string) => ({
 
 async function setup(page: Page) {
   await page.addInitScript(() => localStorage.setItem('cookingfoil:lang', 'ko'));
-  await page.route('**/api/shop/info*', route => route.fulfill({ json: {
+  await page.route('**/api/library/info*', route => route.fulfill({ json: {
     features: ['user-patches', 'shop-saves', 'homebrew'],
   } }));
-  await page.route('**/api/shop/sections', route => route.fulfill({ json: { sections: [{
+  await page.route('**/api/library/sections', route => route.fulfill({ json: { sections: [{
     id: 'all', items: [
       { title_id: OWN.toLowerCase(), app_type: 'base', name: 'Owned game' },
       { title_id: '0100ABCD00020800', base_title_id: UPDATE_ONLY, app_type: 'update', name: 'Update alone' },
@@ -84,7 +84,7 @@ test('save game summaries show whether the game itself is on the server', async 
 
 test('failed catalog requests stay unverified instead of claiming titles are missing', async ({ page }) => {
   await setup(page);
-  await page.route('**/api/shop/sections', route => route.fulfill({ status: 503, json: {} }));
+  await page.route('**/api/library/sections', route => route.fulfill({ status: 503, json: {} }));
   await page.route('**/api/saves*', route => route.fulfill({ status: 503, json: {} }));
   await page.route('**/api/homebrew?*', route => route.fulfill({ status: 503, json: {} }));
   await page.goto('/#patches');
@@ -96,7 +96,7 @@ test('a slow server catalog updates existing badges after the patch cards are al
   await setup(page);
   let release!: () => void;
   const ready = new Promise<void>(resolve => { release = resolve; });
-  await page.route('**/api/shop/sections', async route => {
+  await page.route('**/api/library/sections', async route => {
     await ready;
     await route.fulfill({ json: { sections: [{ id: 'all', items: [
       { title_id: OWN, app_type: 'base', name: 'Owned game' },

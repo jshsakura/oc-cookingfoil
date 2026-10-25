@@ -60,7 +60,7 @@ test("only an admin console and the admin dashboard hand the server prod.keys", 
     const { accessKey } = await (await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": KEY } })).json();
     const D = { "X-Device-Key": KEY, "X-Access-Key": accessKey, "Content-Type": "application/json" };
     const fromConsole = (method, p, body) => fetch(`${BASE}${p}`, { method, headers: D, body: body === undefined ? undefined : JSON.stringify(body) });
-    const info = async () => (await fromConsole("GET", "/api/shop/info")).json();
+    const info = async () => (await fromConsole("GET", "/api/library/info")).json();
 
     // An ordinary console: nothing to see.
     let shown = await info();

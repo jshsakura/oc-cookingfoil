@@ -85,6 +85,50 @@ test("a console, a password and nobody at all get no /shop.json", async () => {
   assert.equal((await get("/shop.json", { Authorization: `Bearer cft_${TOKEN_ID}_${"x".repeat(40)}` })).status, 401, "a wrong token");
 });
 
+test("games.json and its legacy alias keep the same token-only payload, ETag and compression", async () => {
+  const headers = { ...TOKEN, 'Accept-Encoding': 'gzip' };
+  const canonical = await get('/games.json', headers);
+  const legacy = await get('/shop.json', headers);
+  assert.equal(canonical.status, 200);
+  assert.equal(legacy.status, 200);
+  const body = await canonical.json();
+  assert.deepEqual(body, await legacy.json());
+  assert.ok(body.files.every((f) => f.url.startsWith(BASE + '/')));
+  assert.equal(canonical.headers.get('etag'), legacy.headers.get('etag'));
+  assert.equal(canonical.headers.get('content-encoding'), 'gzip');
+  assert.equal(legacy.headers.get('content-encoding'), 'gzip');
+  assert.equal((await get('/games.json', { ...headers, 'If-None-Match': canonical.headers.get('etag'), 'Cache-Control': 'max-age=0' })).status, 304);
+  for (const credentials of [consoleHeaders, BASIC, {}]) {
+    const denied = await get('/games.json', credentials);
+    assert.ok([401, 404].includes(denied.status));
+    assert.doesNotMatch(await denied.text(), /"files"/);
+  }
+});
+
+test("library client paths match legacy responses without granting automation tokens access", async () => {
+  for (const suffix of ['info', 'sections']) {
+    const canonical = await get('/api/library/' + suffix, consoleHeaders);
+    const legacy = await get('/api/shop/' + suffix, consoleHeaders);
+    assert.equal(canonical.status, 200, suffix);
+    assert.deepEqual(await canonical.json(), await legacy.json(), suffix);
+    assert.equal((await get('/api/library/' + suffix, TOKEN)).status, (await get('/api/shop/' + suffix, TOKEN)).status);
+  }
+  const sections = await get('/api/library/sections', consoleHeaders);
+  const body = await sections.json();
+  const items = body.sections.flatMap((s) => s.items);
+  assert.ok(items.length > 0);
+  assert.ok(items.every((item) => item.icon_url?.startsWith(BASE + '/api/library/icon/')));
+  assert.equal((await get('/api/library/sections', { ...consoleHeaders, 'If-None-Match': sections.headers.get('etag'), 'Cache-Control': 'max-age=0' })).status, 304);
+  for (const suffix of ['icon/0100000000010000', 'banner/0100000000010000', 'screenshot/0100000000010000/0']) {
+    const canonical = await get('/api/library/' + suffix, consoleHeaders);
+    const legacy = await get('/api/shop/' + suffix, consoleHeaders);
+    assert.equal(canonical.status, legacy.status, suffix);
+    assert.equal(canonical.headers.get('content-type'), legacy.headers.get('content-type'), suffix);
+    assert.deepEqual(Buffer.from(await canonical.arrayBuffer()), Buffer.from(await legacy.arrayBuffer()), suffix);
+    assert.notEqual((await get('/api/library/' + suffix, TOKEN)).status, 200, suffix);
+  }
+});
+
 test("the Tinfoil-era addresses are gone", async () => {
   for (const url of ["/shop.tfl", "/api/remote/sections", "/api/remote/icon/0100000000010000", "/api/connect-url"]) {
     assert.equal((await get(url, consoleHeaders)).status, 404, url);

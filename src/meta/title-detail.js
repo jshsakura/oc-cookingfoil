@@ -1,6 +1,6 @@
 /**
  * One base title's rich detail: description, publisher, region, release date, rating, players, updates,
- * DLC count, patches and artwork URLs on the /api/shop proxies. GET /api/title/:baseTitleId serves it,
+ * DLC count, patches and artwork URLs on the /api/library proxies. GET /api/title/:baseTitleId serves it,
  * and the game_get capability reads it.
  */
 import * as titledbStore from "./titledb-store.js";
@@ -77,7 +77,7 @@ export async function titleDetail(base, { lang, asked = null, origin = null, pri
   if (Array.isArray(fromDb?.screenshots)) {
     fromDb.screenshots.slice(0, 31).forEach((url, i) => { if (url) slots.add(i); });
   }
-  const screenshots = [...slots].sort((a, b) => a - b).map((i) => art(`/api/shop/screenshot/${base}/${i}`));
+  const screenshots = [...slots].sort((a, b) => a - b).map((i) => art(`/api/library/screenshot/${base}/${i}`));
 
   const price = withPrice && fromDb?.nsuId ? await priceWithin(fromDb.nsuId, PRICE_WAIT_MS) : null;
   const categories = normalizeGenres(fromDb?.category);
@@ -134,12 +134,12 @@ export async function titleDetail(base, { lang, asked = null, origin = null, pri
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
     size: fromDb?.size ?? extracted?.size ?? null,
     // With ?lang=, the icon and banner of that language's release when it has its own art.
-    iconUrl: art(`/api/shop/icon/${base}`, artIn(iconSource, iconKnown)),
+    iconUrl: art(`/api/library/icon/${base}`, artIn(iconSource, iconKnown)),
     bannerUrl: fromDb?.bannerUrl || overrides.banner
-      ? art(`/api/shop/banner/${base}`, artIn(bannerSource, bannerKnown))
+      ? art(`/api/library/banner/${base}`, artIn(bannerSource, bannerKnown))
       : null,
     icons: iconLangs(base).length
-      ? Object.fromEntries(iconLangs(base).map((l) => [l, art(`/api/shop/icon/${base}`, l)]))
+      ? Object.fromEntries(iconLangs(base).map((l) => [l, art(`/api/library/icon/${base}`, l)]))
       : null,
     screenshots,
     screenshotCount: screenshots.length,

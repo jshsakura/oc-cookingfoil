@@ -173,7 +173,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
   const server = await boot(dir);
   try {
     assert.equal((await fetch(`${BASE}/api/retro/systems`)).status, 401, "behind the shop's sign-in");
-    assert.ok((await (await get("/api/shop/info")).json()).features.includes("retro"));
+    assert.ok((await (await get("/api/library/info")).json()).features.includes("retro"));
     const { systems, retroarch } = await (await get("/api/retro/systems")).json();
     const snes = systems.find((s) => s.id === "snes");
     assert.equal(retroarch, "installed");
@@ -363,7 +363,7 @@ test("the retro index pages every version of every listed game by id, trimmed, a
   const server = await boot(dir);
   try {
     assert.equal((await fetch(`${BASE}/api/retro/index`)).status, 401, "behind the shop's sign-in");
-    assert.ok((await (await get("/api/shop/info")).json()).features.includes("retro-index"));
+    assert.ok((await (await get("/api/library/info")).json()).features.includes("retro-index"));
     const res = await get("/api/retro/index");
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("content-encoding"), "gzip", "fetch takes gzip, not brotli");
@@ -473,7 +473,7 @@ test("without a retro folder the API is off", async () => {
   const server = await boot(path.join(os.tmpdir(), "no-such-retro-dir-" + process.pid));
   try {
     assert.equal((await get("/api/retro/systems")).status, 404);
-    assert.ok(!(await (await get("/api/shop/info")).json()).features.includes("retro"));
+    assert.ok(!(await (await get("/api/library/info")).json()).features.includes("retro"));
   } finally {
     server.kill("SIGKILL");
   }
@@ -618,7 +618,7 @@ test("a retro folder with no ROMs doesn't offer retro, so the client hides its m
   put(dir, "roms/snes/readme.txt", "no games yet");
   const server = await boot(dir);
   try {
-    const info = await (await get("/api/shop/info")).json();
+    const info = await (await get("/api/library/info")).json();
     assert.ok(!info.features.includes("retro"));
     assert.ok(info.features.includes("item-names"), "the rest of the features stay");
   } finally {

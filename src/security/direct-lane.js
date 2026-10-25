@@ -75,12 +75,12 @@ const DOWNLOAD_ROUTES = [
 ];
 
 // Paths the shop itself answers at the root; never served from the games folder here.
-const SHOP_PATHS = new Set(["/shop.json", "/robots.txt", "/healthz"]);
+const CATALOG_PATHS = new Set(["/games.json", "/shop.json", "/robots.txt", "/healthz"]);
 
 /** "route" for a download route, "file" for a path in the games folder, null for anything else. Pure. */
 export function laneOf(rawPath) {
   if (DOWNLOAD_ROUTES.some((re) => re.test(rawPath))) return "route";
-  if (rawPath.endsWith("/") || SHOP_PATHS.has(rawPath.toLowerCase())) return null;
+  if (rawPath.endsWith("/") || CATALOG_PATHS.has(rawPath.toLowerCase())) return null;
   if (/^\/(api|admin|assets|pair|login|logout|setup)(\/|$)/i.test(rawPath)) return null;
   return "file";
 }

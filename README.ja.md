@@ -9,7 +9,7 @@
 [![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
 [![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-Switch の自作ソフト向けの、個人用でセルフホストのファイルサーバー兼ショップです。ファイルは自宅のマシンに置き、1 つの管理ページですべてを管理し、本体の CookingFoil クライアントからインストールします。
+Switch の自作ソフト向けの、個人用でセルフホストのライブラリサーバーです。ファイルは自宅のマシンに置き、1 つの管理ページですべてを管理し、本体の CookingFoil クライアントからインストールします。
 
 <p align="center">
   <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=ja"><img src="brand/buttons/website-ja.svg" alt="ウェブサイト" width="160" height="44" /></a>
@@ -54,11 +54,11 @@ CookingFoil は自分のサーバー上の Docker で動きます。入れたフ
 
 CookingFoil クライアントは GitHub では公開していません。サーバーの `data/client/` にクライアントのビルドがあれば (そのフォルダーに置くか、管理ページのアップロード (업로드) タブで「クライアント」としてアップロードします)、そのサーバーにサインインしたユーザーが Web 画面からダウンロードします。管理ページでクライアントのビルドの取得元を `github` にすると、クライアントのリポジトリ (`jshsakura/oc-cookingfoil-client`) の最新リリースにも従い、バージョンの高いほうのビルドを配ります。
 
-Web ページ、初回セットアップ、サインイン、本体承認のページは英語、韓国語、日本語、簡体字中国語に対応し、ライトとダークのテーマを選べます。管理ページと運用ガイド (`/admin/guide`) は今のところ韓国語のみです。
+Web ページ、初回セットアップ、サインイン、本体承認のページは英語、韓国語、日本語、簡体字中国語に対応し、ライトとダークのテーマを選べます。管理ページでは 12 言語を選択できます。残りの運用メッセージは翻訳中です。運用ガイド (`/admin/guide`) は現在韓国語です。
 
 ## 機能
 
-- **ショップのセクション。** CookingFoil クライアントと Web 画面向けのセクション分けされた一覧を提供します。おすすめの列は管理ページで並べられます。自動化トークンを持つスクリプト向けに、ファイルの一覧 (`/shop.json`) もあります。
+- **ライブラリ一覧。** CookingFoil クライアントと Web 画面向けのセクション分けされた一覧を提供します。おすすめの列は管理ページで並べられます。自動化トークンを持つスクリプト向けに、ファイルの一覧 (`/games.json`) もあります。
 - **名前とアイコン。** タイトル、説明、アートワークは [blawar/titledb](https://github.com/blawar/titledb) から取得し、titledb にないファイルはファイル自体から (自分の `prod.keys` を使って) 読み取ります。名前の言語の優先順位と地域は設定で変えられます。
 - **アートワーク、価格、評価。** アイコン、バナー、スクリーンショットは公開ストアのアートワークサービスから取得し、ディスクにキャッシュします。ストア価格、人気順、Steam のレビュースコア、IGDB スコアも任意で使えます。どの取得元もオフにでき、自分のアートワークをアップロードすることもできます。
 - **GitHub からの自作ソフト。** リポジトリを登録すると最新リリース (`.nro`、または中に `.nro` を含む zip) を追いかけます。手で置いたアプリも扱えます。アプリはツールか移植版に分けられ、オフにでき、HOME メニューのショートカットも用意できます。
@@ -249,13 +249,13 @@ CookingFoil はプレーンな HTTP で動きます。自宅の外から使う�
 そのまま使える Caddy (HTTPS を一つのスタックで)、nginx、Cloudflare Tunnel の設定ファイルは [`examples/`](examples/) にあります。
 
 - `COOK_TRUST_PROXY` には、クライアントのアドレスを設定してよいホップだけを指定します。同じホストかプライベートネットワーク上のプロキシなら `loopback, uniquelocal` です。`true` はすべてのホップを信頼するので、プロキシを経由しないとサーバーに届かない構成でのみ安全です。この設定がないと、すべてのクライアントがプロキシの 1 つのアドレスに見えるため、見知らぬ 1 人のサインイン失敗で全員がロックされることがあります。この状態を検出すると管理ページが警告します。`X-Forwarded-Host` と `X-Forwarded-Proto` もこれらのホップから届いたものだけを信頼し、それ以外からの場合は接続自体の `Host` (設定していれば `COOK_PUBLIC_BASE_URL`) を使います。
-- プロキシには `X-Forwarded-For`、`X-Forwarded-Proto`、`X-Forwarded-Host` を転送させます。ダウンロードとアートワークの URL は絶対 URL で、これらのヘッダーから組み立てます。プロキシが `Host` を書き換える場合は、管理ページで公開アドレスを設定します (または `COOK_PUBLIC_BASE_URL=https://shop.example.org`)。
+- プロキシには `X-Forwarded-For`、`X-Forwarded-Proto`、`X-Forwarded-Host` を転送させます。ダウンロードとアートワークの URL は絶対 URL で、これらのヘッダーから組み立てます。プロキシが `Host` を書き換える場合は、管理ページで公開アドレスを設定します (または `COOK_PUBLIC_BASE_URL=https://library.example.org`)。
 - 大きなレスポンスと長いリクエストを許可します。本体は多数の Range リクエストでダウンロードし、1 つのファイルが数十 GB になることもあります。
-- CookingFoil の前に置いた開発サーバー (Vite など) は、知らない `Host` ヘッダーを `403` で拒否することがあります。プロキシを疑う前に `curl -H "Host: shop.example.org" http://127.0.0.1:9080/` でオリジンを直接確かめてください。
+- CookingFoil の前に置いた開発サーバー (Vite など) は、知らない `Host` ヘッダーを `403` で拒否することがあります。プロキシを疑う前に `curl -H "Host: library.example.org" http://127.0.0.1:9080/` でオリジンを直接確かめてください。
 
 ## 任意の直接ダウンロードアドレス
 
-構成によっては、ショップが経由するトンネルや CDN が非常に大きなファイルに対して遅かったり制限があったりします。直接ダウンロードアドレスを使うと、それを求めるクライアントはダウンロードだけを扱う 2 つ目の HTTPS アドレスから受け取り、一覧とサインインはメインのアドレスに残ります。
+構成によっては、ライブラリサーバーが経由するトンネルや CDN が非常に大きなファイルに対して遅かったり制限があったりします。直接ダウンロードアドレスを使うと、それを求めるクライアントはダウンロードだけを扱う 2 つ目の HTTPS アドレスから受け取り、一覧とサインインはメインのアドレスに残ります。
 
 仕組みです。
 
@@ -298,7 +298,7 @@ CookingFoil は、自分のプロキシの後ろでインターネットに置�
 ### おすすめの設定
 
 1. **すべての本体を QR か Web 画面のクライアントのダウンロードで接続します。** どの本体も個別に取り消せる自分のキーを持ち、パスワードを持ち続ける本体はありません。
-2. **管理ページの 2 要素認証を維持します。** セットアップのときに認証アプリを登録します。別の管理者パスワード (`COOK_ADMIN_PASSWORD`、12 文字以上) で代えることもできますが、どのショップアカウントのパスワードとも違うものにします。
+2. **管理ページの 2 要素認証を維持します。** セットアップのときに認証アプリを登録します。別の管理者パスワード (`COOK_ADMIN_PASSWORD`、12 文字以上) で代えることもできますが、どのサーバーアカウントのパスワードとも違うものにします。
 3. **外からは HTTPS だけで入ります。** HTTPS を終端するリバースプロキシかトンネルを通してサーバーに届くようにし、平文 HTTP のポートはインターネットに公開しません。
 4. **`COOK_TRUST_PROXY` にはプロキシの経路だけを入れ**、それより広くしません。[リバースプロキシと HTTPS](#リバースプロキシと-https) を参照してください。
 5. **承認方法は理解して選びます。**「サインインした本体はすぐ承認」(既定) と「管理者が 1 台ずつ承認」が安全な選択です。「すべて承認」は自分の本体しか届かないサーバーでだけ使います。
@@ -364,27 +364,29 @@ CookingFoil 自体は平文の HTTP で通信します。`http://` で接続す�
 
 ペアリング、登録、`/healthz` を除き、すべてのエンドポイントにはペアリング済みの本体のキーかセッショントークン、またはサインインした Web 画面が必要です。Basic の `Authorization` ヘッダーはペアリングの経路でだけ数えます。ほかではどの認証にもならず、それを求めるエンドポイントもありません。
 
+カタログの正式なパスは CookingFoil クライアント用の `/api/library/*` と自動化トークン用の `/games.json` です。`/api/shop/*` と `/shop.json` は認証と応答形式が同じ一時的な互換パスとして残します。新しいパスを提供するサーバーを配置した後に利用側を切り替えてください。クライアントとスクレイパーの両方の移行を確認してから旧パスを削除します。Tinfoil や CyberFoil のサポートを復活させる変更ではありません。
+
 | エンドポイント | |
 |---|---|
-| `GET /shop.json` | 自動化向けのファイルの一覧: `{ files: [...] }`。各ファイルの名前には `[TITLEID][vN]` が付きます。管理ページで作った自動化トークン (`Authorization: Bearer cft_…`) だけが読めます |
-| `GET /api/shop/sections` | CookingFoil クライアントと Web 画面向けのセクション分けされた一覧 |
-| `GET /api/shop/info` | サーバーのバージョン、ダウンロードのヒント、クライアントが前提にしてよい `features` |
+| `GET /games.json` | 自動化向けのファイルの一覧: `{ files: [...] }`。各ファイルの名前には `[TITLEID][vN]` が付きます。管理ページで作った自動化トークン (`Authorization: Bearer cft_…`) だけが読めます |
+| `GET /api/library/sections` | CookingFoil クライアントと Web 画面向けのセクション分けされた一覧 |
+| `GET /api/library/info` | サーバーのバージョン、ダウンロードのヒント、クライアントが前提にしてよい `features` |
 | `GET /api/activity` | ログイン済みのユーザーは実行中と最近の作業を閲覧できます。停止は管理者のみ管理 API で実行できます。 |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 1 件の詳細と、その追加ファイル |
-| `GET /api/shop/icon/:id`, `/api/shop/banner/:id`, `/api/shop/screenshot/:id/:n` | アートワーク |
+| `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | アートワーク |
 | `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 自作アプリ (`.nro` 1 つか、`switch/<app>/` フォルダー全体) と、その HOME メニューのショートカット。管理ページでオフにしたアプリは含まれません |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | パッチ |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | セーブファイル |
 | `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | レトロフォルダーに ROM があるときの、レトロゲームとそのアート |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 自分で用意した RetroArch ベースパック |
 | `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` に置いた CookingFoil クライアントのビルド (そのフォルダーに置くか、管理ページのアップロードタブで「クライアント」としてアップロードします) と、その HOME メニューのショートカット。`latest` は、ビルドの隣の `cookingfoil.nro.sig.json` がそのビルドのバージョン、サイズ、sha256 と一致するときだけ `signature` (ビルドした場所で作った Ed25519 署名) を載せます |
-| `POST /api/pair/request`, `GET /api/pair/status` | QR による本体ペアリング (QR による本体接続がオンのときのみ)。本体はリクエスト時にランダムな `pairSecret` (16 進数 64 文字) を送り、状態を問い合わせるときに同じ値を `X-Pair-Secret` で送ります。アクセスキーはその値を送った側にだけ渡します。承認方法が「サインインした本体はすぐ承認」なら、Basic で送ったアカウントの ID とパスワードで本体をすぐ承認します。JSON の応答にはすべて `passwordOnly: true` が付き、`/api/shop/info` には機能名 `pair-password-only` が載ります。パスワードはペアリング専用です |
+| `POST /api/pair/request`, `GET /api/pair/status` | QR による本体ペアリング (QR による本体接続がオンのときのみ)。本体はリクエスト時にランダムな `pairSecret` (16 進数 64 文字) を送り、状態を問い合わせるときに同じ値を `X-Pair-Secret` で送ります。アクセスキーはその値を送った側にだけ渡します。承認方法が「サインインした本体はすぐ承認」なら、Basic で送ったアカウントの ID とパスワードで本体をすぐ承認します。JSON の応答にはすべて `passwordOnly: true` が付き、`/api/library/info` には機能名 `pair-password-only` が載ります。パスワードはペアリング専用です |
 | `POST /api/pair/enroll` | ダウンロードしたクライアントに入っている登録トークンを `X-Device-Key` とともに送り、自分のアクセスキーに替えます。ダウンロードしたアカウントの下で承認され、ダウンロードから 1 時間以内に本体 `COOK_ENROLL_PER_HOUR` 台まで (既定 5、手動承認では 1 台) 使え、それ以上は QR で承認します。拒否: 401 と `X-CookingFoil-Enroll: limit` (`X-CookingFoil-Auth: enroll-limit`)、`used`、`expired`、`revoked`、`invalid`。アカウントの本体数が上限なら 403 と `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | ペアリング済みの本体のアクセスキーを 12 時間のセッショントークンに替えます (Basic ヘッダーは無視します)。以後は同じデバイスキーで `Authorization: Bearer cfs_…` だけを送ります。セッションでセッションを更新することはできず、本体を承認したアカウントのパスワード変更、本体の取り消し、ロックアウトですぐに終わります。機能名は `session-token` です |
 | `POST /api/pair/rebind` | 同じ本体を新しいデバイスキーに移します (承認、名前、アクセスキー)。デバイスキーを本体から作るようになったクライアントが使います。古いキーのアクセスキー、またはその本体を承認したアカウントの Basic 認証で証明します。機能名は `device-rebind` です |
 | `GET /healthz` | ヘルスチェック。イメージの `HEALTHCHECK` が使います |
 
-クライアントは任意のフィールドを使う前に、`/api/shop/info` の `features` を読んでください。管理 API (`/admin/api/*`) は `/admin/guide` の運用ガイドに説明があります。
+クライアントは任意のフィールドを使う前に、`/api/library/info` の `features` を読んでください。管理 API (`/admin/api/*`) は `/admin/guide` の運用ガイドに説明があります。
 
 ## FAQ とトラブルシューティング
 

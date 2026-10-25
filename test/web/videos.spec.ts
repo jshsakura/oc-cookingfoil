@@ -15,7 +15,7 @@ async function setUp(page: Page, me: object, videos = VIDEOS) {
   await page.route('**/auth/me', (route) => route.fulfill({ json: me }));
   // Signed in with a mocked account: the inbox would answer the real server's 401 and send the page to /login.
   await page.route('**/api/inbox', (route) => route.fulfill({ json: { enabled: false } }));
-  await page.route('**/api/shop/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: game }], genres: {} } }));
+  await page.route('**/api/library/sections', (route) => route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items: game }], genres: {} } }));
   await page.route('**/api/art/0100000000010000', (route) => route.fulfill({ json: { icon: false, banner: false, screens: [], originals: {} } }));
   const asked: string[] = [];
   await page.route('**/api/videos/**', (route) => { asked.push(new URL(route.request().url()).pathname); route.fulfill({ json: { videos } }); });

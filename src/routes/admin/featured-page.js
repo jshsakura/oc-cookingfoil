@@ -54,7 +54,7 @@ function fpCard(c,ci){const card=el('div',null,'fcard'),st=fpOf(c);
   function drawChosen(){chosen.replaceChildren();
     banner.replaceChildren(new Option(topText('fp.noBanner'),''));
     for(const id of c.titleIds)banner.append(new Option(fpFill(topText('fp.bannerOf'),{name:names.get(id)||id}),id,false,id===c.bannerTitleId));
-    c.titleIds.forEach((id,gi)=>{const li=el('li');const img=el('img');img.src='/api/shop/icon/'+id+'?size=sm';img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
+    c.titleIds.forEach((id,gi)=>{const li=el('li');const img=el('img');img.src='/api/library/icon/'+id+'?size=sm';img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
       const u=btn('▲',()=>{move(c.titleIds,gi,-1);markDirty();drawChosen();}),d=btn('▼',()=>{move(c.titleIds,gi,1);markDirty();drawChosen();});
       u.setAttribute('aria-label',topText('fp.up'));d.setAttribute('aria-label',topText('fp.down'));
       li.append(img,el('span',names.get(id)||id,'name'),u,d,
@@ -86,7 +86,7 @@ function fpCard(c,ci){const card=el('div',null,'fcard'),st=fpOf(c);
     list.replaceChildren();
     for(const g of d.items){const li=el('li'),lab=el('label'),box=el('input');box.type='checkbox';
       const on=c.titleIds.includes(g.titleId);box.checked=on;lab.classList.toggle('on',on);
-      const img=el('img');img.src='/api/shop/icon/'+g.titleId+'?size=sm';img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
+      const img=el('img');img.src='/api/library/icon/'+g.titleId+'?size=sm';img.alt='';img.loading='lazy';img.onerror=()=>{img.style.visibility='hidden';};
       const t=el('span',null,'fp-t');t.append(el('span',g.name||g.titleId,'fp-n'),el('span',(g.matched?g.matched+' · ':'')+g.titleId,'fp-s'));
       box.addEventListener('change',()=>{if(!fpSet(c,g,box.checked)){box.checked=!box.checked;return;}
         // The box stays where it is, also under "picked only", so a slip is undone with one more click.

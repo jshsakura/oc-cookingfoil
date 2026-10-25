@@ -122,7 +122,7 @@ function ctGroups(list,tidOf,row){const groups=new Map();for(const x of list){co
     name.append(el('b',items[0].game||'titledb 에 없는 게임'),el('span',tid));
     // The game's own icon in front, like the console's list; an empty tile when the server has none.
     const ico=el('img',null,'pt-ico');ico.alt='';ico.loading='lazy';
-    if(/^[0-9A-F]{16}$/i.test(tid)){ico.src='/api/shop/icon/'+tid+'?size=sm';ico.onerror=()=>ico.removeAttribute('src');}
+    if(/^[0-9A-F]{16}$/i.test(tid)){ico.src='/api/library/icon/'+tid+'?size=sm';ico.onerror=()=>ico.removeAttribute('src');}
     h.append(ico,name);g.append(h,...items.map(row));return g;});}
 function ptRender(){const q=$('pt-q').value.trim().toLowerCase(),only=$('pt-only').getAttribute('aria-pressed')==='true';
   const hit=(p)=>(!only||p.required)&&(!q||[p.game,p.title_id,p.name,p.ko&&p.ko.name].some((s)=>(s||'').toLowerCase().includes(q)));
