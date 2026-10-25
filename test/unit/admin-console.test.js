@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { webSession, adminSession } from "../support/web-session.js";
+import { FORBIDDEN_WORDS } from "../../src/routes/admin/forbidden-words.js";
 
 const PORT = 18900 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -55,9 +56,21 @@ test("admin accounts run the admin page; nobody locks themselves out; console lo
     // A regular account can sign in but not open /admin.
     const bobPage = await webSession(BASE, "bob", "bob-password-1");
     assert.equal((await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: bobPage.Cookie } })).status, 403);
-    const denied = await page("/admin", { Cookie: bobPage.Cookie });
+    const denied = await page("/admin", { Cookie: bobPage.Cookie, "Accept-Language": "ko" });
     assert.equal(denied.status, 403);
     assert.match(denied.body, /관리자 계정이 아닙니다/);
+    for (const [lang, words] of Object.entries(FORBIDDEN_WORDS)) {
+      const localized = await page("/admin", { Cookie: bobPage.Cookie, "Accept-Language": lang });
+      assert.equal(localized.status, 403, `${lang} cannot grant administrator access`);
+      assert.ok(localized.body.includes(`<html lang="${lang}"`), `${lang} document language`);
+      assert.ok(localized.body.includes(words.heading), `${lang} explains the refusal`);
+      assert.ok(localized.body.includes(words.signIn), `${lang} offers another account`);
+    }
+    for (const [tag, lang] of [["zh-TW", "zh-Hant"], ["pt-BR", "pt"], ["xx", "en"]]) {
+      const localized = await page("/admin", { Cookie: bobPage.Cookie, "Accept-Language": tag });
+      assert.equal(localized.status, 403);
+      assert.ok(localized.body.includes(FORBIDDEN_WORDS[lang].heading), tag);
+    }
     assert.equal((await page("/admin", { Cookie: alice.Cookie })).status, 200);
 
     const stats = await (await call("GET", "/admin/api/stats")).json();

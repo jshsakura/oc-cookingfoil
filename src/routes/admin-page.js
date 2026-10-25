@@ -251,7 +251,7 @@ export default function adminPageRouter() {
     recordDeny(req, { reason: DENY.ADMIN_NO_SESSION, status: 403 });
     res.set("Cache-Control", "no-store");
     if (req.path.startsWith("/api/")) return res.status(403).json({ error: "admin accounts only" });
-    res.status(403).type("html").send(forbiddenPage());
+    res.status(403).type("html").send(forbiddenPage(requestLang(req)));
   });
 
   router.get("/pair/:token", (req, res) => {
