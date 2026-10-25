@@ -36,68 +36,68 @@ export const SERVER_SETTINGS_SCRIPT = /* js */ `
 const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLogin'),dashboard:()=>topText('ss.grpDashboard'),'prod.keys':'prod.keys',gameinfo:()=>topText('ss.grpGameinfo'),download:()=>topText('ss.grpDownload'),restart:()=>topText('ss.grpRestart'),sync:()=>topText('ss.grpSync'),inbox:()=>topText('ss.grpInbox'),names:()=>topText('ss.grpNames'),lookups:()=>topText('ss.grpLookups')};
 const SS_GROUPS=[
   ['device',[
-    ['devicePairing','bool','QR 로 기기 연결','CookingFoil 클라이언트가 QR 을 띄우고, 휴대폰으로 찍어 승인합니다. 끄면 콘솔이 접속할 수 없습니다.'],
-    ['deviceApproval',[['manual','관리자가 하나씩 승인합니다'],['signin','연결할 때 아이디와 비밀번호를 넣은 기기는 바로 승인합니다'],['all','연결을 요청하는 기기를 모두 승인합니다']],'승인 방식','콘솔은 접속할 때 비밀번호를 쓰지 않습니다. 아이디와 비밀번호는 연결할 때 한 번만 받아서 그 기기를 바로 승인하는 데 씁니다. 모두 승인은 내 기기만 닿을 수 있는 서버에서만 씁니다.'],
+    ['devicePairing','bool',()=>topText('ss.f.devicePairing'),()=>topText('ss.f.devicePairingD')],
+    ['deviceApproval',[['manual',()=>topText('ss.devManual')],['signin',()=>topText('ss.devSignin')],['all',()=>topText('ss.devAll')]],()=>topText('ss.f.deviceApproval'),()=>topText('ss.f.deviceApprovalD')],
     ['deviceLimit',[['0',()=>topText('ss.deviceLimitNone')],...[1,2,3,5,10,15,20,30,50].map((n)=>[String(n),()=>topFill(n===10?'ss.deviceLimitDefault':'ss.deviceLimitN',{n})])],()=>topText('ss.deviceLimit'),()=>topText('ss.deviceLimitD')],
     ['enrollPerHour',[1,2,3,5,10,15,20].map((n)=>[String(n),()=>topFill(n===5?'ss.deviceLimitDefault':'ss.deviceLimitN',{n})]),()=>topText('ss.enrollPerHour'),()=>topText('ss.enrollPerHourD')],
   ]],
   ['login',[
-    ['passwordLogin','bool','아이디·비밀번호 로그인','끄면 대시보드와 관리 페이지에는 Google 계정으로만 로그인하고, 계정 비밀번호는 어디서도 받지 않습니다. 비밀번호로 로그인해 있던 사람과 비밀번호 계정이 만든 토큰도 그동안 쓸 수 없습니다. 이미 승인된 콘솔은 기기 키로 계속 붙고, 새 콘솔은 QR 로 승인합니다. Google 로그인이 켜져 있고 관리자로 승인된 Google 계정이 있어야 끌 수 있으며, 나중에 둘 중 하나라도 없어지면 비밀번호 로그인이 저절로 다시 켜집니다. Google 쪽이 고장 나 들어올 수 없으면 compose 에 COOK_PASSWORD_LOGIN_FORCE=true 를 넣고 다시 시작합니다.'],
+    ['passwordLogin','bool',()=>topText('ss.f.passwordLogin'),()=>topText('ss.f.passwordLoginD')],
   ]],
   ['dashboard',[
     ['uploadsEnabled','bool',()=>topText('ss.uploads'),()=>topText('ss.uploadsD')],
     ['uploadMaxBytes','gb',()=>topText('ss.uploadMax'),()=>topText('ss.uploadMaxD')],
-    ['publicBaseUrl','text','공개 주소','리버스 프록시나 터널 뒤에 둘 때 바깥에서 들어오는 주소를 넣습니다. 비우면 요청이 들어온 주소를 씁니다.','https://files.example.org'],
+    ['publicBaseUrl','text',()=>topText('ss.f.publicBaseUrl'),()=>topText('ss.f.publicBaseUrlD'),'https://files.example.org'],
   ]],
   ['inbox',[
-    ['inboxEnabled','bool','임시 공유 받기','로그인한 사용자가 대시보드의 계정 메뉴에서 파일, 메모, 링크를 남길 수 있습니다. 남긴 것은 임시 공유 탭에서 봅니다.'],
-    ['inboxMaxBytes','gb','한 번에 올리는 크기','파일을 모두 합친 크기입니다. GB 단위로 넣습니다.'],
-    ['inboxQuotaBytes','gb','임시 공유함 전체 크기','이만큼 차면 새로 올리는 것을 받지 않고 가득 찼다고 알립니다. GB 단위로 넣습니다.'],
+    ['inboxEnabled','bool',()=>topText('ss.f.inboxEnabled'),()=>topText('ss.f.inboxEnabledD')],
+    ['inboxMaxBytes','gb',()=>topText('ss.f.inboxMaxBytes'),()=>topText('ss.f.inboxMaxBytesD')],
+    ['inboxQuotaBytes','gb',()=>topText('ss.f.inboxQuotaBytes'),()=>topText('ss.f.inboxQuotaBytesD')],
   ]],
   ['names',[
-    ['extractIcons',[['missing','목록에 없는 것만 파일에서 읽습니다'],['all','모든 파일에서 읽습니다'],['off','파일에서 읽지 않습니다']],'파일에서 이름과 아이콘 읽기','바꾸면 라이브러리를 다시 읽습니다.'],
-    ['langPriority','list','이름 언어 순서','앞에 둔 언어의 이름부터 씁니다. 쉼표로 나눕니다.','ko,en,ja'],
+    ['extractIcons',[['missing',()=>topText('ss.iconsMissing')],['all',()=>topText('ss.iconsAll')],['off',()=>topText('ss.iconsOff')]],()=>topText('ss.f.extractIcons'),()=>topText('ss.f.extractIconsD')],
+    ['langPriority','list',()=>topText('ss.f.langPriority'),()=>topText('ss.f.langPriorityD'),'ko,en,ja'],
   ]],
   ['prod.keys',[]],
   ['gameinfo',[
-    ['titledbAutoFetch','bool','자동으로 다운로드','게임 이름과 설명 목록(titledb)을 하루에 한 번 새로 받습니다. 끄면 받아 둔 것만 씁니다.'],
-    ['titledbRegions','list','받을 지역','비우면 기본 지역을 모두 받습니다. 쉼표로 나눕니다.','KR.ko,US.en,JP.ja'],
-    ['titledbSource','text','다운로드 주소','지역별 파일(KR.ko.json 등)이 있는 주소입니다. 비우면 blawar/titledb 에서 받습니다. 원본이 멈추면 포크나 미러 주소로 변경합니다. 바꾼 뒤 지금 받기를 누르면 새 주소에서 받습니다.','https://raw.githubusercontent.com/<계정>/titledb/master'],
+    ['titledbAutoFetch','bool',()=>topText('ss.f.titledbAutoFetch'),()=>topText('ss.f.titledbAutoFetchD')],
+    ['titledbRegions','list',()=>topText('ss.f.titledbRegions'),()=>topText('ss.f.titledbRegionsD'),'KR.ko,US.en,JP.ja'],
+    ['titledbSource','text',()=>topText('ss.f.titledbSource'),()=>topText('ss.f.titledbSourceD'),()=>topText('ss.f.titledbSourcePh')],
   ]],
   ['download',[
-    ['downloadMaxConnections',[['1',()=>topFill('ss.nCount',{n:1})],['2',()=>topFill('ss.nCount',{n:2})],['3',()=>topFill('ss.nCount',{n:3})],['4',()=>topFill('ss.nCountDef',{n:4})],['5',()=>topFill('ss.nCount',{n:5})],['6',()=>topFill('ss.nCount',{n:6})],['7',()=>topFill('ss.nCount',{n:7})],['8',()=>topFill('ss.nCount',{n:8})]],'기기당 동시 연결','기기 하나가 파일 하나를 받을 때 동시에 여는 연결 수의 상한을 클라이언트에 알려 줍니다. 서버가 막지는 않으며, 줄이면 서버 부담이 줄고 늘리면 먼 곳에서 빨라질 수 있습니다.'],
-    ['directDownloads','bool','외부 다운로드 전용 주소 사용','끄면 아래 주소를 지우지 않고 쉬게 합니다. 모든 기기가 목록에 적힌 공개 주소(터널)로 받습니다. 두 경로의 속도를 비교할 때 씁니다.'],
-    ['publicDirectBaseUrl','text','외부 다운로드 전용 주소','https 주소만 넣을 수 있습니다. 넣으면 이 기능을 지원하는 클라이언트가 https 로 로그인했을 때 다운로드 토큰을 함께 받고, 목록의 다운로드 주소가 이 주소로 바뀝니다. 집 안에서 http 로 서버에 바로 붙은 기기는 지금처럼 그 주소로 받습니다. 이 주소 앞의 프록시는 Bearer 토큰이 붙은 GET/HEAD 요청만 이 서버로 넘겨야 하고, 이 주소로는 다운로드만 받을 수 있습니다. 다른 클라이언트와 브라우저는 지금처럼 받습니다. 비우면 쓰지 않습니다.','https://dl.example.org:38443'],
-    ['downloadLinkTtl',[['3600',()=>topFill('ss.nHours',{n:1})],['21600',()=>topFill('ss.nHoursDef',{n:6})],['43200',()=>topFill('ss.nHours',{n:12})],['86400',()=>topText('ss.nDay')],['259200',()=>topFill('ss.nDays',{n:3})],['604800',()=>topText('ss.nWeek')]],'토큰 유효 시간','다운로드 토큰은 이 시간이 지나면 쓸 수 없습니다. 클라이언트는 목록을 다시 받을 때 새 토큰을 받습니다.'],
+    ['downloadMaxConnections',[['1',()=>topFill('ss.nCount',{n:1})],['2',()=>topFill('ss.nCount',{n:2})],['3',()=>topFill('ss.nCount',{n:3})],['4',()=>topFill('ss.nCountDef',{n:4})],['5',()=>topFill('ss.nCount',{n:5})],['6',()=>topFill('ss.nCount',{n:6})],['7',()=>topFill('ss.nCount',{n:7})],['8',()=>topFill('ss.nCount',{n:8})]],()=>topText('ss.f.downloadMaxConnections'),()=>topText('ss.f.downloadMaxConnectionsD')],
+    ['directDownloads','bool',()=>topText('ss.f.directDownloads'),()=>topText('ss.f.directDownloadsD')],
+    ['publicDirectBaseUrl','text',()=>topText('ss.f.publicDirectBaseUrl'),()=>topText('ss.f.publicDirectBaseUrlD'),'https://dl.example.org:38443'],
+    ['downloadLinkTtl',[['3600',()=>topFill('ss.nHours',{n:1})],['21600',()=>topFill('ss.nHoursDef',{n:6})],['43200',()=>topFill('ss.nHours',{n:12})],['86400',()=>topText('ss.nDay')],['259200',()=>topFill('ss.nDays',{n:3})],['604800',()=>topText('ss.nWeek')]],()=>topText('ss.f.downloadLinkTtl'),()=>topText('ss.f.downloadLinkTtlD')],
   ]],
   ['restart',[
-    ['restartRetryAfter','sec','재요청 대기 시간','다시 시작하는 동안 들어온 요청에 이 시간만큼 기다렸다가 다시 요청하라고 알립니다(Retry-After). 서버가 다시 켜지는 데 걸리는 시간에 맞춥니다.'],
-    ['restartGrace','sec','받던 것을 기다리는 시간','다시 시작할 때 이미 받고 있던 요청이 끝나기를 이만큼까지 기다리고, 그때도 남은 것은 끊습니다. compose 의 stop_grace_period(40초) 안에 들도록 35초까지 넣습니다.'],
+    ['restartRetryAfter','sec',()=>topText('ss.f.restartRetryAfter'),()=>topText('ss.f.restartRetryAfterD')],
+    ['restartGrace','sec',()=>topText('ss.f.restartGrace'),()=>topText('ss.f.restartGraceD')],
   ]],
   ['sync',[
-    ['syncHours',[['0',()=>topText('ss.optManual')],['1',()=>topFill('ss.nHoursEvery',{n:1})],['3',()=>topFill('ss.nHoursEvery',{n:3})],['6',()=>topFill('ss.nHoursEveryDef',{n:6})],['12',()=>topFill('ss.nHoursEvery',{n:12})],['24',()=>topText('ss.nEveryDay')]],'모든 폴더 다시 읽기','게임, 홈브류, 세이브, 패치, 레트로 폴더를 이 주기로 처음부터 다시 읽습니다. 넣은 파일은 폴더 감시가 바로 잡으니, 이것은 놓친 것을 채우는 용도입니다.'],
-    ['verifyHours',[['2-7','새벽 2시~7시 (기본)'],['0-6','자정~6시'],['1-7','새벽 1시~7시'],['3-8','새벽 3시~8시'],['22-6','밤 10시~아침 6시'],['always',()=>topText('ss.optAlways')],['off',()=>topText('ss.optNever')]],'파일 검사 시간','라이브러리 파일이 수정되거나 손상됐는지 이 시간에만 읽어 확인합니다. 디스크를 오래 읽으니 쓰지 않는 시간에 둡니다. 시간이 끝나면 읽던 파일까지만 마치고 다음 날 이어서 합니다. 관리자가 직접 다시 검사를 누른 파일은 시간과 상관없이 바로 합니다.'],
-    ['backupDays',[['0',()=>topText('ss.optNever')],['7',()=>topFill('ss.nDays',{n:7})],['14',()=>topFill('ss.nDaysDef',{n:14})],['30',()=>topFill('ss.nDays',{n:30})],['90',()=>topFill('ss.nDays',{n:90})]],'매일 백업 보관','계정, 기기, 토큰, 설정, 감사 기록, 다운로드 기록, 손으로 고친 이름과 설명을 하루에 한 번 데이터 폴더의 backups 에 복사하고, 이 기간이 지난 것은 삭제합니다. 롬과 이미지처럼 다시 받을 수 있는 것은 넣지 않습니다.'],
+    ['syncHours',[['0',()=>topText('ss.optManual')],['1',()=>topFill('ss.nHoursEvery',{n:1})],['3',()=>topFill('ss.nHoursEvery',{n:3})],['6',()=>topFill('ss.nHoursEveryDef',{n:6})],['12',()=>topFill('ss.nHoursEvery',{n:12})],['24',()=>topText('ss.nEveryDay')]],()=>topText('ss.f.syncHours'),()=>topText('ss.f.syncHoursD')],
+    ['verifyHours',[['2-7',()=>topText('ss.winNightDef')],['0-6',()=>topText('ss.winMidnight')],['1-7',()=>topText('ss.winNight17')],['3-8',()=>topText('ss.winNight38')],['22-6',()=>topText('ss.winLate')],['always',()=>topText('ss.optAlways')],['off',()=>topText('ss.optNever')]],()=>topText('ss.f.verifyHours'),()=>topText('ss.f.verifyHoursD')],
+    ['backupDays',[['0',()=>topText('ss.optNever')],['7',()=>topFill('ss.nDays',{n:7})],['14',()=>topFill('ss.nDaysDef',{n:14})],['30',()=>topFill('ss.nDays',{n:30})],['90',()=>topFill('ss.nDays',{n:90})]],()=>topText('ss.f.backupDays'),()=>topText('ss.f.backupDaysD')],
     ['trashNoticeDays',[['7',()=>topFill('t.days',{n:7})],['14',()=>topFill('t.days',{n:14})],['30',()=>topFill('t.daysDefault',{n:30})],['90',()=>topFill('t.days',{n:90})],['365',()=>topText('t.oneYear')]],()=>topText('t.noticeLabel'),()=>topText('t.noticeDesc')],
     ['retroScaffold','bool',()=>topText('ss.scaffold'),()=>topText('ss.scaffoldD')],
-    ['logKeepDays',[['7',()=>topFill('ss.nDays',{n:7})],['30','30일 (기본)'],['90',()=>topFill('ss.nDays',{n:90})],['180',()=>topFill('ss.nDays',{n:180})],['365',()=>topText('t.oneYear')]],'기록 보관 기간','변환 기록과 다운로드 기록을 이 기간만큼 남기고, 지난 것은 지웁니다. 줄이면 바로 적용됩니다.'],
+    ['logKeepDays',[['7',()=>topFill('ss.nDays',{n:7})],['30',()=>topFill('ss.nDaysDef',{n:30})],['90',()=>topFill('ss.nDays',{n:90})],['180',()=>topFill('ss.nDays',{n:180})],['365',()=>topText('t.oneYear')]],()=>topText('ss.f.logKeepDays'),()=>topText('ss.f.logKeepDaysD')],
   ]],
   ['lookups',[
-    ['eshopPrices','bool','공식 스토어 가격','게임 상세에 가격과 할인을 보여 줍니다.'],
-    ['eshopPopularity','bool','인기순','인기순 정렬에 쓰는 순위를 받습니다.'],
-    ['eshopArtwork','bool','공식 이미지','아이콘, 배너, 스크린샷을 받아 둡니다. 끄면 받아 둔 것, 파일에서 읽은 것, 직접 올린 것만 씁니다.'],
-    ['ratingSync','bool','평점 모으기','Steam, IGDB, 레트로 평점을 천천히 모읍니다.'],
-    ['retroMeta','bool','레트로 게임 정보','LaunchBox 와 IGDB 에서 레트로 게임의 설명, 제작사, 발매일, 장르, 스크린샷을 천천히 받아 둡니다. 스크린샷은 공식 이미지가 켜져 있을 때만 받습니다. 끄면 받아 둔 것만 씁니다.'],
+    ['eshopPrices','bool',()=>topText('ss.f.eshopPrices'),()=>topText('ss.on.eshopPrices')],
+    ['eshopPopularity','bool',()=>topText('ss.f.eshopPopularity'),()=>topText('ss.f.eshopPopularityD')],
+    ['eshopArtwork','bool',()=>topText('ss.f.eshopArtwork'),()=>topText('ss.f.eshopArtworkD')],
+    ['ratingSync','bool',()=>topText('ss.f.ratingSync'),()=>topText('ss.f.ratingSyncD')],
+    ['retroMeta','bool',()=>topText('ss.f.retroMeta'),()=>topText('ss.f.retroMetaD')],
     ['retroAutoCores','bool',()=>topText('ss.autoCores'),()=>topText('ss.autoCoresD')],
     ['retroAutoArt','bool',()=>topText('ss.autoArt'),()=>topText('ss.autoArtD')],
-    ['retroPackUrl','text','RetroArch 번들 주소','레트로 탭의 "한 번에 채우기"가 RetroArch 번들(.7z)을 받아 오는 주소입니다. 비워 두면 libretro 공식 주소를 씁니다. 어느 주소든 서버에 고정된 SHA-256 과 같은 파일만 받아들입니다.','https://...'],
+    ['retroPackUrl','text',()=>topText('ss.f.retroPackUrl'),()=>topText('ss.f.retroPackUrlD'),'https://...'],
   ]],
 ];
 // A label or description may be a function, for the rows shown in the admin page's own language.
 const ssText=(v)=>typeof v==='function'?v():v;
 const GIB=1024**3;
 const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
-const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?topText('ov.on'):topText('ov.off')):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
+const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?topText('ov.on'):topText('ov.off')):ssText(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1]||v)||'비어 있음';
 // The overview owns the health summary; a standalone settings page has none.
 function ssRefreshHealth(){if(typeof loadHealth==='function')loadHealth();}
 async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||topText('pp.saved'));ssRender(d);ssRefreshHealth();}
