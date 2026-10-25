@@ -76,6 +76,18 @@ test('homebrew and library task choices keep their addresses and selection on re
   await expect(page.locator('#gd-form')).toBeVisible();
 });
 
+test('every admin page draws its content at the same width', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page);
+  const widths = new Set<string>();
+  for (const path of ['/admin', '/admin/games', '/admin/retro?view=ratings', '/admin/homebrew?tab=reco', '/admin/devices', '/admin/logs/security', '/admin/settings/admin']) {
+    await page.goto(path);
+    const b = (await page.locator('body.adm-shell > .wrap').boundingBox())!;
+    widths.add(`${Math.round(b.x)}/${Math.round(b.width)}`);
+  }
+  expect([...widths]).toHaveLength(1);
+});
+
 test('a deep address without a session shows the gate and returns to the same page after the check', async ({ page }) => {
   await page.goto('/admin/devices');
   await expect(page.getByRole('heading', { name: '관리 페이지 확인' })).toBeVisible();
