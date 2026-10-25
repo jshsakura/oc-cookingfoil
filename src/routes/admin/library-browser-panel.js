@@ -165,7 +165,7 @@ function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kin
   tr.append(td(lbSize(f.size),'lb-num'),td(lbDate(f.mtime),'lb-num'));
   if(game||kind==='all'){const c=td();if(game){const v=LB_CHECK[f.integrity]||LB_CHECK.unchecked;c.append(pill(v[0],v[1]));}tr.append(c);}
   const act=td();const box=el('div',null,'lb-act');const edit=lbEditButton(f,k);if(edit)box.append(edit);
-  const del=btn(topText('pp.delete'),()=>lbRemove(f,k),'danger');del.setAttribute('aria-label',(f.name||f.rel||'파일')+' '+topText('pp.delete'));box.append(del);act.append(box);tr.append(act);
+  const del=tbtn('delete','pp.delete',()=>lbRemove(f,k),'danger');del.setAttribute('aria-label',(f.name||f.rel||'파일')+' '+topText('pp.delete'));box.append(del);act.append(box);tr.append(act);
   return tr;}
 // Every kind deletes through its own endpoint; the list loads again afterwards.
 function lbRemoveCall(f,kind){

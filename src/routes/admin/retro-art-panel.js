@@ -361,8 +361,8 @@ function raBios(list,unread,pack,shadowed=[]){
 }
 function raRow(m,withArt){const tr=el('tr');
   const b=el('button',m.boxart?'변경':'맞추기');b.type='button';b.addEventListener('click',()=>raOpen(m));
-  const del=btn(topText('pp.delete'),()=>raRemove(m),'danger');del.setAttribute('aria-label',m.name+' '+topText('pp.delete'));
-  const nm=btn(topText('pp.name'),()=>raName(m));nm.setAttribute('aria-label',m.name+' '+topText('pp.name'));
+  const del=tbtn('delete','pp.delete',()=>raRemove(m),'danger');del.setAttribute('aria-label',m.name+' '+topText('pp.delete'));
+  const nm=tbtn('rename','pp.name',()=>raName(m));nm.setAttribute('aria-label',m.name+' '+topText('pp.name'));
   const info=btn('정보',()=>rmOpen(m));info.setAttribute('aria-label',m.name+' 정보');const box=el('div',null,'row-actions');box.append(b,nm,info,del);
   const n=td();n.append(m.title?.ko||m.title?.en||m.name);if(m.title)n.append(el('div','파일: '+m.name,'muted'));
   tr.append(td(m.system),n);if(withArt)tr.append(td(m.boxart?'있음':'없음'));tr.append(raCell(box));return tr;}

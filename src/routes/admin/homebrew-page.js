@@ -128,7 +128,7 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
         try{await api('/admin/api/content/'+type+'/verified',{method:'POST',body:{id:it.id,verified:next}});toast(next?it.name+' 에 검수됨 배지를 붙였습니다.':it.name+' 의 검수됨 배지를 뗐습니다.');}
         catch(err){toast(err.message);}loadHbApps();}));
       if(type==='patch'){const e=btn('편집',()=>ctOpen('patch',it,loadHbApps));e.setAttribute('aria-label',it.name+' 편집');line.append(e);}
-      const x=btn(topText('pp.delete'),()=>removeHbExtra(type,it.id,it.name),'danger');x.setAttribute('aria-label',it.name+' '+topText('pp.delete'));line.append(x);c.append(line);}
+      const x=tbtn('delete','pp.delete',()=>removeHbExtra(type,it.id,it.name),'danger');x.setAttribute('aria-label',it.name+' '+topText('pp.delete'));line.append(x);c.append(line);}
     return c;};
   paged($('hb-apps'),{key:'hb-apps',label:topText('ht.apps'),def:24,items:d.apps||[],
     match:(a,q)=>((a.name||'')+' '+(a.app||'')+' '+(a.repo_url||'')+' '+(a.title_id||'')).toLowerCase().includes(q),
@@ -163,12 +163,14 @@ function hbAppCard(a,extras){const name=a.name||a.app;const card=el('article',nu
   const desc=manual?.description||hbSources.find((s)=>s.id===a.id)?.description||{custom:null,github:a.description||null};
   const repo=(a.repo_url||'').replace('https://github.com/','');
   const foot=el('div',null,'src-foot hb-foot');
-  if(a.app)for(const [txt,type,short] of [[topText('rpt.apply'),'patch',topText('u.kPatch')],['세이브 올리기','save',topText('u.kSave')]]){
-    const u=btn(txt,()=>uploadFor(type,a.app),'hb-up');u.querySelector('span').textContent=short;foot.append(u);}
+  if(a.app)for(const [key,type,shortKey] of [['rpt.apply','patch','u.kPatch'],['up.entry','save','u.kSave']]){
+    const short=topText(shortKey),u=tbtn('upload',key,()=>uploadFor(type,a.app),'hb-up');
+    if(type==='save'){const label=topText(key)+' · '+short;u.title=label;u.setAttribute('aria-label',label);}
+    u.querySelector('span').textContent=short;foot.append(u);}
   foot.append(btn('설명',()=>editHbDesc(a.id,name,desc)),btn('그림',()=>openHbBanner(a)));
   if(a.replaceable)foot.append(btn(topText('t.hbReplace'),()=>pickHbFile(a,name)));
-  if(a.source==='manual')foot.append(btn('GitHub 연결',()=>linkHb(a)),btn(topText('pp.delete'),()=>removeManualHb(a.id,name),'danger'));
-  else if(repo)foot.append(btn('지금 확인',()=>checkHb(repo)),btn(topText('fp.remove'),()=>removeHb(repo),'danger'));
+  if(a.source==='manual')foot.append(btn('GitHub 연결',()=>linkHb(a)),tbtn('delete','pp.delete',()=>removeManualHb(a.id,name),'danger'));
+  else if(repo)foot.append(btn('지금 확인',()=>checkHb(repo)),tbtn('remove','fp.remove',()=>removeHb(repo),'danger'));
   card.append(foot);return card;}
 // The picture behind an app's header: SteamGridDB's wide backgrounds, an upload, or none.
 let hbBannerApp=null;
