@@ -5,7 +5,9 @@
  * /admin/api/server-settings, and to /admin/api/server/* for the restart button.
  */
 
-export const SERVER_SETTINGS_HTML = `<div class="hd"><h2 class="first">서버 동작</h2></div>
+import { top } from "./top-i18n.js";
+
+export const SERVER_SETTINGS_HTML = `<div class="hd"><h2 class="first" data-top="m.setServer">${top("m.setServer")}</h2></div>
   <p class="muted">바꾸면 바로 저장하고 다시 띄우지 않아도 적용합니다. 여기서 바꾸지 않은 것은 compose 의 값을 그대로 씁니다.</p>
   <div class="box-jump" id="ss-jump" role="tablist" aria-label="서버 동작 묶음"></div>
   <div id="ss-list" class="ss-list"></div>`;
@@ -94,10 +96,10 @@ const SS_GROUPS=[
 const ssText=(v)=>typeof v==='function'?v():v;
 const GIB=1024**3;
 const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
-const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?'켜짐':'꺼짐'):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
+const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?topText('ov.on'):topText('ov.off')):(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1])||v||'비어 있음';
 // The overview owns the health summary; a standalone settings page has none.
 function ssRefreshHealth(){if(typeof loadHealth==='function')loadHealth();}
-async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||'저장했습니다.');ssRender(d);ssRefreshHealth();}
+async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||topText('pp.saved'));ssRender(d);ssRefreshHealth();}
   catch(err){const row=SS_GROUPS.flatMap((g)=>g[1]).find((r)=>String(err.message).startsWith(r[0]+' '));
     toast(row?ssText(row[2])+' 값이 맞지 않습니다. 고쳐서 다시 넣습니다.':err.message);loadServerSettings();}}
 function ssControl(key,kind,s,ph){
