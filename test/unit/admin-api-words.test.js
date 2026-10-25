@@ -1,19 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { LANGS } from "../../src/meta/langs.js";
 import { API_WORDS, apiWord } from "../../src/routes/admin/api-words.js";
 
 const req = (lang, query = {}) => ({ query, get: (h) => (h.toLowerCase() === "accept-language" ? lang : undefined) });
 
 test("every admin language has every API message", () => {
   const keys = Object.keys(API_WORDS.ko).sort();
-  for (const lang of ["en", "ja", "zh"]) assert.deepEqual(Object.keys(API_WORDS[lang]).sort(), keys, lang);
+  for (const lang of LANGS) assert.deepEqual(Object.keys(API_WORDS[lang]).sort(), keys, lang);
 });
 
 test("an API message follows the admin page's language, English for any other", () => {
   assert.equal(apiWord(req("ko"), "failed"), API_WORDS.ko.failed);
   assert.equal(apiWord(req("ja-JP"), "failed"), API_WORDS.ja.failed);
-  assert.equal(apiWord(req("zh-TW"), "failed"), API_WORDS.zh.failed, "traditional Chinese reads the Chinese text");
-  assert.equal(apiWord(req("es"), "failed"), API_WORDS.en.failed);
+  assert.equal(apiWord(req("zh-TW"), "failed"), API_WORDS["zh-Hant"].failed, "Traditional Chinese has its own text");
+  for (const lang of LANGS) assert.equal(apiWord(req(lang), "failed"), API_WORDS[lang].failed, lang);
+  assert.equal(apiWord(req("pt-BR"), "failed"), API_WORDS.pt.failed);
+  assert.equal(apiWord(req("xx"), "failed"), API_WORDS.en.failed);
   assert.equal(apiWord(req(undefined), "failed"), API_WORDS.en.failed, "a token without the header gets English");
 });
 
@@ -21,7 +24,7 @@ test("an API message follows the admin page's language, English for any other", 
 test("every language of an API message fills the same placeholders", () => {
   const names = (text) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
   for (const [key, ko] of Object.entries(API_WORDS.ko)) {
-    for (const lang of ["en", "ja", "zh"]) assert.deepEqual(names(API_WORDS[lang][key]), names(ko), `${lang}.${key}`);
+    for (const lang of LANGS) assert.deepEqual(names(API_WORDS[lang][key]), names(ko), `${lang}.${key}`);
   }
 });
 
@@ -41,7 +44,9 @@ test("an admin route answers English without Accept-Language and the page's lang
   try {
     assert.deepEqual(await ask(), { status: 400, error: "A title id is 16 hexadecimal digits" });
     assert.deepEqual(await ask({ "Accept-Language": "ko" }), { status: 400, error: API_WORDS.ko["descriptions.badTitle"] });
-    assert.deepEqual(await ask({ "Accept-Language": "ja" }), { status: 400, error: API_WORDS.ja["descriptions.badTitle"] });
+    for (const lang of LANGS) {
+      assert.deepEqual(await ask({ "Accept-Language": lang }), { status: 400, error: API_WORDS[lang]["descriptions.badTitle"] }, lang);
+    }
   } finally {
     server.close();
   }
