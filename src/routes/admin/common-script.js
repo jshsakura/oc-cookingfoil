@@ -68,7 +68,6 @@ const ICONS={'삭제':TRASH,'줄 삭제':TRASH,'폐기':TRASH,
   '지금 다운로드':'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
   '패치 올리기':'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>','세이브 올리기':'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
   'GitHub 연결':'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1 1"/>'};
-};
 // Semantic action keys: language-independent, so tbtn() picks its icon by
 // what the button does, not by the label's language. The Korean keys above
 // stay for btn() calls that have not been converted yet.
