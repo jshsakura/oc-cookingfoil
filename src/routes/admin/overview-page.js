@@ -22,18 +22,18 @@ export const OVERVIEW_SCRIPT = /* js */ `
 const WARNINGS={
   'storage-kept':{t:'ov.w.storageKeptT',df:(w)=>topFill('ov.w.storageKeptD',{paths:(w.paths||[]).map((p)=>p.now+' → '+p.want).join(', ')})},
   'old-incoming':{t:'ov.w.oldIncomingT',df:(w)=>topFill('ov.w.oldIncomingD',{paths:(w.paths||[]).map((p)=>p.now+' → '+p.want).join(', ')})},
-  'no-prod-keys':{t:'ov.w.noProdKeysT',d:'ov.w.noProdKeysD',go:['ov.w.uploadKeys','settings']},
-  'admin-2fa-skipped':{t:'ov.w.admin2faSkippedT',d:'ov.w.admin2faSkippedD',go:['ov.w.enroll','settings/security']},
-  'admin-unenrolled':{t:'ov.w.adminUnenrolledT',d:'ov.w.adminUnenrolledD',go:['ov.w.enroll','settings/security']},
-  'admin-authenticator-optional':{t:'ov.w.adminOptionalT',d:'ov.w.adminOptionalD',go:['ov.w.enroll','settings/security']},
-  'no-auth':{t:'ov.w.noAuthT',d:'ov.w.noAuthD',go:['ov.w.makeAccount','users']},
+  'no-prod-keys':{t:'ov.w.noProdKeysT',d:'ov.w.noProdKeysD',go:['ov.w.uploadKeys','/admin/settings/server']},
+  'admin-2fa-skipped':{t:'ov.w.admin2faSkippedT',d:'ov.w.admin2faSkippedD',go:['ov.w.enroll','/admin/settings/admin']},
+  'admin-unenrolled':{t:'ov.w.adminUnenrolledT',d:'ov.w.adminUnenrolledD',go:['ov.w.enroll','/admin/settings/admin']},
+  'admin-authenticator-optional':{t:'ov.w.adminOptionalT',d:'ov.w.adminOptionalD',go:['ov.w.enroll','/admin/settings/admin']},
+  'no-auth':{t:'ov.w.noAuthT',d:'ov.w.noAuthD',go:['ov.w.makeAccount','/admin/users']},
   'proxy-collapse':{t:'ov.w.proxyT',d:'ov.w.proxyD'},
   'both-lanes':{t:'ov.w.bothLanesT',d:'ov.w.bothLanesD'},
 };
 function renderWarnings(list){const box=$('warnings');box.replaceChildren();
   for(const w of list){const k=WARNINGS[w.code];const n=el('div',null,'note'+(w.severity==='warn'?' warn':''));
     n.append(el('div',k?topText(k.t):w.title,'t'),el('div',k?(k.df?k.df(w):topText(k.d)):w.detail,'d'));
-    if(k?.go){const b=btn(topText(k.go[0]),()=>{location.hash='#'+k.go[1];});b.classList.add('note-go');n.append(b);}
+    if(k?.go){const b=btn(topText(k.go[0]),()=>{location.href=k.go[1];});b.classList.add('note-go');n.append(b);}
     box.append(n);}}
 function renderLanes(l){const box=$('lanes');box.replaceChildren();
   box.append(pill(l.accounts.enabled?topFill('ov.laneAccounts',{n:l.accounts.userCount}):topText('ov.laneAccountsNone'),l.accounts.enabled?'on':'off'));

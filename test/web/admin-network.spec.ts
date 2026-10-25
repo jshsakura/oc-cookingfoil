@@ -68,3 +68,38 @@ test('a failed client-log poll reports its error and recovers without an unhandl
   await expect(page.locator('#cl-list .empty')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+
+test('API calls preserve custom headers and use the selected UI language', async ({ page }) => {
+  await signIn(page);
+  await page.locator('#lang-btn').click();
+  await page.locator('#lang-list [data-admin-lang="fr"]').click();
+  let headers: Record<string, string> = {};
+  await page.route('**/admin/api/homebrew/check', async (route) => {
+    headers = route.request().headers();
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.evaluate(async () => {
+    const client = window as unknown as { api: (url: string, options: unknown) => Promise<unknown> };
+    await client.api('/admin/api/homebrew/check', {
+      method: 'POST', headers: new Headers({ 'X-Test-Request': 'custom', 'Accept-Language': 'en' }), body: { repo: 'example/project' },
+    });
+  });
+  expect(headers['x-test-request']).toBe('custom');
+  expect(headers['accept-language']).toBe('fr');
+  expect(headers['content-type']).toBe('application/json');
+  expect(headers.accept).toBe('application/json');
+});
+
+test('overview security warnings open the administrator security task directly', async ({ page }) => {
+  await signIn(page);
+  await page.route('**/admin/api/stats', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, warnings: [{ code: 'admin-unenrolled', severity: 'warn' }] } });
+  });
+  await page.goto('/admin');
+  await page.locator('#warnings .note-go').click();
+  await expect(page).toHaveURL(/\/admin\/settings\/admin(?:#settings\/security)?$/);
+  await expect(page.locator('aside.adm-side [aria-current="page"]')).toHaveText('관리자 보안');
+});

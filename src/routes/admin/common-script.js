@@ -116,8 +116,11 @@ function pagedTable(id,cols,items,row,empty,opts={}){
 const errText=(err)=>{const k=err.code&&('er.'+err.code);return (k&&topText(k))||err.message;};
 async function api(url,opts={}){
   // The admin API answers its errors in the page's language (routes/admin/api-words.js).
-  const init={headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},...opts};
-  if(opts.body!==undefined){init.headers['Content-Type']='application/json';init.body=JSON.stringify(opts.body);}
+  const headers=new Headers(opts.headers);
+  if(!headers.has('Accept'))headers.set('Accept','application/json');
+  headers.set('Accept-Language',typeof adminLang==='string'?adminLang:'ko');
+  const init={...opts,headers};
+  if(opts.body!==undefined){init.headers.set('Content-Type','application/json');init.body=JSON.stringify(opts.body);}
   const r=await fetch(url,init);
   // Signed out (or the first account just switched sign-in on): reload, which leads
   // to the sign-in page, but never while a new password is still on screen.
