@@ -18,34 +18,34 @@ import { box } from "./boxes.js";
 import { top } from "./top-i18n.js";
 
 export const NSZ_HTML = `<section id="tab-nsz" hidden>
-  <div class="hd"><h2 class="first">NSZ 변환</h2>
-    <div class="actions"><button type="button" id="nz-scan">라이브러리 검사</button><button type="button" class="primary" id="nz-toggle" disabled>시작</button></div></div>
-  <p class="muted">게임 폴더의 .nsp 를 .nsz 로 압축하고 검증한 뒤 원본을 교체합니다. 콘솔이 다운로드하는 동안에는 새 파일을 시작하지 않고, 다운로드가 30초 동안 없으면 이어서 합니다.</p>
+  <div class="hd"><h2 class="first">${top("nz.title")}</h2>
+    <div class="actions"><button type="button" id="nz-scan">${top("nz.scan")}</button><button type="button" class="primary" id="nz-toggle" disabled>${top("nz.start")}</button></div></div>
+  <p class="muted">${top("nz.lede")}</p>
   <div class="nz-head">
     <div class="nz-state"><span class="pill nz-sk" id="nz-state">${top("loading")}</span><span class="muted" id="nz-note"></span></div>
     <div class="bar nz-overall" aria-hidden="true"><i id="nz-overall"></i></div>
     <p class="muted" id="nz-overall-t"></p>
-    <div class="nz-kept" id="nz-kept" hidden><span class="muted" id="nz-kept-t"></span><button type="button" id="nz-purge">지금 비우기</button></div>
+    <div class="nz-kept" id="nz-kept" hidden><span class="muted" id="nz-kept-t"></span><button type="button" id="nz-purge">${top("nz.purge")}</button></div>
   </div>
   <div class="nz-cards" id="nz-cards">${`<div class="card nz-sk"><div class="v">0</div><div class="l">${top("loading")}</div></div>`.repeat(5)}</div>
   <div class="nz-active" id="nz-active"></div>
   <div class="hd nz-tools">
-    <div class="seg" id="nz-filter" role="group" aria-label="보기">
+    <div class="seg" id="nz-filter" role="group" aria-label="${top("nz.filterAria")}">
       <button type="button" data-filter="all" class="active" aria-pressed="true">${top("t.total")}</button>
       <button type="button" data-filter="waiting" aria-pressed="false">${top("pp.waiting")}</button>
-      <button type="button" data-filter="running" aria-pressed="false">진행</button>
-      <button type="button" data-filter="done" aria-pressed="false">완료</button>
-      <button type="button" data-filter="failed" aria-pressed="false">실패</button>
+      <button type="button" data-filter="running" aria-pressed="false">${top("nz.running")}</button>
+      <button type="button" data-filter="done" aria-pressed="false">${top("nz.done")}</button>
+      <button type="button" data-filter="failed" aria-pressed="false">${top("ss.fail")}</button>
     </div>
-    <div class="actions"><button type="button" id="nz-clear">완료건 삭제</button><button type="button" class="primary" id="nz-run-sel" disabled>변환할 파일을 고릅니다</button></div>
+    <div class="actions"><button type="button" id="nz-clear">${top("nz.clearDone")}</button><button type="button" class="primary" id="nz-run-sel" disabled>${top("nz.runPick")}</button></div>
   </div>
   <div class="nz-pick" id="nz-pick"><label class="nz-chk"><input type="checkbox" id="nz-pick-all">${top("t.selectAll")}</label></div>
   <div class="nz-list" id="nz-list">${`<div class="nz-row nz-skel"><i class="nz-ico nz-sk"></i><div class="nz-main"><b class="nz-sk">${top("loading")}</b><span class="nz-sk">${top("lo.colFile")}</span></div></div>`.repeat(6)}</div>
   <div class="nz-pager" id="nz-pager"></div>
-  ${box("nsz-log", "변환 기록", `<p class="muted">${top("t.nz.logDesc")}</p>
-  <input type="search" id="nz-log-q" placeholder="이름으로 찾습니다" aria-label="변환 기록에서 찾기">
+  ${box("nsz-log", top("nz.logTitle"), `<p class="muted">${top("t.nz.logDesc")}</p>
+  <input type="search" id="nz-log-q" placeholder="${top("nz.logPh")}" aria-label="${top("nz.logAria")}">
   <div class="nz-list" id="nz-log"></div><div class="nz-pager" id="nz-log-pager" hidden></div>`)}
-  ${box("nsz-settings", "변환 설정", `<p class="muted">바꾸면 바로 저장하고 다시 띄우지 않아도 적용합니다.</p>
+  ${box("nsz-settings", top("nz.settingsTitle"), `<p class="muted">${top("nz.settingsLede")}</p>
   <div class="ss-list"><section class="ss-group" id="nz-settings"></section></div>`)}
 </section>`;
 
@@ -105,20 +105,20 @@ var nzFilter='all',nzOffset=0,nzTimer=null,nzSettingsSig='',nzBusy=false,nzSel=n
 const NZ_LIMIT=50,NZ_POLL_MS=3000;
 const nzSize=(n)=>{n=Number(n)||0;if(n<1024)return n+' B';const u=['KB','MB','GB','TB'];let i=-1;do{n/=1024;i++;}while(n>=1024&&i<3);return (n>=100?n.toFixed(0):n.toFixed(1))+' '+u[i];};
 const nzTime=(ms)=>{const s=Math.max(0,Math.round(ms/1000));const h=Math.floor(s/3600),m=Math.floor(s/60)%60,x=s%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0');};
-const NZ_STATE={waiting:[()=>topText('pp.waiting'),''],busy:['나중에','warn'],running:['진행 중','warn'],done:['완료','on'],failed:['실패','off'],skipped:['건너뜀','']};
-const NZ_LEVELS=Array.from({length:22},(_,i)=>[String(i+1),(i+1)+(i===17?' (기본)':'')]);
+const NZ_STATE={waiting:[()=>topText('pp.waiting'),''],busy:[()=>topText('nz.stLater'),'warn'],running:[()=>topText('nz.stRunning'),'warn'],done:[()=>topText('nz.done'),'on'],failed:[()=>topText('ss.fail'),'off'],skipped:[()=>topText('nz.skipped'),'']};
+const NZ_LEVELS=Array.from({length:22},(_,i)=>[String(i+1),()=>topFill(i===17?'ss.nCountDef':'ss.nCount',{n:i+1})]);
 const NZ_SETTINGS=[
-  ['nszEnabled','bool','변환 사용','켜면 이 탭에서 대기열을 시작하고 멈출 수 있습니다. 끄면 진행 중인 변환을 멈추고 원본은 그대로 둡니다.'],
-  ['nszAutoQueue','bool','새 파일 자동 추가','라이브러리에 새로 들어온 .nsp 를 대기열에 알아서 넣습니다. 시작해 두었다면 바로 변환합니다.'],
-  ['nszLevel',NZ_LEVELS,'압축 수준','높을수록 작아지지만 오래 걸립니다.'],
-  ['nszThreads',[1,32,'개'],'스레드','파일 하나를 압축할 때 쓰는 CPU 스레드 수입니다.'],
-  ['nszWorkers',[['1','1개 (기본)'],['2','2개'],['3','3개']],'동시에 변환할 파일','늘리면 빨리 끝나지만 같은 디스크에서 다운로드하는 콘솔이 느려집니다.'],
-  ['nszMinSizeMb',[1,1048576,'MB'],'최소 크기','이보다 작은 파일은 변환하지 않습니다.'],
-  ['nszDiskFloorGb',[0,1048576,'GB'],'더 남길 공간',()=>topText('t.nz.floorDesc')],
-  ['nszKeepHours',[0,168,'시간'],'원본 보관 시간',()=>topText('t.nz.keepHoursDesc')],
-  ['nszKeepGb',[0,4096,'GB'],'원본 보관 한도',()=>topText('t.nz.keepGbDesc')],
-  ['nszBlock','bool','블록 압축','블록 압축은 콘솔이 여러 코어로 풀 수 있게 하는 방식이며 지금 클라이언트는 솔리드와 속도 차이가 없으니 꺼 둡니다.'],
-  ['nszXci','bool','XCI 도 XCZ 로 변환','XCI 파일도 XCZ 로 압축합니다.'],
+  ['nszEnabled','bool',()=>topText('nz.f.enabled'),()=>topText('nz.f.enabledD')],
+  ['nszAutoQueue','bool',()=>topText('nz.f.autoQueue'),()=>topText('nz.f.autoQueueD')],
+  ['nszLevel',NZ_LEVELS,()=>topText('nz.f.level'),()=>topText('nz.f.levelD')],
+  ['nszThreads',[1,32,()=>topText('nz.unitCount')],()=>topText('nz.f.threads'),()=>topText('nz.f.threadsD')],
+  ['nszWorkers',[['1',()=>topFill('ss.nCountDef',{n:1})],['2',()=>topFill('ss.nCount',{n:2})],['3',()=>topFill('ss.nCount',{n:3})]],()=>topText('nz.f.workers'),()=>topText('nz.f.workersD')],
+  ['nszMinSizeMb',[1,1048576,'MB'],()=>topText('nz.f.minSize'),()=>topText('nz.f.minSizeD')],
+  ['nszDiskFloorGb',[0,1048576,'GB'],()=>topText('nz.f.diskFloor'),()=>topText('t.nz.floorDesc')],
+  ['nszKeepHours',[0,168,()=>topText('nz.unitHours')],()=>topText('nz.f.keepHours'),()=>topText('t.nz.keepHoursDesc')],
+  ['nszKeepGb',[0,4096,'GB'],()=>topText('nz.f.keepGb'),()=>topText('t.nz.keepGbDesc')],
+  ['nszBlock','bool',()=>topText('nz.f.block'),()=>topText('nz.f.blockD')],
+  ['nszXci','bool',()=>topText('nz.f.xci'),()=>topText('nz.f.xciD')],
 ];
 function nzIcon(it,cls){if(!it.titleId){const i=el('i',null,'nz-ico'+(cls?' '+cls:''));return i;}
   const img=el('img',null,'nz-ico'+(cls?' '+cls:''));img.alt='';img.loading='lazy';img.src='/api/library/icon/'+it.titleId+'?size=sm';img.onerror=()=>{img.style.visibility='hidden';};return img;}
@@ -126,19 +126,19 @@ const nzName=(it)=>it.name||it.rel.split('/').pop().replace(/\\.(nsp|xci)$/i,'')
 const nzFile=(it)=>it.rel.split('/').pop();
 const nzPickable=()=>nzFilter==='all'||nzFilter==='waiting'||nzFilter==='failed';
 const nzSelectable=(it)=>['waiting','busy','failed','skipped'].includes(it.state);
-const nzLeft=(ms)=>{const m=Math.max(0,Math.ceil(ms/60000));return m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'');};
+const nzLeft=(ms)=>{const m=Math.max(0,Math.ceil(ms/60000));const h=Math.floor(m/60);return m<60?topFill('nz.minN',{m}):m%60?topFill('nz.hourMinN',{h,m:m%60}):topFill('nz.hourN',{h});};
 const nzKeepLeft=(it)=>it.keepUntil-(Date.now()+nzSkew);
 // One run button. Ticked rows go first; with none ticked, 대기 runs the files waiting now and 실패 tries the failed ones again.
 // Either way only those run, and files queued meanwhile wait.
 let nzTabCount=0,nzOff=false;
-const nzRunLabel=()=>nzSel.size?'선택한 '+num(nzSel.size)+'개 변환':nzFilter==='waiting'&&nzTabCount?'대기 '+num(nzTabCount)+'개 모두 변환':nzFilter==='failed'&&nzTabCount?'실패 '+num(nzTabCount)+'개 다시 변환':'변환할 파일을 고릅니다';
+const nzRunLabel=()=>nzSel.size?topFill('nz.runSel',{n:num(nzSel.size)}):nzFilter==='waiting'&&nzTabCount?topFill('nz.runWaitingAll',{n:num(nzTabCount)}):nzFilter==='failed'&&nzTabCount?topFill('nz.runFailedAll',{n:num(nzTabCount)}):topText('nz.runPick');
 function nzSelUpdate(){const b=$('nz-run-sel');b.textContent=nzRunLabel();b.disabled=nzOff||!(nzSel.size||((nzFilter==='waiting'||nzFilter==='failed')&&nzTabCount));
   const boxes=[...$('nz-list').querySelectorAll('.nz-lead input')];$('nz-pick-all').checked=boxes.length>0&&boxes.every((c)=>c.checked);}
 function nzProgress(it){return it.expectedBytes?Math.min(0.97,it.outBytes/it.expectedBytes):null;}
 async function nzAct(url,opts,msg){if(nzBusy)return;nzBusy=true;try{const d=await api(url,opts);if(msg)toast(typeof msg==='function'?msg(d):msg);}catch(err){toast(err.message);}finally{nzBusy=false;}loadNsz();}
 function nzRowSig(it){return [adminLang,it.state,it.size,it.savedBytes,it.reason,it.name,it.titleId,it.state==='running'?Math.round(it.outBytes/1048576):0,it.keptAt?Math.ceil(nzKeepLeft(it)/60000):''].join('|');}
 function nzLead(it){const lead=el('div',null,'nz-lead');
-  if(nzPickable()){if(nzSelectable(it)){const c=el('input');c.type='checkbox';c.checked=nzSel.has(it.id);c.setAttribute('aria-label',nzName(it)+' 선택');
+  if(nzPickable()){if(nzSelectable(it)){const c=el('input');c.type='checkbox';c.checked=nzSel.has(it.id);c.setAttribute('aria-label',topFill('nz.pickAria',{name:nzName(it)}));
     c.addEventListener('change',()=>{if(c.checked)nzSel.add(it.id);else nzSel.delete(it.id);nzSelUpdate();});lead.append(c);}else lead.append(el('span',null,'nz-cb-sp'));}
   lead.append(nzIcon(it));return lead;}
 function nzRow(it){const r=el('div',null,'nz-row '+it.state);r.dataset.id=it.id;r.dataset.sig=nzRowSig(it);
@@ -148,13 +148,13 @@ function nzRow(it){const r=el('div',null,'nz-row '+it.state);r.dataset.id=it.id;
   const info=el('div',null,'nz-info');const [label,kind]=NZ_STATE[it.state]||[it.state,''];info.append(pill(nzWord(label),kind));
   info.append(el('span',nzSize(it.size)));
   if(it.state==='done')info.append(el('span','-'+nzSize(it.savedBytes)+' ('+Math.round(it.savedBytes/it.size*100)+'%)'));
-  if(it.state==='running'){const p=nzProgress(it);info.append(el('span',p==null?nzSize(it.outBytes)+' 씀':Math.round(p*100)+'%'));}
+  if(it.state==='running'){const p=nzProgress(it);info.append(el('span',p==null?topFill('nz.wrote',{size:nzSize(it.outBytes)}):Math.round(p*100)+'%'));}
   const acts=el('div',null,'nz-acts');
-  if(it.state==='waiting'||it.state==='busy')acts.append(btn('위로',()=>nzAct('/admin/api/nsz/items/'+it.id+'/top',{method:'POST',body:{}},'맨 앞으로 옮겼습니다.')));
-  if(it.state==='failed'||it.state==='skipped'||it.state==='busy')acts.append(btn('재시도',()=>nzAct('/admin/api/nsz/items/'+it.id+'/retry',{method:'POST',body:{}},'다시 대기열에 넣었습니다.')));
-  acts.append(tbtn('remove','fp.remove',async()=>{if(it.state==='running'&&!await ask(nzName(it)+' 의 변환을 멈추고 대기열에서 뺍니다. 원본은 그대로 둡니다.',{danger:true}))return;
+  if(it.state==='waiting'||it.state==='busy')acts.append(tbtn('top','nz.top',()=>nzAct('/admin/api/nsz/items/'+it.id+'/top',{method:'POST',body:{}},topText('nz.movedTop'))));
+  if(it.state==='failed'||it.state==='skipped'||it.state==='busy')acts.append(tbtn('retry','nz.retry',()=>nzAct('/admin/api/nsz/items/'+it.id+'/retry',{method:'POST',body:{}},topText('nz.requeued'))));
+  acts.append(tbtn('remove','fp.remove',async()=>{if(it.state==='running'&&!await ask(topFill('nz.askStopRemove',{name:nzName(it)}),{danger:true}))return;
     if(it.keptAt&&!await ask(topFill('t.nz.askRemoveKept',{name:nzName(it)}),{danger:true}))return;
-    nzAct('/admin/api/nsz/items/'+it.id,{method:'DELETE'},'대기열에서 뺐습니다.');},'danger'));
+    nzAct('/admin/api/nsz/items/'+it.id,{method:'DELETE'},topText('nz.removed'));},'danger'));
   r.append(nzLead(it),main,info,acts);return r;}
 /** Puts the rows in order, keeping the nodes whose row did not change. */
 function nzPatch(list,items){const old=new Map([...list.children].filter((c)=>c.dataset.id).map((c)=>[c.dataset.id,c]));
@@ -165,7 +165,7 @@ function nzPatch(list,items){const old=new Map([...list.children].filter((c)=>c.
     if(n===at)at=at.nextSibling;else list.insertBefore(n,at);}
   for(const n of old.values())n.remove();
   $('nz-pick').hidden=!nzPickable()||!items.some(nzSelectable);$('nz-run-sel').hidden=$('nz-pick').hidden;nzSelUpdate();
-  if(!items.length)list.append(el('div',nzFilter==='all'?'대기열이 비어 있습니다. 라이브러리 검사로 변환할 파일을 찾습니다.':'이 상태의 파일이 없습니다.','empty'));}
+  if(!items.length)list.append(el('div',nzFilter==='all'?topText('nz.empty'):topText('nz.noneInFilter'),'empty'));}
 function nzRunCard(it){const c=el('article',null,'nz-run');c.dataset.id=it.id;
   const body=el('div');body.style.minWidth='0';const meta=el('div',null,'nz-meta');const bar=el('div',null,'nz-bar');bar.append(el('i'));
   body.append(el('b',nzName(it)),el('div',nzFile(it),'nz-file'),meta,bar);c.append(nzIcon(it),body);return c;}
@@ -173,35 +173,35 @@ function nzRenderActive(active){const box=$('nz-active');const keep=new Map([...
   for(const it of active){let c=keep.get(it.id);keep.delete(it.id);if(!c){c=nzRunCard(it);box.append(c);}
     const p=nzProgress(it);const bar=c.querySelector('.nz-bar');bar.classList.toggle('ind',p==null);bar.firstChild.style.width=p==null?'':Math.round(p*100)+'%';
     const original=el('span');original.append(el('span',topText('rpt.original')),document.createTextNode(' '+nzSize(it.size)));
-    c.querySelector('.nz-meta').replaceChildren(original,el('span','경과 '+nzTime(Date.now()-it.startedAt)),
-      el('span',p==null?nzSize(it.outBytes)+' 썼습니다':Math.round(p*100)+'% · 예상 '+nzSize(it.expectedBytes)));}
+    c.querySelector('.nz-meta').replaceChildren(original,el('span',topFill('nz.elapsed',{t:nzTime(Date.now()-it.startedAt)})),
+      el('span',p==null?topFill('nz.wrote',{size:nzSize(it.outBytes)}):topFill('nz.pctEta',{p:Math.round(p*100),size:nzSize(it.expectedBytes)})));}
   for(const c of keep.values())c.remove();}
-function nzCards(t){const cards=[[topText('pp.waiting'),num(t.waiting+t.busy),nzSize(t.waitingBytes)],['진행',num(t.running),''],['완료',num(t.done),'',t.done?'good':''],['실패',num(t.failed+t.skipped),'',t.failed?'bad':''],['확보한 용량',nzSize(t.savedBytes),num(t.converted)+'개 변환',t.savedBytes?'good':'']];
+function nzCards(t){const cards=[[topText('pp.waiting'),num(t.waiting+t.busy),nzSize(t.waitingBytes)],[topText('nz.running'),num(t.running),''],[topText('nz.done'),num(t.done),'',t.done?'good':''],[topText('ss.fail'),num(t.failed+t.skipped),'',t.failed?'bad':''],[topText('nz.savedSpace'),nzSize(t.savedBytes),topFill('nz.convertedN',{n:num(t.converted)}),t.savedBytes?'good':'']];
   $('nz-cards').replaceChildren(...cards.map(([l,v,sub,cls])=>{const c=el('div',null,'card'+(cls?' '+cls:''));c.append(el('div',v,'v'),el('div',l+(sub?' · '+sub:''),'l'));return c;}));}
 function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
-  const [label,kind]=d.status==='off'?[topText('ov.off'),'']:d.status==='running'?['실행 중','on']:d.status==='idle'?['쉬는 중','']:['일시정지','warn'];st.textContent=label;st.className='pill'+(kind?' '+kind:'');
+  const [label,kind]=d.status==='off'?[topText('ov.off'),'']:d.status==='running'?[()=>topText('nz.stRun'),'on']:d.status==='idle'?[()=>topText('nz.stIdle'),'']:[()=>topText('nz.pause'),'warn'];st.textContent=nzWord(label);st.className='pill'+(kind?' '+kind:'');
   const tb=d.trash&&d.trash.bytes||0,kb=d.kept&&d.kept.bytes||0;
   const space={trash:nzSize(tb),kept:nzSize(kb)};
-  const notes={disk:topText('t.nz.diskStop')+' '+topFill(tb&&kb?'t.nz.diskBoth':tb?'t.nz.diskTrash':kb?'t.nz.diskKept':'t.nz.diskNone',space),failures:'잇달아 실패해 멈췄습니다. 실패한 파일의 이유를 확인합니다.'};
-  let note=d.status==='off'?'아래 설정에서 변환을 켭니다.':d.pausedReason?notes[d.pausedReason]||'':d.status==='running'?(d.waitingFor==='downloads'?'콘솔이 다운로드하고 있어 기다립니다. 30초 동안 다운로드가 없으면 다음 파일을 시작합니다.':d.active.length?'':'사용 중인 파일만 남아 잠시 뒤에 다시 확인합니다.'):d.status==='idle'?(d.totals.waiting+d.totals.busy?'시작을 누르면 대기열을 차례로 변환합니다.':'할 일이 없어 쉬고 있습니다.')+(d.autoQueue?' 새 게임이 들어오면 저절로 시작합니다.':''):'시작을 누르면 대기열을 차례로 변환합니다.';
-  if(d.only&&d.status==='running')note='선택한 '+num(d.only)+'개만 변환합니다. '+note;
-  if(!d.tool)note='nsz 를 찾지 못했습니다. 서버 이미지나 COOK_NSZ_BIN 을 확인합니다. '+note;$('nz-note').textContent=note;
-  const tg=$('nz-toggle');tg.disabled=d.status==='off';tg.textContent=d.status==='running'?'일시정지':'시작';tg.className=d.status==='running'?'':'primary';
+  const notes={disk:topText('t.nz.diskStop')+' '+topFill(tb&&kb?'t.nz.diskBoth':tb?'t.nz.diskTrash':kb?'t.nz.diskKept':'t.nz.diskNone',space),failures:()=>topText('nz.noteFailures')};
+  let note=d.status==='off'?topText('nz.noteOff'):d.pausedReason?nzWord(notes[d.pausedReason])||'':d.status==='running'?(d.waitingFor==='downloads'?topText('nz.noteWaiting'):d.active.length?'':topText('nz.noteBusyFiles')):d.status==='idle'?((d.totals.waiting+d.totals.busy?topText('nz.noteStart'):topText('nz.noteIdle'))+(d.autoQueue?topText('nz.noteAuto'):'')):topText('nz.noteStart');
+  if(d.only&&d.status==='running')note=topFill('nz.onlyN',{n:num(d.only)})+' '+note;
+  if(!d.tool)note=topText('nz.noTool')+' '+note;$('nz-note').textContent=note;
+  const tg=$('nz-toggle');tg.disabled=d.status==='off';tg.textContent=d.status==='running'?topText('nz.pause'):topText('nz.start');tg.dataset.running=String(d.status==='running');tg.className=d.status==='running'?'':'primary';
   const t=d.totals,doneN=t.done+t.failed+t.skipped,all=doneN+t.waiting+t.busy+t.running;
   nzTabCount=nzFilter==='waiting'?t.waiting+t.busy:nzFilter==='failed'?t.failed+t.skipped:0;nzOff=d.status==='off';nzSelUpdate();
   $('nz-overall').style.width=all?Math.round(doneN/all*100)+'%':'0';
   const k=d.kept||{};$('nz-kept').hidden=!k.count;
-  if(k.count)$('nz-kept-t').textContent='보관 중인 원본 '+num(k.count)+'개 · '+nzSize(k.bytes)+(k.capBytes?' / 한도 '+nzSize(k.capBytes):'')+(k.nextAt?' · '+topFill('t.nz.oldest',{left:nzLeft(k.nextAt-k.now)}):'');
-  $('nz-overall-t').textContent=all?'전체 '+num(all)+'개 중 '+num(doneN)+'개를 처리했습니다. 남은 크기는 '+nzSize(t.waitingBytes)+'입니다.':'대기열에 파일이 없습니다.';}
+  if(k.count)$('nz-kept-t').textContent=topFill('nz.keptLine',{n:num(k.count),size:nzSize(k.bytes)})+(k.capBytes?topFill('nz.keptCap',{size:nzSize(k.capBytes)}):'')+(k.nextAt?' · '+topFill('t.nz.oldest',{left:nzLeft(k.nextAt-k.now)}):'');
+  $('nz-overall-t').textContent=all?topFill('nz.overallLine',{all:num(all),done:num(doneN),size:nzSize(t.waitingBytes)}):topText('nz.queueEmpty');}
 function nzPager(d){const p=$('nz-pager');p.hidden=d.total<=d.limit;if(p.hidden){p.replaceChildren();return;}
   const page=Math.floor(d.offset/d.limit)+1,pages=Math.ceil(d.total/d.limit);
   const prev=btn(topText('fp.prev'),()=>{nzOffset=Math.max(0,nzOffset-NZ_LIMIT);loadNsz();});prev.disabled=page<=1;
   const next=btn(topText('fp.next'),()=>{nzOffset+=NZ_LIMIT;loadNsz();});next.disabled=page>=pages;
-  p.replaceChildren(prev,el('span',page+' / '+pages+' 쪽 · '+num(d.total)+'개','muted'),next);}
+  p.replaceChildren(prev,el('span',topFill('nz.pagerLine',{page,pages,n:num(d.total)}),'muted'),next);}
 // A label is text or, for a translated one, a function giving it in the page's language.
 const nzWord=(w)=>typeof w==='function'?w():w;
-const NZ_EVENT={converted:[()=>topText('s.nsz'),'on'],'original-deleted':[()=>topText('t.nz.evOrig'),''],'original-unverified':[()=>topText('t.nz.evOrig'),''],failed:['실패','off'],restored:['되돌림','']}; // restored: lines written before 되돌리기 was dropped
-const NZ_WHY={age:'보관 시간이 지났습니다.',cap:'보관 한도를 넘었습니다.',space:'변환할 공간이 모자랐습니다.',manual:()=>topText('t.nz.whyManual'),removed:'대기열에서 뺐습니다.',cleared:()=>topText('t.nz.whyCleared'),missing:'파일이 이미 없었습니다.',ticketless:()=>topText('t.nz.whyTicketless')};
+const NZ_EVENT={converted:[()=>topText('s.nsz'),'on'],'original-deleted':[()=>topText('t.nz.evOrig'),''],'original-unverified':[()=>topText('t.nz.evOrig'),''],failed:[()=>topText('ss.fail'),'off'],restored:[()=>topText('nz.restored'),'']}; // restored: lines written before 되돌리기 was dropped
+const NZ_WHY={age:()=>topText('nz.whyAge'),cap:()=>topText('nz.whyCap'),space:()=>topText('nz.whySpace'),manual:()=>topText('t.nz.whyManual'),removed:()=>topText('nz.whyRemoved'),cleared:()=>topText('t.nz.whyCleared'),missing:()=>topText('nz.whyMissing'),ticketless:()=>topText('t.nz.whyTicketless')};
 function nzLogRow(e){const r=el('div',null,'nz-row nz-lrow');const main=el('div',null,'nz-main');
   main.append(el('b',e.name||String(e.rel||'').split('/').pop()),el('span',e.rel||''));
   if(e.reason)main.append(el('span',nzWord(NZ_WHY[e.reason])||e.reason,e.event==='failed'?'err':''));
@@ -213,31 +213,31 @@ async function loadNszLog(){let d;try{d=await api('/admin/api/nsz/log?offset='+n
   nzLogData=d;nzRenderLog(d);}
 function nzRenderLog(d){
   $('nz-log').replaceChildren(...d.items.map(nzLogRow));
-  if(!d.items.length)$('nz-log').append(el('div',nzLogQ?'찾는 이름의 기록이 없습니다.':'아직 기록이 없습니다.','empty'));
+  if(!d.items.length)$('nz-log').append(el('div',nzLogQ?topText('nz.logNoMatch'):topText('nz.logEmpty'),'empty'));
   const p=$('nz-log-pager');p.hidden=d.total<=d.limit;if(p.hidden){p.replaceChildren();return;}
   const page=Math.floor(d.offset/d.limit)+1,pages=Math.ceil(d.total/d.limit);
   const prev=btn(topText('fp.prev'),()=>{nzLogOff=Math.max(0,nzLogOff-NZ_LIMIT);loadNszLog();});prev.disabled=page<=1;
   const next=btn(topText('fp.next'),()=>{nzLogOff+=NZ_LIMIT;loadNszLog();});next.disabled=page>=pages;
-  p.replaceChildren(prev,el('span',page+' / '+pages+' 쪽 · '+num(d.total)+'개','muted'),next);}
+  p.replaceChildren(prev,el('span',topFill('nz.pagerLine',{page,pages,n:num(d.total)}),'muted'),next);}
 async function nzSave(key,value){try{await api('/admin/api/server-settings',{method:'POST',body:{[key]:value}});toast(topText('pp.saved'));}catch(err){toast(err.message);nzSettingsSig='';}loadNsz();}
 function nzControl(key,kind,s){
   if(kind==='bool'){const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=s.value===true;b.setAttribute('aria-label',key);
     b.addEventListener('change',()=>nzSave(key,b.checked));w.append(b,el('span'));return w;}
   if(typeof kind[0]==='number'){const [min,max,unit]=kind;const i=el('input');i.type='number';i.min=String(min);i.max=String(max);i.step='1';i.inputMode='numeric';i.value=String(s.value);i.setAttribute('aria-label',key);
-    i.addEventListener('change',()=>{const v=Number(i.value);if(!Number.isInteger(v)||v<min||v>max){toast(min+'부터 '+max+'까지의 정수를 넣습니다.');i.value=String(s.value);return;}nzSave(key,v);});
-    const w=el('span');w.style.cssText='display:flex;align-items:center;gap:8px;width:100%';w.append(i,el('span',unit,'muted'));return w;}
-  const sel=el('select');sel.setAttribute('aria-label',key);for(const [v,t] of kind){const o=el('option',t);o.value=v;sel.append(o);}sel.value=String(s.value);
+    i.addEventListener('change',()=>{const v=Number(i.value);if(!Number.isInteger(v)||v<min||v>max){toast(topFill('nz.intRange',{min,max}));i.value=String(s.value);return;}nzSave(key,v);});
+    const w=el('span');w.style.cssText='display:flex;align-items:center;gap:8px;width:100%';w.append(i,el('span',nzWord(unit),'muted'));return w;}
+  const sel=el('select');sel.setAttribute('aria-label',key);for(const [v,t] of kind){const o=el('option',nzWord(t));o.value=v;sel.append(o);}sel.value=String(s.value);
   sel.addEventListener('change',()=>nzSave(key,Number(sel.value)));return sel;}
 /** Builds the rows once; later reads update each row's value and note, never the control being edited. */
 function nzRenderSettings(settings){const box=$('nz-settings');const sig=JSON.stringify(settings);if(sig===nzSettingsSig)return;nzSettingsSig=sig;
   for(const [key,kind,label,desc] of NZ_SETTINGS){const s=settings[key];if(!s)continue;
     let r=box.querySelector('.ss-row[data-key="'+key+'"]');
-    if(!r){r=el('div',null,'ss-row');r.dataset.key=key;const t=el('div');t.append(el('b',label),el('p',typeof desc==='function'?desc():desc));
+    if(!r){r=el('div',null,'ss-row');r.dataset.key=key;const t=el('div');t.append(el('b',nzWord(label)),el('p',nzWord(desc)));
       const c=el('div',null,'ss-ctl');c.append(nzControl(key,kind,s));r.append(t,c,el('div',null,'ss-src'));box.append(r);}
     const ctl=r.querySelector('input,select');
     if(ctl&&ctl!==document.activeElement){if(ctl.type==='checkbox')ctl.checked=s.value===true;else ctl.value=String(s.value);}
     const src=r.querySelector('.ss-src');src.replaceChildren();src.hidden=s.source!=='saved';
-    if(s.source==='saved'){src.append('여기서 정한 값입니다.');src.append(btn('compose 값으로',()=>nzSave(key,null)));}}}
+    if(s.source==='saved'){src.append(topText('nz.srcHere'));src.append(tbtn('restore','ss.srcRevertBtn',()=>nzSave(key,null)));}}}
 const nzVisible=()=>location.hash==='#nsz'&&document.visibilityState==='visible';
 async function loadNsz(){clearTimeout(nzTimer);nzTimer=null;let d;
   try{d=await api('/admin/api/nsz?filter='+nzFilter+'&offset='+nzOffset+'&limit='+NZ_LIMIT);}catch(err){toast(err.message);return;}
@@ -255,17 +255,17 @@ function nzRelabel(){if(!nzData)return;
   nzHeader(nzData);nzCards(nzData.totals);nzRenderActive(nzData.active);nzPatch($('nz-list'),nzData.items);nzPager(nzData);
   if(nzLogData)nzRenderLog(nzLogData);}
 document.addEventListener('visibilitychange',()=>{if(nzVisible())loadNsz();});
-$('nz-toggle').addEventListener('click',()=>{const on=$('nz-toggle').textContent==='일시정지';
-  nzAct('/admin/api/nsz/'+(on?'pause':'start'),{method:'POST',body:{}},on?'일시정지했습니다. 진행 중이던 파일은 대기로 돌아갑니다.':'변환을 시작했습니다.');});
-$('nz-scan').addEventListener('click',()=>nzAct('/admin/api/nsz/scan',{method:'POST',body:{}},(d)=>d.added?d.added+'개('+nzSize(d.bytes)+')를 대기열에 넣었습니다.':'새로 넣을 파일이 없습니다.'));
-$('nz-clear').addEventListener('click',()=>nzAct('/admin/api/nsz/clear-finished',{method:'POST',body:{}},(d)=>d.removed?d.removed+'개를 목록에서 삭제했습니다.':'삭제할 것이 없습니다.'));
+$('nz-toggle').addEventListener('click',()=>{const on=$('nz-toggle').dataset.running==='true';
+  nzAct('/admin/api/nsz/'+(on?'pause':'start'),{method:'POST',body:{}},on?topText('nz.paused'):topText('nz.started'));});
+$('nz-scan').addEventListener('click',()=>nzAct('/admin/api/nsz/scan',{method:'POST',body:{}},(d)=>d.added?topFill('nz.scanAdded',{n:d.added,size:nzSize(d.bytes)}):topText('nz.scanNone')));
+$('nz-clear').addEventListener('click',()=>nzAct('/admin/api/nsz/clear-finished',{method:'POST',body:{}},(d)=>d.removed?topFill('nz.clearedN',{n:d.removed}):topText('nz.clearNone')));
 $('nz-pick-all').addEventListener('change',()=>{const on=$('nz-pick-all').checked;
   for(const c of $('nz-list').querySelectorAll('.nz-lead input')){c.checked=on;const id=c.closest('.nz-row').dataset.id;if(on)nzSel.add(id);else nzSel.delete(id);}nzSelUpdate();});
 $('nz-run-sel').addEventListener('click',async()=>{const ids=[...nzSel];
-  if(ids.length)return nzAct('/admin/api/nsz/run-selected',{method:'POST',body:{ids}},(d)=>{nzSel.clear();return '선택한 '+d.count+'개를 변환합니다.';});
-  const f=nzFilter,word=f==='failed'?'실패한':'대기 중인';
-  if(!await ask(word+' 파일 '+num(nzTabCount)+'개를 변환합니다. 그동안 새로 들어온 파일은 기다립니다.'))return;
-  nzAct('/admin/api/nsz/run-filter',{method:'POST',body:{filter:f}},(d)=>word+' '+d.count+'개를 변환합니다.');});
+  if(ids.length)return nzAct('/admin/api/nsz/run-selected',{method:'POST',body:{ids}},(d)=>{nzSel.clear();return topFill('nz.runSelGo',{n:d.count});});
+  const f=nzFilter,word=f==='failed'?topText('nz.wordFailed'):topText('nz.wordWaiting');
+  if(!await ask(topFill('nz.askRunFilter',{word,n:num(nzTabCount)})))return;
+  nzAct('/admin/api/nsz/run-filter',{method:'POST',body:{filter:f}},(d)=>topFill('nz.runFilterGo',{word,n:d.count}));});
 $('nz-purge').addEventListener('click',async()=>{if(!await ask(topText('t.nz.askPurge'),{danger:true}))return;
   nzAct('/admin/api/nsz/purge-kept',{method:'POST',body:{}},(d)=>topFill('t.nz.purged',{n:d.removed,size:nzSize(d.bytes)}));});
 $('nz-log-q').addEventListener('input',()=>{clearTimeout(nzLogTimer);nzLogTimer=setTimeout(()=>{nzLogQ=$('nz-log-q').value.trim();nzLogOff=0;loadNszLog();},250);});
