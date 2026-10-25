@@ -1,3 +1,4 @@
+import { GOOGLE_SETTINGS_SCRIPT } from "./google-settings-script.js";
 /**
  * The admin's people pages: accounts (local and Google) and devices.
  *
@@ -8,6 +9,7 @@
  * creating a password shows it once and the page must not lose it.
  */
 export const PEOPLE_SCRIPT = /* js */ `
+${GOOGLE_SETTINGS_SCRIPT}
 let me=null;
 let origin=location.origin;
 function nameCell(name,self){const c=td();const s=el('span',name);if(self){const b=pill(topText('pp.me'),'on');b.classList.add('me');s.append(b);}c.append(s);return c;}
@@ -109,12 +111,7 @@ async function removeAccount(sub,email){if(!await ask(topFill('pp.googleDelAsk',
   try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast(topText('pp.deleted'));loadAccounts();}catch(err){toast(errText(err));}}
 
 // The Google OAuth form loader lives at the end of this file (with guards).
-if($('google-form'))$('google-form').addEventListener('submit',async(e)=>{e.preventDefault();
-  try{await api('/admin/api/google',{method:'POST',body:{enabled:$('g-enabled').checked,clientId:$('g-id').value,clientSecret:$('g-secret').value}});
-    toast(topText('pp.saved'));loadGoogleSettings();loadAccounts();}catch(err){toast(err.message);}});
-if($('g-clear'))$('g-clear').addEventListener('click',async()=>{if(!await ask(topText('pp.googleClearAsk'),{danger:true}))return;
-  try{await api('/admin/api/google/clear',{method:'POST',body:{}});toast(topText('pp.deleted'));loadGoogleSettings();loadAccounts();}catch(err){toast(err.message);}});
-if($('g-copy'))$('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('g-redirect').textContent);toast(topText('pp.copied'));}catch{toast(topText('pp.copyFail'));}});
+
 
 // ── devices ───────────────────────────────────────────────────────────
 const DOWNLOAD_WORDS={used:topText('pp.dlUsed'),expired:topText('pp.dlExpired'),revoked:topText('pp.dlRevoked'),waiting:topText('pp.dlWaiting')};
@@ -216,11 +213,5 @@ async function loadPeople(){
     if($('devices')||$('pending'))await loadDevices();
   }catch(err){if(err.message!=='session')toast(errText(err));}}
 // The Google OAuth form (settings page): a different owner from the accounts list.
-async function loadGoogleSettings(){
-  if(!$('g-enabled'))return;
-  try{const g=await api('/admin/api/google');$('g-enabled').checked=g.enabled;$('g-id').value=g.clientId||'';
-    $('g-secret').value='';$('g-secret').placeholder=g.hasSecret?topText('pp.storedSecretPh'):topText('pp.clientSecret');
-    $('g-redirect').textContent=g.redirectUri;
-    $('g-status').textContent=g.active?topText('pp.googleOn'):g.enabled?topText('pp.googleNeedBoth'):topText('pp.googleOffStatus');
-  }catch(err){/* the settings page shows the error in its own way */}}
+
 `;

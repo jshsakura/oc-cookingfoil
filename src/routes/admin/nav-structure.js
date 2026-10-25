@@ -13,6 +13,10 @@ export const NAV_CSS = /* css */ `
 .up-entry svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .up-entry[aria-current="page"]{background:var(--text);color:var(--panel);border-color:var(--text)}
 @media (max-width:640px){.hdr-right{gap:10px}.lang-btn{padding:0 12px;gap:4px}.lang-btn .chev{display:none}.up-entry{padding:0}.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+.subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto}
+.subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:600;white-space:nowrap}
+.subtabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--text)}
+.subtabs button:hover{color:var(--text)}
 .subtabs{--fade:34px}
 .subtabs.fade-l{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade));mask-image:linear-gradient(to right,transparent 0,#000 var(--fade))}
 .subtabs.fade-r{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 var(--fade));mask-image:linear-gradient(to left,transparent 0,#000 var(--fade))}

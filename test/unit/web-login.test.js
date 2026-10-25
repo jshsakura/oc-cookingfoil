@@ -267,10 +267,10 @@ test("a Google admin opens /admin without the admin password; other Google accou
   try {
     const page = await get("/admin", { ...PAGE, Cookie: googleCookie("t-boss") });
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /id="tab-upload"/, "the dashboard itself, not the password gate");
+    assert.match(await page.text(), /id="tab-overview"/, "the administration overview itself, not the password gate");
     assert.equal((await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: googleCookie("t-boss") } })).status, 200);
     assert.ok([401, 403].includes((await fetch(`${BASE}/admin/api/stats`, { headers: { Cookie: googleCookie("ok1") } })).status), "an approved non-admin account is turned away");
-    assert.doesNotMatch(await (await get("/admin", { ...PAGE, Cookie: googleCookie("ok1") })).text(), /id="tab-upload"/);
+    assert.doesNotMatch(await (await get("/admin", { ...PAGE, Cookie: googleCookie("ok1") })).text(), /id="tab-overview"/);
   } finally {
     server.kill("SIGKILL");
     accounts.remove("t-boss");

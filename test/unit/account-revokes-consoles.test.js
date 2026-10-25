@@ -91,6 +91,11 @@ test("the new-password confirmation says the account's consoles must pair again"
   const { DASHBOARD_SCRIPT } = await import("../../src/routes/admin/dashboard-script.js");
   const ask = DASHBOARD_SCRIPT.match(/async function resetPassword\(name\)\{if\(!await ask\(([^;]*)\)\)return;/)?.[1];
   assert.ok(ask, "resetPassword asks before it acts");
-  assert.match(ask, /기기/);
-  assert.match(ask, /다시 승인/);
+  assert.match(ask, /topFill\('pp.resetAsk',\{name\}\)/);
+  const { TOP_WORDS } = await import("../../src/routes/admin/top-i18n.js");
+  assert.match(TOP_WORDS.ko["pp.resetAsk"], /기기/);
+  assert.match(TOP_WORDS.ko["pp.resetAsk"], /다시 승인/);
+  assert.match(TOP_WORDS.en["pp.resetAsk"], /approved again/);
+  assert.match(TOP_WORDS.ja["pp.resetAsk"], /再承認/);
+  assert.match(TOP_WORDS.zh["pp.resetAsk"], /重新批准/);
 });

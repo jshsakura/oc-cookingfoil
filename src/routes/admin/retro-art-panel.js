@@ -116,10 +116,6 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 .rm-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .rm-genres{display:flex;flex-wrap:wrap;gap:6px 14px}.rm-genres label{display:flex;gap:6px;align-items:center}
 @media (max-width:560px){.rm-pair{grid-template-columns:1fr}}
-.subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto}
-.subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:600;white-space:nowrap}
-.subtabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--text)}
-.subtabs button:hover{color:var(--text)}
 .ra-dialog{width:min(860px,94vw);max-height:88vh;border:1px solid var(--line2);border-radius:22px;background:var(--panel);color:var(--text);padding:20px;box-shadow:0 30px 60px var(--shadow)}
 .ra-dialog::backdrop{background:rgba(0,0,0,.55)}.ra-close{float:right}.ra-dialog h3{margin:0 0 12px;font-size:16px}
 .ra-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:12px 0;overflow:auto;max-height:52vh}

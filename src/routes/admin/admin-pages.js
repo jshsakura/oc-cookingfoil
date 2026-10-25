@@ -188,6 +188,13 @@ const PAGE=${JSON.stringify(conf)};
 const H2P=${JSON.stringify(PATH_FOR_TAB)};
 const P2F=${JSON.stringify(Object.fromEntries(ADMIN_PAGES.map((p) => [p.path, "#" + p.tab + (p.sub ? "/" + p.sub : "")])))};
 const TAB_OF=${JSON.stringify(Object.fromEntries(ADMIN_PAGES.map((p) => [p.path, p.tab])))};
+function pathForHash(parts){const [tab,sub]=parts;
+  if(tab==='settings')return ({integrations:'/admin/settings/integrations',security:PAGE.path==='/admin/settings/login'?PAGE.path:'/admin/settings/admin',tokens:'/admin/settings/automation'})[sub]||'/admin/settings/server';
+  if(tab==='logs')return ({client:'/admin/logs/clients',deny:'/admin/logs/security'})[sub]||'/admin/logs/downloads';
+  return H2P[tab]||'/admin';}
+const legacy=location.hash.slice(1).split('/');
+if(H2P[legacy[0]]&&(legacy[0]!==PAGE.tab||(['settings','logs'].includes(legacy[0])&&legacy[1]&&pathForHash(legacy)!==PAGE.path))){
+  location.replace(pathForHash(legacy)+location.search+location.hash);return;}
 function activePath(){let p=location.pathname;
   const parts=location.hash.slice(1).split('/');
   if(parts[0]==='settings'){const sub=parts[1];
@@ -226,13 +233,13 @@ window.__admSums=sums;
   if(tab==='retro'&&q.get('view'))window.__admRetro=q.get('view');
   if(tab==='logs'&&PAGE.sub)window.__admLogs=PAGE.sub;
   const h=location.hash.slice(1).split('/');
-  if(h[0]&&H2P[h[0]]){tab=h[0];sub=h[1]||sub;history.replaceState(null,'',H2P[tab]+(location.search||''));}
+  if(h[0]&&H2P[h[0]]){tab=h[0];sub=h[1]||sub;history.replaceState(null,'',location.pathname+(location.search||''));}
   else{history.replaceState(null,'',location.pathname+location.search);}
   location.hash='#'+tab+(sub?'/'+sub:'');})();
-addEventListener('hashchange',()=>{const t=location.hash.slice(1).split('/')[0];const to=H2P[t]||'/admin';
+addEventListener('hashchange',()=>{const parts=location.hash.slice(1).split('/'),t=parts[0],to=pathForHash(parts);
   // A "#tab" link for another page relabels the history entry the hash itself
   // just made, so back returns to where the visitor was, without a phantom stop.
-  if(to!==location.pathname&&TAB_OF[location.pathname]!==t)history.replaceState(null,'',to+(location.search||'')+location.hash);
+  if(to!==location.pathname&&(TAB_OF[location.pathname]!==t||t==='settings'||t==='logs')){location.replace(to+(location.search||'')+location.hash);return;}
   mark();if(PAGE.anchor)scrollAnchor();});
 function scrollAnchor(){const b=document.getElementById(PAGE.anchor);if(b){if(b.tagName==='DETAILS')b.open=true;b.scrollIntoView({block:'start'});}}
 // A hash set is a fragment navigation, which fires popstate too: never answer

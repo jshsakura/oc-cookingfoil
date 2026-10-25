@@ -7,6 +7,13 @@ import { signIn } from './admin-sign-in';
 // polls stop when the tab hides or the page is left.
 
 const SPLIT: [string, string, string[], RegExp][] = [
+  ['/admin/games', '#lb-bar', ['#users', '#up-form', '#f-list', '#warnings'], /^\/admin\/api\/(library|counts)/],
+  ['/admin/homebrew', '#hb-apps', ['#users', '#up-form', '#f-list', '#pt-q'], /^\/admin\/api\/(homebrew|counts)/],
+  ['/admin', '#cards', ['#users', '#up-form', '#cr-form', '#f-list'], /^\/admin\/api\/(stats|counts)/],
+  ['/admin/upload', '#up-drop', ['#users', '#f-list', '#warnings', '#lib-files'], /^\/admin\/api\/(upload\/targets|games\/search|counts)/],
+  ['/admin/settings/login', '#google-form', ['#tfa', '#ap-form', '#users', '#warnings'], /^\/admin\/api\/(google|counts)/],
+  ['/admin/settings/admin', '#tfa', ['#google-form', '#users', '#warnings'], /^\/admin\/api\/(2fa|counts)/],
+  ['/admin/featured', '#f-list', ['#users', '#lib-files', '#up-form', '#warnings'], /^\/admin\/api\/(featured|games\/search|counts)/],
   ['/admin/settings/server', '#ss-list', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(server-settings|server\/status|counts)/],
   ['/admin/settings/integrations', '#intg-h', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(integrations|counts)/],
   ['/admin/settings/automation', '#mcp-on', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(tokens|server-settings|counts)/],
@@ -19,6 +26,16 @@ const SPLIT: [string, string, string[], RegExp][] = [
   ['/admin/logs/clients', '#cl-list', ['#tr-list', '#ib-list', '#nz-list', '#xf-cards', '#lockouts'], /^\/admin\/api\/(client-logs|counts)/],
   ['/admin/logs/security', '#lockouts', ['#tr-list', '#ib-list', '#nz-list', '#xf-cards', '#cl-list'], /^\/admin\/api\/(stats|unlock|denials|counts)/],
 ];
+
+test('an upload deep link retains the homebrew target when files are chosen', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/upload?kind=patch&app=handapp');
+  await expect(page.locator('#up-target')).toHaveValue('handapp');
+  await page.locator('#up-file').setInputFiles({ name: 'config.ini', mimeType: 'text/plain', buffer: Buffer.from('speed=2') });
+  await expect(page.locator('#up-target')).toHaveValue('handapp');
+  await expect(page.locator('#up-go')).toBeVisible();
+  await expect(page.locator('#up-kinds [data-kind="patch"]')).toHaveAttribute('aria-pressed', 'true');
+});
 
 test('a standalone server setting saves without calling the overview health panel', async ({ page }) => {
   await signIn(page);

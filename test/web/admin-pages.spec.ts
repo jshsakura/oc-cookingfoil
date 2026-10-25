@@ -60,6 +60,22 @@ test('a settings page opens its own area', async ({ page }) => {
   await expect(page.locator('[data-set-panel="server"]')).toHaveCount(0);
 });
 
+test('homebrew and library task choices keep their addresses and selection on reload', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/homebrew?tab=apps');
+  await page.locator('#homebrew-subtabs [data-sub="sources"]').click();
+  expect(new URL(page.url()).searchParams.get('tab')).toBe('sources');
+  await expect(page.locator('aside.adm-side [aria-current="page"]')).toHaveText('GitHub 저장소');
+  await page.reload();
+  await expect(page.locator('#homebrew-subtabs [data-sub="sources"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#hb-add')).toBeVisible();
+  await page.goto('/admin/games');
+  await page.locator('#lib-subtabs [data-lsub="info"]').click();
+  expect(new URL(page.url()).searchParams.get('view')).toBe('info');
+  await page.reload();
+  await expect(page.locator('#gd-form')).toBeVisible();
+});
+
 test('a deep address without a session shows the gate and returns to the same page after the check', async ({ page }) => {
   await page.goto('/admin/devices');
   await expect(page.getByRole('heading', { name: '관리 페이지 확인' })).toBeVisible();

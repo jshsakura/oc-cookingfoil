@@ -31,7 +31,7 @@ export const USERS_HTML = /* html */ `<section id="tab-users" hidden>
 </section>`;
 
 /** The devices section: pending, approved and issued-clients areas. */
-export const DEVICES_HTML = /* html */ `<section id="tab-devices" hidden>
+export function devicesHtml() { return /* html */ `<section id="tab-devices" hidden>
   <div class="subtabs hide-bar" id="devices-subtabs" role="tablist" aria-label="기기 구역">
     <button type="button" role="tab" data-sub="pending" aria-selected="true">${icon("bell")}승인 대기<span class="count" id="pending-sub-count" hidden></span></button>
     <button type="button" role="tab" data-sub="approved" aria-selected="false">${icon("device")}승인된 기기</button>
@@ -57,7 +57,7 @@ export const DEVICES_HTML = /* html */ `<section id="tab-devices" hidden>
   <div class="scroll" id="clients" data-skel></div>
   <details class="ended-box" id="clients-ended-box" hidden><summary>만료되거나 취소한 항목 (<span id="clients-ended-count">0</span>)</summary><div class="scroll" id="clients-ended" data-skel></div></details>
   </div>
-</section>`;
+</section>`; }
 
 /** The one-time credential dialog: a new password shows once, then it is gone. */
 export const CRED_DIALOG_HTML = /* html */ `<dialog id="cred-dialog" aria-labelledby="cred-title">

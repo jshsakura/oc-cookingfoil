@@ -178,7 +178,7 @@ test("unless set an account holds ten consoles and its downloads connect five an
     assert.deepEqual(info.enroll, { perHour: 2 }, "the web page reads the number here");
     const pairPage = await (await fetch(`${BASE}/pair`, { headers: { ...WEB, "Accept-Language": "en" } })).text();
     assert.match(pairPage, /Up to 2 consoles connect on their own/);
-    const adminPage = await (await fetch(`${BASE}/admin/`, { headers: ADMIN })).text();
+    const adminPage = await (await fetch(`${BASE}/admin/devices`, { headers: ADMIN })).text();
     assert.match(adminPage, /data-top="dev.clientsLead" data-top-n="2">[^<]*기기 2대까지/);
   } finally {
     stop(server);

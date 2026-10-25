@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
 // Language-change regression on the split people pages. A local account is
@@ -7,14 +7,15 @@ import { signIn } from './admin-sign-in';
 // The user is removed when the suite ends so later specs see a fresh server.
 
 const LANGS: [string, Record<string, string>][] = [
-  ['en', { users: 'Accounts', devices: 'Devices', header: 'Name', codePh: 'Device code' }],
-  ['ja', { users: 'アカウント', devices: 'デバイス', header: '名前', codePh: 'デバイスコード' }],
-  ['zh', { users: '账户', devices: '设备', header: '名称', codePh: '设备代码' }],
-  ['ko', { users: '계정', devices: '기기', header: '이름', codePh: '기기 화면의 기기 코드 8자리' }],
+  ['en', { users: 'Accounts', devices: 'Devices', header: 'Name', codePh: 'Device code on the console screen', action: 'Change password' }],
+  ['ja', { users: 'アカウント', devices: 'デバイス', header: '名前', codePh: '本体画面のデバイスコード 8 桁', action: 'パスワード変更' }],
+  ['zh', { users: '账户', devices: '设备', header: '名称', codePh: '主机屏幕上的设备代码 8 位', action: '更改密码' }],
+  ['ko', { users: '계정', devices: '기기', header: '이름', codePh: '기기 화면의 기기 코드 8자리', action: '비밀번호 변경' }],
 ];
 
 const NAME = 'langtest';
 let webPassword = '';
+test.setTimeout(120_000);
 
 test.beforeEach(async ({ page, request }) => {
   await signIn(page);
@@ -37,11 +38,14 @@ test.beforeEach(async ({ page, request }) => {
   await expect(page).not.toHaveURL(/\/login/, { timeout: 10000 });
 });
 
-test.afterAll(async ({ request }) => {
-  if (webPassword) {
-    const r = await request.delete(`/admin/api/users/${NAME}?allowEmpty=1`);
-    webPassword = '';
-  }
+test.afterEach(async ({ page }) => {
+  if (!webPassword) return;
+  const csrf = (await page.context().cookies()).find((c) => c.name === 'cf_csrf')?.value ?? '';
+  const r = await page.request.delete(`/admin/api/users/${NAME}?allowEmpty=1`, {
+    headers: { 'X-CSRF-Token': csrf },
+  });
+  expect(r.ok(), 'remove the fixture account with both authenticated sessions').toBe(true);
+  webPassword = '';
 });
 
 test('the people pages follow en, ja, zh and ko', async ({ page }) => {
@@ -61,9 +65,7 @@ test('the people pages follow en, ja, zh and ko', async ({ page }) => {
     const actions = page.locator('#users .ag-row .row-actions button.ib');
     expect(await actions.count()).toBeGreaterThan(0);
     await expect(actions.first().locator('svg')).toHaveCount(1);
-    const aria = await actions.first().getAttribute('aria-label');
-    expect(aria).toBeTruthy();
-    expect(aria).not.toBe('');
+    await expect(actions.first()).toHaveAccessibleName(labels.action);
 
     await page.reload();
     await page.waitForSelector('#users .ag-row', { timeout: 10000 });
@@ -71,7 +73,7 @@ test('the people pages follow en, ja, zh and ko', async ({ page }) => {
 
     await page.goto('/admin/devices');
     const ph = await page.locator('#code-in').getAttribute('placeholder');
-    expect(ph).toContain(labels.codePh.split(' ')[0]);
+    expect(ph).toBe(labels.codePh);
     await page.goto('/admin/users');
   }
 
@@ -90,7 +92,7 @@ test('the people pages follow en, ja, zh and ko', async ({ page }) => {
   await del.click();
   const dialog = page.locator('#ask-dialog');
   await expect(dialog).toBeVisible();
-  expect(await page.locator('#ask-text').textContent()).toContain(NAME);
+  await expect(page.locator('#ask-text')).toHaveText('langtest is the last account. Removing it opens the server to anyone without a password.');
   await expect(page.locator('#ask-no')).toBeFocused();
   await expect(page.locator('#ask-ok')).toHaveClass(/danger/);
   await page.locator('#ask-no').click();

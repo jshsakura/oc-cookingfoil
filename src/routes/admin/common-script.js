@@ -162,6 +162,11 @@ function tbtn(action,key,fn,cls){const icon=ACTION_ICONS[action]||ICONS[action];
   b.addEventListener('click',fn);return b;}
 
 
+// Cross-page upload entry; on the upload page an in-flight batch finishes first.
+function uploadFor(kind,app){
+  if($('up-form')){upPending={kind,app};if(!upBusy)loadUpload();}
+  else location.href='/admin/upload?'+new URLSearchParams({kind,app});}
+
 // Sub-tab bars inside a section: one area at a time, the address carries the
 // choice. Works on the whole-page dashboard and on the split pages alike.
 const SUBTABS={};
@@ -172,7 +177,9 @@ function subtabs(tab){const bar=$(tab+'-subtabs');if(!bar)return;
     for(const b of bar.querySelectorAll('[data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===sub));
     for(const p of $('tab-'+tab)?.querySelectorAll('[data-sub-panel]')||[])p.hidden=p.dataset.subPanel!==sub;}};
   for(const b of bar.querySelectorAll('[data-sub]'))b.addEventListener('click',()=>{
-    history.replaceState(null,'','#'+tab+'/'+b.dataset.sub);st.show(b.dataset.sub);});
+    const next=new URL(location.href);next.hash='#'+tab+'/'+b.dataset.sub;
+    if(tab==='homebrew')next.searchParams.set('tab',b.dataset.sub);
+    history.replaceState(null,'',next);st.show(b.dataset.sub);if(window.__admMark)window.__admMark();});
   SUBTABS[tab]=st;}
 
 `;

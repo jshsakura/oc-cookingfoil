@@ -3,14 +3,14 @@ import { signIn } from './admin-sign-in';
 
 // Every hash the admin page answered before the menu regrouping, and the section it opens.
 const HASHES: [string, string][] = [
-  ['#overview', 'tab-overview'], ['#users', 'tab-users'], ['#devices', 'tab-devices'], ['#settings', 'tab-settings'],
-  ['#alerts', 'tab-alerts'], ['#logs', 'tab-logs'], ['#featured', 'tab-featured'], ['#library', 'tab-library'],
+  ['#overview', 'tab-overview'], ['#users', 'tab-users'], ['#devices', 'tab-devices'], ['#settings', 'ss-list'],
+  ['#alerts', 'tab-alerts'], ['#logs', 'xf-cards'], ['#featured', 'tab-featured'], ['#library', 'tab-library'],
   ['#nsz', 'tab-nsz'], ['#upload', 'tab-upload'], ['#inbox', 'tab-inbox'], ['#homebrew', 'tab-homebrew'], ['#retro', 'tab-retro'],
   ['#library/files', 'tab-library'], ['#library/organize', 'tab-library'], ['#library/verify', 'tab-library'],
   ['#library/patches', 'tab-library'], ['#library/saves', 'tab-library'], ['#library/info', 'tab-library'], ['#library/server', 'tab-library'],
   ['#users/google', 'tab-users'], ['#devices/approved', 'tab-devices'], ['#devices/clients', 'tab-devices'],
   ['#homebrew/reco', 'tab-homebrew'], ['#homebrew/sources', 'tab-homebrew'],
-  ['#settings/integrations', 'tab-settings'], ['#settings/security', 'tab-settings'], ['#settings/tokens', 'tab-settings'],
+  ['#settings/integrations', 'intg-h'], ['#settings/security', 'tfa'], ['#settings/tokens', 'mcp-on'],
 ];
 
 test('every earlier admin hash still opens its section', async ({ page }) => {

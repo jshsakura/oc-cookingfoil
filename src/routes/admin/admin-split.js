@@ -1,3 +1,18 @@
+import { LIBRARY_HTML, LIBRARY_PAGE_SCRIPT } from "./library-page.js";
+import { LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
+import { LIB_BROWSER_CSS, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
+import { ORGANIZE_CSS, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
+import { PATCHES_SCRIPT } from "./patches-panel.js";
+import { HOMEBREW_HTML, HOMEBREW_DIALOG_HTML, HOMEBREW_SCRIPT } from "./homebrew-page.js";
+import { LIST_HELPERS_CSS, LIST_HELPERS_SCRIPT } from "./list-helpers.js";
+import { CONTENT_EDITOR_SCRIPT } from "./content-editor.js";
+import { CONTENT_DIALOG_HTML, PATCHES_CSS } from "./patches-panel.js";
+import { OVERVIEW_HTML, OVERVIEW_SCRIPT } from "./overview-page.js";
+import { UPLOAD_HTML, UPLOAD_SCRIPT } from "./upload-page.js";
+import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
+import { GOOGLE_SETTINGS_HTML, ADMIN_SECURITY_HTML, ADMIN_SECURITY_SCRIPT } from "./security-pages.js";
+import { GOOGLE_SETTINGS_SCRIPT } from "./google-settings-script.js";
+import { FEATURED_HTML, FEATURED_SCRIPT } from "./featured-page.js";
 /**
  * The split pages of the admin redesign (Stage B, first bundle): trash, inbox,
  * NSZ conversion and the three records pages. Each page carries only its own
@@ -27,7 +42,7 @@ import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SCRIPT, LOGS_SECURITY_HTML } from "./logs-pages.js";
 import { PEOPLE_SCRIPT } from "./people-script.js";
-import { CRED_DIALOG_HTML, DEVICES_HTML, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
+import { CRED_DIALOG_HTML, devicesHtml, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
 import { ALERTS_CSS, ALERTS_SCRIPT, ALERTS_HTML } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
@@ -40,7 +55,8 @@ function splitPage(page, { css = "", body = "", script = "", init = "" }, view =
   const current = { path: page.path, view };
   // The panel sections ship with `hidden` for the whole-page tab switching;
   // on a page of their own the one section is the page, so it opens.
-  const open = body.replace(/(<section id="tab-[a-z-]+") hidden>/, "$1>");
+  const markup = typeof body === 'function' ? body() : body;
+  const open = markup.replace(/(<section id="tab-[a-z-]+") hidden>/, "$1>");
   return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 ${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${BRAND_MOTION_CSS}${PAGE_CSS}${POLISH_CSS}${ACTIVITY_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}${css}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
@@ -61,6 +77,23 @@ const bundle = (extra) => extra;
 
 /** The first bundle's pages, by the path the router already knows. */
 export const SPLIT_PAGES = {
+  "/admin/games": bundle({
+    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+ORGANIZE_CSS,
+    body: LIBRARY_HTML+CONTENT_DIALOG_HTML,
+    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT+ORGANIZE_SCRIPT,
+    init: "libShowSub(location.hash.split('/')[1]||'files',true);loadLibrary();",
+  }),
+  "/admin/homebrew": bundle({
+    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS,
+    body: HOMEBREW_HTML+HOMEBREW_DIALOG_HTML+CONTENT_DIALOG_HTML,
+    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+HOMEBREW_SCRIPT+CONTENT_EDITOR_SCRIPT,
+    init: "subtabs('homebrew');SUBTABS.homebrew.show(location.hash.split('/')[1]||'apps');loadHomebrew();",
+  }),
+  "/admin": bundle({ body: OVERVIEW_HTML, script: OVERVIEW_SCRIPT, init: "admInterval(loadOverview,15000);" }),
+  "/admin/upload": bundle({ css: GAME_PICKER_CSS, body: UPLOAD_HTML, script: GAME_PICKER_SCRIPT+UPLOAD_SCRIPT, init: "loadUpload();" }),
+  "/admin/settings/login": bundle({ body: '<section id="tab-settings">'+GOOGLE_SETTINGS_HTML+'</section>', script: GOOGLE_SETTINGS_SCRIPT, init: "loadGoogleSettings();" }),
+  "/admin/settings/admin": bundle({ body: '<section id="tab-settings">'+ADMIN_SECURITY_HTML+'</section>', script: ADMIN_SECURITY_SCRIPT, init: "loadTfa();" }),
+  "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
   "/admin/inbox": bundle({ css: INBOX_CSS, body: INBOX_HTML, script: INBOX_SCRIPT, init: "loadInbox();" }),
   "/admin/convert": bundle({ css: NSZ_CSS, body: NSZ_HTML, script: NSZ_SCRIPT, init: "loadNsz();" }),
@@ -107,7 +140,7 @@ export const SPLIT_PAGES = {
     init: "admInterval(loadPeople,15000);",
   }),
   "/admin/devices": bundle({
-    body: DEVICES_HTML + IP_DIALOG_HTML, script: PEOPLE_SCRIPT,
+    body: () => devicesHtml() + IP_DIALOG_HTML, script: PEOPLE_SCRIPT,
     init: "admInterval(loadPeople,15000);",
   }),
 };
