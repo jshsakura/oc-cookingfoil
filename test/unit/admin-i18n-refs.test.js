@@ -41,7 +41,7 @@ function collectReferences() {
           else note(literal, key, f);
         }
       }
-      const attr = new RegExp(`data-top(?:-ph|-n)?=\\${q}([a-zA-Z0-9_.-]+)\\${q}`, "g");
+      const attr = new RegExp(`data-top(?:-ph)?=\\${q}([a-zA-Z0-9_.-]+)\\${q}`, "g");
       for (const m of src.matchAll(attr)) note(literal, m[1], f);
     }
   }
