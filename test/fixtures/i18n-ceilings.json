@@ -32,7 +32,7 @@
     "src/routes/admin/pair-page.js": 14,
     "src/routes/admin/patches-panel.js": 65,
     "src/routes/admin/people-pages.js": 21,
-    "src/routes/admin/people-script.js": 94,
+    "src/routes/admin/people-script.js": 66,
     "src/routes/admin/retro-art-panel.js": 143,
     "src/routes/admin/retro-variants-panel.js": 76,
     "src/routes/admin/server-settings-panel.js": 183,

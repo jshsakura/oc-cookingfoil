@@ -87,37 +87,37 @@ const ACCOUNT_STATUS={pending:[topText('pp.devWait'),'warn'],approved:[topText('
 let accountsLoaded=false;
 async function loadAccounts(){
   const d=await api('/admin/api/accounts');accountsLoaded=true;const list=d.accounts||[];
-  $('accounthint').textContent=d.enabled?'로그인 화면에서 구글로 들어온 계정입니다. 승인한 계정만 웹을 쓰고 기기 화면의 QR이나 기기 코드로 연결을 승인할 수 있습니다.'
+  $('accounthint').textContent=d.enabled?topText('pp.googleLead')
     :topText('pp.googleOff');
   const waiting=list.filter((a)=>a.status==='pending').length;
   for(const id of ['account-count','account-sub-count']){$(id).hidden=!waiting;$(id).textContent=waiting;}
   pagedTable('accounts',[topText('pp.email'),topText('pp.role'),topText('pp.status'),topText('pp.approval'),topText('pp.firstSeen'),topText('acc.lastLogin'),topText('acc.lastActive'),''],list,(a)=>{const tr=el('tr');const self=isMe('google',a.sub);
     const [label,kind]=ACCOUNT_STATUS[a.status]||[a.status,''];const st=td();st.append(pill(label,kind));
-    tr.append(nameCell(a.email,self),td(a.role==='admin'?'관리자':'일반 사용자'),st,td(a.approvedAt?fmt(a.approvedAt):'—'),td(fmt(a.createdAt)),loginCell(a.lastLoginAt,a.lastLoginMethod,a.lastLoginIp,()=>openLogins('google:'+a.sub,a.email)),whenCell(a.lastActiveAt));
+    tr.append(nameCell(a.email,self),td(a.role==='admin'?topText('pp.admin'):topText('pp.user')),st,td(a.approvedAt?fmt(a.approvedAt):'—'),td(fmt(a.createdAt)),loginCell(a.lastLoginAt,a.lastLoginMethod,a.lastLoginIp,()=>openLogins('google:'+a.sub,a.email)),whenCell(a.lastActiveAt));
     const act=td();const box=el('div',null,'row-actions');
-    if(a.status!=='approved')box.append(btn('승인',()=>setAccount(a.sub,'approved'),'primary'));
-    if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(btn(a.role==='admin'?'일반 사용자로':'관리자로',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
-    if(a.status==='approved'&&!self)box.append(btn('사용 중지',async()=>{if(await ask(a.email+' 계정의 사용을 중지합니다. 다시 승인하기 전까지 로그인하지 못합니다.',{danger:true}))setAccount(a.sub,'disabled');}));
-    if(!self)box.append(btn('삭제',()=>removeAccount(a.sub,a.email),'danger'));
-    act.append(box);tr.append(act);return tr;},topText('pp.noAccounts'),{label:'구글 로그인 계정',placeholder:'이메일로 찾기'});}
+    if(a.status!=='approved')box.append(tbtn('승인','pp.approve',()=>setAccount(a.sub,'approved'),'primary'));
+    if(a.status==='approved'&&(!self||a.role!=='admin'))box.append(tbtn(a.role==='admin'?'일반 사용자로':'관리자로',a.role==='admin'?'pp.toUser':'pp.toAdmin',()=>setAccountRole(a.sub,a.email,a.role==='admin'?'user':'admin')));
+    if(a.status==='approved'&&!self)box.append(tbtn('사용 중지','pp.off',async()=>{if(await ask(topFill('pp.googleOffAsk',{email:a.email}),{danger:true}))setAccount(a.sub,'disabled');}));
+    if(!self)box.append(tbtn('삭제','pp.delete',()=>removeAccount(a.sub,a.email),'danger'));
+    act.append(box);tr.append(act);return tr;},topText('pp.noAccounts'),{label:topText('pp.googleAccounts'),placeholder:topText('pp.emailSearch')});}
 async function setAccountRole(sub,email,role){
-  if(!await ask(role==='admin'?email+' 계정을 관리자로 변경합니다.':email+' 계정을 일반 사용자로 변경합니다.',{danger:true}))return;
+  if(!await ask(topFill(role==='admin'?'pp.toAdminAsk':'pp.toUserAsk',{name:email}),{danger:true}))return;
   try{await api('/admin/api/accounts/role',{method:'POST',body:{sub,role}});toast(topText('pp.roleChanged'));loadAccounts();}catch(err){toast(errText(err));}}
 async function setAccount(sub,status){
-  try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?topText('pp.approved'):'사용을 중지했습니다.');loadAccounts();}catch(err){toast(errText(err));}}
-async function removeAccount(sub,email){if(!await ask(email+' 계정을 삭제합니다. 다시 로그인하면 승인 대기로 돌아옵니다.',{danger:true}))return;
+  try{await api('/admin/api/accounts/status',{method:'POST',body:{sub,status}});toast(status==='approved'?topText('pp.approved'):topText('pp.disabledToast'));loadAccounts();}catch(err){toast(errText(err));}}
+async function removeAccount(sub,email){if(!await ask(topFill('pp.googleDelAsk',{name:email}),{danger:true}))return;
   try{await api('/admin/api/accounts/remove',{method:'POST',body:{sub}});toast(topText('pp.deleted'));loadAccounts();}catch(err){toast(errText(err));}}
 
 // The Google OAuth form loader lives at the end of this file (with guards).
 if($('google-form'))$('google-form').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/google',{method:'POST',body:{enabled:$('g-enabled').checked,clientId:$('g-id').value,clientSecret:$('g-secret').value}});
-    toast('저장했습니다.');loadGoogleSettings();loadAccounts();}catch(err){toast(err.message);}});
-if($('g-clear'))$('g-clear').addEventListener('click',async()=>{if(!await ask('구글 클라이언트 ID 와 시크릿을 지우고 구글 로그인을 끕니다.',{danger:true}))return;
+    toast(topText('pp.saved'));loadGoogleSettings();loadAccounts();}catch(err){toast(err.message);}});
+if($('g-clear'))$('g-clear').addEventListener('click',async()=>{if(!await ask(topText('pp.googleClearAsk'),{danger:true}))return;
   try{await api('/admin/api/google/clear',{method:'POST',body:{}});toast(topText('pp.deleted'));loadGoogleSettings();loadAccounts();}catch(err){toast(err.message);}});
-if($('g-copy'))$('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('g-redirect').textContent);toast('복사했습니다.');}catch{toast('복사하지 못했습니다. 직접 선택해 복사합니다.');}});
+if($('g-copy'))$('g-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('g-redirect').textContent);toast(topText('pp.copied'));}catch{toast(topText('pp.copyFail'));}});
 
 // ── devices ───────────────────────────────────────────────────────────
-const DOWNLOAD_WORDS={used:'다른 기기에서 이미 쓴 다운로드',expired:'기한이 지난 다운로드',revoked:'취소된 다운로드',waiting:'다운로드'};
+const DOWNLOAD_WORDS={used:topText('pp.dlUsed'),expired:topText('pp.dlExpired'),revoked:topText('pp.dlRevoked'),waiting:topText('pp.dlWaiting')};
 let devicesShown=null;
 const DAY_MS=86400000;
 // When a console was last used: its last access, else when it was approved (after access history began), else no record.
@@ -129,22 +129,22 @@ function seenCell(a){
 function renderApproved(){const d=devicesShown;if(!d)return;
   const idle=Number($('dev-idle').value)||0;
   // Grouped by the account each console belongs to, so whose consoles are whose reads at a glance.
-  const whose=(a)=>a.addedBy==='admin'?'관리자':a.addedBy==='telegram'?'텔레그램':String(a.addedBy||'—').replace(/^google:/,'');
+  const whose=(a)=>a.addedBy==='admin'?topText('pp.admin'):a.addedBy==='telegram'?topText('pp.telegram'):String(a.addedBy||'—').replace(/^google:/,'');
   // A console with no record has been idle at least since the server began keeping history.
   const unused=(a)=>{if(!idle)return true;const from=a.idleSince??devicesShown.activitySince;return from!=null&&Date.now()-from>=idle*DAY_MS;};
   const approved=(d.approved||[]).filter(unused).sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
   const counts={};for(const a of approved)counts[whose(a)]=(counts[whose(a)]||0)+1;
   const devRows=(slice)=>{const rows=[];let group=null;
-  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+counts[group]+'대');c.colSpan=8;h.append(c);rows.push(h);}
+  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+topFill('pp.count',{n:counts[group]}));c.colSpan=8;h.append(c);rows.push(h);}
     const tr=el('tr');
     const ipc=td(a.lastIp?null:'—',a.lastIp?'':'dim');if(a.lastIp)ipc.append(ipButton(a.lastIp,'acc.ipHistory',()=>openDeviceIps(a)));
     tr.append(td(a.label||'—'),seenCell(a),ipc,td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     // An admin device may change item settings from the console; off by default.
-    const adm=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.admin===true;b.setAttribute('aria-label',(a.label||a.code||'기기')+' 관리자 기기');
-    b.addEventListener('change',()=>setDeviceAdmin(a.deviceKey,b.checked,a.label||a.code||'이 기기'));w.append(b,el('span'));adm.append(w);tr.append(adm);
+    const adm=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.admin===true;b.setAttribute('aria-label',(a.label||a.code||topText('pp.device'))+' '+topText('pp.adminDevice'));
+    b.addEventListener('change',()=>setDeviceAdmin(a.deviceKey,b.checked,a.label||a.code||topText('pp.thisDevice')));w.append(b,el('span'));adm.append(w);tr.append(adm);
     const act=td();const box=el('div',null,'row-actions');
-    box.append(btn('이름 변경',()=>renameDevice(a.deviceKey,a.label)),btn('키 재발급',()=>reissue(a.deviceKey,a.label)),btn('접근 키 회수',()=>revoke(a.deviceKey),'danger'));
+    box.append(tbtn('이름 변경','pp.rename',()=>renameDevice(a.deviceKey,a.label)),tbtn('키 재발급','pp.reissue',()=>reissue(a.deviceKey,a.label)),tbtn('접근 키 회수','pp.revokeKey',()=>revoke(a.deviceKey),'danger'));
     act.append(box);tr.append(act);rows.push(tr);}
   return rows;};
   pagedTable('devices',['이름',topText('acc.lastAccess'),topText('acc.lastIp'),topText('acc.days30'),'승인한 날','기기 키','관리자 기기',''],approved,devRows,idle?topText('acc.noIdle'):topText('pp.noDevices'),{label:topText('pp.approvedList'),placeholder:'이름이나 계정으로 찾기',slice:true,
@@ -163,7 +163,7 @@ async function loadDevices(){
     const act=td();const box=el('div',null,'row-actions');
     box.append(btn('승인',()=>approve(p.deviceKey),'primary'),btn('거절',()=>dismissDevice(p.deviceKey,p.code),'danger'));act.append(box);tr.append(act);return tr;}),topText('pp.noPending'));
   devicesShown=d;renderApproved();
-  const STATE={waiting:'기다리는 중',used:'연동함',expired:'만료',revoked:'취소함'};
+  const STATE={waiting:topText('pp.waitingStatus'),used:'연동함',expired:'만료',revoked:'취소함'};
   const clientRow=(c)=>{const tr=el('tr');
     const state=td(STATE[c.state]||c.state,c.state==='used'?'':'dim');if(c.state==='waiting')state.title=fmt(c.expiresAt)+'까지 연결할 수 있습니다';
     tr.append(td(String(c.owner||'—').replace(/^google:/,'')),td(fmt(c.createdAt)),state,td(c.code||'—','ip'),td(c.usedAt?fmt(c.usedAt):'—',c.usedAt?'':'dim'));
@@ -179,7 +179,7 @@ async function loadDevices(){
 if($('dev-idle'))$('dev-idle').addEventListener('change',renderApproved);
 // A new language redraws the tables whose words come from top-i18n.js.
 function accRelabel(){if(usersShown)renderUsers(usersShown);renderApproved();if(accountsLoaded)loadAccounts().catch(()=>{});}
-async function cancelClient(id){if(!await ask('이 다운로드로는 이제 연동할 수 없게 합니다.',{danger:true}))return;
+async function cancelClient(id){if(!await ask(topText('pp.cancelClientAsk'),{danger:true}))return;
   try{await api('/admin/api/clients/'+id+'/revoke',{method:'POST'});toast(topText('pp.cancelled'));loadDevices();}catch(err){toast(err.message);}}
 if($('approve-code'))$('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
   try{await api('/admin/api/devices/approve',{method:'POST',body:{code:$('code-in').value,label:$('code-label').value}});
@@ -190,9 +190,9 @@ async function dismissDevice(deviceKey,code){if(!await ask((code||'이')+' 기�
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast(topText('pp.dismissed'));loadDevices();}catch(err){toast(err.message);}}
 async function approve(deviceKey){const label=await askText('이 기기를 알아볼 이름을 정합니다 (예: 친구 기기)','');if(label===null)return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label}});toast(topText('pp.approved'));loadDevices();}catch(err){toast(err.message);}}
-async function reissue(deviceKey,label){if(!await ask('새 접속 키를 발급합니다. 기기는 다음 접속 때 새 키를 받고, 지금 키는 바로 쓸 수 없게 됩니다.',{danger:true}))return;
+async function reissue(deviceKey,label){if(!await ask(topText('pp.reissueAsk'),{danger:true}))return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label:label||''}});toast('새 키를 준비했습니다.');loadDevices();}catch(err){toast(err.message);}}
-async function revoke(deviceKey){if(!await ask('이 기기의 접근 키를 회수합니다. 다시 승인하기 전까지 접속할 수 없습니다.',{danger:true}))return;
+async function revoke(deviceKey){if(!await ask(topText('pp.revokeAsk'),{danger:true}))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast('접근 키를 회수했습니다.');loadDevices();}catch(err){toast(err.message);}}
 async function setDeviceAdmin(deviceKey,admin,name){
   try{await api('/admin/api/devices/admin',{method:'POST',body:{deviceKey,admin}});toast(admin?name+' 에서 항목 설정을 바꿀 수 있습니다.':name+' 은(는) 다시 읽기만 합니다.');loadDevices();}catch(err){toast(err.message);loadDevices();}}
