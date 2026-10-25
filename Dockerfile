@@ -49,6 +49,17 @@ RUN git clone https://github.com/rlaphoenix/hacBrewPack.git && \
     strip /hacbrewpack
 
 # ---- runtime ----
+# ---- forwarder exefs: switchbrew's nx-hbloader (ISC) with the romfs patch ----
+# Built here so the repository carries no Switch executable. The pinned image and
+# tag give the same bytes as before, so forwarders already built stay valid.
+FROM devkitpro/devkita64:20260219 AS forwarder-builder
+ARG HBLOADER_TAG=v2.4.5
+COPY forwarder/hbloader-romfs.patch forwarder/forwarder.json /fwd/
+# /tmp/hbl as in forwarder/build.sh: the build path is part of the bytes.
+RUN git clone -q --depth 1 --branch "${HBLOADER_TAG}" https://github.com/switchbrew/nx-hbloader.git /tmp/hbl && \
+    cd /tmp/hbl && git apply /fwd/hbloader-romfs.patch && cp /fwd/forwarder.json hbl.json && \
+    make -s && mkdir /exefs && cp build/exefs/main build/exefs/main.npdm /exefs/
+
 FROM node:22-alpine AS runtime
 
 LABEL org.opencontainers.image.title="CookingFoil" \
@@ -105,8 +116,8 @@ COPY package.json ./
 COPY src ./src
 # Box art and bezel fetchers, run for a console after a retro ROM is uploaded.
 COPY scripts/retro-art.mjs scripts/retro-art-match.mjs scripts/retro-ratings.mjs ./scripts/
-# The forwarder's prebuilt exefs (see forwarder/build.sh).
-COPY forwarder/exefs ./forwarder/exefs
+# The forwarder's exefs, built in its own stage above.
+COPY --from=forwarder-builder /exefs ./forwarder/exefs
 COPY docker/entrypoint.sh /usr/local/bin/cookingfoil-entrypoint
 
 EXPOSE 80
