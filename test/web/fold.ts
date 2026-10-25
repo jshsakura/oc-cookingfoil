@@ -7,7 +7,8 @@ export async function reveal(target: Locator): Promise<Locator> {
   const group = target.first().locator('xpath=ancestor::section[contains(concat(" ", @class, " "), " ss-group ")][1]');
   if (await group.count() && (await group.getAttribute('hidden')) !== null) {
     const name = await group.getAttribute('data-group');
-    await target.page().locator('#ss-jump button').filter({ hasText: name! }).click();
+    // data-group holds the stable id; the button text is the translated title.
+    await target.page().locator(`#ss-jump button[data-group="${name}"]`).click();
   }
   return target;
 }

@@ -7,7 +7,7 @@ test('the upload limit saves on screen, survives reload and rejects an oversized
   const original = (await (await page.request.get(settings)).json()).settings.uploadMaxBytes;
   try {
     await page.goto('/admin/settings/server');
-    await page.locator('#ss-jump [data-group="대시보드"]').click();
+    await page.locator('#ss-jump [data-group="dashboard"]').click();
     const input = page.locator('.ss-row[data-key="uploadMaxBytes"] input');
     await expect(input).toBeVisible();
     await input.fill('0.001');
