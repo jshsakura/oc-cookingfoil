@@ -12,7 +12,7 @@ import { RETRO_KO_HTML, RETRO_KO_SCRIPT } from "./retro-ko-panel.js";
 import { RETRO_PATCH_HTML, RETRO_PATCH_SCRIPT } from "./retro-patch-panel.js";
 import { RETRO_VARIANTS_CSS, RETRO_VARIANTS_HTML, RETRO_VARIANTS_SCRIPT } from "./retro-variants-panel.js";
 import { RQ_WORDS } from "./retro-requirements-words.js";
-import { top } from "./top-i18n.js";
+import { top, topLabel } from "./top-i18n.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <nav class="subtabs hide-bar" id="retro-subtabs" role="tablist" aria-label="레트로">
@@ -56,7 +56,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <p class="muted" id="rc-auto-last"></p>
   <div class="hd"><h3>${top("ac.repo")}</h3></div>
   <p class="muted">${top("ac.repoLead")}</p>
-  <div class="row"><input type="text" id="rc-repo" placeholder="owner/name" aria-label="${top("ac.repo")}" spellcheck="false" autocomplete="off"><button type="button" id="rc-repo-save">${top("ac.repoSave")}</button></div>
+  <div class="row"><input type="text" id="rc-repo" placeholder="owner/name" ${topLabel("ac.repo")} spellcheck="false" autocomplete="off"><button type="button" id="rc-repo-save">${top("ac.repoSave")}</button></div>
   <div id="rc-hidden"></div>
   <p class="muted">기종마다 게임을 켤 코어를 고릅니다. 위쪽 묶음은 .info 파일상 그 기종의 확장자를 여는 코어입니다. 바꾸면 기기의 홈 메뉴 바로가기가 새 코어로 다시 만들어지므로 기기에서 새로 받아야 합니다. 서버의 systems.json 은 바꾸지 않습니다.</p>
   <div class="scroll" id="rc-systems" data-skel></div>

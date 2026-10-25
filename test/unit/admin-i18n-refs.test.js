@@ -26,7 +26,7 @@ function collectReferences() {
     const src = readFileSync(join(adminDir, f), "utf8");
     for (const q of ["'", '"']) {
       const call = new RegExp(
-        `(?:topText|topFill|topPh|topN|top)\\(\\s*\\${q}([a-zA-Z0-9_.-]+)\\${q}\\s*[,)+]`,
+        `(?:topText|topFill|topPh|topLabel|topN|top)\\(\\s*\\${q}([a-zA-Z0-9_.-]+)\\${q}\\s*[,)+]`,
         "g",
       );
       for (const m of src.matchAll(call)) {
@@ -109,4 +109,14 @@ test("every translation keeps the placeholders of the English string", () => {
     }
   }
   assert.deepEqual(problems, [], `placeholder mismatches:\n  ${problems.join("\n  ")}`);
+});
+
+test("no attribute takes top() or topN(): their <span> breaks out of the quotes", () => {
+  const bad = [];
+  for (const f of readdirSync(adminDir).filter((x) => x.endsWith(".js"))) {
+    readFileSync(join(adminDir, f), "utf8").split("\n").forEach((line, i) => {
+      if (/[a-z-]+=["']\$\{topN?\(/.test(line)) bad.push(`${f}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(bad, [], "use topLabel() for aria-label and topPh() for placeholder");
 });

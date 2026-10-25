@@ -5,11 +5,11 @@
  * /admin/api/server-settings, and to /admin/api/server/* for the restart button.
  */
 
-import { top } from "./top-i18n.js";
+import { top, topLabel } from "./top-i18n.js";
 
 export const SERVER_SETTINGS_HTML = `<div class="hd"><h2 class="first" data-top="m.setServer">${top("m.setServer")}</h2></div>
   <p class="muted">${top("ss.lede")}</p>
-  <div class="box-jump" id="ss-jump" role="tablist" aria-label="${top("ss.jumpLabel")}"></div>
+  <div class="box-jump" id="ss-jump" role="tablist" ${topLabel("ss.jumpLabel")}></div>
   <div id="ss-list" class="ss-list"></div>`;
 
 export const SERVER_SETTINGS_CSS = `
