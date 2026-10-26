@@ -117,7 +117,7 @@ test("recordDeny never throws on a malformed request object", () => {
 
 test("a refusal is recorded without the query, so what a console sent about itself is not kept", () => {
   const entry = recordDeny(
-    { method: "GET", originalUrl: "/api/download/a.nsz?rewrap=21.0.1", get: () => "" },
+    { method: "GET", originalUrl: "/api/download/a.nsz?tweak=21.0.1", get: () => "" },
     { reason: DENY.ADMIN_NO_SESSION, status: 401 },
   );
   assert.equal(entry.path, "/api/download/a.nsz");

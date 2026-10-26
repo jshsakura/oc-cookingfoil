@@ -3,7 +3,14 @@
 // correct section hashes, so a lowered file can be checked the way a console reads it.
 import crypto from "node:crypto";
 import { buildPfs0 } from "./switch-files.js";
-import { headerBytes, keyGenerationByte } from "../../src/meta/rewrap/generations.js";
+
+/** The "key generation" byte files write for a generation (0 and 1 both mean generation 0). */
+const keyGenerationByte = (gen) => (gen === 0 ? 0 : gen + 1);
+/** { old, current }: the bytes for header 0x206 and 0x220. */
+function headerBytes(gen) {
+  const byte = keyGenerationByte(gen);
+  return byte <= 2 ? { old: byte, current: 0 } : { old: 2, current: byte };
+}
 
 const sha = (buf) => crypto.createHash("sha256").update(buf).digest();
 const cipher = (algo, key, iv, data, decrypt = false) => {

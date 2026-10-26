@@ -46,7 +46,7 @@ import { SWITCH_LABELS, attachSwitchLabels } from "./meta/card-labels.js";
 import { dlcDisplayName } from "./meta/dlc-name.js";
 import * as contentMeta from "./meta/content-meta.js";
 import * as titledbVersions from "./meta/titledb-versions.js";
-import { firmwareOf } from "./meta/rewrap/generations.js";
+import { firmwareOf } from "./meta/generations.js";
 import * as featured from "./meta/featured.js";
 import * as userPatches from "./meta/user-patches.js";
 import * as scores from "./meta/ratings.js";

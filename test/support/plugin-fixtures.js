@@ -48,6 +48,7 @@ export function newRegistry(dataDir, opts = {}) {
     db, dataDir, now: () => clock.t, notify: (n) => notes.push(n),
     limits: { startMs: 60, stopMs: 60, hookMs: { metadata: 60, plan: 60, variants: 60 }, hookMsDefault: 60, ...(opts.limits ?? {}) },
     safeMode: opts.safeMode ?? false,
+    keysProvider: opts.keysProvider,
   });
   return { registry, db, clock, notes };
 }

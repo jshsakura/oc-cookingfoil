@@ -169,12 +169,12 @@ test("a direct URL opens through the proxy with the token, never without it, nev
   assert.equal(ok.body.toString(), "NSPDATA");
   assert.equal((await viaProxy(url, token)).status, 200, "again: nothing is used up");
   assert.equal((await viaProxy(url, token, { range: "bytes=0-0" })).status, 206);
-  // ?rewrap= rides the same URL: the token still decides, and the file handler answers it
-  // (this server has no prod.keys, so a 409 that says so).
-  const lowered = await viaProxy(`${url}?rewrap=21.0.1`, token);
-  assert.equal(lowered.status, 409);
-  assert.equal(JSON.parse(lowered.body.toString()).code, "rewrap.noKeys");
-  assert.equal((await viaProxy(`${url}?rewrap=21.0.1`)).status, 401, "no token, no file, rewrap or not");
+  // A query rides the same URL (a plugin's download option, say): the token still decides, and a key no
+  // plugin claimed is just a query, so the file goes out as it is.
+  const withQuery = await viaProxy(`${url}?tweak=21.0.1`, token);
+  assert.equal(withQuery.status, 200);
+  assert.equal(withQuery.body.toString(), "NSPDATA");
+  assert.equal((await viaProxy(`${url}?tweak=21.0.1`)).status, 401, "no token, no file, query or not");
   const none = await viaProxy(url);
   assert.equal(none.status, 401);
   assert.equal(none.headers["x-cookingfoil-token"], "invalid");

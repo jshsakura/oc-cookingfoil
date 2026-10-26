@@ -12,15 +12,16 @@
  * The ETag is the same as express.static's (weak, size and mtime), so a client
  * resuming with If-Range across the change still matches.
  *
- * A game file asked for with ?rewrap=N goes out lowered to master key
- * generation N (meta/rewrap/serve.js): the same size, with the patch map laid
- * over whatever range is read, and an ETag of its own. A refusal is a 409.
+ * A game file asked for with a variant key in the query (a plugin's download
+ * option, plugins/variants.js) goes out with that plugin's bytes laid over
+ * whatever range is read: the same size, an ETag of its own, and a 409 when
+ * the option cannot be served.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream";
-import * as rewrap from "../meta/rewrap/serve.js";
-import { patchStream } from "../meta/rewrap/patch-stream.js";
+import { CONSOLE_HEADER } from "../plugins/variants.js";
+import { patchStream } from "./patch-stream.js";
 
 export const READ_CHUNK = 4 * 1024 * 1024;
 // What the shop lists and serves as games.
@@ -56,18 +57,19 @@ function ifRangeMatches(req, etag, lastModified) {
 }
 
 /**
- * Serves an already-resolved regular file; `variant` ({ tag, patches }, from
- * meta/rewrap/serve.js plan) serves it with those bytes replaced.
+ * Serves an already-resolved regular file; `variant` ({ tag, patches, vary }, from
+ * plugins/variants.js resolve) serves it with those bytes replaced.
  */
 export function sendLargeFile(req, res, abs, st, variant = null) {
   const etag = etagOf(st, variant?.tag);
   const lastModified = st.mtime.getTime();
   res.set({
     "Accept-Ranges": "bytes",
-    "Cache-Control": "public, max-age=0",
+    "Cache-Control": variant?.vary ? "private, max-age=0" : "public, max-age=0",
     "Last-Modified": st.mtime.toUTCString(),
     ETag: etag,
   });
+  if (variant?.vary) res.vary(CONSOLE_HEADER);
   if (!res.get("Content-Type")) res.type(path.extname(abs) || "application/octet-stream");
   if (req.fresh) return res.status(304).end();
 
@@ -116,27 +118,46 @@ export function hiddenPaths() {
 }
 
 /**
+ * The absolute path of the game file a request path names under `root`, or null: not a name `match` takes,
+ * a hidden segment, or a path that leaves root. Pure.
+ */
+export function gameFilePath(root, rawPath, match) {
+  let rel;
+  try { rel = decodeURIComponent(rawPath); } catch { return null; }
+  if (!match.test(rel) || hasHiddenSegment(rawPath)) return null;
+  const base = path.resolve(root);
+  const abs = path.resolve(base, "." + rel);
+  return abs.startsWith(base + path.sep) ? abs : null;
+}
+
+const refuseVariant = (res, { status, body }) => res.status(status).set("Cache-Control", "no-store").json(body);
+
+// The plugins are asked only when the query has something in it: a plain download never touches them.
+async function pluginVariant(req, abs, st) {
+  if (!req.query || !Object.keys(req.query).length) return null;
+  const { pluginVariants } = await import("../plugins/instance.js");
+  return pluginVariants().resolve(req, abs, st);
+}
+
+/**
  * Middleware for the files under root whose names match `match`; anything else
  * (other files, folders, missing paths) falls through to the next handler.
  * Hidden segments (checked on the decoded path) and paths that leave root fall
  * through too: hiddenPaths(), mounted ahead, answers those with a 404.
+ * `variants(req, abs, st)` is plugins/variants.js resolve.
  */
-export function largeFiles(root, match) {
-  const base = path.resolve(root);
+export function largeFiles(root, match, { variants = pluginVariant } = {}) {
   return (req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD") return next();
-    let rel;
-    try { rel = decodeURIComponent(req.path); } catch { return next(); }
-    if (!match.test(rel) || hasHiddenSegment(req.path)) return next();
-    const abs = path.resolve(base, "." + rel);
-    if (!abs.startsWith(base + path.sep)) return next();
+    const abs = gameFilePath(root, req.path, match);
+    if (!abs) return next();
     fs.stat(abs, (err, st) => {
       if (err || !st.isFile()) return next();
-      if (!rewrap.asksRewrap(req)) return sendLargeFile(req, res, abs, st);
-      rewrap.plan(abs, st, req.query[rewrap.PARAM]).then(
-        (variant) => sendLargeFile(req, res, abs, st, variant),
-        (failure) => rewrap.refuse(req, res, abs, failure) || next(failure),
-      );
+      variants(req, abs, st).then((found) => {
+        if (found?.refusal) return refuseVariant(res, found.refusal);
+        if (found?.variant) return sendLargeFile(req, res, abs, st, found.variant);
+        return sendLargeFile(req, res, abs, st);
+      }).catch(next);
     });
   };
 }

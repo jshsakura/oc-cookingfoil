@@ -42,10 +42,11 @@ export default {
   async stop() {},
   async metadata(args, { signal }) {},   // provides: metadata
   async art(args, { signal }) {},        // provides: art
-  variants(item, { lang, console, signal }) {},   // provides: variant (with plan); console holds only the
-                                         // facts the manifest's "console" list names. Returns
+  variants(item, { lang, clientVersion, console, signal }) {},   // provides: variant (with plan); console holds
+                                         // only the facts the manifest's "console" list names. Returns
                                          // [{ id, label, note?, confirm?, query }], text as { lang: text }
-  async plan(args, { signal }) {},       // provides: variant
+  async plan(args, { lang, clientVersion, console, signal }) {},  // provides: variant; see Download options
+  shopInfo({ lang }) {},                 // optional: { features: [...], info: { ... } } added to shop info
   tasks() {},                            // provides: task
 };
 ```
@@ -64,6 +65,35 @@ Do network work in a task or a hook.
 **Hooks are not called on the request path** of the shop listing or a file download, except a variant's
 `plan`, which runs while a file is sent. `metadata` and `art` results are fetched in the background and
 cached.
+
+## Download options (variants)
+
+A plugin that provides `variant` adds options to a game file: the same file, sent with some bytes
+replaced. The server does everything except the part only the plugin knows.
+
+- `variants(item, ...)`, `item = { file, abs, size, mtimeMs }`, returns the options of that file, or `[]`.
+  Each is `{ id, label, note?, confirm?, query }`. The texts are `{ lang: text }` maps (or one string,
+  taken as English) and the server picks the reader's language. `query` holds only keys listed in
+  the manifest's `variantKeys`, with string values; the client appends it to the file's URL.
+- `plan({ file, size, mtimeMs, query }, ...)` runs when such a URL is requested (30 s). A plugin that
+  said `needsKeys` also gets `keys` (the server's parsed prod.keys) in the arguments of `variants`, `plan`
+  and `shopInfo`, for that call only. It returns
+  `{ patches: [{ offset, bytes }] }` (inside the file, not overlapping; the size does not change) or
+  `{ refuse: { code, text } }` with `text` as above. The server answers a refusal with a 409.
+- Anything else a plugin does wrong (throws, hangs, answers a patch outside the file) is answered
+  `409 variant.failed`; a plugin that is off, cooling or missing answers `409 variant.unavailable`. The
+  original file is never sent in place of an option that was asked for.
+- A refusal body is `{ error, errors, code }`: `error` in the reader's language (what older clients
+  read), `errors` in every language, `code`.
+- The ETag is made by the server from the file's, the plugin's id and version, the query, and the
+  console facts the manifest asked for. A plugin does not set one.
+- A console says about itself in one header, `X-CookingFoil-Console: firmware=21.0.1; region=kor`.
+  Shop info tells it what to send (`console.wants`). A plugin gets only the items its manifest names,
+  in memory, for that call; the server does not log or keep them. `lang` and `clientVersion` come
+  from the `Accept-Language` and `Version` headers.
+- `POST /api/library/variants { files: [...] }` (200 files at most) lists the options of several files.
+- `shopInfo({ lang })` adds feature names and keys to shop info. A name core or another plugin already
+  uses is dropped. Its answer is kept for 30 seconds.
 
 ## When a plugin misbehaves
 

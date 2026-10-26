@@ -28,6 +28,8 @@ const VERSION_RE = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 // A DNS name with at least one dot; an IP literal is not a host a plugin may name.
 const HOST_RE = /^(?=[^:]{1,253}(?::\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?::\d{1,5})?$/;
 const IP_LIKE_RE = /^[0-9.]+(?::\d+)?$/;
+// Keys the core's own routes read from a URL; a plugin cannot claim them ("rewrap" is the one legacy key a plugin may).
+const CORE_QUERY_KEYS = new Set(["lang", "v", "size"]);
 const QUERY_KEY_RE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
 const LANG_RE = /^[a-z]{2}(?:-[A-Za-z]{2,4})?$/;
 
@@ -60,7 +62,7 @@ export function parseManifest(raw, dirName) {
   if (m.hosts !== undefined && !(isStrList(m.hosts) && m.hosts.every((h) => HOST_RE.test(h) && !IP_LIKE_RE.test(h)))) problems.push("bad-hosts");
   if (m.needsKeys !== undefined && typeof m.needsKeys !== "boolean") problems.push("bad-needs-keys");
   if (m.settings !== undefined && !isObj(m.settings)) problems.push("bad-settings");
-  if (m.variantKeys !== undefined && !(isStrList(m.variantKeys) && m.variantKeys.every((k) => QUERY_KEY_RE.test(k)))) problems.push("bad-variant-keys");
+  if (m.variantKeys !== undefined && !(isStrList(m.variantKeys) && m.variantKeys.every((k) => QUERY_KEY_RE.test(k) && !CORE_QUERY_KEYS.has(k)))) problems.push("bad-variant-keys");
   if (m.console !== undefined && !(Array.isArray(m.console) && m.console.every((c) => CONSOLE_ITEMS.includes(c)) && new Set(m.console).size === m.console.length)) problems.push("bad-console");
   else if (m.console?.length && Array.isArray(m.provides) && !m.provides.includes("variant")) problems.push("console-without-variant");
   if (m.variantKeys?.length && Array.isArray(m.provides) && !m.provides.includes("variant")) problems.push("variant-keys-without-variant");

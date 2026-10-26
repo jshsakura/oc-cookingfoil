@@ -22,7 +22,7 @@ export function clientIp(req) {
  * Record a refusal. Returns the stored entry so callers can log or assert on it.
  * Never throws — a bookkeeping failure must not turn into a 500.
  */
-/** The request path without its query. Queries can carry what a console sent about itself (?rewrap=). */
+/** The request path without its query. Queries can carry what a console sent about itself (a plugin's option key). */
 export function pathForLog(req) {
   const url = req?.originalUrl || req?.path || null;
   return url ? url.split("?")[0] : null;

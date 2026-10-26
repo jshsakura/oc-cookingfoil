@@ -19,14 +19,9 @@
  * Whether the server has prod.keys is never listed: the admin hands them in on
  * the admin page's settings tab (routes/admin/keys-api.js), not from a console.
  *
- * `nca-rewrap` ("Install ignoring firmware version") is listed whenever the server has prod.keys: a
- * game file asked for with ?rewrap=<the console's firmware, "21.0.1"> is then
- * served lowered to that firmware's master key generation (meta/rewrap/), and
- * `rewrapMaxGen` (0-based) and `rewrapMaxFirmware` ("21.0.0") say how far the server's keys
- * reach, so a client can tell before it asks whether a game is within reach
- * (item.key_generation, feature "item-key-generation"). This tells any
- * signed-in client that the server has keys and how new they are, never a
- * key; the owner chose that over a client that finds out by a failed install.
+ * Plugins add to this (withPlugins below): download options (file-variants, variants.keys, console.wants)
+ * and whatever a plugin's shopInfo hook names. A plugin that needs the server's keys and says how far they
+ * reach tells any signed-in client that the server has keys and how new they are, never a key.
  *
  * `server_id` is this installation's UUID (security/server-id.js): the same on
  * every address the server answers on, so a client merging several servers
@@ -45,10 +40,9 @@ import { savesCatalog, savesEnabled } from "./saves.js";
 import * as userPatches from "../meta/user-patches.js";
 import { homebrewEnabled } from "./homebrew.js";
 import { adminDeviceOf } from "../security/device-admin.js";
-import * as prodKeys from "../security/prod-keys.js";
 import { serverId } from "../security/server-id.js";
-import { maxGeneration } from "../meta/nca-crypto.js";
-import { firmwareOf } from "../meta/rewrap/generations.js";
+import { requestLang } from "../meta/langs.js";
+import debug from "../debug.js";
 import { clientLanguages } from "../meta/client-strings.js";
 
 export const API_VERSION = 1;
@@ -82,6 +76,13 @@ const FEATURES = [
   "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon accepts ?size=sm|md|lg (160|256|512 square); banner, screenshot ?size=sm (256) and md|lg (512)
 ];
 
+// Every feature name the core can announce, on or off: a plugin may not announce one.
+const CORE_FEATURES = new Set([
+  ...FEATURES, "session-token", "pair-password-only", "device-pairing", "device-rebind", "enroll", "dropbox-sync",
+  "retro", "retro-index", "shop-saves", "saves-by-game", "user-patches", "homebrew", "homebrew-folders", "homebrew-titles",
+  "admin-edit", "client-update", "file-variants", "console-facts",
+]);
+
 /** Retro is offered only while there is at least one ROM to play (the client hides its menu otherwise). */
 async function hasRetroGames() {
   if (!retroEnabled()) return false;
@@ -92,6 +93,42 @@ async function hasRetroGames() {
   }
 }
 
+/**
+ * What the plugins that are on add to shop info, laid over `info` in place:
+ *   features "file-variants"     some plugin offers download options (POST /api/library/variants)
+ *   variants { keys }            the query keys of every plugin's options, on or off: a client takes them off a URL to tell two of one file apart
+ *   features "console-facts", console { wants }   the items a console is asked to send in X-CookingFoil-Console
+ *   plugin features and info keys (the shopInfo hook): a name core or an earlier plugin already has is dropped, with a log line
+ * Plugins failing or being absent add nothing: shop info is the same as without them.
+ */
+export async function withPlugins(info, lang, variantsOf = async () => (await import("../plugins/instance.js")).pluginVariants()) {
+  let facts;
+  let extras = { features: [], info: {} };
+  try {
+    const variants = await variantsOf();
+    facts = variants.shopInfoFacts();
+    extras = await variants.shopInfoExtras(lang);
+  } catch (err) {
+    debug.error("shop info: plugins skipped: %s", err.message);
+    return;
+  }
+  const add = (feature) => { if (!info.features.includes(feature)) info.features.push(feature); };
+  if (facts.active) add("file-variants");
+  if (facts.keys.length) info.variants = { keys: facts.keys };
+  if (facts.wants.length) {
+    add("console-facts");
+    info.console = { wants: facts.wants };
+  }
+  for (const feature of extras.features) {
+    if (CORE_FEATURES.has(feature)) debug.log("shop info: a plugin tried to announce %s, which is the core's; dropped", feature);
+    else add(feature);
+  }
+  for (const [key, value] of Object.entries(extras.info)) {
+    if (key in info) debug.log("shop info: a plugin tried to set %s, which is already taken; dropped", key);
+    else info[key] = value;
+  }
+}
+
 export default async function shopInfoRoute(req, res) {
   const retro = await hasRetroGames();
   // Saves and patches show on the console only once there is one to hand out; an empty folder is not a feature.
@@ -99,11 +136,8 @@ export default async function shopInfoRoute(req, res) {
   const patches = (await userPatches.list()).length > 0;
   const stats = shopCache.stats();
   const adminDevice = Boolean(adminDeviceOf(req));
-  const keys = prodKeys.loadKeys();
-  const rewrap = prodKeys.usable(keys);
-  const rewrapGen = rewrap ? maxGeneration(keys) : null;
   res.header("Cache-Control", "private, max-age=60");
-  res.json({
+  const info = {
     name: "CookingFoil",
     version: pkg.version,
     apiVersion: API_VERSION,
@@ -134,8 +168,6 @@ export default async function shopInfoRoute(req, res) {
       ...(homebrewEnabled() ? ["homebrew", "homebrew-folders", "homebrew-titles"] : []),
       // admin-edit: this console is an admin device; /api/admin/items/:kind/:id/fields reads and changes item settings.
       ...(adminDevice ? ["admin-edit"] : []),
-      // nca-rewrap: ?rewrap=<firmware> on a game file serves it lowered to that firmware; info.rewrapMaxGen says how far.
-      ...(rewrap ? ["nca-rewrap"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
     ],
@@ -146,6 +178,7 @@ export default async function shopInfoRoute(req, res) {
     files: stats.files,
     contentMeta: contentMeta.progress(),
     client_strings: { languages: clientLanguages() },
-    ...(rewrapGen !== null ? { rewrapMaxGen: rewrapGen, rewrapMaxFirmware: firmwareOf(rewrapGen) } : {}),
-  });
+  };
+  await withPlugins(info, requestLang(req));
+  res.json(info);
 }
