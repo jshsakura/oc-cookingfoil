@@ -1,4 +1,4 @@
-import { top, topPh, topLabel } from "./top-i18n.js";
+import { TOP_WORDS, top, topPh, topLabel } from "./top-i18n.js";
 /**
  * The overview tab's client build block: how the CookingFoil client build
  * reaches this server (uploaded by hand, or also followed on GitHub), the
@@ -9,7 +9,7 @@ import { top, topPh, topLabel } from "./top-i18n.js";
 
 export const CLIENT_RELEASE_HTML = `<p class="muted">${top("cr.lede")}</p>
 <form class="add" id="cr-form" autocomplete="off">
-  <select id="cr-mode" ${topLabel("cr.modeLabel")}><option value="manual">${top("cr.manual")}</option><option value="github">${top("cr.github")}</option></select>
+  <select id="cr-mode" ${topLabel("cr.modeLabel")}><option value="manual" data-top="cr.manual">${TOP_WORDS.ko["cr.manual"]}</option><option value="github" data-top="cr.github">${TOP_WORDS.ko["cr.github"]}</option></select>
   <input id="cr-repo" ${topPh("cr.repoPh")} ${topLabel("cr.repoLabel")} maxlength="140" spellcheck="false">
   <input id="cr-tag" ${topPh("cr.tagPh")} ${topLabel("cr.tagLabel")} maxlength="100" spellcheck="false">
   <input id="cr-asset" ${topPh("cr.assetPh")} ${topLabel("cr.assetLabel")} maxlength="104" spellcheck="false">

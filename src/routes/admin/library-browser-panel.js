@@ -6,7 +6,7 @@
  * Everything is scoped under #lib-files so it never restyles the rest of the page.
  */
 
-import { top, topPh, topLabel } from "./top-i18n.js";
+import { TOP_WORDS, top, topPh, topLabel } from "./top-i18n.js";
 
 // Line icons in the same 24px stroke style as views/icons.js, kept here so
 // this panel does not touch the shared icon list.
@@ -95,7 +95,7 @@ export const LIB_BROWSER_HTML = `<div id="lib-files">
     <form class="lb-bar" id="lb-bar" role="search">
       <label class="lb-q">${svg("search")}<input type="search" id="lb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("lb.qPh")} ${topLabel("lb.qLabel")}></label>
       <button type="submit" id="lb-go">${svg("search")}<span data-top="rpt.find">${top("rpt.find")}</span></button>
-      <select id="lb-sort" ${topLabel("lb.sortLabel")}><option value="name">${top("fp.byName")}</option><option value="size">${top("lb.bySize")}</option><option value="mtime">${top("lb.byMtime")}</option></select>
+      <select id="lb-sort" ${topLabel("lb.sortLabel")}><option value="name" data-top="fp.byName">${TOP_WORDS.ko["fp.byName"]}</option><option value="size" data-top="lb.bySize">${TOP_WORDS.ko["lb.bySize"]}</option><option value="mtime" data-top="lb.byMtime">${TOP_WORDS.ko["lb.byMtime"]}</option></select>
       <button type="button" id="lb-order" ${topLabel("lb.orderAriaAsc")}><span id="lb-order-ico">${svg("asc")}</span><span id="lb-order-t">${top("lb.asc")}</span></button>
     </form>
     <div class="lb-filter">
@@ -121,7 +121,7 @@ const lb={kind:'all',page:1,sort:'name',order:'asc',q:'',seq:0,timer:null,pendin
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const lbDate=(s)=>s?new Date(s*1000).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'-';
 // A language switch re-renders the open list so dates and counts follow the new locale.
-function lbRelabel(){if(location.hash.startsWith('#library')&&!lb.pending)lbLoad();}
+function lbRelabel(){lbOrderLabel();if(location.hash.startsWith('#library')&&!lb.pending)lbLoad();}
 function lbIndicator(){const t=$('lb-tab-'+lb.kind),ind=$('lb-ind');if(!t||!t.offsetWidth)return;
   ind.style.width=t.offsetWidth+'px';ind.style.height=t.offsetHeight+'px';ind.style.transform='translate('+t.offsetLeft+'px,'+t.offsetTop+'px)';}
 function lbSkeleton(){const m=$('lb-list');m.replaceChildren();const t=el('table');

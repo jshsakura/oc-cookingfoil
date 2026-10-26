@@ -1,4 +1,4 @@
-import { top } from "./top-i18n.js";
+import { top, topPh, topLabel } from "./top-i18n.js";
 /**
  * The settings tab's automation token panel: make a token for a script or an AI
  * assistant (shown once), see when each was last used, and revoke it; turn the MCP
@@ -6,14 +6,14 @@ import { top } from "./top-i18n.js";
  * Talks to /admin/api/tokens (api-tokens-api.js) and /admin/api/server-settings (mcpEnabled).
  */
 
-export const TOKENS_HTML = `<div class="hd"><h2>자동화 토큰</h2></div>
-<p class="muted">스크립트나 AI 도우미가 관리 페이지와 같은 일을 하게 할 때 씁니다. 토큰은 만든 관리자 계정으로 동작하고, 계정과 로그인 방식은 바꿀 수 없습니다. 도우미에게는 서버 주소, 토큰, 운영 안내를 함께 건넵니다. 다 쓰면 삭제합니다.</p>
+export const TOKENS_HTML = `<div class="hd"><h2>${top("tok.h2")}</h2></div>
+<p class="muted">${top("tok.lede")}</p>
 <form class="add" id="tok-form" autocomplete="off">
-  <input id="tok-label" placeholder="어디에 쓸지 (예: Claude)" aria-label="토큰 이름" maxlength="64">
-  <button class="primary" type="submit">토큰 만들기</button>
+  <input id="tok-label" ${topPh("tok.labelPh")} ${topLabel("tok.labelAria")} maxlength="64">
+  <button class="primary" type="submit">${top("tok.makeBtn")}</button>
 </form>
 <div class="copy-row" id="tok-new" hidden><code id="tok-value"></code><button type="button" id="tok-copy" data-top="ov.copy">${top("ov.copy")}</button></div>
-<p class="muted" id="tok-note" hidden>이 토큰은 지금 한 번만 보입니다. 복사해 두고 화면을 떠나면 다시 볼 수 없습니다.</p>
+<p class="muted" id="tok-note" hidden>${top("tok.onceNote")}</p>
 <div class="scroll" id="tok-list" data-skel></div>
 <div class="hd"><h2 data-top="mcp.title"></h2></div>
 <div class="ss-row"><div><b data-top="mcp.switch"></b><p data-top="mcp.lead"></p></div>
