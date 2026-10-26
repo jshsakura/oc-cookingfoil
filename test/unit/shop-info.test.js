@@ -101,6 +101,7 @@ function fakeNro(name, version) {
 test("shop info says nothing of download options or console facts while no plugin provides them", () => {
   const info = probe({ COOK_PROD_KEYS_PATH: path.join(tmpdir(), "cf-no-keys-here", "prod.keys") });
   assert.ok(info.features.includes("item-key-generation"), "the item fields are listed either way");
+  assert.ok(info.features.includes("item-signed"), "signed files are announced");
   for (const feature of ["file-variants", "console-facts", "nca-rewrap"]) assert.ok(!info.features.includes(feature), feature);
   for (const key of ["variants", "console", "rewrapMaxGen", "rewrapMaxFirmware"]) assert.equal(info[key], undefined, key);
 });

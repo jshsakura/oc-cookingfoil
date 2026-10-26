@@ -57,7 +57,7 @@ import * as gameDescriptions from "./meta/game-descriptions.js";
 import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
 import { parseLang } from "./meta/langs.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
-import { findingOf } from "./meta/file-integrity.js";
+import { findingOf, signedOf } from "./meta/file-integrity.js";
 import { summary as integritySummary } from "./meta/integrity-help.js";
 import {
   shouldAutoExtract,
@@ -460,6 +460,9 @@ function attachContentMeta(item, relPath, parsed) {
     item.integrity = finding.verdict;
     item.integrity_detail = integritySummary(finding);
   }
+  // Whether the content and the ticket are signed, as far as the file check knows (feature "item-signed").
+  const signed = signedOf(relPath);
+  if (signed) item.signed = signed;
   if (extractIcons !== "off") {
     contentMeta.enqueue({
       absPath: path.join(romsDirPath, relPath), titleId: parsed.titleId,

@@ -486,3 +486,28 @@ test("a damaged record from before detail was kept is read once more and told on
   await settle(q);
   assert.deepEqual(calls, [], "read once");
 });
+
+test("each check keeps whether the file is signed, with only what is known; a record from before is read again once", async () => {
+  const signedRel = addFile("signed.nsp");
+  const unsigned = addFile("unsigned.nsz");
+  const unknown = addFile("unknown.xci");
+  hooks[signedRel] = () => ({ verdict: "ok", reason: "ok", checks: {}, identity: null, signed: { nca: true, ticket: true } });
+  hooks[unsigned] = () => ({ verdict: "modified", reason: "signature-fail", checks: {}, identity: null, signed: { nca: false, ticket: false } });
+  hooks[unknown] = () => ({ verdict: "unchecked", reason: "no-tool", checks: {}, identity: null, signed: { nca: null, ticket: null } });
+  const q = makeQueue(memoryStore());
+  await settle(q);
+  assert.deepEqual(q.signedOf(signedRel), { nca: true, ticket: true });
+  assert.deepEqual(q.signedOf(unsigned), { nca: false, ticket: false });
+  assert.equal(q.signedOf(unknown), null);
+  assert.equal(q.signedOf("never seen.nsp"), null);
+
+  const old = addFile("old.nsp");
+  const st = fs.statSync(path.join(games, old));
+  const store = memoryStore([{ path: old, size: st.size, mtimeMs: st.mtimeMs, verdict: "ok", reason: "ok", checks: {}, at: 1, wantHash: false, hashDone: false, identity: null }]);
+  hooks[old] = () => ({ verdict: "ok", reason: "ok", checks: {}, identity: null, signed: { nca: true, ticket: null } });
+  calls = [];
+  const q2 = makeQueue(store);
+  await settle(q2);
+  assert.deepEqual(calls.filter((c) => c.rel === old), [{ rel: old, hash: false }]);
+  assert.deepEqual(q2.signedOf(old), { nca: true });
+});

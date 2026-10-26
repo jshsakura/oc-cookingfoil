@@ -42,7 +42,8 @@
  * Records live in the index database (catalog "file-verdicts"), keyed by the
  * games-folder relative path:
  *   { path, size, mtimeMs, verdict?, reason?, checks?, detail?, at?, wantHash, hashDone,
- *     ncaHashes?, stale?, identity?, misnamed?, alerted? }   stale: the mtime changed, the signatures run again
+ *     ncaHashes?, stale?, identity?, misnamed?, alerted?, signed? }   stale: the mtime changed, the signatures run again
+ *   signed: { nca, ticket } (file-verify.js), what a console without signature patches needs
  *
  * A file newly found damaged is told to the admin once (`onDamaged`, one call
  * per run with every such file): `alerted` marks it, and it is told again only
@@ -68,8 +69,8 @@ const FLAGGED_MAX = 200;
 
 export const NOTICE = new Set(["modified", "damaged"]);
 const notice = (row) => (row && NOTICE.has(row.verdict) ? row.verdict : null);
-// A record from before checks kept the identity, or a damaged one from before they said why in detail, is read again once, signatures only.
-const needsWork = (row) => !row.verdict || row.stale || (row.wantHash && !row.hashDone) || !("identity" in row)
+// A record from before checks kept the identity or the signatures, or a damaged one from before they said why in detail, is read again once, signatures only.
+const needsWork = (row) => !row.verdict || row.stale || (row.wantHash && !row.hashDone) || !("identity" in row) || !("signed" in row)
   || (row.verdict === "damaged" && !("detail" in row));
 const sizeChanged = (st, row) => row.mtimeMs != null && st.size !== row.size;
 const mtimeChanged = (st, row) => row.mtimeMs != null && Math.round(st.mtimeMs) !== Math.round(row.mtimeMs);
@@ -413,7 +414,7 @@ export function createVerifyQueue({
       const { stale: _s, ...done } = base;
       const identity = r.identity ?? null;
       const damaged = r.verdict === "damaged";
-      put({ ...done, ncaHashes, verdict: r.verdict, reason: r.reason, checks: r.checks, detail: r.detail ?? null, at: now(), hashDone: base.hashDone || hash, identity, misnamed: nameDisagrees(rel, identity), alerted: damaged });
+      put({ ...done, ncaHashes, verdict: r.verdict, reason: r.reason, checks: r.checks, detail: r.detail ?? null, at: now(), hashDone: base.hashDone || hash, identity, misnamed: nameDisagrees(rel, identity), alerted: damaged, signed: r.signed ?? null });
       if (damaged && !base.alerted) found.push({ path: rel, reason: r.reason, detail: r.detail ?? null });
       batch.done++;
       if (NOTICE.has(r.verdict)) debug.log("verify: %s is %s (%s)", rel, r.verdict, r.reason);
@@ -517,6 +518,15 @@ export function createVerifyQueue({
     return notice(row) ? { verdict: row.verdict, reason: row.reason ?? null, detail: row.detail ?? null } : null;
   }
 
+  /** { nca?, ticket? } with only what is known (true or false), while the record is current; null when nothing is. */
+  function signedOf(rel) {
+    const row = rows.get(rel);
+    if (!row?.signed || row.stale) return null;
+    const out = {};
+    for (const k of ["nca", "ticket"]) if (typeof row.signed[k] === "boolean") out[k] = row.signed[k];
+    return Object.keys(out).length ? out : null;
+  }
+
   /** What the check found the file to be, while its size and mtime still hold; else null. */
   function identityOf(rel, { size, mtimeMs }) {
     const row = rows.get(rel);
@@ -555,7 +565,7 @@ export function createVerifyQueue({
   }
 
   return {
-    init, sync, onLibraryUpdate, hashAll, recheck, stop, shutdown, integrityOf, findingOf, identityOf, view, pump,
+    init, sync, onLibraryUpdate, hashAll, recheck, stop, shutdown, integrityOf, findingOf, signedOf, identityOf, view, pump,
     get: (rel) => rows.get(rel) ?? null,
     /** Test-only: resolves once nothing runs or is being started. */
     async idle() {
