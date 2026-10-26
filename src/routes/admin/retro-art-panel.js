@@ -244,8 +244,7 @@ async function rcRemove(c,force=false){
       if(await ask(topFill('rc.removeForceQ',{msg:err.message})))rcRemove(c,true);return;}
     toast(err.message);}}
 async function rcUpload(file,replace=false){
-  const fd=new FormData();fd.append('files',file,file.name);if(replace)fd.append('replace','true');
-  const r=await fetch('/admin/api/upload/core',{method:'POST',headers:{'Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});const d=await r.json().catch(()=>({}));
+  const r0=await chunkedKind('core',[file],{fields:replace?{replace:'true'}:{}});const r={status:r0.status,ok:r0.status>=200&&r0.status<300},d=r0.d||{};
   if(r.status===409&&!replace&&d.code==='coreExists'){if(await ask(topFill('rc.existsQ',{name:file.name})))return rcUpload(file,true);return;}
   if(r.status===409&&d.reason==='busy'){toast(topText('ac.uploadBusy'));return;}
   if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
@@ -418,7 +417,7 @@ async function raList(){
 async function raUpload(file){
   if(!file||!(file.type||'').startsWith('image/')){$('ra-msg').textContent=topText('ra.needImage');return;}
   $('ra-msg').textContent=topText('ra.shrinking');
-  try{const r=await fetch('/admin/api/retro-art/cover/upload?game='+encodeURIComponent(raGame.id),{method:'POST',headers:{'Content-Type':file.type,Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
+  try{const r=await chunkedFetch('/admin/api/retro-art/cover/upload?game='+encodeURIComponent(raGame.id),file,{headers:{'Content-Type':file.type,Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'}});
     if(r.status===401){location.reload();return;}
     const d=await r.json().catch(()=>({}));
     if(!r.ok){$('ra-msg').textContent=d.error||('HTTP '+r.status);return;}

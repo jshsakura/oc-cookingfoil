@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
+import fs from 'node:fs';
+import path from 'node:path';
 
-test('the upload limit saves on screen, survives reload and rejects an oversized upload', async ({ page }) => {
+test('the upload limit saves on screen, survives reload and does not cap admin uploads', async ({ page }) => {
   await signIn(page);
   const settings = '/admin/api/server-settings';
   const original = (await (await page.request.get(settings)).json()).settings.uploadMaxBytes;
@@ -19,13 +21,16 @@ test('the upload limit saves on screen, survives reload and rejects an oversized
     await expect(input).toHaveValue('0.001');
     const current = (await (await page.request.get(settings)).json()).settings.uploadMaxBytes;
     expect(current).toMatchObject({ value: bytes, source: 'saved' });
+    // The admin pages have no size limit: a file over the saved limit still goes up.
     const targets = await page.request.get('/admin/api/upload/targets');
     expect(targets.ok()).toBe(true);
-    expect((await targets.json()).maxBytes).toBe(bytes);
-    const refused = await page.request.post('/admin/api/upload/game', {
-      multipart: { files: { name: 'Too large [0100000000010000][v0].nsp', mimeType: 'application/octet-stream', buffer: Buffer.alloc(2 * 1024 ** 2) } },
+    expect((await targets.json()).maxBytes).toBeUndefined();
+    const name = 'Over the limit [0100000000010000][v0].nsp';
+    const accepted = await page.request.post('/admin/api/upload/game', {
+      multipart: { files: { name, mimeType: 'application/octet-stream', buffer: Buffer.alloc(2 * 1024 ** 2) } },
     });
-    expect(refused.status()).toBe(413);
+    expect(accepted.status()).toBe(201);
+    fs.rmSync(path.join(process.env.COOK_GAMES_DIR!, name), { force: true });
   } finally {
     const restored = await page.request.post(settings, {
       data: { uploadMaxBytes: original.source === 'saved' ? original.value : null },

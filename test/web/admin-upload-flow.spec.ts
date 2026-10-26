@@ -8,14 +8,26 @@ const GAMES = process.env.COOK_GAMES_DIR!;
 const SAVES = process.env.COOK_SAVES_DIR!;
 const pkg = (name: string) => ({ name, mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
 const nsp = (tag: string) => `E2E Flow ${tag} [0100000000${60 + tag.length}0000][v0].nsp`;
-// The file names of every upload request the page sends, in order (the page's XHR is wrapped before it loads).
+// The file names of every unit the page sends, in order: the files it started in pieces since the last finish
+// (the page's XHR is wrapped before it loads).
 const posts = async (page: Page) => {
   const wrap = () => {
     const w = window as unknown as { __sent: string[] };
     w.__sent = [];
+    let started: string[] = [];
+    const open = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...rest: unknown[]) {
+      (this as unknown as { __url: string }).__url = String(url);
+      return (open as (...a: unknown[]) => void).call(this, method, url, ...rest);
+    };
     const send = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.send = function (body) {
-      if (body instanceof FormData) w.__sent.push((body.getAll('files') as File[]).map((f) => f.name).join('|'));
+      const url = (this as unknown as { __url: string }).__url;
+      if (url.endsWith('/chunks') && typeof body === 'string') {
+        const name = JSON.parse(body).name as string;
+        if (!started.includes(name)) started.push(name);
+      }
+      if (url.endsWith('/finish')) { w.__sent.push(started.join('|')); started = []; }
       return send.call(this, body as XMLHttpRequestBodyInit);
     };
   };
@@ -153,10 +165,12 @@ test('a lost connection is told apart from a refusal, and the row retries by its
   await page.goto('/admin#upload');
   const names = [nsp('A'), nsp('BB')];
   const seen = await posts(page);
-  let dropped = false;
-  await page.route('**/admin/api/upload/game', async (route) => {
-    const body = route.request().postDataBuffer()?.toString('latin1') ?? '';
-    if (!dropped && body.includes(names[1])) { dropped = true; await route.abort('connectionreset'); return; }
+  // Every piece of the second file is lost until the connection comes back.
+  await page.addInitScript(() => { (window as unknown as { UP_RETRY_MS: number }).UP_RETRY_MS = 5; });
+  await page.evaluate(() => { (window as unknown as { UP_RETRY_MS: number }).UP_RETRY_MS = 5; });
+  let down = true;
+  await page.route('**/admin/api/upload/game/chunks', async (route) => {
+    if (down && (route.request().postData() ?? '').includes(names[1])) { await route.abort('connectionreset'); return; }
     await route.continue();
   });
   await page.locator('#up-file').setInputFiles(names.map(pkg));
@@ -165,10 +179,11 @@ test('a lost connection is told apart from a refusal, and the row retries by its
   await expect(failed).toHaveCount(1);
   await expect(failed).toContainText('서버에 닿지 못했습니다');
   await expect(page.locator('#up-log .note:not(.warn)')).toHaveCount(1);
+  down = false;
   await failed.getByRole('button', { name: '다시 시도' }).click();
   await expect(page.locator('#up-log .note.warn')).toHaveCount(0);
   await expect(page.locator('#up-log .note:not(.warn)')).toHaveCount(2);
-  expect(await seen()).toEqual([names[0], names[1], names[1]]);
+  expect(await seen()).toEqual([names[0], names[1]]);
 });
 
 test('a folder is one request with its own result, and the language switch repaints the page', async ({ page }) => {
@@ -209,9 +224,9 @@ test('51 packages with the first refused keep the failed row on screen next to t
   await signIn(page);
   await page.goto('/admin#upload');
   const names = Array.from({ length: 51 }, (_, i) => `E2E Flow N${String(i).padStart(2, '0')} [0100000000${70 + (i % 20)}0000][v0].nsp`);
-  await page.route('**/admin/api/upload/game', async (route) => {
-    const body = route.request().postDataBuffer()?.toString('latin1') ?? '';
-    if (body.includes(names[0])) await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: `이미 있습니다: ${names[0]}`, code: 'upload.exists' }) });
+  let finishes = 0;
+  await page.route('**/admin/api/upload/game/finish', async (route) => {
+    if (finishes++ === 0) await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: `이미 있습니다: ${names[0]}`, code: 'upload.exists' }) });
     else await route.fulfill(created('x'));
   });
   await page.locator('#up-file').setInputFiles(names.map(pkg));
@@ -231,7 +246,7 @@ test('while files are going up the kind, console and target cannot be changed, a
   let release: () => void = () => {};
   const gate = new Promise<void>((r) => { release = r; });
   await page.route('**/admin/api/upload/**', async (route) => {
-    if (route.request().method() !== 'POST') return route.continue();
+    if (!route.request().url().endsWith('/finish')) return route.continue();
     urls.push(new URL(route.request().url()).pathname);
     if (urls.length === 1) await gate;
     await route.fulfill(created('x'));
@@ -246,7 +261,7 @@ test('while files are going up the kind, console and target cannot be changed, a
   await expect(page.locator('#up-kinds')).toBeHidden();
   release();
   await expect(page.locator('#up-sum')).toContainText('성공 2개 · 실패 0개');
-  expect(urls).toEqual(['/admin/api/upload/game', '/admin/api/upload/game']);
+  expect(urls).toEqual(['/admin/api/upload/game/finish', '/admin/api/upload/game/finish']);
   await expect(page.locator('#up-change')).toBeHidden();
 });
 
@@ -290,7 +305,7 @@ test('a folder is not guessed as a save without a reason, a folder of packages r
 test('80 packages that all go up keep all 80 rows', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#upload');
-  await page.route('**/admin/api/upload/game', (route) => route.fulfill(created('x')));
+  await page.route('**/admin/api/upload/game/finish', (route) => route.fulfill(created('x')));
   const names = Array.from({ length: 80 }, (_, i) => `E2E Flow M${String(i).padStart(2, '0')} [0100000000${70 + (i % 20)}0000][v0].nsp`);
   await page.locator('#up-file').setInputFiles(names.map(pkg));
   await page.getByRole('button', { name: '올리기', exact: true }).click();
@@ -303,7 +318,7 @@ test('an app-card entry while files are going up waits, then opens with the app 
   await page.goto('/admin#upload');
   let release: () => void = () => {};
   const gate = new Promise<void>((r) => { release = r; });
-  await page.route('**/admin/api/upload/game', async (route) => { await gate; await route.fulfill(created('x')); });
+  await page.route('**/admin/api/upload/game/finish', async (route) => { await gate; await route.fulfill(created('x')); });
   await page.locator('#up-file').setInputFiles([pkg(nsp('A'))]);
   await page.getByRole('button', { name: '올리기', exact: true }).click();
   await expect(page.locator('#up-change')).toBeDisabled();
@@ -315,4 +330,33 @@ test('an app-card entry while files are going up waits, then opens with the app 
   await expect(page.locator('#up-target')).toHaveValue('handapp');
   await expect(page.locator('#up-hint')).toContainText('홈브류 앱의 패치');
   await expect(page.locator('#up-sum')).toContainText('성공 1개');
+});
+
+test('a file goes up in several pieces and a lost piece is picked up again from the server\'s offset', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin#upload');
+  const name = nsp('Chunked');
+  const size = 1000;
+  const answers: number[] = [];
+  page.on('response', (r) => { if (r.request().method() === 'PUT' && r.url().includes('/upload/chunks/')) answers.push(r.status()); });
+  const offsets: string[] = [];
+  const set = (n: number) => page.evaluate((v) => { (window as unknown as { UP_CHUNK_BYTES: number }).UP_CHUNK_BYTES = v; (window as unknown as { UP_RETRY_MS: number }).UP_RETRY_MS = 5; }, n);
+  await expect(page.locator('#up-drop')).toBeVisible();
+  await set(300);
+  let lost = false;
+  await page.route('**/admin/api/upload/chunks/**', async (route) => {
+    if (route.request().method() !== 'PUT') return route.continue();
+    offsets.push(new URL(route.request().url()).searchParams.get('offset')!);
+    // The server gets the second piece, but the page never hears back: it asks again and is told where the file stands.
+    if (!lost && offsets.length === 2) { lost = true; await route.fetch(); await route.abort('connectionreset'); return; }
+    await route.continue();
+  });
+  await page.locator('#up-file').setInputFiles({ name, mimeType: 'application/octet-stream', buffer: Buffer.alloc(size, 7) });
+  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await expect(page.locator('#up-sum')).toContainText('성공 1개 · 실패 0개');
+  expect(lost).toBe(true);
+  // The piece the page never heard about was told apart by a 409 that carried the real offset.
+  expect(answers).toContain(409);
+  expect(offsets.slice(0, 2)).toEqual(['0', '300']);
+  expect(fs.readFileSync(path.join(GAMES, name)).equals(Buffer.alloc(size, 7))).toBe(true);
 });

@@ -170,7 +170,7 @@ $('pl-install-file').addEventListener('change',async()=>{
   const file=$('pl-install-file').files[0];$('pl-install-file').value='';if(!file)return;
   const state=$('pl-install-state');state.textContent=plT('checking');
   try{
-    const r=await fetch('/admin/api/plugins/install',{method:'POST',headers:{'Content-Type':'application/zip',Accept:'application/json','Accept-Language':adminLang},body:file});
+    const r=await chunkedFetch('/admin/api/plugins/install',file,{headers:{'Content-Type':'application/zip',Accept:'application/json','Accept-Language':adminLang}});
     const d=await r.json().catch(()=>({}));
     if(r.status===401){location.reload();return;}
     if(!r.ok)throw new Error((d.error||('HTTP '+r.status))+(d.reason?' ('+plT('u.'+d.reason)+')':''));

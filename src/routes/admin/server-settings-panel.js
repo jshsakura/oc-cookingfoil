@@ -174,7 +174,9 @@ function ssKeysRow(k){const r=el('div',null,'ss-row');r.dataset.key='prodKeys';c
   const c=el('div',null,'ss-ctl');const f=el('input');f.type='file';f.accept='.keys,text/plain';f.setAttribute('aria-label',topText('ss.keysFile'));
   f.addEventListener('change',async()=>{const file=f.files[0];if(!file)return;
     if(file.size>65536){toast(topText('ss.keysTooBig'));f.value='';return;}
-    try{await api('/admin/api/keys',{method:'PUT',body:{text:await file.text()}});toast(topText('ss.keysAdded'));loadServerSettings();ssRefreshHealth();}
+    try{const r=await chunkedFetch('/admin/api/keys',file,{method:'PUT',headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'}});
+      if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.message||d.error||('HTTP '+r.status));}
+      toast(topText('ss.keysAdded'));loadServerSettings();ssRefreshHealth();}
     catch(err){toast(err.message);f.value='';}});
   c.append(f);
   if(k.source==='upload')c.append(tbtn('delete','ss.keysRemoveBtn',async()=>{if(!await ask(topText('ss.keysRemoveAsk'),{danger:true}))return;

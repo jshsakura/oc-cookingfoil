@@ -100,6 +100,12 @@ export const OPT_OUT = {
   "GET /api/art/access": "browser-only",
   // A retro game's box art as an image file, from the dashboard's editor.
   "POST /api/art/retro/:id/boxart": "binary-upload",
+  // Resumable upload of a file in pieces (meta/upload-chunks.js), the way every admin upload goes; a tool call cannot carry the bytes.
+  "POST /admin/api/upload/:kind/chunks": "binary-upload",
+  "GET /admin/api/upload/chunks/:id": "binary-upload",
+  "PUT /admin/api/upload/chunks/:id": "binary-upload",
+  "DELETE /admin/api/upload/chunks/:id": "binary-upload",
+  "POST /admin/api/upload/:kind/finish": "binary-upload",
   // MCP's Streamable HTTP endpoint (src/mcp/route.js): calls arrive as POST; GET and DELETE answer 2025-era clients.
   "POST /mcp": "mcp-transport",
   "GET /mcp": "mcp-transport",

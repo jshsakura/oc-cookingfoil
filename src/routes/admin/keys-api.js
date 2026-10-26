@@ -14,6 +14,7 @@ import { adminApprover } from "../../security/admin-actor.js";
 import { keysChanged } from "../../meta/keys-refresh.js";
 import { apiWord } from "./api-words.js";
 import { actorOf } from "../../library/trash-service.js";
+import { ChunkError, takeFile } from "../../meta/upload-chunks.js";
 
 const REFUSED = {
   format: "keys.format",
@@ -22,14 +23,18 @@ const REFUSED = {
 };
 
 export function mountKeysApi(router, requireSession) {
-  router.put("/api/keys", (req, res) => {
+  router.put("/api/keys", async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     try {
-      const keys = prodKeys.install(req.body?.text, { actor: adminApprover(req), via: "dashboard" });
+      // The file may have gone up in pieces first (meta/upload-chunks.js); the request then names it.
+      const id = req.get("X-Chunk-Id");
+      const text = id ? (await takeFile(id, { limit: 1024 * 1024 })).bytes.toString("utf8") : req.body?.text;
+      const keys = prodKeys.install(text, { actor: adminApprover(req), via: "dashboard" });
       keysChanged();
       res.json({ ok: true, keys });
     } catch (err) {
+      if (err instanceof ChunkError) return res.status(err.status).json({ error: apiWord(req, err.key, err.vars), code: err.key });
       if (!(err instanceof prodKeys.KeysError)) throw err;
       res.status(400).json({ error: REFUSED[err.reason] ? apiWord(req, REFUSED[err.reason]) : err.message, reason: err.reason });
     }

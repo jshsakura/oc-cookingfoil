@@ -29,7 +29,7 @@
  * Every change rescans the catalog, so the list tiles follow at once.
  */
 import fs from "fs";
-import express from "express";
+import { rawOrChunk } from "../../meta/upload-chunks.js";
 import path from "path";
 import debug from "../../debug.js";
 import { dataDir, publicBaseUrl, ratingSync, retroDir } from "../../helpers/envs.js";
@@ -242,7 +242,7 @@ export function mountRetroArtApi(router, requireSession) {
     res.json({ boxart: "ok" });
   }));
 
-  const imageBody = express.raw({ type: "image/*", limit: art.MAX_COVER_BYTES });
+  const imageBody = rawOrChunk({ type: "image/*", limit: art.MAX_COVER_BYTES });
   // The session is checked before the body is read, so only an admin can send megabytes.
   router.post("/api/retro-art/cover/upload", guarded(async (req, res) => {
     const origin = req.get("Origin");

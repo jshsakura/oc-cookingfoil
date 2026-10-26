@@ -34,7 +34,7 @@ import fsp from "fs/promises";
 import path from "path";
 import multer from "multer";
 import debug from "../../debug.js";
-import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir, uploadMaxBytes } from "../../helpers/envs.js";
+import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir } from "../../helpers/envs.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import { libraryGames } from "../../meta/library-games.js";
 import * as userPatches from "../../meta/user-patches.js";
@@ -61,8 +61,11 @@ import {
   GAME_EXT_RE, UploadError, backupSaveType, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, patchLayout, retroLayout,
   safeName, safeRelPath, saveLayout, unzip, walk, MAX_UPLOAD_FILES as MAX_FILES,
 } from "../../meta/library-upload.js";
+import * as chunks from "../../meta/upload-chunks.js";
 
 const KINDS = ["game", "retro", "patch", "save", "homebrew", "client", "core"];
+
+const FIELD_NAMES = ["system", "homebrew", "titleId", "name", "description", "descriptionKo", "saveType", "required", "port", "replace"];
 
 /** A refusal answered with the api-words.js message `key` in the request's language. */
 const refuse = (status, key, vars = {}) => Object.assign(new UploadError(status, apiText("en", key, vars)), { key, vars });
@@ -107,7 +110,8 @@ async function received(req, work) {
   if (files.length === 1 && /\.zip$/i.test(files[0].originalname) && req.params.kind !== "retro" && req.params.kind !== "homebrew") {
     const dir = path.join(work, "unzipped");
     await fsp.mkdir(dir);
-    await unzip(files[0].path, dir);
+    // No size cap on what an archive holds: the disk is the limit.
+    await unzip(files[0].path, dir, { maxBytes: Math.max(0, (await chunks.freeBytes(work)) - chunks.FREE_MARGIN_BYTES) });
     await fsp.rm(files[0].path, { force: true });
     return { items: await walk(dir), fromFolder: false };
   }
@@ -265,7 +269,7 @@ export function mountUploadApi(router, guard) {
       .filter((e) => e.install_type !== "title")
       .map((e) => ({ app: (e.install_path ?? installPathFor(e.file_name)).split("/")[1], name: e.name, kind: e.kind }))
       .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "port" ? -1 : 1));
-    res.json({ targets, systems, games: await libraryGames().catch(() => []), homebrew, maxBytes: uploadMaxBytes });
+    res.json({ targets, systems, games: await libraryGames().catch(() => []), homebrew });
   });
 
   router.post("/api/upload/:kind", async (req, res) => {
@@ -273,52 +277,185 @@ export function mountUploadApi(router, guard) {
     const origin = req.get("Origin");
     if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
     const kind = req.params.kind;
-    if (!KINDS.includes(kind)) return res.status(404).json({ error: "unknown kind" });
-    if (kind === "client" || (kind === "core" && fs.existsSync(retroDir))) await fsp.mkdir(rootOf(kind), { recursive: true }).catch(() => {});
-    if (!fs.existsSync(rootOf(kind)) || !(await writable(rootOf(kind)))) {
-      return res.status(409).json({ error: apiWord(req, "upload.readOnly") });
-    }
-    const work = path.join(stagingOf(kind), crypto.randomBytes(8).toString("hex"));
-    await fsp.mkdir(path.join(work, "in"), { recursive: true });
+    if (!(await ready(req, res, kind))) return;
+    // No size cap: a body the disk cannot hold is the only refusal.
+    const free = await chunks.freeBytes(rootOf(kind)).catch(() => Infinity);
+    if ((Number(req.headers["content-length"]) || 0) + chunks.FREE_MARGIN_BYTES > free) return res.status(507).json({ error: apiWord(req, "upload.noSpace", { need: gib(Number(req.headers["content-length"])), free: gib(free) }) });
+    const work = await newWork(kind);
     let n = 0;
     const upload = multer({
       storage: multer.diskStorage({
         destination: (_req, _file, cb) => cb(null, path.join(work, "in")),
         filename: (_req, _file, cb) => cb(null, `f${n++}`),
       }),
-      limits: { fileSize: uploadMaxBytes, files: MAX_FILES, fieldSize: 4 * 1024 * 1024 },
+      limits: { files: MAX_FILES, fieldSize: 4 * 1024 * 1024 },
     }).array("files", MAX_FILES);
-    let status = 201;
-    let body;
-    try {
+    const { status, body } = await handleUpload(req, kind, work, async () => {
       await new Promise((resolve, reject) => upload(req, res, (err) => (err ? reject(err) : resolve())));
       // multer hands back names as latin1; the browser sent UTF-8.
       for (const f of req.files ?? []) f.originalname = Buffer.from(f.originalname, "latin1").toString("utf8");
-      const { items, fromFolder } = await received(req, work);
-      const placed = kind === "game" ? await placeGame(items)
-        : kind === "retro" ? await placeRetro(items, req.body)
-        : kind === "homebrew" && req.body?.replace ? await replaceHomebrewFile(items, req.body.replace, { by: actorOf(req) })
-        : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true", by: actorOf(req) })
-        : kind === "client" ? await placeClient(items, req)
-        : kind === "core" ? await placeCoreUpload(items, req.body)
-        : await placeFolder(kind, items, req.body, work, fromFolder);
-      debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
-      // The saves listing is refreshed in the background; one uploaded here shows on the next list.
-      if (kind === "save") savesCatalog().invalidate();
-      body = { ok: true, kind, ...placed };
-    } catch (err) {
-      status = err instanceof UploadError || err instanceof CoreError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
-      if (status === 500) debug.error("upload: %s failed: %s", kind, err.message);
-      const keyed = (err instanceof UploadError || err instanceof HomebrewUploadError) && err.key;
-      // A meta module's refusal (library-upload.js) carries its key as `code`: said in the request's language, with the code.
-      body = err instanceof CoreError ? { ...coreError(req, err), ...err.extra }
-        : status === 500 ? { error: apiWord(req, "upload.failed") }
-        : keyed ? { error: apiWord(req, err.key, err.vars) }
-        : isMetaCode(err.code) ? metaError(req, err)
-        : { error: err.message };
-    }
-    // Leftovers of a refused upload go before the answer does.
-    await dropWork(work);
+    });
     res.status(status).json(body);
   });
+
+  mountChunkRoutes(router, guard);
+}
+
+const gib = (n) => `${(n / 1024 ** 3).toFixed(1)} GiB`;
+
+/** The kind's folder is there and can be written (made first for the kinds that make their own); answers 404/409 when not. */
+async function ready(req, res, kind) {
+  if (!KINDS.includes(kind)) return void res.status(404).json({ error: "unknown kind" });
+  if (kind === "client" || (kind === "core" && fs.existsSync(retroDir))) await fsp.mkdir(rootOf(kind), { recursive: true }).catch(() => {});
+  if (!fs.existsSync(rootOf(kind)) || !(await writable(rootOf(kind)))) return void res.status(409).json({ error: apiWord(req, "upload.readOnly") });
+  return true;
+}
+
+async function newWork(kind) {
+  const work = path.join(stagingOf(kind), crypto.randomBytes(8).toString("hex"));
+  await fsp.mkdir(path.join(work, "in"), { recursive: true });
+  return work;
+}
+
+/**
+ * Receives (`receive` fills req.files and req.body), places and answers an upload: the one path both the
+ * multipart request and a finished chunked upload take. Leftovers go before the answer does.
+ */
+async function handleUpload(req, kind, work, receive) {
+  let status = 201;
+  let body;
+  try {
+    await receive();
+    const { items, fromFolder } = await received(req, work);
+    const placed = kind === "game" ? await placeGame(items)
+      : kind === "retro" ? await placeRetro(items, req.body)
+      : kind === "homebrew" && req.body?.replace ? await replaceHomebrewFile(items, req.body.replace, { by: actorOf(req) })
+      : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true", by: actorOf(req) })
+      : kind === "client" ? await placeClient(items, req)
+      : kind === "core" ? await placeCoreUpload(items, req.body)
+      : await placeFolder(kind, items, req.body, work, fromFolder);
+    debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
+    // The saves listing is refreshed in the background; one uploaded here shows on the next list.
+    if (kind === "save") savesCatalog().invalidate();
+    body = { ok: true, kind, ...placed };
+  } catch (err) {
+    status = err instanceof UploadError || err instanceof CoreError || err instanceof chunks.ChunkError ? err.status : err instanceof HomebrewUploadError ? 400 : err.code === "LIMIT_FILE_SIZE" ? 413 : err.code?.startsWith?.("LIMIT_") ? 400 : 500;
+    if (status === 500) debug.error("upload: %s failed: %s", kind, err.message);
+    const keyed = (err instanceof UploadError || err instanceof HomebrewUploadError) && err.key;
+    // A meta module's refusal (library-upload.js) carries its key as `code`: said in the request's language, with the code.
+    body = err instanceof CoreError ? { ...coreError(req, err), ...err.extra }
+      : err instanceof chunks.ChunkError ? chunkBody(req, err)
+      : status === 500 ? { error: apiWord(req, "upload.failed") }
+      : keyed ? { error: apiWord(req, err.key, err.vars) }
+      : isMetaCode(err.code) ? metaError(req, err)
+      : { error: err.message };
+  }
+  await dropWork(work);
+  return { status, body };
+}
+
+const chunkBody = (req, err) => ({ error: apiWord(req, err.key, err.vars), code: err.key, ...err.extra });
+const chunksDir = (kind) => (kind === chunks.FILE_KIND ? chunks.fileChunksDir() : path.join(stagingOf(kind), "chunks"));
+const accountOf = (req) => { const a = actorOf(req); return `${a.type}:${a.name}`; };
+
+/** The raw body of a request, at most `max` bytes; it is held in memory so a piece lands whole or not at all. */
+async function rawBody(req, max) {
+  const declared = Number(req.headers["content-length"]);
+  if (!Number.isFinite(declared) || declared < 0) throw new chunks.ChunkError(411, "upload.badOffset");
+  if (declared > max) throw new chunks.ChunkError(413, "upload.chunkTooBig");
+  const parts = [];
+  let got = 0;
+  for await (const part of req) {
+    got += part.length;
+    if (got > max) throw new chunks.ChunkError(413, "upload.chunkTooBig");
+    parts.push(part);
+  }
+  return Buffer.concat(parts, got);
+}
+
+/**
+ * One mechanism for every admin upload (meta/upload-chunks.js). :kind is a library kind, or "file" for a file
+ * one other route takes by naming it in X-Chunk-Id (takeFile, rawOrChunk).
+ *
+ *   POST   /api/upload/:kind/chunks     { name, size, lastModified } → { id, offset, size }   start, or pick up where it stopped
+ *   GET    /api/upload/chunks/:id?kind=  → { offset, size }                                    where it stands
+ *   PUT    /api/upload/chunks/:id?kind=&offset=N   raw bytes (≤ 32 MiB) → { offset }           409 + the real offset when N is wrong
+ *   DELETE /api/upload/chunks/:id?kind=                                                        drop the partial
+ *   POST   /api/upload/:kind/finish     { ids, paths?, fields? } → what the multipart request answers
+ */
+function mountChunkRoutes(router, guard) {
+  const swept = () => Promise.all([...KINDS, chunks.FILE_KIND].map((k) => chunks.sweep(chunksDir(k)))).catch(() => {});
+  swept();
+  setInterval(swept, 3600_000).unref();
+
+  const kindOf = (req, res) => {
+    const kind = req.params.kind ?? req.query.kind;
+    if (!KINDS.includes(kind) && kind !== chunks.FILE_KIND) return void res.status(404).json({ error: "unknown kind" });
+    return kind;
+  };
+  /** Wraps a chunk route: admin only, the kind checked, a refusal said in the request's language. */
+  const route = (handler) => async (req, res) => {
+    if (!guard(req, res)) return;
+    const kind = kindOf(req, res);
+    if (!kind) return;
+    res.set("Cache-Control", "no-store");
+    try {
+      await handler(req, res, kind, chunksDir(kind));
+    } catch (err) {
+      if (!(err instanceof chunks.ChunkError)) {
+        debug.error("upload chunk: %s", err.message);
+        return res.status(500).json({ error: apiWord(req, "upload.failed") });
+      }
+      res.status(err.status).json(chunkBody(req, err));
+    }
+  };
+
+  router.post("/api/upload/:kind/chunks", route(async (req, res, kind, dir) => {
+    if (kind !== chunks.FILE_KIND && !(await ready(req, res, kind))) return;
+    const { name, size, lastModified } = req.body ?? {};
+    res.json(await chunks.begin(dir, { account: accountOf(req), kind, name, size, lastModified }));
+  }));
+
+  router.get("/api/upload/chunks/:id", route(async (req, res, _kind, dir) => {
+    const have = await chunks.offsetOf(dir, req.params.id);
+    if (!have) throw new chunks.ChunkError(404, "upload.unknownChunk");
+    res.json({ offset: have.offset, size: have.size });
+  }));
+
+  router.put("/api/upload/chunks/:id", route(async (req, res, _kind, dir) => {
+    const offset = Number(req.query.offset);
+    if (!Number.isSafeInteger(offset) || offset < 0) throw new chunks.ChunkError(400, "upload.badOffset");
+    res.json({ offset: await chunks.append(dir, req.params.id, offset, await rawBody(req, chunks.MAX_CHUNK_BYTES)) });
+  }));
+
+  router.delete("/api/upload/chunks/:id", route(async (req, res, _kind, dir) => {
+    await chunks.discard(dir, req.params.id);
+    res.json({ ok: true });
+  }));
+
+  router.post("/api/upload/:kind/finish", route(async (req, res, kind, dir) => {
+    if (!(await ready(req, res, kind))) return;
+    const { ids, paths, fields } = req.body ?? {};
+    if (!Array.isArray(ids) || !ids.length || ids.length > MAX_FILES || new Set(ids).size !== ids.length) throw new chunks.ChunkError(400, "upload.badName");
+    // Everything is checked before anything moves, so a short file leaves the others in place to resume.
+    const parts = [];
+    for (const id of ids) parts.push(await chunks.completed(dir, String(id)));
+    const work = await newWork(kind);
+    const files = [];
+    for (const [i, part] of parts.entries()) {
+      const dest = path.join(work, "in", `f${i}`);
+      await fsp.rename(part.path, dest);
+      await chunks.discard(dir, ids[i]);
+      files.push({ path: dest, originalname: part.name, size: part.size });
+    }
+    const body = {};
+    for (const key of FIELD_NAMES) if (typeof fields?.[key] === "string") body[key] = fields[key];
+    if (Array.isArray(paths)) body.paths = JSON.stringify(paths);
+    req.params.kind = kind;
+    const { status, body: answer } = await handleUpload(req, kind, work, async () => {
+      req.files = files;
+      req.body = body;
+    });
+    res.status(status).json(answer);
+  }));
 }
