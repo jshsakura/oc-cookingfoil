@@ -9,6 +9,9 @@
  *   GET /api/client/forwarder        the client's own HOME-menu shortcut NSP, starting
  *                                    sdmc:/switch/cookingfoil/cookingfoil.nro (fixed title ID)
  *   POST /api/client/log             a console's error log (see client-log.js)
+ *   GET /api/client/strings?lang=xx  the client's strings for one language, {lang, base, strings}
+ *                                    (meta/client-strings.js); ETag and 304, 404 for a language
+ *                                    the server has no table for
  *
  * A build is published by dropping it at <data dir>/client/cookingfoil.nro, or
  * uploading it on the admin page (admin/upload-api.js, kind "client")
@@ -42,6 +45,8 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import express from "express";
+import { clientStrings } from "../meta/client-strings.js";
+import { pickEncoding } from "../helpers/json-compression.js";
 import * as env from "../helpers/envs.js";
 import { dataDir } from "../helpers/envs.js";
 import { keysDir } from "../security/prod-keys.js";
@@ -287,6 +292,16 @@ export default function clientUpdateRouter() {
   }).catch((err) => debug.error("client update: release: %s", err.message));
   setTimeout(follow, 5_000).unref();
   setInterval(follow, RELEASE_CHECK_MS).unref();
+  router.get("/strings", (req, res) => {
+    const answer = clientStrings(String(req.query.lang ?? ""));
+    if (!answer) return res.status(404).json({ error: "no strings for this language", code: "unknown-language" });
+    res.set({ "Cache-Control": "private, no-cache", ETag: answer.etag, Vary: "Accept-Encoding" });
+    if (req.fresh) return res.status(304).end();
+    // Compressed once at start, so the reply keeps its Content-Length.
+    const encoding = pickEncoding(req.get("Accept-Encoding"));
+    if (encoding) res.set("Content-Encoding", encoding);
+    res.type("application/json").send(encoding ? answer[encoding] : answer.json);
+  });
   router.get("/latest", async (req, res, next) => {
     try {
       const info = await latestBuild();

@@ -12,7 +12,7 @@ const placeholders = (text) => [...new Set(text.match(/\{\d+\}/g) ?? [])].sort()
 const english = (key) => key.replace(/\|[^|]*$/, "");
 
 const languages = read("languages.json");
-const files = readdirSync(DIR).filter((f) => f.endsWith(".json") && f !== "languages.json");
+const files = readdirSync(DIR).filter((f) => f.endsWith(".json") && !["languages.json", "locked.json"].includes(f));
 
 test("every listed language except English has a table, and every table is listed", () => {
   const codes = languages.map((l) => l.code);
@@ -29,7 +29,15 @@ test("each language names itself and falls back only to a listed language", () =
   for (const { code, name, base } of languages) {
     assert.ok(typeof name === "string" && name.trim(), code);
     if (base !== null) assert.ok(codes.has(base) && base !== code, code);
+    // The client follows a base one step only, then goes to English.
+    if (base !== null) assert.equal(languages.find((l) => l.code === base).base, null, `${code}'s base has a base`);
   }
+});
+
+test("locked keys are a list of the client's keys, the ones a server never sets", () => {
+  const locked = read("locked.json");
+  assert.ok(Array.isArray(locked) && locked.length > 0);
+  assert.ok(locked.every((k) => typeof k === "string" && k.trim()));
 });
 
 test("tables are flat maps of non-empty text that keep the English placeholders", () => {

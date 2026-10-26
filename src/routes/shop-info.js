@@ -49,6 +49,7 @@ import * as prodKeys from "../security/prod-keys.js";
 import { serverId } from "../security/server-id.js";
 import { maxGeneration } from "../meta/nca-crypto.js";
 import { firmwareOf } from "../meta/rewrap/generations.js";
+import { clientLanguages } from "../meta/client-strings.js";
 
 export const API_VERSION = 1;
 
@@ -76,6 +77,7 @@ const FEATURES = [
   "download-connections", // info.download.maxConnections and X-CookingFoil-Max-Connections on lists and downloads
   "active-downloads", // X-CookingFoil-Active-Downloads: consoles downloading now, the caller included
   "server-id",            // info.server_id, fixed per installation
+  "client-strings",       // GET /api/client/strings?lang=, and info.client_strings.languages [{ code, name, base }]
   "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon accepts ?size=sm|md|lg (160|256|512 square); banner, screenshot ?size=sm (256) and md|lg (512)
 ];
 
@@ -142,6 +144,7 @@ export default async function shopInfoRoute(req, res) {
     ...(devicePairing ? { enroll: { perHour: enrollPerHour } } : {}),
     files: stats.files,
     contentMeta: contentMeta.progress(),
+    client_strings: { languages: clientLanguages() },
     ...(rewrapGen !== null ? { rewrapMaxGen: rewrapGen, rewrapMaxFirmware: firmwareOf(rewrapGen) } : {}),
   });
 }
