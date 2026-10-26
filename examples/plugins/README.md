@@ -75,8 +75,9 @@ replaced. The server does everything except the part only the plugin knows.
   Each is `{ id, label, note?, confirm?, query }`. The texts are `{ lang: text }` maps (or one string,
   taken as English) and the server picks the reader's language. `query` holds only keys listed in
   the manifest's `variantKeys`, with string values; the client appends it to the file's URL.
-- `plan({ file, size, mtimeMs, query, keys? }, ...)` runs when such a URL is requested (30 s). `keys` is
-  the server's parsed prod.keys, given to a plugin that said `needsKeys`, for that call only. It returns
+- `plan({ file, size, mtimeMs, query }, ...)` runs when such a URL is requested (30 s). A plugin that
+  said `needsKeys` also gets `keys` (the server's parsed prod.keys) in the arguments of `variants`, `plan`
+  and `shopInfo`, for that call only. It returns
   `{ patches: [{ offset, bytes }] }` (inside the file, not overlapping; the size does not change) or
   `{ refuse: { code, text } }` with `text` as above. The server answers a refusal with a 409.
 - Anything else a plugin does wrong (throws, hangs, answers a patch outside the file) is answered

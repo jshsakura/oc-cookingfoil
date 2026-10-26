@@ -1,5 +1,5 @@
 /**
- * The NCA key handling every reader and the rewrap share: the 0xC00 header in
+ * The NCA key handling every reader shares: the 0xC00 header in
  * AES-128-XTS, the key area keys and title key encryption keys of each master
  * key generation, and which generations a prod.keys holds.
  *
@@ -63,7 +63,7 @@ export function titleKek(keys, gen) {
 }
 
 /**
- * The highest master key generation `keys` can rewrap with: a header key, and
+ * The highest master key generation `keys` can open: a header key, and
  * that generation's application key area key and title key encryption key.
  * null when there is none. Counts only; no key value leaves.
  */

@@ -19,14 +19,9 @@
  * Whether the server has prod.keys is never listed: the admin hands them in on
  * the admin page's settings tab (routes/admin/keys-api.js), not from a console.
  *
- * `nca-rewrap` ("Install ignoring firmware version") is listed whenever the server has prod.keys: a
- * game file asked for with ?rewrap=<the console's firmware, "21.0.1"> is then
- * served lowered to that firmware's master key generation (meta/rewrap/), and
- * `rewrapMaxGen` (0-based) and `rewrapMaxFirmware` ("21.0.0") say how far the server's keys
- * reach, so a client can tell before it asks whether a game is within reach
- * (item.key_generation, feature "item-key-generation"). This tells any
- * signed-in client that the server has keys and how new they are, never a
- * key; the owner chose that over a client that finds out by a failed install.
+ * Plugins add to this (withPlugins below): download options (file-variants, variants.keys, console.wants)
+ * and whatever a plugin's shopInfo hook names. A plugin that needs the server's keys and says how far they
+ * reach tells any signed-in client that the server has keys and how new they are, never a key.
  *
  * `server_id` is this installation's UUID (security/server-id.js): the same on
  * every address the server answers on, so a client merging several servers
@@ -45,10 +40,7 @@ import { savesCatalog, savesEnabled } from "./saves.js";
 import * as userPatches from "../meta/user-patches.js";
 import { homebrewEnabled } from "./homebrew.js";
 import { adminDeviceOf } from "../security/device-admin.js";
-import * as prodKeys from "../security/prod-keys.js";
 import { serverId } from "../security/server-id.js";
-import { maxGeneration } from "../meta/nca-crypto.js";
-import { firmwareOf } from "../meta/rewrap/generations.js";
 import { requestLang } from "../meta/langs.js";
 import debug from "../debug.js";
 
@@ -131,9 +123,6 @@ export default async function shopInfoRoute(req, res) {
   const patches = (await userPatches.list()).length > 0;
   const stats = shopCache.stats();
   const adminDevice = Boolean(adminDeviceOf(req));
-  const keys = prodKeys.loadKeys();
-  const rewrap = prodKeys.usable(keys);
-  const rewrapGen = rewrap ? maxGeneration(keys) : null;
   res.header("Cache-Control", "private, max-age=60");
   const info = {
     name: "CookingFoil",
@@ -166,8 +155,6 @@ export default async function shopInfoRoute(req, res) {
       ...(homebrewEnabled() ? ["homebrew", "homebrew-folders", "homebrew-titles"] : []),
       // admin-edit: this console is an admin device; /api/admin/items/:kind/:id/fields reads and changes item settings.
       ...(adminDevice ? ["admin-edit"] : []),
-      // nca-rewrap: ?rewrap=<firmware> on a game file serves it lowered to that firmware; info.rewrapMaxGen says how far.
-      ...(rewrap ? ["nca-rewrap"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
     ],
@@ -177,7 +164,6 @@ export default async function shopInfoRoute(req, res) {
     ...(devicePairing ? { enroll: { perHour: enrollPerHour } } : {}),
     files: stats.files,
     contentMeta: contentMeta.progress(),
-    ...(rewrapGen !== null ? { rewrapMaxGen: rewrapGen, rewrapMaxFirmware: firmwareOf(rewrapGen) } : {}),
   };
   await withPlugins(info, requestLang(req));
   res.json(info);

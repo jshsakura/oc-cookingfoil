@@ -156,7 +156,7 @@ function laneRouter(root, routes) {
   router.use((req, res, next) => {
     if (laneOf(req.path) !== "file") return next();
     if (hasHiddenSegment(req.path)) return res.status(404).end();
-    // An error from the game-file handler (a rewrap that failed to read) is passed on, never served around.
+    // An error from the game-file handler (a variant that failed to read) is passed on, never served around.
     large(req, res, (err) => (err ? next(err) : serve(req, res, next)));
   });
   router.use((req, res) => res.status(404).end());

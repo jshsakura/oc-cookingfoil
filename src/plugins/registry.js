@@ -44,6 +44,9 @@ export const DEFAULT_LIMITS = Object.freeze({
 /** The hook functions each `provides` entry obliges a plugin to export. */
 export const HOOKS_OF = Object.freeze({ metadata: ["metadata"], art: ["art"], variant: ["variants", "plan"], task: ["tasks"] });
 
+/** The hooks of a plugin that said needsKeys are handed the parsed prod.keys, for that call only. */
+const KEYED_HOOKS = new Set(["plan", "variants", "shopInfo"]);
+
 // Module-wide: a second registry (a test, a reload) must not import a URL the first one already cached.
 let importCount = 0;
 
@@ -323,7 +326,7 @@ export function createRegistry({
     if (row?.cooldownUntil && now() < row.cooldownUntil) return { skipped: "cooling", retryAt: row.cooldownUntil };
 
     // A plugin that said needsKeys gets the parsed keys for this one call; they are never kept in ctx.
-    const given = kind === "plan" && entries.get(id)?.manifest?.needsKeys ? { ...args, keys: keysProvider?.() ?? null } : args;
+    const given = KEYED_HOOKS.has(kind) && entries.get(id)?.manifest?.needsKeys ? { ...args, keys: keysProvider?.() ?? null } : args;
     const r = await runInPlugin(id, (signal) => fn.call(rt.instance, given, { signal, lang: call.lang ?? "en", clientVersion: call.clientVersion ?? null, console: consoleFor(id, call.console) }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
     if (r.ok) {
       if (row.hookStreak || row.cooldownStep || row.cooldownUntil) store.update(id, { hookStreak: 0, cooldownStep: 0, cooldownUntil: null });

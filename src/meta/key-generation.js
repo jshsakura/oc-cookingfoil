@@ -2,7 +2,7 @@
  * The master key generation a game file needs: the highest one among the
  * headers of its NCAs (an NSZ's NCZ entries start with their NCA's header).
  * A console whose firmware is older than that generation's cannot decrypt the
- * file without a rewrap (meta/rewrap/).
+ * file as it is (a plugin may offer a lowered copy).
  *
  * Reads 0xC00 bytes per NCA, nothing else.
  */

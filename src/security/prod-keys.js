@@ -25,7 +25,7 @@ import * as edits from "../meta/admin-edits.js";
 import debug from "../debug.js";
 import { discard } from "../library/trash-service.js";
 import { maxGeneration } from "../meta/nca-crypto.js";
-import { firmwareOf } from "../meta/rewrap/generations.js";
+import { firmwareOf } from "../meta/generations.js";
 
 export const MAX_BYTES = 64 * 1024;
 const UPLOAD_DIR = path.join(dataDir, "keys");
@@ -72,7 +72,7 @@ export function parseKeys(text) {
 
 /**
  * Counts only, and the highest master key generation the keys reach with the
- * firmware that brought it (what a game may need at most to be rewrapped). Pure.
+ * firmware that brought it (what a game may need at most). Pure.
  */
 function summary(keys) {
   const gen = maxGeneration(keys);

@@ -15,15 +15,13 @@
  * A game file asked for with a variant key in the query (a plugin's download
  * option, plugins/variants.js) goes out with that plugin's bytes laid over
  * whatever range is read: the same size, an ETag of its own, and a 409 when
- * the option cannot be served. (?rewrap=N, until it moves into a plugin, is
- * the one built-in option: meta/rewrap/serve.js.)
+ * the option cannot be served.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream";
-import * as rewrap from "../meta/rewrap/serve.js";
 import { CONSOLE_HEADER } from "../plugins/variants.js";
-import { patchStream } from "../meta/rewrap/patch-stream.js";
+import { patchStream } from "./patch-stream.js";
 
 export const READ_CHUNK = 4 * 1024 * 1024;
 // What the shop lists and serves as games.
@@ -59,8 +57,8 @@ function ifRangeMatches(req, etag, lastModified) {
 }
 
 /**
- * Serves an already-resolved regular file; `variant` ({ tag, patches }, from
- * meta/rewrap/serve.js plan) serves it with those bytes replaced.
+ * Serves an already-resolved regular file; `variant` ({ tag, patches, vary }, from
+ * plugins/variants.js resolve) serves it with those bytes replaced.
  */
 export function sendLargeFile(req, res, abs, st, variant = null) {
   const etag = etagOf(st, variant?.tag);
@@ -158,11 +156,7 @@ export function largeFiles(root, match, { variants = pluginVariant } = {}) {
       variants(req, abs, st).then((found) => {
         if (found?.refusal) return refuseVariant(res, found.refusal);
         if (found?.variant) return sendLargeFile(req, res, abs, st, found.variant);
-        if (!rewrap.asksRewrap(req)) return sendLargeFile(req, res, abs, st);
-        return rewrap.plan(abs, st, req.query[rewrap.PARAM]).then(
-          (variant) => sendLargeFile(req, res, abs, st, variant),
-          (failure) => rewrap.refuse(req, res, abs, failure) || next(failure),
-        );
+        return sendLargeFile(req, res, abs, st);
       }).catch(next);
     });
   };

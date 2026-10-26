@@ -98,18 +98,9 @@ function fakeNro(name, version) {
   return Buffer.concat([head, aset, nacp]);
 }
 
-test("shop info lists nca-rewrap and how far the keys reach only while the server has prod.keys", () => {
-  const without = probe({ COOK_PROD_KEYS_PATH: path.join(tmpdir(), "cf-no-keys-here", "prod.keys") });
-  assert.ok(!without.features.includes("nca-rewrap"));
-  assert.equal(without.rewrapMaxGen, undefined);
-  assert.ok(without.features.includes("item-key-generation"), "the item fields are listed either way");
-
-  const dir = mkdtempSync(path.join(tmpdir(), "cf-keys-"));
-  const file = path.join(dir, "prod.keys");
-  writeFileSync(file, [`header_key = ${"a".repeat(64)}`, `key_area_key_application_0d = ${"b".repeat(32)}`, `titlekek_0d = ${"c".repeat(32)}`].join("\n"));
-  const info = probe({ COOK_PROD_KEYS_PATH: file });
-  assert.ok(info.features.includes("nca-rewrap"));
-  assert.equal(info.rewrapMaxGen, 13);
-  assert.equal(info.rewrapMaxFirmware, "14.0.0");
-  assert.ok(!JSON.stringify(info).includes("a".repeat(32)), "no key value");
+test("shop info says nothing of download options or console facts while no plugin provides them", () => {
+  const info = probe({ COOK_PROD_KEYS_PATH: path.join(tmpdir(), "cf-no-keys-here", "prod.keys") });
+  assert.ok(info.features.includes("item-key-generation"), "the item fields are listed either way");
+  for (const feature of ["file-variants", "console-facts", "nca-rewrap"]) assert.ok(!info.features.includes(feature), feature);
+  for (const key of ["variants", "console", "rewrapMaxGen", "rewrapMaxFirmware"]) assert.equal(info[key], undefined, key);
 });

@@ -6,7 +6,7 @@
  */
 import * as contentMeta from "./content-meta.js";
 import * as shopCache from "./shop-cache.js";
-import { firmwareOf } from "./rewrap/generations.js";
+import { firmwareOf } from "./generations.js";
 
 const GAME_KINDS = new Set(["base", "update"]);
 
