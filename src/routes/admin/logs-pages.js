@@ -15,7 +15,8 @@ import { icon } from "../../views/icons.js";
 
 export const LOGS_CSS = /* css */ `
 .logs-view{display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:12px;margin-bottom:8px}
-.logs-list{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto}
+/* The page scrolls the log; the file list stays beside it under the header. */
+.logs-list{display:grid;gap:8px;align-content:start;position:sticky;top:calc(var(--adm-hdr-h, 0px) + 16px);max-height:calc(100vh - var(--adm-hdr-h, 0px) - 32px);overflow:auto}
 .logs-list details{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:10px 12px}
 .logs-list summary{cursor:pointer;font-weight:700;display:flex;justify-content:space-between;gap:8px}
 .logs-list summary span{color:var(--muted);font-weight:var(--fw);font-size:var(--fs-xs)}
@@ -23,7 +24,7 @@ export const LOGS_CSS = /* css */ `
 .logs-list button[aria-pressed="true"]{border-color:var(--accent);background:rgba(var(--accent-rgb),.14)}
 .logs-body{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);overflow:hidden;display:flex;flex-direction:column}
 .logs-head{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--muted);font-size:var(--fs-sm);display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.logs-body pre{margin:0;padding:14px;min-height:220px;max-height:520px;overflow:auto;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all}
+.logs-body pre{margin:0;padding:14px;min-height:220px;overflow-x:auto;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all}
 .logs-view{align-items:stretch}
 .logs-list summary{align-items:center}.logs-list summary>b{display:grid;gap:1px;min-width:0;font-weight:700}
 .logs-list summary>b small{font:500 11px ui-monospace,monospace;color:var(--muted);letter-spacing:.02em}
@@ -38,7 +39,7 @@ export const LOGS_CSS = /* css */ `
 .rk{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:var(--r-pill);font-weight:var(--fw-bold);font-size:var(--fs-sm);color:var(--muted);font-variant-numeric:tabular-nums}
 .rk.r1{background:var(--medal-1);color:var(--medal-1-ink)}.rk.r2{background:var(--medal-2);color:var(--medal-2-ink)}.rk.r3{background:var(--medal-3);color:var(--medal-3-ink)}
 .rk-key{display:block;font:500 11px ui-monospace,monospace;color:var(--muted)}
-@media (max-width:640px){.logs-view{grid-template-columns:1fr}}
+@media (max-width:640px){.logs-view{grid-template-columns:1fr}.logs-list{position:static;max-height:none}}
 `;
 
 /** The client-logs area: bug report ranking plus the per-console viewer. */

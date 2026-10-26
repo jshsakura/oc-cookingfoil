@@ -13,7 +13,8 @@ export const NAV_CSS = /* css */ `
 .up-entry svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .up-entry[aria-current="page"]{background:var(--text);color:var(--panel);border-color:var(--text)}
 @media (max-width:640px){.hdr-right{gap:10px}.lang-btn{padding:0 12px;gap:4px}.lang-btn .chev{display:none}.up-entry{padding:0}.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
-.subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto}
+/* Sideways only: the active tab's -1px underline must not make the row scroll up and down by a pixel. */
+.subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden}
 /* The sidebar lists these tasks already: the page does not repeat them as a tab row. */
 #retro-subtabs,#homebrew-subtabs{display:none}
 .subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:var(--fw-bold);white-space:nowrap}
