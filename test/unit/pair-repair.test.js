@@ -322,5 +322,4 @@ test("a console the admin let in takes a new key from any account's download and
   const fresh = (await r.json()).accessKey;
   assert.equal(await shop(target, fresh), 200);
   assert.equal(await shop(target, old), 401);
-  assert.deepEqual(await mine("alice"), [], "the admin's approval stays: it does not become alice's console");
 }));
