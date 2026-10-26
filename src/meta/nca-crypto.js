@@ -31,8 +31,6 @@ const ecb = (decrypt, key, data) => {
 
 /** AES-128-ECB decryption, no padding. */
 export const ecbDecrypt = (key, data) => ecb(true, key, data);
-/** AES-128-ECB encryption, no padding. */
-export const ecbEncrypt = (key, data) => ecb(false, key, data);
 
 const hexOf = (gen) => gen.toString(16).padStart(2, "0");
 const key16 = (keys, name) => (keys.get(name)?.length === 32 ? Buffer.from(keys.get(name), "hex") : null);
@@ -93,9 +91,6 @@ function xts(decrypt, raw, headerKey) {
 
 /** Decrypts the 0xC00 NCA header. */
 export const decryptHeader = (raw, headerKey) => xts(true, raw, headerKey);
-
-/** Encrypts a plain 0xC00 NCA header, the inverse of decryptHeader. */
-export const encryptHeader = (plain, headerKey) => xts(false, plain, headerKey);
 
 /** The master key generation an NCA header uses: max(key generation old, key generation) - 1, 0 for 0. Pure. */
 export function headerGeneration(header) {
