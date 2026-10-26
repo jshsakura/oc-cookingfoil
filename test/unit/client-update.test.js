@@ -242,3 +242,38 @@ test("a failing GitHub release leaves the server serving what it has, or no buil
     await stop(server);
   }
 });
+
+test("a console reads one language's strings, never a locked key, and asks again with its ETag", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-"));
+  const server = await boot(data);
+  try {
+    const dir = path.join(import.meta.dirname, "../../i18n/client");
+    const locked = JSON.parse(fs.readFileSync(path.join(dir, "locked.json"), "utf8"));
+    const table = JSON.parse(fs.readFileSync(path.join(dir, "ko.json"), "utf8"));
+    assert.equal((await fetch(`${BASE}/api/client/strings?lang=ko`)).status, 401, "same sign-in as everything else");
+
+    const res = await fetch(`${BASE}/api/client/strings?lang=ko`, { headers: AUTH });
+    assert.equal(res.status, 200);
+    assert.ok(Number(res.headers.get("content-length")) > 0, "a client can show how much is left");
+    const body = await res.json();
+    assert.equal(body.lang, "ko");
+    assert.equal(body.base, null);
+    const lockedInTable = locked.filter((k) => k in table);
+    assert.ok(lockedInTable.length > 0, "the table translates some locked keys");
+    assert.ok(lockedInTable.every((k) => !(k in body.strings)), "locked keys are never sent");
+    assert.equal(Object.keys(body.strings).length, Object.keys(table).length - lockedInTable.length);
+
+    const again = await fetch(`${BASE}/api/client/strings?lang=ko`, { headers: { ...AUTH, "If-None-Match": res.headers.get("etag"), "Cache-Control": "max-age=0" } });
+    assert.equal(again.status, 304);
+    assert.deepEqual(await (await fetch(`${BASE}/api/client/strings?lang=en`, { headers: AUTH })).json(), { lang: "en", base: null, strings: {} });
+    const hant = await (await fetch(`${BASE}/api/client/strings?lang=zh-Hant`, { headers: AUTH })).json();
+    assert.equal(hant.base, "zh");
+    assert.equal((await fetch(`${BASE}/api/client/strings?lang=xx`, { headers: AUTH })).status, 404);
+
+    const info = await (await fetch(`${BASE}/api/library/info`, { headers: AUTH })).json();
+    assert.ok(info.features.includes("client-strings"));
+    assert.deepEqual(info.client_strings.languages.find((l) => l.code === "ko"), { code: "ko", name: "한국어", base: null });
+  } finally {
+    await stop(server);
+  }
+});

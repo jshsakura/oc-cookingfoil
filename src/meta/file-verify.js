@@ -7,8 +7,16 @@
  *             content hashes match the cnmt
  *   modified  an NCA header main signature fails: repacked or modded
  *             (Korean patches and the like)
- *   damaged   the container cannot be read, an NCA the cnmt lists is missing,
- *             or an NCA whose signature passes does not match its cnmt hash
+ *   damaged   the container cannot be read, the file ends before the NCAs its
+ *             file table lists do ("truncated"; a trimmed XCI only lacks the
+ *             padding after its last NCA, so it is not), an NCA the cnmt lists
+ *             is missing, or an NCA whose signature passes does not match its
+ *             cnmt hash
+ *
+ * A damaged verdict carries `detail`: for "truncated", `present` (the share of
+ * the file there, 0..1) and `ncas` the NCAs cut off; for "missing-content" and
+ * "hash-mismatch", `ncas`. Each NCA is { id, type }, type the cnmt's content
+ * type ("Program", "Control", ...) or null when no cnmt reads.
  *   unchecked nstool or the keys are missing, so nothing could be said
  *
  * Signatures: the first 0xC00 bytes of each NCA (the header; an NCZ keeps its
@@ -53,6 +61,7 @@ const CONTENT_TYPE_DELTA = 6;
 const SIGNATURE_FAIL_RE = /NCA Header Main Signature:\s*FAIL/i;
 
 const ncaIdOf = (name) => name.split(".")[0].toLowerCase();
+const CONTENT_TYPES = ["Meta", "Program", "Data", "Control", "HtmlDocument", "LegalInformation", "DeltaFragment"];
 const isNca = (name) => /\.(nca|ncz)$/i.test(name);
 
 /** Runs nstool (low priority) and resolves to its combined output; rejects on a timeout or abort. */
@@ -95,9 +104,10 @@ export async function listContainer(absPath) {
  *   missing      NCA ids the cnmt lists that the container lacks
  *   hash         "pass" | "fail" | "skip";  mismatched NCA ids whose hash differs
  */
-export function decide({ readable = true, signature = "skip", failedIds = [], missing = [], hash = "skip", mismatched = [] }) {
+export function decide({ readable = true, truncated = false, signature = "skip", failedIds = [], missing = [], hash = "skip", mismatched = [] }) {
   const checks = { signature, hash };
   if (!readable) return { verdict: "damaged", reason: "unreadable", checks };
+  if (truncated) return { verdict: "damaged", reason: "truncated", checks };
   if (missing.length) return { verdict: "damaged", reason: "missing-content", checks };
   const failed = new Set(failedIds);
   if (mismatched.some((id) => !failed.has(id))) return { verdict: "damaged", reason: "hash-mismatch", checks };
@@ -182,14 +192,23 @@ export function createVerifier({
     const container = await listContainer(absPath);
     const st = await fsp.stat(absPath);
     const ncas = container?.entries.filter((e) => isNca(e.name)) ?? [];
-    const fits = container && container.entries.every((e) => e.offset + e.size <= st.size);
-    if (!container || !fits || !ncas.length || ncas.some((e) => e.size < NCA_HEADER_BYTES)) return decide({ readable: false });
+    if (!container || !ncas.length) return decide({ readable: false });
+    const cut = container.entries.filter((e) => e.offset + e.size > st.size);
+    if (cut.length) return truncatedVerdict(absPath, container, ncas, cut, st.size);
+    if (ncas.some((e) => e.size < NCA_HEADER_BYTES)) return decide({ readable: false });
     if (!t) return decide({});
 
     const dir = await fsp.mkdtemp(path.join(tmpRoot, "cook-verify-"));
     const meta = await readMeta(absPath, ncas);
+    const typeOf = new Map((meta.records ?? []).map((r) => [r.ncaId, CONTENT_TYPES[r.contentType] ?? null]));
+    const typed = (ids) => ids.map((id) => ({ id, type: typeOf.get(id) ?? null }));
     const withId = (r) => ({ ...r, identity: meta.identity });
-    const decideWith = (facts) => withId(decide(facts));
+    const decideWith = (facts) => {
+      const r = decide(facts);
+      if (r.reason === "missing-content") return withId({ ...r, detail: { ncas: typed(facts.missing) } });
+      if (r.reason === "hash-mismatch") return withId({ ...r, detail: { ncas: typed(facts.mismatched.filter((id) => !facts.failedIds?.includes(id))) } });
+      return withId(r);
+    };
     try {
       const failedIds = [];
       if (t.bin) for (const e of ncas) if (await signatureFailed(t, absPath, e, dir, signal)) failedIds.push(ncaIdOf(e.name));
@@ -217,6 +236,22 @@ export function createVerifier({
     } finally {
       await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
     }
+  }
+
+  /**
+   * A file that ends before its file table says: how much of it is there and
+   * which NCAs are cut off, typed from a cnmt that still lies inside the file.
+   */
+  async function truncatedVerdict(absPath, container, ncas, cut, fileSize) {
+    const end = Math.max(...container.entries.map((e) => e.offset + e.size));
+    const meta = await readMeta(absPath, ncas.filter((e) => e.offset + e.size <= fileSize)).catch(() => ({ records: null, identity: null }));
+    const typeOf = new Map((meta.records ?? []).map((r) => [r.ncaId, CONTENT_TYPES[r.contentType] ?? null]));
+    const type = (e) => (/\.cnmt\.nc[az]$/i.test(e.name) ? "Meta" : typeOf.get(ncaIdOf(e.name)) ?? null);
+    return {
+      ...decide({ truncated: true }),
+      detail: { present: Math.floor((fileSize / end) * 100) / 100, ncas: cut.filter((e) => isNca(e.name)).map((e) => ({ id: ncaIdOf(e.name), type: type(e) })) },
+      identity: meta.identity ?? null,
+    };
   }
 
   return { verify, tools };

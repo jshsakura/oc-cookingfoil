@@ -57,7 +57,8 @@ import * as gameDescriptions from "./meta/game-descriptions.js";
 import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
 import { parseLang } from "./meta/langs.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
-import { integrityOf } from "./meta/file-integrity.js";
+import { findingOf } from "./meta/file-integrity.js";
+import { summary as integritySummary } from "./meta/integrity-help.js";
 import {
   shouldAutoExtract,
   wantsExtractByMode,
@@ -452,10 +453,13 @@ function attachContentMeta(item, relPath, parsed) {
     if (dlcTotal) item.dlc_total = dlcTotal;
   }
   if (parsed.contentType === "update" && meta?.displayVersion) item.version_name = meta.displayVersion;
-  // What the file check found, only when there is something to say (feature "item-integrity").
-  // It informs; the file is offered all the same.
-  const integrity = integrityOf(relPath);
-  if (integrity) item.integrity = integrity;
+  // What the file check found, only when there is something to say (feature "item-integrity"),
+  // and why in short (feature "item-integrity-detail"). It informs; the file is offered all the same.
+  const finding = findingOf(relPath);
+  if (finding) {
+    item.integrity = finding.verdict;
+    item.integrity_detail = integritySummary(finding);
+  }
   if (extractIcons !== "off") {
     contentMeta.enqueue({
       absPath: path.join(romsDirPath, relPath), titleId: parsed.titleId,

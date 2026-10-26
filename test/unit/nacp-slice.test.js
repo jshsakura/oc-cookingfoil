@@ -14,6 +14,7 @@ process.env.COOK_NSTOOL_BIN = path.join(import.meta.dirname, "../fixtures/fake-n
 process.env.COOK_PROD_KEYS_PATH = path.join(root, "prod.keys");
 process.env.COOK_DATA_DIR = path.join(root, "data");
 const { extractFromPfs0 } = await import("../../src/meta/extract-providers/nsp.js");
+const nszProvider = await import("../../src/meta/extract-providers/nsz.js");
 
 const CONTROL_ID = "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0";
 const NACP_BYTES = 0x4000;
@@ -50,6 +51,16 @@ test("an XCI's or XCZ's NACP is read from its secure partition the same way", as
     assert.equal(read?.name, `Cart Game ${ext}`, ext);
     assert.equal(read.source, `nacp-${ext}`);
   }
+});
+
+test("the NSZ provider cuts an XCZ open the same way, without decompressing it", async () => {
+  process.env.COOK_NSZ_BIN = path.join(root, "no-nsz-here");
+  const file = path.join(root, "trimmed.xcz");
+  fs.writeFileSync(file, buildXci(contents("Ink Game")));
+  const read = await nszProvider.extract({ absPath: file, baseTitleId: "0100000000010000" }, { langPriority: ["en"] });
+  delete process.env.COOK_NSZ_BIN;
+  assert.equal(read?.name, "Ink Game");
+  assert.equal(read.source, "nacp-xcz");
 });
 
 test("an XCZ whose control NCA is compressed (.ncz) gives no name rather than a wrong one", async () => {

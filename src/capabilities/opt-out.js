@@ -15,11 +15,14 @@ export const OPT_OUT_REASONS = {
   "catalog-export": "bulk authenticated catalog export; interactive game queries are provided by capabilities",
   "binary-upload": "takes a file upload, which a tool call cannot carry",
   "mcp-transport": "the MCP endpoint itself, through which the capabilities are served as tools",
+  "console-ui": "the console client's own interface data, read by the client and of no use as a tool",
   "legacy-unregistered": "predates the registry; only LEGACY_UNREGISTERED may use it",
 };
 
 /** "METHOD /path" -> reason, one of OPT_OUT_REASONS other than legacy-unregistered. */
 export const OPT_OUT = {
+  // The console client's strings for a language it shows (meta/client-strings.js).
+  "GET /api/client/strings": "console-ui",
   // Canonical client protocol: same handlers and token restrictions as the transitional aliases.
   "GET /api/library/banner/:titleId": "token-blocked",
   "GET /api/library/icon/:titleId": "token-blocked",

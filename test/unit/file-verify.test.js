@@ -138,8 +138,21 @@ test("a file that is not a container, or is cut short, is damaged without runnin
   const { verifier, calls } = setup();
   assert.equal((await verifier.verify(write("nsp", Buffer.alloc(0x100, 7)))).reason, "unreadable");
   const whole = buildPfs0(files());
-  assert.equal((await verifier.verify(write("nsp", whole.subarray(0, whole.length - 0x100)))).reason, "unreadable");
+  const cut = await verifier.verify(write("nsp", whole.subarray(0, whole.length - 0x100)));
+  assert.deepEqual([cut.verdict, cut.reason], ["damaged", "truncated"]);
+  assert.ok(cut.detail.present > 0.5 && cut.detail.present < 1, "the share of the file that is there");
+  assert.ok(cut.detail.ncas.length >= 1 && cut.detail.ncas.every((n) => /^[0-9a-f]{32}$/.test(n.id)), "the NCAs cut off");
   assert.equal(calls.length, 0);
+});
+
+test("a cut-off NCA is named by its cnmt type when the cnmt is still in the file", async () => {
+  const { verifier } = setup({ cnmt: buildCnmt(records()) });
+  // A file table in this order puts the program last, so a cut there loses only it.
+  const order = files().sort((x, y) => (x.name.startsWith(PROGRAM) ? 1 : 0) - (y.name.startsWith(PROGRAM) ? 1 : 0));
+  const whole = buildPfs0(order);
+  const cut = await verifier.verify(write("nsp", whole.subarray(0, whole.length - 0x10)));
+  assert.equal(cut.reason, "truncated");
+  assert.deepEqual(cut.detail.ncas, [{ id: PROGRAM, type: "Program" }]);
 });
 
 test("an NSZ gets its signatures checked but never its hashes (NCZ is compressed)", async () => {
