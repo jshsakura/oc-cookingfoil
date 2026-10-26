@@ -8,6 +8,7 @@ import * as extractedMeta from "./extracted-meta-store.js";
 import * as contentMeta from "./content-meta.js";
 import { langPriority } from "../helpers/envs.js";
 import { fileNamesOver, pickFileName } from "./name-pick.js";
+import { valueOf, LOCAL_PREFERRED, TITLEDB, LOCAL } from "./field-merge.js";
 import * as shopCache from "./shop-cache.js";
 import { versionedArtwork } from "./artwork-version.js";
 import * as customArt from "./custom-art.js";
@@ -28,7 +29,13 @@ export function gameOf(titleId, origin = "") {
   // A Korean or English title in the file beats titledb's when titledb has only later languages.
   const names = { ...fileNamesOver(fromDb, own, langPriority), ...(fromDb ?? {}) };
   // A game titledb doesn't know (a port, say) is still named the way the library names it.
-  const name = pickFileName(fromDb, own, langPriority) || entry?.name || extracted?.name || names.en || Object.values(names)[0] || libraryName(titleId);
+  const name = valueOf("name", {
+    [LOCAL_PREFERRED]: () => pickFileName(fromDb, own, langPriority),
+    [TITLEDB]: entry?.name,
+    [LOCAL]: extracted?.name,
+    names: () => names.en || Object.values(names)[0],
+    library: () => libraryName(titleId),
+  }, { order: [LOCAL_PREFERRED, TITLEDB, LOCAL, "names", "library"], skipEmpty: true });
   if (!name) return null;
   const game = { name, names };
   // Absolute, like the shop's artwork URLs, so curl-style clients can fetch it with the shop's auth.
