@@ -1201,5 +1201,7 @@
   "Downloading additional language data": "Download dei dati di lingua aggiuntivi",
   "Getting additional language data.": "Recupero dei dati di lingua aggiuntivi in corso.",
   "Could not get the additional language data.": "Impossibile recuperare i dati di lingua aggiuntivi.",
-  "Nothing arrived for 5 seconds. Check the connection and try again.": "Non è arrivato nulla per 5 secondi. Controlla la connessione e riprova."
+  "Nothing arrived for 5 seconds. Check the connection and try again.": "Non è arrivato nulla per 5 secondi. Controlla la connessione e riprova.",
+  "Damaged|file": "Danneggiato",
+  "File status": "Stato del file"
 }
