@@ -326,6 +326,7 @@ export const ADMIN_HEADER_HTML = /* html */ `<header class="adm-hdr">
   <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
   ${MENU_BUTTON_HTML}
+  <p class="adm-crumb" id="adm-crumb"></p>
   <a class="up-entry" id="up-entry" href="/admin/upload" data-top-label="up.entry" aria-label="파일 올리기">${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
   ${TOP_LANG_HTML}
   <div class="acct-menu activity-account">
