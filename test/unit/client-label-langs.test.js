@@ -8,7 +8,7 @@ import { STYLE_NAMES } from "../../src/retro/menu.js";
 import { REGIONS, SORTS } from "../../src/retro/filters.js";
 import { BEZEL_CREDIT } from "../../src/retro/credits.js";
 import { DEFAULT_SYSTEMS } from "../../src/retro/systems.js";
-import { SOURCE_LABEL } from "../../src/meta/shop-saves.js";
+import { SOURCE_LABEL } from "../../src/meta/library-saves.js";
 import { DROPBOX_PAGE_TEXT } from "../../src/routes/dropbox-bridge.js";
 import { PAIR_TEXT } from "../../src/routes/device-pair-text.js";
 import { RA_LINK_TEXT } from "../../src/routes/ra-link-text.js";

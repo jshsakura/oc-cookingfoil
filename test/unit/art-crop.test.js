@@ -110,7 +110,7 @@ test("cutting again uses the kept original and only the new area", async () => {
   const body = await r.json();
   assert.deepEqual(body.originals.icon, { x: 0, y: 0, w: 0.5, h: 1 });
   assert.ok(isRed(await color(art)), "the left half now");
-  assert.notEqual(body.urls.icon, up.urls.icon, "the shop address changes so the page and every cache show the new one");
+  assert.notEqual(body.urls.icon, up.urls.icon, "the library address changes so the page and every cache show the new one");
 });
 
 test("a bad area, a missing original or a bad slot is refused before anything is written", async () => {

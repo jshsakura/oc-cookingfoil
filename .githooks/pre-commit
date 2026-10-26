@@ -101,7 +101,7 @@ fi
 ok "lockfile in sync"
 
 # ─────────────────────────────────────────────────────────────────────────
-step "server smoke (boot + /api/shop/sections)"
+step "server smoke (boot + /api/library/sections)"
 PORT=$(( ((RANDOM % 50000) + 3000) ))  # avoid collision with running dev servers
 LOG=$(mktemp)
 JSON=$(mktemp)
@@ -115,7 +115,7 @@ SERVER_PID=$!
 BODY_OK=""
 for _ in 1 2 3 4 5 6 7 8; do
   sleep 0.4
-  if curl -sf "http://127.0.0.1:$PORT/api/shop/sections" -o "$JSON" 2>/dev/null; then
+  if curl -sf "http://127.0.0.1:$PORT/api/library/sections" -o "$JSON" 2>/dev/null; then
     BODY_OK=1
     break
   fi
@@ -139,9 +139,9 @@ node -e "
       process.exit(1);
     }
   }
-" || { rm -f "$LOG" "$JSON"; fail "/api/shop/sections shape invalid"; }
+" || { rm -f "$LOG" "$JSON"; fail "/api/library/sections shape invalid"; }
 rm -f "$LOG" "$JSON"
-ok "server boots + /api/shop/sections valid"
+ok "server boots + /api/library/sections valid"
 
 # ─────────────────────────────────────────────────────────────────────────
 # The smoke above boots with COOK_AUTH_USERS unset, and authGuard returns a

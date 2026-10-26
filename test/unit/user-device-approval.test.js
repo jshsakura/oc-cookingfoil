@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { webSession } from "../support/web-session.js";
 
-// A shop user signed in on their phone approves a console by scanning its QR
+// A library user signed in on their phone approves a console by scanning its QR
 // (or typing its code); the console then gets its access key with no password.
 const DEVICE_A = "C1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7E8F90";
 const DEVICE_B = "D1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7E8F90";
@@ -66,7 +66,7 @@ test("a signed-in user approves a console from the QR or its code", async () => 
     assert.match(pendingA.pairUrl, new RegExp(`^${BASE}/pair/[a-f0-9]{32}$`));
     const token = pendingA.pairUrl.split("/").pop();
 
-    // The page sits behind the shop's sign-in and may use the camera.
+    // The page sits behind the library's sign-in and may use the camera.
     assert.equal((await fetch(`${BASE}/pair`)).status, 401);
     const scan = await fetch(`${BASE}/pair`, { headers: { ...BASIC, "Accept-Language": "ko" } });
     assert.equal(scan.status, 200);

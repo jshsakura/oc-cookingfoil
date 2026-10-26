@@ -102,6 +102,7 @@ const BASE_WORDS = {
     "er.self": "지금 로그인한 계정은 정지, 강등, 삭제할 수 없습니다.", "er.last-admin": "관리자 계정이 하나는 남아 있어야 합니다.",
     "pp.admin": "관리자", "pp.user": "일반 사용자", "pp.on": "사용 중", "pp.noRecord": "접속 기록 없음", "pp.approvedStatus": "승인됨", "pp.off": "사용 중지",
     "pp.pass": "비밀번호", "pp.copy": "복사", "pp.approve": "승인", "pp.delete": "삭제", "pp.cancel": "취소", "pp.reject": "거절",
+    "pt.intro": "패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 삭제합니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다. 기기에서 돌려 봤으면 검수 전을 눌러 라이브러리에 검수됨 배지를 붙입니다.", "sv.intro": "기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 삭제합니다. 기기에서 넣어 봤으면 검수 전을 눌러 라이브러리에 검수됨 배지를 붙입니다.",
     "pp.toAdmin": "관리자로", "pp.toUser": "일반 사용자로", "pp.enable": "다시 사용", "pp.reissue": "키 재발급",
     "pp.device": "기기", "pp.devices": "기기", "pp.userN": "사용자", "pp.console": "콘솔", "pp.download": "다운로드",
     "pp.waiting": "대기", "pp.expired": "만료", "pp.used": "연동함", "pp.revoked": "취소함", "pp.download2": "다운로드",
@@ -533,6 +534,7 @@ const BASE_WORDS = {
     "er.self": "The account you are signed in as cannot be stopped, demoted or deleted.", "er.last-admin": "At least one admin account must stay.",
     "pp.admin": "Admin", "pp.user": "User", "pp.on": "Active", "pp.noRecord": "No record", "pp.approvedStatus": "Approved", "pp.off": "Disabled",
     "pp.pass": "Password", "pp.copy": "Copy", "pp.approve": "Approve", "pp.delete": "Delete", "pp.cancel": "Cancel", "pp.reject": "Reject",
+    "pt.intro": "A patch is tied to its game by the title ID. Press Required to mark that the game does not run without this patch; press again to go back to optional. The console shows required patches as installing together with the game on its detail page. Edit changes the name and description, moves the patch to another game or deletes it. Patch information is stored on the server. A patch.json in the folder is imported once, the first time it is seen, and later edits to the file are not picked up, so change it here. If you have run it on a console, press Unverified to put the Verified badge on it in the library.", "sv.intro": "Saves that a console fetches from the game's detail page and puts in place. Edit changes the name, description, save type and source, moves the save to another game or deletes it. If you have tried one on a console, press Unchecked to put the Verified badge on it in the library.",
     "pp.toAdmin": "Make admin", "pp.toUser": "Make user", "pp.enable": "Re-enable", "pp.reissue": "Reissue key",
     "pp.device": "Console", "pp.devices": "Consoles", "pp.userN": "User", "pp.console": "Console", "pp.download": "Download",
     "pp.waiting": "Waiting", "pp.expired": "Expired", "pp.used": "Paired", "pp.revoked": "Revoked", "pp.download2": "Download",
@@ -901,6 +903,7 @@ const BASE_WORDS = {
     "er.self": "今ログインしているアカウントは停止・降格・削除できません。", "er.last-admin": "管理者アカウントは一つは残します。",
     "pp.admin": "管理者", "pp.user": "一般ユーザー", "pp.on": "使用中", "pp.noRecord": "記録なし", "pp.approvedStatus": "承認済み", "pp.off": "使用停止",
     "pp.pass": "パスワード", "pp.copy": "コピー", "pp.approve": "承認", "pp.delete": "削除", "pp.cancel": "キャンセル", "pp.reject": "拒否",
+    "pt.intro": "パッチはタイトル ID でゲームに結び付きます。必須を押すと、このパッチなしではゲームが動かないことを示し、もう一度押すと任意に戻ります。本体は必須パッチをゲーム詳細でゲームと一緒にインストールするものとして表示します。編集で名前と説明を直し、別のゲームへ移したり削除したりできます。パッチ情報はサーバーに保存します。フォルダーに patch.json があれば最初に見たとき一度だけ取り込み、その後ファイルを直しても反映しないので、ここで直します。本体で試したら未検証を押して、ライブラリに検証済みバッジを付けます。", "sv.intro": "本体がゲーム詳細から受け取って反映するセーブです。編集で名前、説明、セーブの種類、出どころを直し、別のゲームへ移したり削除したりできます。本体で試したら未検証を押して、ライブラリに検証済みバッジを付けます。",
     "pp.toAdmin": "管理者にする", "pp.toUser": "一般ユーザーにする", "pp.enable": "再び使う", "pp.reissue": "キー再発行",
     "pp.device": "本体", "pp.devices": "本体", "pp.userN": "ユーザー", "pp.console": "本体", "pp.download": "ダウンロード",
     "pp.waiting": "待機中", "pp.expired": "期限切れ", "pp.used": "連携済み", "pp.revoked": "キャンセル済み", "pp.download2": "ダウンロード",
@@ -1269,6 +1272,7 @@ const BASE_WORDS = {
     "er.self": "当前登录的账户不能被停用、降级或删除。", "er.last-admin": "至少保留一个管理员账户。",
     "pp.admin": "管理员", "pp.user": "普通用户", "pp.on": "使用中", "pp.noRecord": "无记录", "pp.approvedStatus": "已批准", "pp.off": "已停用",
     "pp.pass": "密码", "pp.copy": "复制", "pp.approve": "批准", "pp.delete": "删除", "pp.cancel": "取消", "pp.reject": "拒绝",
+    "pt.intro": "补丁通过 Title ID 关联到游戏。点击“必需”表示没有此补丁游戏无法运行，再点一次恢复为可选。主机会在游戏详情中把必需补丁显示为随游戏一起安装。在编辑中可以修改名称和说明，移到其他游戏或删除。补丁信息保存在服务器上。文件夹里的 patch.json 只在第一次看到时导入一次，之后修改该文件不会生效，请在这里修改。已在主机上试过的话，点击“未验证”，即可在游戏库中加上“已验证”标记。", "sv.intro": "主机在游戏详情中获取并放入的存档。在编辑中可以修改名称、说明、存档类型和来源，移到其他游戏或删除。已在主机上试过的话，点击“未验证”，即可在游戏库中加上已验证标记。",
     "pp.toAdmin": "设为管理员", "pp.toUser": "设为普通用户", "pp.enable": "重新启用", "pp.reissue": "重新发钥匙",
     "pp.device": "主机", "pp.devices": "主机", "pp.userN": "用户", "pp.console": "主机", "pp.download": "下载",
     "pp.waiting": "等待中", "pp.expired": "已过期", "pp.used": "已配对", "pp.revoked": "已取消", "pp.download2": "下载",
@@ -1617,13 +1621,13 @@ export const TOP_LANG_HTML = /* html */ `<div class="lang-menu">
 
 export const TOP_LANG_CSS = /* css */ `
 .lang-menu{position:relative}
-.lang-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;cursor:pointer;border-radius:100px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 13px inherit;font-family:inherit}
+.lang-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;cursor:pointer;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 13px inherit;font-family:inherit}
 .lang-btn:hover,.lang-btn[aria-expanded="true"]{border-color:var(--text)}
 .lang-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .lang-btn .chev{width:13px;height:13px;color:var(--muted)}
-.lang-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:148px;max-height:min(60vh,480px);overflow:auto;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+.lang-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:148px;max-height:min(60vh,480px);overflow:auto;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:0 16px 36px rgba(0,0,0,.18)}
 .lang-list[hidden]{display:none}
-.lang-list button{display:flex;justify-content:flex-start;height:auto;box-shadow:none;text-align:left;padding:9px 12px;border:0;border-radius:9px;cursor:pointer;background:transparent;color:var(--text);font:600 14px inherit;font-family:inherit}
+.lang-list button{display:flex;justify-content:flex-start;height:auto;box-shadow:none;text-align:left;padding:9px 12px;border:0;border-radius:var(--r-md);cursor:pointer;background:transparent;color:var(--text);font:600 14px inherit;font-family:inherit}
 .lang-list button:hover:not([aria-checked="true"]){background:var(--sunk)}
 .lang-list button[aria-checked="true"]{background:var(--text);color:var(--panel)}
 `;

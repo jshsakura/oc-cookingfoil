@@ -17,7 +17,6 @@ import { requestLang } from "../../meta/langs.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import * as koMatch from "../../retro/ko-match.js";
 import * as romIndex from "../../retro/rom-index.js";
-import { rebuildRetroShortcut } from "../retro.js";
 import { apiWord } from "./api-words.js";
 
 const LIST_MAX = 1000;
@@ -55,8 +54,6 @@ export async function decideRetroKoGuess(id, approve) {
   const g = catalog.byId.get(String(id ?? ""));
   if (!g) return "no-game";
   if (!(approve ? koMatch.approve(g) : koMatch.reject(g))) return "no-guess";
-  // The shortcut carries the name too: built again in the background.
-  if (approve) rebuildRetroShortcut(g.id);
   debug.log("admin: retro game %s Korean title guess %s", g.id, approve ? "kept" : "turned down");
   return "ok";
 }

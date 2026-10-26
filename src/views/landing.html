@@ -3087,7 +3087,7 @@
       }).observe(document.documentElement, { childList: true, subtree: true });
       decorateIn(document.body);
 
-      // Text drawn once outside the data-i18n attributes and the shop render redraws itself here on a language switch.
+      // Text drawn once outside the data-i18n attributes and the library render redraws itself here on a language switch.
       const onLang = [];
       function applyI18n() {
         document.documentElement.setAttribute("lang", lang);
@@ -3113,7 +3113,7 @@
         $("lang-current").textContent = lang.toUpperCase();
         $("lang-btn").setAttribute("aria-label", t("action.language"));
         for (const redraw of onLang) redraw();
-        if (shopData) renderAll(shopData); else { $("status-text").textContent = t("status.loading"); }
+        if (catalogData) renderAll(catalogData); else { $("status-text").textContent = t("status.loading"); }
       }
 
       // ─── utils ─────────────────────────────────────────────────────────────
@@ -3132,7 +3132,7 @@
         if (s.slice(6) === "00") return `${s.slice(0,4)}.${s.slice(4,6)}`;
         return `${s.slice(0,4)}.${s.slice(4,6)}.${s.slice(6,8)}`;
       };
-      // A title version as people read it: the shop's own display version, else
+      // A title version as people read it: the library's own display version, else
       // major.minor.micro from the packed number (v65536 → v0.0.1); a base game's 0 stays v0.
       const fmtVersion = (v, name) => {
         if (name) return "v" + String(name).replace(/^v/i, "");
@@ -3411,7 +3411,7 @@
         name.replace(/\s*\([^()]*\)\s*$/, "").trim() || name;
 
       // A base game's name in the page language, as the client picks it: that
-      // language, then English, then the shop's own name (titledb names per region).
+      // language, then English, then the library's own name (titledb names per region).
       function pickName(names, fallback) {
         return (names && (names[lang] || names.en)) || fallback;
       }
@@ -3449,8 +3449,8 @@
       }
 
       // ─── features and session ─────────────────────────────────────────────
-      // The shop address and how to connect live on the admin page's overview now.
-      // Show the device page only when this shop pairs consoles.
+      // The library address and how to connect live on the admin page's overview now.
+      // Show the device page only when this library pairs consoles.
       fetch("/api/library/info", { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
         .then((info) => {
@@ -3459,7 +3459,7 @@
           if (features.includes("client-update") && features.includes("enroll")) showClientCard(info.enroll?.perHour);
           if (features.includes("retro")) { available.add("retro"); available.add("retro-home"); }
           if (features.includes("user-patches")) available.add("patches");
-          if (features.includes("shop-saves")) available.add("saves");
+          if (features.includes("library-saves") || features.includes("shop-saves")) available.add("saves");
           $("retro-tab").hidden = !available.has("retro");
           $("extras-tab").hidden = !available.has("patches") && !available.has("saves");
           if (features.includes("homebrew")) { available.add("tools"); available.add("ports"); }
@@ -3496,7 +3496,7 @@
       };
 
       // ─── state ─────────────────────────────────────────────────────────────
-      let shopData = null;
+      let catalogData = null;
       let renderedItems = [];
       const PAGE_TARGET = 24;
       const state = { kind: "base", q: "", sort: "added-desc", genre: "", steam: "", page: 1, perPage: PAGE_TARGET };
@@ -3634,8 +3634,8 @@
       }
 
       // ─── data flow ─────────────────────────────────────────────────────────
-      let lastShopText = "";
-      async function loadShop({ quiet = false } = {}) {
+      let lastCatalogText = "";
+      async function loadCatalog({ quiet = false } = {}) {
         if (!quiet) $("status-text").textContent = t("status.loading");
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 60_000);
@@ -3646,10 +3646,10 @@
           const text = await r.text();
           const ms = Math.round(performance.now() - t0);
           if (ms > 1500) console.info("[CookingFoil] /api/library/sections", ms, "ms");
-          if (quiet && text === lastShopText) return;
-          lastShopText = text;
-          shopData = JSON.parse(text);
-          renderAll(shopData, { quiet });
+          if (quiet && text === lastCatalogText) return;
+          lastCatalogText = text;
+          catalogData = JSON.parse(text);
+          renderAll(catalogData, { quiet });
         } catch (err) {
           console.error("[CookingFoil] /api/library/sections failed:", err);
           // A live update that fails keeps what is on screen.
@@ -3657,7 +3657,7 @@
           $("status").classList.remove("warm"); $("status").classList.add("cold");
           $("status-text").textContent = err.name === "AbortError" ? t("status.timeout") : t("status.error", err.message || String(err));
           $("games").innerHTML = `<div class="empty">${t("empty.err")}</div>`;
-          lastListKey = ""; lastShopText = "";
+          lastListKey = ""; lastCatalogText = "";
           $("games").setAttribute("aria-busy", "false");
           if ($("hero").classList.contains("skel")) { setHeroSkeleton(false); $("hero").hidden = true; $("home-rows").replaceChildren(); }
           if ($("charts").querySelector(".skel")) { $("charts").hidden = true; $("charts").innerHTML = ""; }
@@ -3676,10 +3676,10 @@
         }));
       }
 
-      function renderAll(shop, { quiet = false } = {}) {
-        const featuredChanged = indexSections(shop);
+      function renderAll(library, { quiet = false } = {}) {
+        const featuredChanged = indexSections(library);
         extras.refreshAvailability();
-        const files = catalogFiles(shop);
+        const files = catalogFiles(library);
 
         const baseFiles   = files.filter(f => (f.kind || "base") === "base");
         // A game kept as two files (two regions, or base and a repack) is still one title.
@@ -5073,7 +5073,7 @@
         function refreshAvailability() {
           for (const badge of document.querySelectorAll(".server-availability")) {
             const present = badge.dataset.app ? homebrew.hasApp(badge.dataset.app)
-              : shopData ? sectionOf.has(badge.dataset.titleId) : null;
+              : catalogData ? sectionOf.has(badge.dataset.titleId) : null;
             badge.classList.toggle("server-present", present === true);
             badge.textContent = t(present === null ? "extras.serverUnknown" : present ? "extras.serverPresent" : "extras.serverMissing");
           }
@@ -5959,7 +5959,7 @@
       }
 
       const fileVersion = (f) => f.version ?? 0;
-      // The shop's display version ("1.4.1") of one file, when it has read it.
+      // The library's display version ("1.4.1") of one file, when it has read it.
       const versionName = (titleId, version) => sectionFiles.get(String(titleId || "").toUpperCase() + ":" + version)?.version_name;
 
       // What the window shows about a Switch game, from the list row, its sections
@@ -6351,7 +6351,7 @@
           name: gameName,
           text: () => t("del.game", files.length, fmtBytes(total)),
           async run() { for (const f of files) await adminPost("/library/files/remove", { rel: f.rel }); },
-          async done() { closeModal(); await loadShop(); },
+          async done() { closeModal(); await loadCatalog(); },
         };
       }
       const gameEdit = editPage("modal");
@@ -6598,7 +6598,7 @@
           [t("modal.format"), fmtExt(g.file)],
           [t("modal.region"), regionName(g.region)],
           [t("retro.bezelLabel"), own ? t("retro.bezelOwn") : g.bezel?.hasBezel ? t("retro.bezelDefault") : t("retro.bezelNone")],
-          [t("retro.forwarder"), g.forwarderUrl ? t("retro.forwarderWith") : ""],
+          [t("retro.forwarder"), g.forwarderTitleId ? t("retro.forwarderWith") : ""],
           [t("retro.achLabel"), g.achievements ? `${t("retro.achInfo", g.achievements.count, g.achievements.points)} · ${t(g.achievements.matchedBy === "hash" ? "retro.achHash" : "retro.achTitle")}` : ""],
         ]);
         const where = $("modal-where");
@@ -6708,7 +6708,7 @@
       $("sort").addEventListener("change", () => { state.sort = $("sort").value; state.page = 1; applyFilters(); });
       $("refresh-btn").addEventListener("click", async () => {
         $("refresh-btn").disabled = true;
-        await loadShop();
+        await loadCatalog();
         $("refresh-btn").disabled = false;
         toast(t("toast.refresh"));
       });
@@ -6812,7 +6812,7 @@
 
       applyI18n();
       renderSkeletons();
-      loadShop();
+      loadCatalog();
 
       // ─── share inbox ──────────────────────────────────────────────────────
       // Signed-in people leave files, a note and links for the admin (POST /api/inbox).
@@ -6929,7 +6929,7 @@
       __ACTIVITY_SCRIPT__
 
       // ─── realtime: WebSocket library push ─────────────────────────────────
-      // The dashboard re-fetches /api/library/sections on every shop-updated event so
+      // The dashboard re-fetches /api/library/sections on every library-updated event so
       // additions, removals and metadata refreshes appear without a manual
       // reload. We never push the body itself — the ETag short-circuits
       // unchanged responses to 304.
@@ -6945,7 +6945,7 @@
         if (document.hidden) { wsPending = true; return; }
         if (wsReloadTimer) return;
         const wait = Math.max(1500, LIVE_GAP_MS - (Date.now() - wsReloadAt));
-        wsReloadTimer = setTimeout(() => { wsReloadTimer = null; wsReloadAt = Date.now(); loadShop({ quiet: true }); }, wait);
+        wsReloadTimer = setTimeout(() => { wsReloadTimer = null; wsReloadAt = Date.now(); loadCatalog({ quiet: true }); }, wait);
       }
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden && wsPending) { wsPending = false; scheduleReload(); }
@@ -6978,7 +6978,7 @@
           let msg;
           try { msg = JSON.parse(ev.data); } catch { return; }
           if (msg.type === "activity") activityMenu.apply(msg);
-          if (msg.type === "shop-updated") scheduleReload();
+          if (msg.type === "library-updated") scheduleReload();
           // Safe restart: shown once per restart, gone when the server answers again.
           if (msg.type === "restarting") showRestart(msg);
           if (msg.type === "hello") { if (msg.restarting) showRestart(msg.restarting); else hideRestart(); }

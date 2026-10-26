@@ -3,7 +3,7 @@
 // Exists because of the v0.8.2 outage: `isLoopbackIp` was used in
 // auth-guard.js without its import. `node --check` only parses, so it saw
 // nothing; under ESM the call became a runtime ReferenceError on a path every
-// request crosses, and the shop returned 500 for everything.
+// request crosses, and the library returned 500 for everything.
 //
 // Keep the rule set narrow — this runs in CI and pre-commit, and its job is to
 // catch "symbol used but never bound", not to argue about formatting.

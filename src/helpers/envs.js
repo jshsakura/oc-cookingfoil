@@ -1,5 +1,5 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "./.env" });
+import { loadEnvFile } from "./load-env-file.js";
+loadEnvFile("./.env");
 
 import path from "path";
 import { envString, envNumber, envBool } from "./env-read.js";
@@ -64,6 +64,9 @@ const unauthorizedMessage =
 const dataDir = layout.dirs.data;
 // Game icons read from the files (and banners drawn from them); data/extracted held eShop pictures too.
 const iconCacheDir = path.join(dataDir, "icons");
+// Pictures fetched from outside for games whose files carry none (titledb, then a metadata plugin), kept apart from
+// the icons so a picture read from a game file later wins without anything to delete (meta/art-fill.js).
+const artFillDir = path.join(dataDir, "art-fill");
 const titledbCacheDir = path.join(dataDir, "titledb");
 // Operator-supplied artwork (icon/banner/screenshot) that overrides both the
 // titledb CDN proxy and NACP extraction. Kept in its own dir so the prewarm /
@@ -77,9 +80,9 @@ const uploadsDir = path.join(dataDir, "uploads");
 // homebrew titles end up here.
 const extractedMetaDir = path.join(dataDir, "extracted-meta");
 
-// Public base URL override for the ABSOLUTE artwork URLs in the shop
+// Public base URL override for the ABSOLUTE artwork URLs in the library
 // response. The console client fetches icons by curling the per-item URL
-// verbatim, so the shop must hand out absolute URLs. Normally the origin is
+// verbatim, so the library must hand out absolute URLs. Normally the origin is
 // derived per-request from the Host header; pin this when running behind a
 // proxy that rewrites Host, or to force a canonical address. Trailing slash
 // trimmed. Unset = derive from each request.
@@ -113,7 +116,7 @@ let publicBaseUrl = normalizeBaseUrl(rawPublicBaseUrl);
 const adminTotpSecret = pickEnv("COOK_ADMIN_TOTP_SECRET") ?? null;
 const adminSessionHours = envNumber("COOK_ADMIN_SESSION_HOURS", 8, { min: 1 });
 // For an operator without an authenticator app: when set, /admin asks for this
-// password instead of a TOTP code. Keep it apart from the shop accounts, which
+// password instead of a TOTP code. Keep it apart from the library accounts, which
 // are shared with every player; shorter than 12 characters is refused.
 const ADMIN_PASSWORD_MIN = 12;
 const adminPassword = (() => {
@@ -185,12 +188,12 @@ const extractMaxBytes = extractMaxGb > 0 ? extractMaxGb * 1024 ** 3 : 0;
 
 // Inter-job pacing (ms) for the background extraction worker. A small delay
 // between jobs keeps the one-time pass from saturating disk/CPU while the
-// server is answering shop requests — "run gently, not a thundering pass".
+// server is answering library requests — "run gently, not a thundering pass".
 // Concurrency (COOK_EXTRACT_CONCURRENCY) is unchanged; this only spaces jobs
 // out. 0 disables the delay. Default 250 ms.
 const extractPaceMs = envNumber("COOK_EXTRACT_PACE_MS", 250, { min: 0 });
 
-// User-supplied custom shop entries (default lives alongside the games folder).
+// User-supplied custom library entries (default lives alongside the games folder).
 const customEntriesPath = envString(
   "COOK_CUSTOM_ENTRIES",
   path.join(romsDirPath, "custom_entries.jsonc")
@@ -231,6 +234,8 @@ let retroPackUrl = envString("COOK_RETRO_PACK_URL", "").trim();
 let retroAutoCores = envBool("COOK_RETRO_AUTO_CORES", true);
 // Box art fetched by itself for ROMs a scan finds without any (retro/art/auto.js), as the admin's "fetch all missing" does.
 let retroAutoArt = envBool("COOK_RETRO_AUTO_ART", true);
+// Pictures missing from a game's files (icon, banner, screenshots) are fetched once from titledb, else from a metadata plugin (meta/art-fill.js).
+let fillMissingArt = envBool("COOK_FILL_MISSING_ART", true);
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -256,7 +261,7 @@ const raApiKey = envString("COOK_RA_API_KEY", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
 // Missing folder means no patches.
 const patchesDir = layout.dirs.patches;
-// Save files the shop hands out (a save with everything unlocked, …). Off until this folder exists.
+// Save files the library hands out (a save with everything unlocked, …). Off until this folder exists.
 const savesDir = layout.dirs.saves;
 // Retro games, bezels and the RetroArch base pack. The feature is off until this folder exists.
 const retroDir = layout.dirs.retro;
@@ -420,6 +425,7 @@ const ENV_SETTINGS = Object.freeze({
   retroPackUrl,
   retroAutoCores,
   retroAutoArt,
+  fillMissingArt,
   clientSource,
   clientReleaseRepo,
   clientReleaseTag,
@@ -475,6 +481,7 @@ function applyServerSettings(saved = {}) {
   retroPackUrl = v.retroPackUrl;
   retroAutoCores = v.retroAutoCores;
   retroAutoArt = v.retroAutoArt;
+  fillMissingArt = v.fillMissingArt;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
   clientReleaseTag = v.clientReleaseTag;
@@ -547,6 +554,7 @@ export {
   unauthorizedMessage,
   dataDir,
   iconCacheDir,
+  artFillDir,
   titledbCacheDir,
   customArtDir,
   keysDir,
@@ -587,6 +595,7 @@ export {
   retroPackUrl,
   retroAutoCores,
   retroAutoArt,
+  fillMissingArt,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,

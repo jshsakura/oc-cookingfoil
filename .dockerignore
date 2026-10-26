@@ -23,7 +23,6 @@ coverage
 .diagrams
 *.md
 !THIRD_PARTY_NOTICES.md
-!shop_template.jsonc
 
 # Tests
 test

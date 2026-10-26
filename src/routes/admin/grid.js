@@ -36,7 +36,7 @@ export const GRID_CSS = /* css */ `
 .grid-mount{min-width:0;max-width:100%;margin:0 0 20px}
 /* A list that has not arrived yet: rows that shimmer in its place. Anything rendered into it (rows, a card,
    an empty note) replaces them. */
-[data-skel]:empty{min-height:212px;border-radius:14px;margin:0 0 20px;
+[data-skel]:empty{min-height:212px;border-radius:var(--r-xl);margin:0 0 20px;
   background:linear-gradient(90deg,transparent 0,rgba(127,127,127,.10) 50%,transparent 100%) 0 0/40% 100% no-repeat,
     repeating-linear-gradient(var(--panel) 0 44px,var(--panel) 44px 52px) ;
   -webkit-mask:repeating-linear-gradient(#000 0 44px,transparent 44px 52px);mask:repeating-linear-gradient(#000 0 44px,transparent 44px 52px);
@@ -46,35 +46,35 @@ export const GRID_CSS = /* css */ `
 .grid-tools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.grid-tools input{flex:1;min-width:0;max-width:360px}
 .grid-tools{flex-wrap:wrap}.grid-tools select.grid-sort{width:auto;max-width:220px}
 .grid-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
-.grid-chips-label{font-size:12px;color:var(--muted);margin-right:2px}
-.grid-chip{height:30px;padding:0 12px;border-radius:100px;font-size:12.5px;font-weight:600;background:var(--sunk);border:1px solid transparent;color:var(--text)}
+.grid-chips-label{font-size:var(--fs-xs);color:var(--muted);margin-right:2px}
+.grid-chip{height:30px;padding:0 12px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:var(--fw-bold);background:var(--sunk);border:1px solid transparent;color:var(--text)}
 .grid-chip[aria-pressed="true"]{background:rgba(var(--accent-rgb),.16);border-color:rgba(var(--accent-rgb),.5);color:var(--text)}
-.grid-tools .grid-count{margin-left:auto;color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
-.ag-theme-cook{border-radius:14px}
+.grid-tools .grid-count{margin-left:auto;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+.ag-theme-cook{border-radius:var(--r-xl)}
 .ag-cell{display:flex;align-items:center;overflow:hidden;line-height:1.35}
 /* Only as tall as its rows: no blank block under a short list. */
 .grid-mount .ag-grid-scrolling-rows.ag-layout-auto-height{min-height:0!important}
 .ag-cell .gc{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .gc>*{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gc .muted,.gc .sub{display:block;font-size:12px;color:var(--muted);line-height:1.3}
+.gc .muted,.gc .sub{display:block;font-size:var(--fs-xs);color:var(--muted);line-height:1.3}
 .gc .row-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap}
 .gc button,.gc a.btn,.gc select{flex-shrink:0}
 .gc .xline,.gc .pills{display:flex;flex-wrap:nowrap;gap:6px;align-items:center}
-.gc.ip,.gc.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.gc.ip,.gc.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-xs)}
 .gc.dim{color:var(--muted)}
 .ag-cell button.ib,.ag-cell .row-actions button{height:34px}
 .ag-cell select{padding-top:6px;padding-bottom:6px}
-.ag-full-width-row .grid-group{display:flex;align-items:center;gap:8px;height:100%;padding:0 14px;font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.02em}
-.ag-full-width-row .grid-group .muted{font-weight:500;color:var(--muted)}
+.ag-full-width-row .grid-group{display:flex;align-items:center;gap:8px;height:100%;padding:0 14px;font-size:var(--fs-xs);font-weight:700;color:var(--muted);letter-spacing:.02em}
+.ag-full-width-row .grid-group .muted{font-weight:var(--fw);color:var(--muted)}
 .ag-cell.tall{align-items:flex-start;padding-top:9px;padding-bottom:9px;line-height:1.4}
 .ag-cell.tall .gc,.ag-cell.tall .gc>*{white-space:normal;overflow:visible}.ag-cell.tall .gc .xline{flex-wrap:wrap}
-.ag-header-cell-text{font-size:12px;letter-spacing:.02em}
+.ag-header-cell-text{font-size:var(--fs-xs);letter-spacing:.02em}
 /* Scrollbars come from the shared admin scope in styles.js (html.adm), so the grid matches every panel. */
 /* Off-screen copy of a cell, drawn only to read its width (gridWidth). */
 .grid-probe{position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none}
 .grid-probe>.gc{display:inline-block;width:max-content;white-space:nowrap;overflow:visible}.grid-probe .gc>*{max-width:none}
 /* The pager's page box is a small number field, not the page's 44px input; on a phone the pager wraps. */
-.ag-paging-number input{height:28px;min-height:0;width:3.2em;padding:0 4px;margin:0;border-radius:8px;font-size:13px;text-align:center;box-sizing:border-box}
+.ag-paging-number input{height:28px;min-height:0;width:3.2em;padding:0 4px;margin:0;border-radius:var(--r-sm);font-size:var(--fs-sm);text-align:center;box-sizing:border-box}
 .ag-paging-number .ag-input-field-input{-moz-appearance:textfield}
 .ag-paging-number input::-webkit-inner-spin-button,.ag-paging-number input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 @media (max-width:640px){.ag-paging-panel{flex-wrap:wrap;height:auto;justify-content:center;gap:4px 12px;padding:8px}

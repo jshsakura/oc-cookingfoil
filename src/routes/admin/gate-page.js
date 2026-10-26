@@ -26,21 +26,21 @@ export function gatePage({ owner, mode = "code" } = {}) {
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
 ${TOP_LANG_CSS}
 #gate .lang-menu{position:fixed;top:16px;right:16px}
-.box{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:34px 30px;width:min(380px,100%);
+.box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-pill);padding:34px 30px;width:min(380px,100%);
 text-align:center;box-shadow:0 30px 60px var(--shadow)}
-.logo{display:block;margin:0 auto 12px}h1{font-size:22px;font-weight:800;margin:0 0 6px}
-.step{color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.02em;margin:0 0 4px}
-p{color:var(--muted);font-size:13px;margin:0 0 18px;line-height:1.6}
-.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:var(--sunk);margin-bottom:14px}
-.seg button{border:0;background:none;padding:9px 6px;border-radius:10px;color:var(--muted)}
+.logo{display:block;margin:0 auto 12px}h1{font-size:var(--fs-2xl);font-weight:var(--fw-bold);margin:0 0 6px}
+.step{color:var(--muted);font-size:var(--fs-xs);font-weight:700;letter-spacing:.02em;margin:0 0 4px}
+p{color:var(--muted);font-size:var(--fs-sm);margin:0 0 18px;line-height:1.6}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:var(--r-xl);background:var(--sunk);margin-bottom:14px}
+.seg button{border:0;background:none;padding:9px 6px;border-radius:var(--r-md);color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--panel);color:var(--text);box-shadow:0 1px 3px var(--shadow)}
-label{display:block;text-align:left;font-size:13px;font-weight:600;margin:0 0 6px}
+label{display:block;text-align:left;font-size:var(--fs-sm);font-weight:var(--fw-bold);margin:0 0 6px}
 label[hidden],input[hidden]{display:none}
-input{width:100%;padding:12px;font-size:16px}
-#code{font-size:22px;letter-spacing:8px;text-align:center}
-#go{margin-top:14px;width:100%;padding:14px;font-size:15px;border-radius:14px}
-.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
-.back{display:inline-block;margin-top:14px;color:var(--muted);font-size:13px}</style></head><body>
+input{width:100%;padding:12px;font-size:var(--fs-lg)}
+#code{font-size:var(--fs-2xl);letter-spacing:8px;text-align:center}
+#go{margin-top:14px;width:100%;padding:14px;font-size:var(--fs-md);border-radius:var(--r-xl)}
+.err{color:var(--bad);font-size:var(--fs-sm);min-height:18px;margin-top:10px}
+.back{display:inline-block;margin-top:14px;color:var(--muted);font-size:var(--fs-sm)}</style></head><body>
 <div id="gate">${TOP_LANG_HTML}<div class="box"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="56" height="56">
 <div class="step">${escapeHtml(owner || "admin")}</div><h1>${top("gt.h1")}</h1>
 <p>${top(LEAD[mode] ?? LEAD.code)}</p>

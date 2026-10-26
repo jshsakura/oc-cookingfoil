@@ -434,7 +434,7 @@ test("the background loop does nothing while its setting is off, and no screensh
 
 const PORT = 21100 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// An approved console: the shop takes its keys, never a password.
+// An approved console: the library takes its keys, never a password.
 const AUTH = CONSOLE;
 
 async function boot(retroDir, dataDir) {

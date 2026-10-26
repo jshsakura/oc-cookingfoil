@@ -17,9 +17,9 @@ test("the web page carries the share tags with the large image card", () => {
 });
 
 test("the share image URL is made absolute with the server's address", () => {
-  const page = pageForOrigin(html, "https://shop.example.com");
-  assert.equal(meta(page, "property", "og:image"), "https://shop.example.com/assets/og-image.png");
-  assert.equal(meta(page, "name", "twitter:image"), "https://shop.example.com/assets/og-image.png");
+  const page = pageForOrigin(html, "https://library.example.com");
+  assert.equal(meta(page, "property", "og:image"), "https://library.example.com/assets/og-image.png");
+  assert.equal(meta(page, "name", "twitter:image"), "https://library.example.com/assets/og-image.png");
   assert.ok(!page.includes("__ORIGIN__"));
 });
 

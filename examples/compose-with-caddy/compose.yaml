@@ -1,13 +1,13 @@
 # CookingFoil with Caddy in front, in one stack: Caddy gets a certificate for
-# shop.example.org by itself (ports 80 and 443 must reach this machine) and
-# passes everything to the shop over the stack's own network.
+# library.example.org by itself (ports 80 and 443 must reach this machine) and
+# passes everything to the library over the stack's own network.
 #
-#   1. point shop.example.org at this machine (an A record)
+#   1. point library.example.org at this machine (an A record)
 #   2. cp ../../.env.example .env, and set in it:
 #        COOK_TRUST_PROXY=uniquelocal
 #   3. docker compose up -d
 #   4. docker compose logs cookingfoil | grep "setup code"
-#      then open https://shop.example.org/setup
+#      then open https://library.example.org/setup
 services:
   cookingfoil:
     image: ghcr.io/jshsakura/oc-cookingfoil:latest
@@ -30,7 +30,7 @@ services:
       COOK_HOMEBREW_DIR: ""
       COOK_INCOMING_DIR: ""
       ROMS_DIR_FULLPATH: ""
-    # No ports: only Caddy reaches the shop.
+    # No ports: only Caddy reaches the library.
     volumes:
       - ./storage:/storage
 

@@ -15,10 +15,10 @@ import sectionsRoute from "./routes/sections.js";
 import bannerRoute from "./routes/banner.js";
 import screenshotRoute from "./routes/screenshot.js";
 import extrasRoute from "./routes/extras.js";
-import shopInfoRoute from "./routes/shop-info.js";
+import libraryInfoRoute from "./routes/library-info.js";
 import titleDetailRoute from "./routes/title-detail.js";
 import clientConfigRoute from "./routes/client-config.js";
-import shopJsonRoute from "./routes/shop-json.js";
+import catalogJsonRoute from "./routes/catalog-json.js";
 import landingRoute from "./routes/landing.js";
 import activityRouter from "./routes/activity.js";
 import webAssets from "./routes/web-assets.js";
@@ -86,12 +86,13 @@ import * as userPatches from "./meta/user-patches.js";
 import nszQueue, { start as startNszQueue } from "./meta/nsz-service.js";
 import verifyQueue, { start as startVerifyQueue } from "./meta/verify-service.js";
 import * as ratingSync from "./meta/rating-sync.js";
+import { artFiller } from "./meta/art-filler.js";
 import * as securityStore from "./security/store.js";
 import * as users from "./security/users.js";
 import * as googleAccounts from "./security/google-accounts.js";
 
 import { bootstrap as bootstrapTitledb } from "./meta/titledb-bootstrap.js";
-import * as shopCache from "./meta/shop-cache.js";
+import * as libraryCache from "./meta/library-cache.js";
 import { removeOldVariants } from "./meta/image-cache.js";
 import * as customArt from "./meta/custom-art.js";
 import * as gameMeta from "./meta/game-meta.js";
@@ -108,7 +109,7 @@ import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import * as trashService from "./library/trash-service.js";
 import { pluginRegistry, pluginRouter, pluginVariants, startPlugins } from "./plugins/instance.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
-import { afterStartFunction } from "./afterStartFunction.js";
+import { onListening } from "./after-start.js";
 import { alert } from "./helpers/alerts.js";
 import * as securityWatch from "./security/security-watch.js";
 import * as telegramUpdates from "./security/telegram-updates.js";
@@ -172,14 +173,14 @@ expressApp.use("/healthz", (req, res, next) => (looksProxied(req) ? res.status(4
 // /healthz must answer WITHOUT credentials so Docker / Portainer / k8s
 // healthchecks don't have to embed credentials. Mounted before the rest
 // of the perimeter so it also bypasses rate-limit + access-guard +
-// auth-guard. Returns 200 once the shop cache has produced a snapshot
+// auth-guard. Returns 200 once the library cache has produced a snapshot
 // (cold boot returns 503 — that's the period during which orchestrators
 // SHOULD keep the container in "starting" state, not declare it healthy).
 // Callers from outside (through a tunnel, a public address) learn only whether it is up:
 // the counts, titledb regions, keys and the direct address's state stay on the
 // home network and the admin page (its session cookie).
 expressApp.get("/healthz", async (req, res) => {
-  const s = shopCache.stats();
+  const s = libraryCache.stats();
   const outside = Boolean(req.get("cf-connecting-ip")) || !isPrivateCaller(req);
   if (outside && !hasValidSession(req)) {
     res.status(s.cached ? 200 : 503).set("Cache-Control", "no-store").json({ ok: Boolean(s.cached) });
@@ -227,7 +228,7 @@ expressApp.get("/healthz", async (req, res) => {
   res
     .status(503)
     .type("application/json")
-    .send(JSON.stringify({ ok: false, reason: "shop cache initializing", titledb: tdb, nameHealth, ...drainer.healthFields() }));
+    .send(JSON.stringify({ ok: false, reason: "library cache initializing", titledb: tdb, nameHealth, ...drainer.healthFields() }));
 });
 
 // A server that has fallen behind says so at once (503 + Retry-After) instead of holding connections.
@@ -238,7 +239,7 @@ expressApp.use((_req, _res, next) => {
   directHealth.touch();
   next();
 });
-// The download routers, made once: the shop mounts them below and the token lane shares them.
+// The download routers, made once: the library mounts them below and the token lane shares them.
 const downloadRouters = {
   "/api/patches": patchesRouter(),
   "/api/homebrew": homebrewRouter(),
@@ -280,7 +281,7 @@ expressApp.use(raLinkRouter());
 // judged by its keys, session token or cookie alone.
 expressApp.use(ignoreBasic);
 // Dropbox sign-in callback: opened by the phone's browser, so outside the
-// shop's sign-in like pairing. The session endpoints are inside it (below).
+// library's sign-in like pairing. The session endpoints are inside it (below).
 expressApp.get(`${BRIDGE_PATH}/oauth/dropbox/callback`, dropboxCallback);
 // The sign-in page (ID and password, or Google) and the phone's device approval.
 expressApp.use(webLoginRouter());
@@ -300,7 +301,7 @@ expressApp.use(connectionHint());
 expressApp.use("/api/activity", activityRouter());
 expressApp.use("/assets", webAssets);
 
-// Pairing-only shops must guard API content as well as the legacy shop/files.
+// A pairing-only server must guard API content as well as the file catalog.
 // Keep admin approval and clean configuration export reachable for onboarding.
 expressApp.use(["/api/library", "/api/shop", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", "/api/plugins", BRIDGE_PATH], deviceContentGuard());
 
@@ -325,25 +326,22 @@ expressApp.get("/api/library/icon/:titleId", iconRoute);
 expressApp.get("/api/library/banner/:titleId", bannerRoute);
 expressApp.get("/api/library/screenshot/:titleId/:idx", screenshotRoute);
 expressApp.get("/api/library/sections", sectionsRoute);
-expressApp.get("/api/library/info", shopInfoRoute);
+expressApp.get("/api/library/info", libraryInfoRoute);
 // The download options of up to 200 files at once, asked just before an install (plugins/variants.js).
 expressApp.post("/api/library/variants", sameOriginWrites(), ...libraryVariants({ root: romsDirPath, variants: pluginVariants }));
 // A plugin's own addresses, as its manifest declares them (plugins/routes.js). The server's auth runs ahead of it.
 expressApp.use("/api/plugins", sameOriginWrites(), pluginRouter());
-expressApp.get("/games.json", shopJsonRoute);
+expressApp.get("/games.json", catalogJsonRoute);
 
-// Transitional aliases: retain until both client and scraper migrations are confirmed.
-// Locally-cached artwork. First request fetches from the eShop CDN
-// via the URL stored in titledb; subsequent requests serve from disk.
+// Deprecated aliases (the only place they are mounted): an older client release and a scraper still use
+// /api/shop/* and /shop.json, with the same handlers and the same auth as the /api/library/* and /games.json
+// routes above. Remove this block once both have moved.
 expressApp.get("/api/shop/icon/:titleId", iconRoute);
 expressApp.get("/api/shop/banner/:titleId", bannerRoute);
 expressApp.get("/api/shop/screenshot/:titleId/:idx", screenshotRoute);
-
-// The catalog the CookingFoil client and the web page read, and the server's features.
 expressApp.get("/api/shop/sections", sectionsRoute);
-expressApp.get("/api/shop/info", shopInfoRoute);
-// The flat file list for automation holding an admin-issued API token.
-expressApp.get("/shop.json", shopJsonRoute);
+expressApp.get("/api/shop/info", libraryInfoRoute);
+expressApp.get("/shop.json", catalogJsonRoute);
 
 // Web-only: auxiliary files (mods/patches/zips) in a title's folder, which a
 // console does not install but the web page can list + download.
@@ -357,7 +355,7 @@ expressApp.use("/api/patches", downloadRouters["/api/patches"]);
 // Homebrew (.nro apps): hand-placed ones and the latest GitHub releases.
 expressApp.use("/api/homebrew", downloadRouters["/api/homebrew"]);
 
-// Save files the shop hands out (off until COOK_SAVES_DIR exists).
+// Save files the library hands out (off until COOK_SAVES_DIR exists).
 expressApp.use("/api/saves", downloadRouters["/api/saves"]);
 expressApp.use("/api/client", downloadRouters["/api/client"]);
 
@@ -368,7 +366,7 @@ expressApp.use("/api/retro", downloadRouters["/api/retro"]);
 expressApp.use(BRIDGE_PATH, dropboxSessionsRouter());
 
 // On-demand rich metadata (description, publisher, screenshots, …) for one
-// title. Surfaces titledb detail the shop response intentionally omits — the
+// title. Surfaces titledb detail the library response intentionally omits — the
 // dashboard modal and the remote client's detail panel both read this.
 expressApp.get("/api/title/:baseTitleId", titleDetailRoute);
 // Game trailers from IGDB: the web's detail as an admin sees it, never a console.
@@ -412,12 +410,12 @@ expressApp.use((err, req, res, next) => {
 });
 
 // ── lifecycle ───────────────────────────────────────────────────────────
-const server = expressApp.listen(appPort, afterStartFunction(appPort));
+const server = expressApp.listen(appPort, onListening(appPort));
 // Presses on the approval alerts' buttons, while Telegram is set up and buttons are on.
 telegramUpdates.watch();
 
 // Disable Nagle on accepted sockets. Our hot responses are single Buffers
-// (pre-built shop body, encoded landing HTML, single small image variants);
+// (pre-built library body, encoded landing HTML, single small image variants);
 // Nagle's 40 ms coalescing delay only delays the inevitable last segment.
 // At LAN distances this is the difference between a snappy dashboard and
 // a perceptibly laggy one.
@@ -441,7 +439,7 @@ securityStore.load().then(() => {
   process.exit(1);
 });
 
-// Hydrate any previously-extracted NACP metadata before the shop cache
+// Hydrate any previously-extracted NACP metadata before the library cache
 // runs its first compose, so the fallback layer is already populated.
 extractedMeta
   .load()
@@ -459,19 +457,19 @@ bootstrapTitledb()
     // Art an older server kept in custom-art/ moves into the game folders, named after the game: once titledb names them.
     customArt
       .migrate()
-      .then(({ moved }) => { if (moved) shopCache.invalidate(); })
+      .then(({ moved }) => { if (moved) libraryCache.invalidate(); })
       .catch((err) => debug.error("custom-art migration failed:", err.message));
   });
 
 // Variants an older server drew next to the cached eShop and game-file pictures; they live in thumbs/ now.
 removeOldVariants().catch((err) => debug.error("image cache: removing old variants failed:", err.message));
 
-shopCache.init().catch((err) =>
-  debug.error("shop cache init failed:", err.message)
+libraryCache.init().catch((err) =>
+  debug.error("library cache init failed:", err.message)
 );
 
 // User patches: scanned now and every minute; a change recomposes the patch counts.
-userPatches.start({ onChange: () => shopCache.invalidate() });
+userPatches.start({ onChange: () => libraryCache.invalidate() });
 // Homebrew repositories: checked now, then each at most once per COOK_HOMEBREW_CHECK_HOURS.
 startHomebrew();
 // The direct address: checked now, then while requests come in; a change is only told (log, Telegram).
@@ -483,7 +481,9 @@ directHealth
 // Every six hours, a summary of failed sign-ins and lockouts, when there were any.
 securityWatch.start();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
-ratingSync.start({ onChange: () => shopCache.invalidate() });
+ratingSync.start({ onChange: () => libraryCache.invalidate() });
+// Pictures a game's files lack are fetched in the background from titledb, else a metadata plugin (meta/art-filler.js).
+artFiller().start();
 
 // The retro folder's old .trash entries move into the shared trash (a rename in the same folder), and what a stop left behind is cleaned up.
 trashService.tidy().catch((err) => debug.error("trash: start tidy failed: %s", err.message));
@@ -506,7 +506,7 @@ if (savesEnabled()) {
 // the watch sees it change, kept in memory so the image routes and lists never
 // wait on the disk. A change found there (a picture or a game.json edited by
 // hand) builds the lists again.
-gameMeta.start({ onChange: () => shopCache.invalidate({ rename: true }) });
+gameMeta.start({ onChange: () => libraryCache.invalidate({ rename: true }) });
 
 // Which auth lanes are live, and does that combination lock out a client the
 // operator expects to work? Printed unconditionally — a silent misconfiguration

@@ -4,19 +4,19 @@
 
 export const GAME_PICKER_CSS = /* css */ `
 .gp-list{position:fixed;inset:auto;z-index:80;margin:0;padding:6px;color:var(--text);list-style:none;overflow-y:auto;overscroll-behavior:contain;
-  background:var(--panel);border:1px solid var(--line2);border-radius:14px;box-shadow:0 16px 36px var(--shadow)}
+  background:var(--panel);border:1px solid var(--line2);border-radius:var(--r-xl);box-shadow:0 16px 36px var(--shadow)}
 .gp-list[hidden]{display:none}
-.gp-list li[role=option]{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:10px;cursor:pointer;min-width:0}
+.gp-list li[role=option]{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:var(--r-md);cursor:pointer;min-width:0}
 .gp-list li[role=option][aria-selected="true"]{background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line2)}
 .gp-list li[role=option][aria-disabled="true"]{cursor:default;opacity:.6}
-.gp-list img{width:36px;height:36px;border-radius:9px;flex:none;background:var(--line);object-fit:cover}
+.gp-list img{width:36px;height:36px;border-radius:var(--r-md);flex:none;background:var(--line);object-fit:cover}
 .gp-list .gp-t{flex:1;min-width:0;display:grid;gap:1px}
 .gp-list .gp-n,.gp-list .gp-s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gp-list .gp-n{font-weight:600}
-.gp-list .gp-s{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
-.gp-list .gp-tag{flex:none;font-size:12px;font-weight:700;color:var(--good)}
+.gp-list .gp-n{font-weight:var(--fw-bold)}
+.gp-list .gp-s{color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+.gp-list .gp-tag{flex:none;font-size:var(--fs-xs);font-weight:700;color:var(--good)}
 .gp-list .gp-tag.gp-own{color:var(--muted)}
-.gp-list .gp-note{padding:8px 9px;color:var(--muted);font-size:13px}
+.gp-list .gp-note{padding:8px 9px;color:var(--muted);font-size:var(--fs-sm)}
 .gp-live{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 `;
 

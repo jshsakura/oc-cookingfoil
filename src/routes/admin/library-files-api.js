@@ -15,7 +15,7 @@
  */
 import fsp from "fs/promises";
 import path from "path";
-import * as shopCache from "../../meta/shop-cache.js";
+import * as libraryCache from "../../meta/library-cache.js";
 import { romsDirPath, patchesDir, savesDir, homebrewDir, retroDir, dataDir } from "../../helpers/envs.js";
 import { GAME_FILE_RE } from "../../helpers/file-send.js";
 import { nestedDirs } from "../../meta/library-browse.js";
@@ -46,18 +46,18 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
   };
 
   router.get("/api/library/files", handle(async (req, res) => {
-    await shopCache.get();
+    await libraryCache.get();
     const q = String(req.query.q ?? "").trim().toLowerCase().slice(0, 100);
-    const all = shopCache.files();
+    const all = libraryCache.files();
     const hits = q ? all.filter((f) => [f.rel, f.name, f.titleId].some((s) => (s ?? "").toLowerCase().includes(q))) : [];
     hits.sort((a, b) => a.rel.localeCompare(b.rel, "ko"));
     res.json({ files: hits.slice(0, LIMIT), matched: hits.length, total: all.length });
   }));
 
   router.post("/api/library/files/remove", handle(async (req, res) => {
-    await shopCache.get();
+    await libraryCache.get();
     const rel = String(req.body?.rel ?? "");
-    const abs = shopCache.files().some((f) => f.rel === rel) ? inside(romsDirPath, rel) : null;
+    const abs = libraryCache.files().some((f) => f.rel === rel) ? inside(romsDirPath, rel) : null;
     if (!abs) return res.status(404).json({ error: apiWord(req, "libraryFiles.notInLibrary") });
     const out = await toTrash(req, abs, "game", "library-file-remove");
     debug.log("admin: library file moved to the trash: %s", rel);

@@ -62,7 +62,7 @@ function upgrade(headers = {}) {
 
 const both = () => `${userCookie("owner")}; ${adminCookie()}`;
 
-test("an ordinary shop user receives activity over the library channel without an admin session", async () => {
+test("an ordinary library user receives activity over the library channel without an admin session", async () => {
   let cancelled = 0;
   const job = activity.begin("nsz", { title: "Public progress", total: 100, cancel: () => cancelled++ });
   const client = new WebSocket(`ws://127.0.0.1:${port}/ws/library`, {

@@ -518,12 +518,12 @@ test("a wrapped zip is peeled and normalized; a lone .nro is served in its own f
 });
 
 test("an app's shortcut starts the .nro where it is installed", async () => {
-  const { homebrewTarget, forwarderSpec } = await import("../../src/retro/forwarder.js");
+  const { homebrewTarget, shortcutSpec } = await import("../../src/retro/shortcut.js");
   assert.equal(homebrewTarget("ftpd.nro").nroPath, "sdmc:/switch/ftpd/ftpd.nro");
   assert.equal(homebrewTarget("x.nro", "switch/acnh_editor/acnh_editor.nro").nroPath, "sdmc:/switch/acnh_editor/acnh_editor.nro");
   assert.equal(homebrewTarget("x.nro", "switch/../x.nro").nroPath, "sdmc:/switch/x/x.nro", "a bad path falls back to the file's own folder");
   // One shortcut per app: moving the app keeps its title id and changes only the build.
-  const app = (target) => forwarderSpec({ id: "homebrew-gh-0123456789ab", name: "ACNH", publisher: "o", target, artKey: "h" });
+  const app = (target) => shortcutSpec({ id: "homebrew-gh-0123456789ab", name: "ACNH", publisher: "o", target, artKey: "h" });
   const before = app(homebrewTarget("acnh_editor.nro")), after = app(homebrewTarget("acnh_editor.nro", "switch/acnh_editor/acnh_editor.nro"));
   assert.equal(before.titleId, after.titleId);
 });

@@ -16,19 +16,18 @@
  * Ctrl+C tears the server down (and the temp data dir unless COOK_LOCAL_KEEP_DATA).
  */
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
 import { generate } from "otplib";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
-// Load .env so the harness sees the same COOK_* values the server would. dotenv
-// does NOT override vars already present in the real environment.
-dotenv.config({ path: path.join(ROOT, ".env") });
+// Load .env so the harness sees the same COOK_* values the server would.
+// process.loadEnvFile does NOT override vars already present in the real environment.
+if (existsSync(path.join(ROOT, ".env"))) process.loadEnvFile(path.join(ROOT, ".env"));
 
 const PORT = Number(process.env.COOK_PORT ?? 13100);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -194,7 +193,7 @@ async function main() {
     const dk = devices[0].deviceKey;
     console.log(dim(`  # knock (auto-registers as pending)`));
     console.log(`  curl "${BASE}/api/pair/status?deviceKey=${dk}"`);
-    console.log(dim(`  # pull shop with the printed accessKey`));
+    console.log(dim(`  # pull library with the printed accessKey`));
     console.log(`  curl ${BASE}/api/library/sections -H "X-Device-Key: ${dk}" -H "X-Access-Key: <KEY>"`);
   }
   console.log();

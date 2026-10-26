@@ -25,7 +25,7 @@ import fsp from "fs/promises";
 import path from "path";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
-import { SAVE_TYPES } from "../../meta/shop-saves.js";
+import { SAVE_TYPES } from "../../meta/library-saves.js";
 import { savesDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { inside } from "./homebrew-apps-api.js";

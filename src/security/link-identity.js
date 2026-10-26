@@ -4,14 +4,14 @@
  *
  * One account may be signed in on two consoles at once, so a token belongs to
  * the device (the X-Device-Key header the client sends), together with the
- * account (a shop account or a Google account). A paired console with no account is its own identity. A request
+ * account (a library account or a Google account). A paired console with no account is its own identity. A request
  * with an account but no device id (a browser) is told apart by a hash of its
  * User-Agent. A request with neither was not signed in, and gets no token.
  *
  * On the token lane (direct-lane.js) the identity is checked again on every request:
  * the account must still be allowed to sign in and, when the console was
  * approved (paired) at the time, it must still be approved. A token also
- * carries stamps of the account's password (a shop account) and of the
+ * carries stamps of the account's password (a library account) and of the
  * paired console's access key: a new password or a new
  * pairing ends the tokens made before it.
  */

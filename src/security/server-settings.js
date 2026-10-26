@@ -68,6 +68,8 @@ export const SETTINGS = {
   retroAutoCores: bool,
   // Box art for ROMs found without any, after a scan (retro/art/auto.js).
   retroAutoArt: bool,
+  // Pictures a game's files lack, fetched once from titledb or a metadata plugin (meta/art-fill.js).
+  fillMissingArt: bool,
   downloadMaxConnections: { parse: (v) => (typeof v === "string" && /^\d+$/.test(v.trim()) ? Number(v) : v), check: (v) => Number.isInteger(v) && v >= 1 && v <= 8 },
   // Scheme, host and port only: links are signed over the file path from the root.
   publicDirectBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || (URL_RE.test(v) && v.startsWith("https://") && bareOrigin(v)) },

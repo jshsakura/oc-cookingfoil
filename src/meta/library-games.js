@@ -3,20 +3,20 @@
  * names or their title ID (game-search.js).
  *
  * The search index is built once and kept until something it was built from changes: the library
- * (a new shop build), titledb (a new load) or a game folder (an admin's name). A keystroke in a
+ * (a new library build), titledb (a new load) or a game folder (an admin's name). A keystroke in a
  * picker then costs a scan of ready-made strings, not folding every name of every game again.
  */
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import * as titledbStore from "./titledb-store.js";
 import * as gameMeta from "./game-meta.js";
 import * as gameDescriptions from "./game-descriptions.js";
 import { buildIndex, searchIndex } from "./game-search.js";
 
-let kept = null; // { shop, titledbAt, revision, index }
+let kept = null; // { library, titledbAt, revision, index }
 
 function readLibrary() {
   const seen = new Map();
-  for (const f of shopCache.files()) {
+  for (const f of libraryCache.files()) {
     if (f.kind !== "base" || !f.baseTitleId) continue;
     const had = seen.get(f.baseTitleId);
     if (!had) seen.set(f.baseTitleId, { name: f.name ?? "", added: f.mtime ?? 0 });
@@ -35,13 +35,13 @@ function readLibrary() {
 
 /** The search index over the library's base games, rebuilt only when its sources changed. */
 export async function gameIndex() {
-  const shop = await shopCache.get();
+  const library = await libraryCache.get();
   const titledbAt = titledbStore.status().loadedAt?.getTime() ?? 0;
   const revision = gameMeta.revision();
-  if (kept && kept.shop === shop && kept.titledbAt === titledbAt && kept.revision === revision) return kept.index;
+  if (kept && kept.library === library && kept.titledbAt === titledbAt && kept.revision === revision) return kept.index;
   const index = buildIndex(readLibrary());
   // Reading the names may load the game folders for the first time: key on what it saw afterwards.
-  kept = { shop, titledbAt, revision: gameMeta.revision(), index };
+  kept = { library, titledbAt, revision: gameMeta.revision(), index };
   return index;
 }
 

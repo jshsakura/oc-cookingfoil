@@ -1,7 +1,7 @@
 /**
- * Persistent on-disk format for the shop response cache.
+ * Persistent on-disk format for the library response cache.
  *
- * The shop builder pre-serializes the response body to three Buffers
+ * The library builder pre-serializes the response body to three Buffers
  * (identity / gzip / brotli) plus a strong ETag. On orderly shutdown +
  * restart that whole state would be rebuilt from scratch — for a 5k-title
  * library that's ~500 ms of fast-glob + ~100 ms of stringify + ~200 ms
@@ -18,8 +18,10 @@ import { readFile, writeFile, rename, mkdir } from "fs/promises";
 import path from "path";
 
 // Version 2 rebuilds cached payloads with canonical /api/library artwork URLs.
-const MAGIC = Buffer.from("OC_SHOP2");
-const CACHE_FILE = "shop-cache.bin";
+// The magic and the file name changed with the rename; a cache written under the old ones is not read and is
+// rebuilt once (an old folder is left alone).
+const MAGIC = Buffer.from("OC_LIB02");
+const CACHE_FILE = "library-cache.bin";
 
 function u32(n) {
   const b = Buffer.alloc(4);

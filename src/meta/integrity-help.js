@@ -3,7 +3,7 @@
  * and help that says what was found, what it means, what an install does and
  * what to do (words in integrity-help-words.js).
  *
- *   summary(finding)        { reason, certain, present? }: small, for the shop list
+ *   summary(finding)        { reason, certain, present? }: small, for the library list
  *   explain(finding, lang)  summary plus { label, help: { title, body } } in one language
  *
  * `certain`: the install surely fails (a cut-off or missing part, an unreadable
@@ -16,7 +16,7 @@ const FALLBACK_LANG = "en";
 const UNCERTAIN = new Set(["hash-mismatch"]);
 const REASON_OF = { modified: "signature-fail", damaged: "unreadable" };
 
-/** The small part the shop list carries, or null for no finding. */
+/** The small part the library list carries, or null for no finding. */
 export function summary(finding) {
   if (!finding?.verdict) return null;
   const reason = finding.reason ?? REASON_OF[finding.verdict] ?? null;

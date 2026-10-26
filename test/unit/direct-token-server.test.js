@@ -113,10 +113,10 @@ async function ready(url, headers, has) {
   throw new Error(`${url} never filled`);
 }
 
-test("the shop list: fixed direct URLs and a token for direct-token clients, today's list for everyone else", async () => {
+test("the library list: fixed direct URLs and a token for direct-token clients, today's list for everyone else", async () => {
   const plain = await ready("/api/library/sections", SIGNED_IN, (b) => itemsOf(b).length);
   const plainFile = itemsOf(plain).find((f) => f.url.endsWith(".nsp"));
-  assert.ok(plainFile.url.startsWith(BASE), "url stays on the shop's own address");
+  assert.ok(plainFile.url.startsWith(BASE), "url stays on the library's own address");
   assert.equal(JSON.stringify(plain).includes(DL_HOST), false);
   const plainRes = await fetchOk("/api/library/sections", SIGNED_IN);
   assert.equal(tokenOf(plainRes), null, "no token without the feature");
@@ -183,7 +183,7 @@ test("a direct URL opens through the proxy with the token, never without it, nev
   assert.equal((await viaProxy(url, token, { "x-cookingfoil-edge": "guess" })).status, 404, "nor without the edge secret");
   // Through the tunnel the same request goes to the normal stack and its sign-in.
   assert.equal((await viaProxy(url, token, { "cf-connecting-ip": "198.51.100.9" })).status, 401);
-  // The shop's own address serves the file as always.
+  // The library's own address serves the file as always.
   const tunnel = await fetch(`${BASE}${new URL(url).pathname}`, { headers: { ...SIGNED_IN, "CF-Connecting-IP": "198.51.100.9" }, redirect: "manual" });
   assert.equal(tunnel.status, 200);
   assert.equal(await tunnel.text(), "NSPDATA");
@@ -203,7 +203,7 @@ test("retro, saves, patches and extras are on the direct address; artwork is not
   assert.equal(g.romUrl, `${DL}/api/retro/games/${g.id}/rom`);
   assert.equal(g.bundleUrl, `${DL}/api/retro/games/${g.id}/bundle`);
   assert.equal(g.romDirectUrl, undefined, "no twins");
-  for (const u of JSON.stringify(g).match(/"http:\/\/[^"]+"/g) ?? []) assert.match(u, /\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg|forwarder\.nsp)"$/, "only downloads; artwork stays on the shop address");
+  for (const u of JSON.stringify(g).match(/"http:\/\/[^"]+"/g) ?? []) assert.match(u, /\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg)"$/, "only downloads; artwork stays on the library address");
   assert.equal((await viaProxy(g.romUrl, token)).body.toString(), "SMW");
   const plainGame = (await json("/api/retro/games", SIGNED_IN)).games[0];
   assert.equal(plainGame.romUrl, `/api/retro/games/${g.id}/rom`);
@@ -224,7 +224,7 @@ test("retro, saves, patches and extras are on the direct address; artwork is not
   assert.equal((await viaProxy(extra.url, token)).body.toString(), "README");
 });
 
-test("the direct address opens nothing but downloads, and the shop's own pages keep their sign-in", async () => {
+test("the direct address opens nothing but downloads, and the library's own pages keep their sign-in", async () => {
   const token = tokenOf(await fetchOk("/api/library/info", DIRECT));
   for (const p of ["/healthz", "/api/admin/users", "/api/retro/games", "/api/library/sections", "/api/library/info", "/admin", "/api/inbox"]) {
     assert.equal((await viaProxy(`${DL}${p}`, token)).status, 404, p);
@@ -243,15 +243,15 @@ test("the direct address opens nothing but downloads, and the shop's own pages k
   assert.equal(junk.headers["x-cookingfoil-token"], "invalid");
 });
 
-test("nothing inside a dot-folder is served or listed, on the shop or the direct address, encoded or not", async () => {
+test("nothing inside a dot-folder is served or listed, on the library or the direct address, encoded or not", async () => {
   // The NSZ conversion's work folder sits inside the games folder (made while a conversion runs).
   put(games, ".cookingfoil-nsz-work/x/Game.nsz", "WORKDATA");
   const token = tokenOf(await fetchOk("/api/library/info", DIRECT));
   const paths = ["/.cookingfoil-nsz-work/x/Game.nsz", "/%2ecookingfoil-nsz-work/x/Game.nsz", "/%2Ecookingfoil-nsz-work/x/Game.nsz", "/Game/..%2f.cookingfoil-nsz-work/x/Game.nsz", "/.cookingfoil-nsz-work/x/", "/.cookingfoil-nsz-work/"];
   for (const p of paths) {
-    const shop = await fetch(`${BASE}${p}`, { headers: SIGNED_IN, redirect: "manual" });
-    assert.equal(shop.status, 404, `shop ${p}`);
-    assert.ok(!(await shop.text()).includes("WORKDATA"));
+    const library = await fetch(`${BASE}${p}`, { headers: SIGNED_IN, redirect: "manual" });
+    assert.equal(library.status, 404, `library ${p}`);
+    assert.ok(!(await library.text()).includes("WORKDATA"));
     const direct = await viaProxy(`${DL}${p}`, token);
     assert.equal(direct.status, 404, `direct ${p}`);
     assert.ok(!direct.body.includes(Buffer.from("WORKDATA")));

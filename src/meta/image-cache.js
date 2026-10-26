@@ -68,7 +68,7 @@ const FULL_SUFFIX = "full";
 export const IMMUTABLE = "public, max-age=31536000, immutable";
 export const UNVERSIONED = "public, max-age=300";
 const inFlightVariant = new Map(); // variant-generation coalescing
-// Encodes at once: a burst (a shop opened on several consoles after a deploy) would
+// Encodes at once: a burst (a library opened on several consoles after a deploy) would
 // otherwise fill libuv's thread pool and hold up file reads and downloads behind it.
 export const MAX_ENCODES = 4;
 let encoding = 0;

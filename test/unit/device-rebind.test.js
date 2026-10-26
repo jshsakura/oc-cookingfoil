@@ -46,7 +46,7 @@ async function boot() {
 const rebind = (to, body, headers = {}) =>
   fetch(`${BASE}/api/pair/rebind`, { method: "POST", headers: { "Content-Type": "application/json", "X-Device-Key": to, ...headers }, body: JSON.stringify(body) });
 const status = async (key, auth) => (await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": key, ...(auth ? { Authorization: auth } : {}) } })).json();
-const shop = (headers) => fetch(`${BASE}/api/library/sections`, { headers });
+const library = (headers) => fetch(`${BASE}/api/library/sections`, { headers });
 
 test("a console moves to its new key with its account, or with its old access key", async () => {
   const server = await boot();
@@ -66,8 +66,8 @@ test("a console moves to its new key with its account, or with its old access ke
     const moved = await rebind(NEW, { from: OLD }, { Authorization: ALICE });
     assert.equal(moved.status, 200);
     assert.deepEqual(await moved.json(), { status: "moved", deviceKey: NEW });
-    assert.equal((await shop({ "X-Device-Key": NEW, "X-Access-Key": accessKey })).status, 200, "the old access key opens the shop under the new key");
-    assert.equal((await shop({ "X-Device-Key": OLD, "X-Access-Key": accessKey })).status, 401, "and no longer under the old one");
+    assert.equal((await library({ "X-Device-Key": NEW, "X-Access-Key": accessKey })).status, 200, "the old access key opens the library under the new key");
+    assert.equal((await library({ "X-Device-Key": OLD, "X-Access-Key": accessKey })).status, 401, "and no longer under the old one");
     assert.equal((await status(NEW)).status, "approved");
     const again = await rebind(NEW, { from: OLD }, { Authorization: ALICE });
     assert.deepEqual(await again.json(), { status: "kept", deviceKey: NEW }, "a retry is harmless");
@@ -77,7 +77,7 @@ test("a console moves to its new key with its account, or with its old access ke
     assert.equal((await rebind(NEW2, { from: OLD2, accessKey: "x".repeat(43) })).status, 401, "a wrong access key is no proof");
     const byKey = await rebind(NEW2, { from: OLD2 }, { "X-Access-Key": second.accessKey });
     assert.deepEqual(await byKey.json(), { status: "moved", deviceKey: NEW2 });
-    assert.equal((await shop({ "X-Device-Key": NEW2, "X-Access-Key": second.accessKey })).status, 200);
+    assert.equal((await library({ "X-Device-Key": NEW2, "X-Access-Key": second.accessKey })).status, 200);
   } finally {
     server.kill("SIGKILL");
   }
@@ -104,7 +104,7 @@ test("nobody moves a console that is not theirs, nor onto a key that is in use",
     assert.equal((await rebind(SPARE, { from: VICTIM }, { Authorization: ALICE })).status, 403);
     // A wrong password proves nothing either.
     assert.equal((await rebind(SPARE, { from: VICTIM }, { Authorization: basic("bob", "not-bobs") })).status, 401);
-    assert.equal((await shop({ "X-Device-Key": VICTIM, "X-Access-Key": victim.accessKey })).status, 200, "bob's console still works");
+    assert.equal((await library({ "X-Device-Key": VICTIM, "X-Access-Key": victim.accessKey })).status, 200, "bob's console still works");
 
     // Alice's own console cannot be moved onto a key waiting in the queue,
     // or onto one bob's account approved.

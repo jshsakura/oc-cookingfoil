@@ -10,7 +10,7 @@ import { publicBaseUrl } from "../helpers/envs.js";
 export default function clientConfigRoute(req, res) {
   const origin = resolveOrigin(req, publicBaseUrl);
   if (!origin) return res.status(503).json({ error: "server origin unavailable" });
-  // Named after the shop's host (language-neutral), in the language of whoever downloads it.
+  // Named after the library's host (language-neutral), in the language of whoever downloads it.
   const server = {
     title: new URL(origin).hostname,
     url: origin,

@@ -5,7 +5,7 @@
  *   POST /admin/api/library/organize/sweep  sort the drop box now; answers with the view after it
  */
 import * as env from "../../helpers/envs.js";
-import * as shopCache from "../../meta/shop-cache.js";
+import * as libraryCache from "../../meta/library-cache.js";
 import * as titledb from "../../meta/titledb-store.js";
 import * as activity from "../../tasks/activity.js";
 import * as gameDescriptions from "../../meta/game-descriptions.js";
@@ -48,8 +48,8 @@ export const defaultOrganizer = createOrganizer({
   incomingDir: env.incomingDir,
   romsDir: env.romsDirPath,
   romsRels: async () => {
-    await shopCache.get();
-    return shopCache.files().map((f) => f.rel);
+    await libraryCache.get();
+    return libraryCache.files().map((f) => f.rel);
   },
   adminName: (tid) => nameIn(gameDescriptions.names(tid), env.langPriority),
   titledbName: (tid) => nameIn(titledb.namesOf(tid), env.langPriority) ?? titledb.get(tid)?.name ?? null,
@@ -60,7 +60,7 @@ export const defaultOrganizer = createOrganizer({
   systems: () => loadSystems(env.retroDir),
   readRefs: async (abs) => retroCatalog.referencedFiles(path.extname(abs).toLowerCase(), await fsp.readFile(abs, "utf8")),
   begin: activity.begin,
-  rescan: () => shopCache.invalidate({ rescan: true }),
+  rescan: () => libraryCache.invalidate({ rescan: true }),
   rescanRetro: () => retroCatalog.rescan(env.retroDir).catch((err) => debug.error("organize: retro rescan failed: %s", err.message)),
   rescanHomebrew: () => refreshManual().catch((err) => debug.error("organize: homebrew rescan failed: %s", err.message)),
   journal: ({ action, from, to }) => trashService.recordMove({ action, by: trashService.job("organize"), from, to }),

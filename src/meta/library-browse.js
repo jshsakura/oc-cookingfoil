@@ -2,10 +2,10 @@
  * The library file browser behind GET /admin/api/library/browse: every file the
  * server hands out, in seven kinds, filtered, sorted and paged on the server.
  *
- *   base, update, dlc   game files of the shop scan (shop-cache files())
+ *   base, update, dlc   game files of the library scan (library-cache files())
  *   patch, save         the patch and save listings
  *   homebrew            the homebrew apps
- *   other               files under the games folder the shop scan skipped
+ *   other               files under the games folder the library scan skipped
  *                       (anything not .nsp/.nsz/.xci/.xcz/.nro), found here
  *
  * Every item has the same fields, null when unknown:
@@ -205,7 +205,7 @@ export function browse(items, f) {
 
 const NRO_RE = /\.nro$/i;
 
-/** A shop-cache file in the browser's shape; `verdictOf(rel)` is the file check's verdict or null. Pure. */
+/** A library-cache file in the browser's shape; `verdictOf(rel)` is the file check's verdict or null. Pure. */
 export function gameItem(f, verdictOf = () => null) {
   const kind = ["base", "update", "dlc"].includes(f.kind) ? f.kind : NRO_RE.test(f.rel) ? "homebrew" : "base";
   return item(kind, {
@@ -242,7 +242,7 @@ export function createOtherScanner({ root, ignore = [], ttlMs = 60_000, now = Da
       if (GAME_FILE_RE.test(e.path) || e.dirent?.isSymbolicLink?.() || e.stats?.isSymbolicLink?.() || (e.stats && !e.stats.isFile())) continue;
       const rel = safeRel(e.path);
       if (!rel || !path.resolve(base, rel).startsWith(base + path.sep)) continue;
-      // The server's own list of extra shop entries is configuration, not a stray file; a README.md anywhere is the operator's notes.
+      // The server's own list of extra library entries is configuration, not a stray file; a README.md anywhere is the operator's notes.
       if (rel === "custom_entries.jsonc" || isReadme(path.posix.basename(rel))) continue;
       out.push({ rel, size: e.stats?.size ?? null, mtime: e.stats ? Math.floor(e.stats.mtimeMs / 1000) : null });
     }

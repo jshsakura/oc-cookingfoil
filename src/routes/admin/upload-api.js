@@ -39,7 +39,7 @@ import { resolveOrigin } from "../../helpers/origin.js";
 import { libraryGames } from "../../meta/library-games.js";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
-import { SAVE_TYPES } from "../../meta/shop-saves.js";
+import { SAVE_TYPES } from "../../meta/library-saves.js";
 import { savesCatalog } from "../saves.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { syncArt } from "../../retro/art/sync.js";

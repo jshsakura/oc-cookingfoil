@@ -41,7 +41,7 @@ const BAD_PATH_RE = [
   /^\/(boaform|console|manager|jmx-console)\//i,
 ];
 // Script files: a probe unless the games folder really holds one at that path
-// (a mod's install.sh is content the shop serves, and fetching it is no attack).
+// (a mod's install.sh is content the library serves, and fetching it is no attack).
 // /api/ routes answer for their own paths (the RetroArch base pack lists its files).
 const SCRIPT_EXT_RE = /\.(?:php|asp|aspx|jsp|cgi|sh|bash|py|rb|pl)$/i;
 

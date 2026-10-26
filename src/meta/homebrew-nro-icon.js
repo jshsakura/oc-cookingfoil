@@ -13,7 +13,9 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
-import { iconJpeg } from "../retro/forwarder.js";
+import sharp from "sharp";
+
+const ICON_MAX = 0x20000;
 
 const NRO_MAGIC = Buffer.from("NRO0");
 const ASET_MAGIC = Buffer.from("ASET");
@@ -102,4 +104,17 @@ export async function dropOlder(id, keep = null) {
   for (const f of await fsp.readdir(copyDir()).catch(() => [])) {
     if (f.startsWith(prefix) && !f.startsWith(`${keep}.`)) await fsp.rm(path.join(copyDir(), f), { force: true });
   }
+}
+
+/** The 256-px icon as a baseline JPEG without metadata, as the HOME menu wants it. */
+export async function iconJpeg(src) {
+  for (const quality of [90, 80, 70]) {
+    const buf = await sharp(src, { failOn: "none" })
+      .resize(256, 256, { fit: "cover" })
+      .flatten({ background: "#000000" })
+      .jpeg({ quality, progressive: false, mozjpeg: false, chromaSubsampling: "4:2:0" })
+      .toBuffer();
+    if (buf.length < ICON_MAX) return buf;
+  }
+  throw new Error("icon too large");
 }

@@ -1,7 +1,7 @@
-# A Cloudflare Tunnel to the shop published on port 9080 (cloudflared on the
+# A Cloudflare Tunnel to the library published on port 9080 (cloudflared on the
 # host). Create the tunnel and its DNS route with:
 #   cloudflared tunnel create cookingfoil
-#   cloudflared tunnel route dns cookingfoil shop.example.org
+#   cloudflared tunnel route dns cookingfoil library.example.org
 # In .env: COOK_TRUST_PROXY=loopback, uniquelocal (cloudflared reaches the
 # published port through Docker's gateway).
 #
@@ -12,6 +12,6 @@ tunnel: cookingfoil
 credentials-file: /etc/cloudflared/cookingfoil.json
 
 ingress:
-  - hostname: shop.example.org
+  - hostname: library.example.org
     service: http://127.0.0.1:9080
   - service: http_status:404

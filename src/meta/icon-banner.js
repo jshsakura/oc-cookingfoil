@@ -14,6 +14,7 @@ import { mkdir, rename, writeFile } from "fs/promises";
 import sharp from "sharp";
 import * as customArt from "./custom-art.js";
 import { cachePathFor, dropVariants, hasCached } from "./image-cache.js";
+import { fillPath, iconFallback, noteWritten } from "./art-fill.js";
 
 /** Raised when the drawing changes, so every banner URL changes with it (artwork-version.js). */
 export const BANNER_STYLE = 1;
@@ -41,7 +42,10 @@ function iconFileFor(base, lang) {
   const own = lang ? cachePathFor(base, "icon-lang", lang) : null;
   if (own && hasCached(own)) return { file: own, lang };
   const icon = cachePathFor(base, "icon");
-  return hasCached(icon) ? { file: icon, lang: null } : null;
+  if (hasCached(icon)) return { file: icon, lang: null };
+  // A game whose files carry no icon: the one filled in from outside (meta/art-fill.js), drawn into that folder.
+  const filled = iconFallback(base);
+  return filled ? { file: filled, lang: null, filled: true } : null;
 }
 
 /** The banner as a JPEG buffer, from the icon's bytes. */
@@ -61,7 +65,7 @@ export async function ensureBanner(base, lang = null) {
   if (!source) return null;
   const plain = cachePathFor(base, "banner");
   // The admin's icon draws a banner of its own name, so taking that icon away brings back the game file's.
-  const out = source.custom ? plain.replace(/\.jpg$/, ".custom.jpg") : source.lang ? cachePathFor(base, "banner-lang", source.lang) : plain;
+  const out = source.filled ? fillPath(base, "drawn") : source.custom ? plain.replace(/\.jpg$/, ".custom.jpg") : source.lang ? cachePathFor(base, "banner-lang", source.lang) : plain;
   if (mtimeOf(out) >= mtimeOf(source.file)) return out;
   let pending = drawing.get(out);
   if (!pending) {
@@ -72,6 +76,7 @@ export async function ensureBanner(base, lang = null) {
       await writeFile(tmp, buf);
       await rename(tmp, out);
       dropVariants(out);
+      if (source.filled) noteWritten(out);
       return out;
     })().finally(() => drawing.delete(out));
     drawing.set(out, pending);

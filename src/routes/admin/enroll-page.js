@@ -23,18 +23,18 @@ export function enrollPage({ secret, uri, owner }) {
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title data-top="er.docTitle">${TOP_WORDS.ko["er.docTitle"]}</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
-.box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px;width:min(460px,100%);
+.box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:30px;width:min(460px,100%);
 box-shadow:0 30px 60px var(--shadow)}
-.logo{display:block;margin:0 auto;background:#F2F1EE;border-radius:22%;padding:3px;box-sizing:border-box}h1{font-size:19px;margin:6px 0 6px;text-align:center}
-.lead{color:var(--muted);font-size:13px;text-align:center;margin:0 0 22px}
-ol{margin:0 0 20px;padding-left:20px;color:var(--muted);font-size:13px}li{margin-bottom:6px}
-.key{background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center;
-font-family:ui-monospace,monospace;font-size:18px;letter-spacing:2px;word-break:break-all;color:var(--accent)}
+.logo{display:block;margin:0 auto;background:var(--ground);border-radius:22%;padding:3px;box-sizing:border-box}h1{font-size:var(--fs-xl);margin:6px 0 6px;text-align:center}
+.lead{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:0 0 22px}
+ol{margin:0 0 20px;padding-left:20px;color:var(--muted);font-size:var(--fs-sm)}li{margin-bottom:6px}
+.key{background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;text-align:center;
+font-family:ui-monospace,monospace;font-size:var(--fs-xl);letter-spacing:2px;word-break:break-all;color:var(--accent)}
 .row{display:flex;gap:8px;margin-top:10px}.row button{flex:1}
-details{margin-top:16px}summary{cursor:pointer;color:var(--muted);font-size:13px}
-.uri{margin-top:8px;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:10px;
-font-family:ui-monospace,monospace;font-size:11px;word-break:break-all;color:var(--muted)}
-.done{margin-top:20px}.ok{color:var(--good);font-size:13px;min-height:18px;text-align:center;margin-top:8px}
+details{margin-top:16px}summary{cursor:pointer;color:var(--muted);font-size:var(--fs-sm)}
+.uri{margin-top:8px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;
+font-family:ui-monospace,monospace;font-size:var(--fs-2xs);word-break:break-all;color:var(--muted)}
+.done{margin-top:20px}.ok{color:var(--good);font-size:var(--fs-sm);min-height:18px;text-align:center;margin-top:8px}
 ${TOP_LANG_CSS}
 #enroll .lang-menu{position:fixed;top:16px;right:16px}
 </style></head><body><div id="enroll">${TOP_LANG_HTML}

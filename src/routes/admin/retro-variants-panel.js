@@ -16,7 +16,7 @@ export const RETRO_VARIANTS_HTML = `
 
 export const RETRO_VARIANTS_CSS = `
 #rv-list tr.rv-head td{background:var(--sunk);font-weight:700}
-#rv-list tr.rv-head .muted{font-weight:500;margin-left:8px}
+#rv-list tr.rv-head .muted{font-weight:var(--fw);margin-left:8px}
 #rv-list .pill{margin:0 4px 2px 0}
 #rv-list .pill.warn{background:rgba(217,164,0,.16);color:var(--text)}
 #rv-filter{max-width:220px}

@@ -124,7 +124,7 @@ test("with no direct address nothing changes: no token, normal URLs, the lane is
   settings.save({ publicDirectBaseUrl: null });
   assert.equal(links.forRequest(listReq()), null);
   assert.equal(links.directUrl("/api/saves/x/download", links.forRequest(listReq())), "/api/saves/x/download");
-  assert.equal(links.withShopDirect('{"url":"../a.nsp"}', null), '{"url":"../a.nsp"}');
+  assert.equal(links.withLibraryDirect('{"url":"../a.nsp"}', null), '{"url":"../a.nsp"}');
   const lane = await start();
   // The proxy still forwards the console's old direct URLs: answered revoked so it reads
   // its lists again, never handed to basic auth.
@@ -172,7 +172,7 @@ test("only signed-in clients that declare direct-token get a token and direct UR
   assert.equal(links.directUrl(null, link), null);
   assert.equal(links.directUrl("https://cdn.example.org/a.png", link), "https://cdn.example.org/a.png");
   const json = JSON.stringify({ files: [{ url: `../${ENC}`, variants: [{ url: "../Game%2Fv.nsp" }] }], icon: "/api/library/icon/x" });
-  assert.equal(links.withShopDirect(json, link), JSON.stringify({ files: [{ url: `${DL}/${ENC}`, variants: [{ url: `${DL}/Game%2Fv.nsp` }] }], icon: "/api/library/icon/x" }));
+  assert.equal(links.withLibraryDirect(json, link), JSON.stringify({ files: [{ url: `${DL}/${ENC}`, variants: [{ url: `${DL}/Game%2Fv.nsp` }] }], icon: "/api/library/icon/x" }));
 });
 
 test("the effective scheme decides: https takes the direct address, http keeps same-origin URLs", () => {
@@ -282,7 +282,7 @@ test("the direct address needs the edge secret, and the routers never see it", a
   assert.equal(seen["x-cookingfoil-edge"], undefined);
   assert.equal(seen.authorization, `Bearer ${token}`);
   // Elsewhere (the tunnel) the header is dropped too.
-  assert.equal((await get(port, `/${ENC}`, { headers: { host: "shop.example.org", "cf-connecting-ip": "198.51.100.9", "x-cookingfoil-edge": EDGE } })).headers["x-lane"], "main");
+  assert.equal((await get(port, `/${ENC}`, { headers: { host: "library.example.org", "cf-connecting-ip": "198.51.100.9", "x-cookingfoil-edge": EDGE } })).headers["x-lane"], "main");
   // The direct address changed under the proxy: its requests are still its own.
   const moved = await get(port, `/${ENC}`, bearer(token, { host: "old-dl.example.org:38443" }));
   assert.equal(moved.status, 401);
@@ -313,8 +313,8 @@ test("only the proxy on this host is let in, and the client is the address it wr
   assert.equal(viaDirectProxy(req({ ...PROXY, "x-forwarded-for": "127.0.0.1, 198.51.100.9" }, "127.0.0.1")), "198.51.100.9");
   assert.equal(viaDirectProxy(req(PROXY, "10.0.0.50")), null);
   assert.equal(viaDirectProxy(req({ ...PROXY, "cf-connecting-ip": "198.51.100.9" }, "127.0.0.1")), null);
-  assert.equal(viaDirectProxy(req({ ...PROXY, host: "shop.example.org" }, "127.0.0.1")), null);
-  assert.equal(viaDirectProxy(req({ ...PROXY, "x-forwarded-host": "shop.example.org" }, "127.0.0.1")), null);
+  assert.equal(viaDirectProxy(req({ ...PROXY, host: "library.example.org" }, "127.0.0.1")), null);
+  assert.equal(viaDirectProxy(req({ ...PROXY, "x-forwarded-host": "library.example.org" }, "127.0.0.1")), null);
   assert.equal(viaDirectProxy(req({ host: DL_HOST, "x-cookingfoil-edge": EDGE }, "127.0.0.1")), null);
   // Without the edge secret, or with the wrong one, it is not the proxy, whatever else matches.
   const { "x-cookingfoil-edge": _edge, ...noEdge } = PROXY;
@@ -338,7 +338,7 @@ test("on the direct address a valid token opens downloads; nothing else is there
   assert.equal(ok.body.toString(), "NSPDATA");
   // Through the tunnel, or from anywhere but the proxy, the lane steps aside.
   assert.equal((await get(port, url, bearer(token, { "cf-connecting-ip": "198.51.100.9" }))).headers["x-lane"], "main");
-  assert.equal((await get(port, url, { headers: { host: "shop.example.org", authorization: `Bearer ${token}` } })).headers["x-lane"], "main");
+  assert.equal((await get(port, url, { headers: { host: "library.example.org", authorization: `Bearer ${token}` } })).headers["x-lane"], "main");
   // No pages, no lists, no writes, even with a good token.
   for (const p of ["/admin", "/api/admin/users", "/api/homebrew", "/api/library/info", "/games.json"]) {
     const r = await get(port, p, bearer(token));
@@ -426,14 +426,14 @@ test("a file has the same ETag and Last-Modified on both lanes, so If-Range resu
   const token = tokenFor({ dev: "D".repeat(64) });
   const url = `/${BIG_ENC}`;
   const direct = await get(port, url, { method: "HEAD", ...bearer(token) });
-  const plain = await get(port, url, { method: "HEAD", headers: { host: "shop.example.org" } });
+  const plain = await get(port, url, { method: "HEAD", headers: { host: "library.example.org" } });
   assert.equal(plain.headers["x-lane"], "main");
   assert.equal(direct.headers["x-lane"], undefined);
   assert.ok(direct.headers.etag);
   assert.equal(direct.headers.etag, plain.headers.etag);
   assert.equal(direct.headers["last-modified"], plain.headers["last-modified"]);
   const a = await get(port, url, bearer(token, { range: "bytes=100-199", "if-range": plain.headers.etag }));
-  const b = await get(port, url, { headers: { host: "shop.example.org", range: "bytes=100-199", "if-range": plain.headers.etag } });
+  const b = await get(port, url, { headers: { host: "library.example.org", range: "bytes=100-199", "if-range": plain.headers.etag } });
   assert.equal(a.status, 206);
   assert.equal(b.status, 206);
   assert.equal(a.headers["content-range"], b.headers["content-range"]);
@@ -485,7 +485,7 @@ test("a list for a direct-token client: fixed direct URLs, a token header (on 30
   assert.equal(hb.download_url, `${DL}/api/homebrew/gh-0123456789ab/download`);
   assert.equal(hb.bundle_url, `${DL}/api/homebrew/gh-0123456789ab/bundle`);
   assert.equal(hb.files[0].url, `${DL}/api/homebrew/gh-0123456789ab/file?path=switch%2Fapp%2Fapp.nro`);
-  assert.equal(hb.icon_url.startsWith("/api/homebrew/"), true, "artwork stays on the shop address");
+  assert.equal(hb.icon_url.startsWith("/api/homebrew/"), true, "artwork stays on the library address");
   assert.equal(on.body.includes("direct_url"), false, "no twins");
   const again = await ask(FEATURES);
   assert.equal(again.body.toString(), on.body.toString(), "the same on every refresh");

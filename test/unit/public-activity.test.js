@@ -4,7 +4,7 @@ import express from "express";
 import activityRouter from "../../src/routes/activity.js";
 import { createActivity } from "../../src/tasks/activity.js";
 
-test("shop users can read running and recent tasks but the public activity API cannot stop them", async () => {
+test("library users can read running and recent tasks but the public activity API cannot stop them", async () => {
   const registry = createActivity();
   let cancelled = 0;
   const job = registry.begin("nsz", { title: "Test conversion", total: 100, cancel: () => cancelled++ });

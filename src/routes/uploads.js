@@ -20,7 +20,7 @@
  *        of an existing game by default), then RENAMES from uploads/
  *        into the games library. With ?force=1 the file already there goes
  *        to the games folder's trash first; it is never written over. chokidar picks up the new file and the
- *        shop cache rebuilds incrementally.
+ *        library cache rebuilds incrementally.
  *
  *   4. DELETE /api/uploads/:id
  *        Drop a pending upload without applying.

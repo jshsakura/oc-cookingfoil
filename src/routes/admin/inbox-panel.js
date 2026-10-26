@@ -20,18 +20,18 @@ export const INBOX_HTML = `<section id="tab-inbox" hidden>
 export const INBOX_CSS = `
 #tab-inbox .hd .seg{margin:22px 0 10px}
 .ib-list{display:grid;gap:12px}
-.ib-entry{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;gap:10px;min-width:0}
+.ib-entry{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:14px 16px;display:grid;gap:10px;min-width:0}
 .ib-entry.done{opacity:.7}
 .ib-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
-.ib-head b{font-size:15px}
+.ib-head b{font-size:var(--fs-md)}
 .ib-entry a{color:var(--text)}
 .ib-entry .row-actions{display:flex;gap:6px;flex-wrap:wrap}
-.ib-memo{margin:0;white-space:pre-line;overflow-wrap:anywhere;font-size:14px;line-height:1.6}
+.ib-memo{margin:0;white-space:pre-line;overflow-wrap:anywhere;font-size:var(--fs-md);line-height:1.6}
 .ib-entry ul{margin:0;padding:0;list-style:none;display:grid;gap:4px}
-.ib-entry li{display:flex;justify-content:space-between;gap:12px;font-size:13px;min-width:0}
+.ib-entry li{display:flex;justify-content:space-between;gap:12px;font-size:var(--fs-sm);min-width:0}
 .ib-entry li a{overflow-wrap:anywhere;min-width:0}
 .ib-entry li span{color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
-.ib-entry h4{margin:0 0 4px;font-size:12px;color:var(--muted);font-weight:700}
+.ib-entry h4{margin:0 0 4px;font-size:var(--fs-xs);color:var(--muted);font-weight:700}
 `;
 
 export const INBOX_SCRIPT = /* js */ `

@@ -11,7 +11,7 @@
  * NACP-extracted metadata for titles blawar's titledb doesn't carry.
  *
  * Artwork URLs point at our proxy endpoints (/api/library/icon|banner|screenshot)
- * and are made origin-absolute like the shop/sections payloads so on-device
+ * and are made origin-absolute like the library/sections payloads so on-device
  * clients can curl them verbatim; a same-origin browser keeps the relative form.
  */
 import { titleDetail } from "../meta/title-detail.js";

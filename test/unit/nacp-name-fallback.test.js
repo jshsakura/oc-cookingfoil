@@ -124,13 +124,13 @@ const CONTENT_META_PROBE = `
   ]);
   const items = composeSections(fm, []).sections[0].items;
   process.stdout.write(JSON.stringify({
-    shop: Object.fromEntries(items.map((i) => [i.title_id, i.name])),
+    library: Object.fromEntries(items.map((i) => [i.title_id, i.name])),
     english: contentMeta.get("0100000000B00000", 0).englishName ?? null,
     gameOfC: gameOf("0100000000C00000")?.name,
   }));
 `;
 
-test("an English name stored garbled in content-meta is not shown in the shop list or by gameOf", () => {
+test("an English name stored garbled in content-meta is not shown in the library list or by gameOf", () => {
   const dd = mkdtempSync(path.join(tmpdir(), "cook-nacp-"));
   try {
     mkdirSync(path.join(dd, "extracted-meta"), { recursive: true });
@@ -147,8 +147,8 @@ test("an English name stored garbled in content-meta is not shown in the shop li
     });
     const result = JSON.parse(out);
     assert.equal(result.english, null);
-    assert.equal(result.shop["0100000000B00000"], "File Name B");
-    assert.equal(result.shop["0100000000C00000"], "가상 게임");
+    assert.equal(result.library["0100000000B00000"], "File Name B");
+    assert.equal(result.library["0100000000C00000"], "가상 게임");
     assert.equal(result.gameOfC, "가상 게임");
   } finally {
     rmSync(dd, { recursive: true, force: true });

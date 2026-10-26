@@ -7,7 +7,7 @@ import path from "node:path";
 import { adminSession } from "../support/web-session.js";
 
 // The 검수됨 mark on patches and saves: set from an admin console, the dashboard
-// or the shop's edit panel, shown in /api/patches and /api/saves, and forgotten
+// or the library's edit panel, shown in /api/patches and /api/saves, and forgotten
 // when the item moves to another game or is deleted.
 const PORT = 22100 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -71,7 +71,7 @@ test("patches and saves carry a 검수됨 mark that admins set and moves or dele
     const fps = listed.find((p) => p.name === "Fps");
     assert.ok(korean && fps, "both patches are listed");
     const { features } = await (await fromConsole("GET", "/api/library/info")).json();
-    assert.ok(features.includes("user-patches") && features.includes("shop-saves"), "a patch and a save to hand out turn both on");
+    assert.ok(features.includes("user-patches") && features.includes("shop-saves") && features.includes("library-saves"), "a patch and a save to hand out turn both on");
     assert.deepEqual([korean.verified, korean.verified_at], [false, null]);
     const saveList = await saves();
     const save = saveList.find((s) => s.name === "All Unlocked");
@@ -104,7 +104,7 @@ test("patches and saves carry a 검수됨 mark that admins set and moves or dele
     assert.deepEqual(edits.map((e) => [e.via, e.kind, e.key, e.after]),
       [["dashboard", "save", "verified", true], ["dashboard", "patch", "verified", true], ["device", "save", "verified", true], ["device", "patch", "verified", true]]);
 
-    // The shop's edit panel for a patch.
+    // The library's edit panel for a patch.
     const meta = `/api/art/patch/${fps.id}/meta`;
     assert.equal((await (await admin("GET", meta)).json()).verified, true);
     assert.equal((await admin("POST", meta, { name: "Fps", verified: "no" })).status, 400);

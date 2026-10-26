@@ -71,14 +71,14 @@ const fakeReq = (headers, socket = { remoteAddress: "203.0.113.5" }) => {
 };
 
 test("sameOrigin: no Origin passes; a forged X-Forwarded-Host does not make another site same-origin", () => {
-  assert.equal(sameOrigin(fakeReq({ host: "shop.example.org" })), true);
-  assert.equal(sameOrigin(fakeReq({ host: "shop.example.org", origin: "http://shop.example.org" })), true);
-  assert.equal(sameOrigin(fakeReq({ host: "shop.example.org", origin: "http://evil.example.net", "x-forwarded-host": "evil.example.net" })), false);
+  assert.equal(sameOrigin(fakeReq({ host: "library.example.org" })), true);
+  assert.equal(sameOrigin(fakeReq({ host: "library.example.org", origin: "http://library.example.org" })), true);
+  assert.equal(sameOrigin(fakeReq({ host: "library.example.org", origin: "http://evil.example.net", "x-forwarded-host": "evil.example.net" })), false);
 });
 
 test("sameHost: compares the Origin's host with the host the request reached", () => {
-  assert.equal(sameHost(fakeReq({ host: "shop.example.org" })), null);
-  assert.equal(sameHost(fakeReq({ host: "shop.example.org", origin: "https://shop.example.org" })), true);
-  assert.equal(sameHost(fakeReq({ host: "shop.example.org", origin: "https://evil.example.net" })), false);
-  assert.equal(sameHost(fakeReq({ host: "shop.example.org", origin: "null" })), false);
+  assert.equal(sameHost(fakeReq({ host: "library.example.org" })), null);
+  assert.equal(sameHost(fakeReq({ host: "library.example.org", origin: "https://library.example.org" })), true);
+  assert.equal(sameHost(fakeReq({ host: "library.example.org", origin: "https://evil.example.net" })), false);
+  assert.equal(sameHost(fakeReq({ host: "library.example.org", origin: "null" })), false);
 });

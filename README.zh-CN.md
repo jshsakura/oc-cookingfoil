@@ -9,7 +9,7 @@
 [![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
 [![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-一个面向 Switch 自制程序的个人自托管游戏库服务器。把文件放在家里的机器上，用一个管理页面管理所有内容，再用主机上的 CookingFoil 客户端安装。
+一个个人自托管的游戏库管理服务器，管理 Switch 游戏、复古游戏和自制程序。把文件放在家里的机器上，用一个管理页面管理所有内容。复古游戏可以对接 RetroArch 并生成 HOME 菜单快捷方式，Switch 游戏则从游戏库中用主机上的 CookingFoil 客户端安装。
 
 <p align="center">
   <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=zh"><img src="brand/buttons/website-zh.svg" alt="网站" width="160" height="44" /></a>
@@ -41,7 +41,7 @@
 
 ## 概述
 
-CookingFoil 以 Docker 方式运行在你自己的服务器上。它会为你放入的文件查找名称和图标，并把列表提供给主机上的客户端。
+CookingFoil 以 Docker 方式运行在你自己的服务器上。它把你放入的文件作为游戏库来管理：为文件查找名称和图标，并把列表提供给主机上的客户端，由客户端从中安装。
 
 - **一个管理页面搞定一切。** 设置、账号、设备、上传、自制程序、补丁、存档和名称都在浏览器里修改。修改立即生效，不需要重启，也不需要手动编辑文件。
 - **不附带任何内容。** 不包含游戏、密钥、固件、BIOS 文件或 RetroArch。这些文件夹一开始都是空的，在你放入自己合法拥有的文件之前，用到它们的功能保持关闭。
@@ -60,10 +60,11 @@ CookingFoil 客户端不在 GitHub 上发布。服务器的 `data/client/` 中�
 
 - **游戏库目录。** 给 CookingFoil 客户端和网页用的分区列表，推荐行可以在管理页面上安排；另有给持自动化令牌的脚本用的扁平文件目录（`/games.json`）。
 - **名称与图标。** 标题、简介和图片来自 [blawar/titledb](https://github.com/blawar/titledb)；titledb 不认识的文件，则从文件本身读取（需要你自己的 `prod.keys`）。名称的语言顺序和地区都可以设置。
-- **图片与评分。** 图标直接从游戏文件读取（使用你自己的 `prod.keys`），横幅由图标绘制。不从商店获取任何图片。可选的 Steam 评测分数和 IGDB 分数。每个来源都可以关闭。你也可以上传自己的图片。
+- **图片与评分。** 图标直接从游戏文件读取（使用你自己的 `prod.keys`），横幅由图标绘制。不从任何在线平台获取图片。可选的 Steam 评测分数和 IGDB 分数。每个来源都可以关闭。你也可以上传自己的图片。
+- **复古游戏。** 按系统分类的 ROM，来自 libretro-thumbnails 的封面，来自 The Bezel Project 的边框，以及来自 LaunchBox Games Database 的游戏详情（简介、发行商、开发商、发售日期、人数、类型、截图），缺少的部分由 IGDB 补上。同一游戏的多个版本（街机的母版与克隆版，或多种语言和地区的版本）合并为一张卡片显示，其他版本再点一下即可看到。
+- **RetroArch 集成与 HOME 菜单快捷方式。** 你自己提供的 RetroArch 基础包可以分发给主机，也可以为每个游戏生成 HOME 菜单快捷方式。
 - **来自 GitHub 的自制程序。** 添加一个仓库后会跟踪它的最新发布（一个 `.nro`，或内含 `.nro` 的 zip）。也可以手动放入应用。每个应用可以标为工具或移植版、可以关闭，也可以附带 HOME 菜单快捷方式。
 - **存档与补丁。** 把存档和补丁（按 SD 卡根目录的结构排列）放在服务器上，在客户端中选择要应用哪些。补丁可以标为必需，并记录它对应的游戏更新版本。
-- **RetroArch 复古游戏。** 按系统分类的 ROM，来自 libretro-thumbnails 的封面，来自 The Bezel Project 的边框，以及来自 LaunchBox Games Database 的游戏详情（简介、发行商、开发商、发售日期、人数、类型、截图），缺少的部分由 IGDB 补上。同一游戏的多个版本（街机的母版与克隆版，或多种语言和地区的版本）合并为一张卡片显示，其他版本再点一下即可看到。你自己提供的 RetroArch 基础包可以分发给主机，也可以为每个游戏生成 HOME 菜单快捷方式。
 - **每台主机用自己的密钥连接。** 用手机批准 CookingFoil 客户端显示的二维码，或者让从网页下载的客户端直接连接。无论哪种方式，主机都会拿到自己的访问密钥，不会保存任何密码。
 - **账号与 Google 登录。** 带有管理员和用户角色的账号密码登录，以及可选的 Google 登录，新的 Google 账号需要等待批准。
 - **带第二因素的管理页面。** 管理页面会再次要求输入身份验证器（TOTP）代码或单独的管理员密码。自动化令牌让脚本也能使用同样的 API。
@@ -217,7 +218,7 @@ RetroArch 基础包是主机开始游玩前需要一次性放入的内容：把 
 | 概览 (개요) | 服务器状态、配置警告，以及游戏名称的来源 |
 | 用户 (사용자) | 账号和角色；等待批准的 Google 账号 |
 | 设备 (기기) | 批准或拒绝主机、重命名或断开它们，以及为某一台主机创建登录信息 |
-| 设置 (설정) | 服务器行为（设备批准、上传、公开地址、欢迎消息、名称与地区、商店数据、评分、下载、安全重启）、外部服务密钥、Google 登录、管理员密码、身份验证器和自动化令牌 |
+| 设置 (설정) | 服务器行为（设备批准、上传、公开地址、欢迎消息、名称与地区、标题数据、评分、下载、安全重启）、外部服务密钥、Google 登录、管理员密码、身份验证器和自动化令牌 |
 | 通知 (알림) | Telegram 通知及其涵盖的事件 |
 | 日志 (로그) | 被锁定的地址、被拒绝的请求及其原因，以及客户端错误报告 |
 | 推荐 (추천) | 客户端主屏幕顶部的行 |
@@ -371,12 +372,12 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 | `GET /api/activity` | 已登录用户可查看运行中和最近的任务。只有管理员可以通过管理 API 停止任务。 |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 单个条目的详情及其附加文件 |
 | `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | 图片 |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 自制程序应用（单个 `.nro` 或整个 `switch/<app>/` 文件夹）及其 HOME 菜单快捷方式。在管理页面上关闭的应用不会列出 |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive` | 自制程序应用（单个 `.nro` 或整个 `switch/<app>/` 文件夹）。在管理页面上关闭的应用不会列出 |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | 补丁 |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | 存档文件 |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | 复古游戏及其图片，在复古文件夹中有 ROM 时可用 |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png` | 复古游戏及其图片，在复古文件夹中有 ROM 时可用 |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 你提供的 RetroArch 基础包 |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | 保存在 `data/client/` 中的 CookingFoil 客户端构建（放进该文件夹，或在管理页面的上传标签页以“客户端”上传）及其 HOME 菜单快捷方式。只有当构建旁边的 `cookingfoil.nro.sig.json` 与该构建的版本、大小和 sha256 一致时，`latest` 才会带上 `signature`（在构建处生成的 Ed25519 签名） |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | 保存在 `data/client/` 中的 CookingFoil 客户端构建（放进该文件夹，或在管理页面的上传标签页以“客户端”上传）。只有当构建旁边的 `cookingfoil.nro.sig.json` 与该构建的版本、大小和 sha256 一致时，`latest` 才会带上 `signature`（在构建处生成的 Ed25519 签名） |
 | `POST /api/pair/request`, `GET /api/pair/status` | 二维码设备配对（仅在开启二维码设备连接时可用）。设备在请求时发送一个随机的 `pairSecret`（64 位十六进制），查询状态时用 `X-Pair-Secret` 发送同一个值；访问密钥只下发给发送该值的一方。批准方式为“已登录的主机立即批准”时，以 Basic 发送的账号和密码会当场批准这台主机。每个 JSON 响应都带有 `passwordOnly: true`，`/api/library/info` 列出功能 `pair-password-only`：密码只用于配对 |
 | `POST /api/pair/enroll` | 主机把下载的客户端中的注册令牌连同 `X-Device-Key` 一起发送，换取自己的访问密钥。以下载它的账号批准，下载后 1 小时内最多可用于 `COOK_ENROLL_PER_HOUR` 台主机（默认 5，手动批准时为 1 台），更多主机请用二维码批准。拒绝：401 并带 `X-CookingFoil-Enroll: limit`（`X-CookingFoil-Auth: enroll-limit`）、`used`、`expired`、`revoked` 或 `invalid`；账户的主机数已满时为 403 并带 `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | 用已配对主机的访问密钥换取 12 小时的会话令牌（忽略 Basic 头），之后以同一设备密钥只发送 `Authorization: Bearer cfs_…`。会话不能自行续期；批准该主机的账号修改密码、撤销设备、锁定都会立即使其失效。功能名为 `session-token` |
@@ -426,7 +427,6 @@ src/
 ├── retro/          # retro folder, names, art, details and shortcuts
 ├── realtime/       # WebSocket updates for the web page (/ws/library)
 └── views/          # the web page and the operator guide
-forwarder/          # the HOME menu shortcut loader (nx-hbloader with a patch)
 site/               # the GitHub Pages site
 test/unit, test/web # node --test and Playwright
 ```
@@ -447,7 +447,6 @@ MIT，见 [LICENSE](./LICENSE)。
 
 - [blawar/titledb](https://github.com/blawar/titledb)，提供标题名称、简介和图片地址，运行时获取。
 - [nstool](https://github.com/jakcron/nstool)（MIT）和 [nsz](https://github.com/nicoboss/nsz)（MIT），打包在镜像中。
-- [hacBrewPack](https://github.com/rlaphoenix/hacBrewPack/tree/745b16ecfc9ce055743067d200572204cb2aac6c)（GPL-2.0）和 [nx-hbloader](https://github.com/switchbrew/nx-hbloader)（ISC），用于 HOME 菜单快捷方式。
 - [libretro-thumbnails](https://github.com/libretro-thumbnails) 的封面和 [The Bezel Project](https://github.com/thebezelproject) 的边框，运行时获取。
 - [LaunchBox Games Database](https://gamesdb.launchbox-app.com/)、[IGDB](https://www.igdb.com/) 和 Steam，提供游戏详情和分数，运行时获取。
 - [FinalBurn Neo](https://github.com/finalburnneo/FBNeo) 的套装列表，用于街机名称。

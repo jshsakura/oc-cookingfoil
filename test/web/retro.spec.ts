@@ -28,7 +28,8 @@ test('the web page shows one card per game and picks another version in its wind
   const meta = page.locator('#modal-meta');
   const labels = meta.locator('div > span');
   // In the client's order, a cell without a value left out; the developer is the publisher, so it is not repeated.
-  await expect(labels).toHaveText(['출시일', '제작사', '플레이 인원', '기종', '코어', '용량', '파일 형식', '지역', '베젤']);
+  // The HOME shortcut is always offered: the console builds it, so it no longer waits on the server's keys.
+  await expect(labels).toHaveText(['출시일', '제작사', '플레이 인원', '기종', '코어', '용량', '파일 형식', '지역', '베젤', '홈 메뉴 바로가기']);
   await expect(meta.locator('div', { hasText: '출시일' }).locator('strong')).toHaveText('1990');
   await expect(meta.locator('div', { hasText: '제작사' }).locator('strong')).toHaveText('Sega');
   await expect(meta.locator('div', { hasText: '플레이 인원' }).locator('strong')).toHaveText('1인');

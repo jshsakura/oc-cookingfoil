@@ -653,7 +653,7 @@ export function createNszQueue({
       // (a rename, which sets ctime) starts its keep time again instead of going straight back.
       if (!st || now() - Math.max(st.mtimeMs, st.ctimeMs) < maxAge) continue;
       // No record says where it was in the library: it goes to the trash under its real, hidden path, so a
-      // restore puts it back in the keep folder, where the shop never lists it beside its .nsz.
+      // restore puts it back in the keep folder, where the library never lists it beside its .nsz.
       const files = await fsp.readdir(dir).catch(() => []);
       if (!files.length) {
         await fsp.rmdir(dir).catch(() => {});

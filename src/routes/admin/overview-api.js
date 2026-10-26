@@ -15,7 +15,7 @@
  * names only, no addresses or keys.
  */
 import fsp from "node:fs/promises";
-import * as shopCache from "../../meta/shop-cache.js";
+import * as libraryCache from "../../meta/library-cache.js";
 import verifyQueue from "../../meta/verify-service.js";
 import transferLog from "../../helpers/transfer-log.js";
 import * as alerts from "../../helpers/alerts.js";
@@ -71,7 +71,7 @@ export function createOverview({
   warnings = () => [],
   lanes = () => null,
   counts = async () => ({}),
-  files = () => shopCache.files(),
+  files = () => libraryCache.files(),
   verify = () => verifyQueue.view(),
   activeTransfers = () => transferLog.active().length,
   plugins = () => pluginRegistry().list(),

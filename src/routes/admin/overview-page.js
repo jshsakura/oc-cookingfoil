@@ -5,7 +5,7 @@ const ko = (key) => `${TOP_WORDS.ko[key]}`;
 
 export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
   <h2 class="first" data-top="ov.h">${ko("ov.h")}</h2>
-  <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy" data-top="ov.copy">${ko("ov.copy")}</button></div>
+  <div class="copy-row"><code id="library-url">—</code><button type="button" id="library-url-copy" data-top="ov.copy">${ko("ov.copy")}</button></div>
   <h3 class="ov-h" data-top="ov.todoH">${ko("ov.todoH")}</h3>
   <div id="warnings"></div>
   <h3 class="ov-h" data-top="ov.addedH">${ko("ov.addedH")}</h3>
@@ -24,28 +24,28 @@ export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
 </section>`;
 
 export const OVERVIEW_CSS = /* css */ `
-.ov-h{margin:26px 0 10px;font-size:15px}
-.card .s{color:var(--muted);font-size:12px;margin-top:2px}
+.ov-h{margin:26px 0 10px;font-size:var(--fs-md)}
+.card .s{color:var(--muted);font-size:var(--fs-xs);margin-top:2px}
 .card.alert .v{color:var(--accent)}
-#ov-status .card .v{font-size:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ov-recent{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
-.ov-recent li{display:flex;gap:12px;padding:10px 16px;border-top:1px solid var(--line);font-size:13.5px;min-width:0}
+#ov-status .card .v{font-size:var(--fs-2xl);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-recent{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden}
+.ov-recent li{display:flex;gap:12px;padding:10px 16px;border-top:1px solid var(--line);font-size:var(--fs-sm);min-width:0}
 .ov-recent li:first-child{border-top:0}
 .ov-recent time{color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
 .ov-recent span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ov-recent li.none{color:var(--muted)}
 .ov-added{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px}
-.ov-col{border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden;min-width:0}
-.ov-col-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:13.5px}
-.ov-col-h a{color:var(--muted);font-size:12.5px;text-decoration:none;white-space:nowrap}.ov-col-h a:hover{color:var(--text)}
+.ov-col{border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden;min-width:0}
+.ov-col-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
+.ov-col-h a{color:var(--muted);font-size:var(--fs-xs);text-decoration:none;white-space:nowrap}.ov-col-h a:hover{color:var(--text)}
 .ov-list{list-style:none;margin:0;padding:0}
-.ov-list li{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--line);font-size:13.5px;min-width:0}
+.ov-list li{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--line);font-size:var(--fs-sm);min-width:0}
 .ov-list li:first-child{border-top:0}
-.ov-list img{width:30px;height:30px;border-radius:7px;flex:none;object-fit:cover;background:var(--sunk)}
+.ov-list img{width:30px;height:30px;border-radius:var(--r-sm);flex:none;object-fit:cover;background:var(--sunk)}
 .ov-list .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ov-list .nm small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.ov-list .nm small{display:block;color:var(--muted);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis}
 .ov-list .pill{flex:none}
-.ov-list time{flex:none;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ov-list time{flex:none;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ov-list li.none{color:var(--muted)}
 `;
 
@@ -131,9 +131,9 @@ function renderAdded(a){
 function renderOverview(d){
   $('ts').textContent=topFill('overview.asOf',{at:fmt(d.generatedAt)});
   renderWarnings(d.todo||[]);if(d.lanes)renderLanes(d.lanes);renderAdded(d.added);renderStatus(d.status);renderRecent(d.recent||[]);}
-function showShopUrl(){$('shop-url').textContent=location.origin.replace(/[/]$/,'');}
-$('shop-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('shop-url').textContent);toast(topText('ov.copied'));}catch{toast(topText('ov.copyFail'));}});
-showShopUrl();
+function showLibraryUrl(){$('library-url').textContent=location.origin.replace(/[/]$/,'');}
+$('library-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('library-url').textContent);toast(topText('ov.copied'));}catch{toast(topText('ov.copyFail'));}});
+showLibraryUrl();
 
 async function loadOverview(){
   try{const d=await api('/admin/api/overview');ovData=d;renderOverview(d);await loadHealth();

@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
-// The admin marks a homebrew app as tried on a console; the shop's list then says so.
-test('the 검수 pill marks an app verified for the shop and takes it off again', async ({ page, request }) => {
+// The admin marks a homebrew app as tried on a console; the library's list then says so.
+test('the 검수 pill marks an app verified for the library and takes it off again', async ({ page, request }) => {
   await signIn(page);
   await page.goto('/admin/homebrew?tab=apps');
   const pill = () => page.getByRole('button', { name: 'Hand App 검수됨' });
@@ -24,7 +24,7 @@ test('the 검수 pill marks an app verified for the shop and takes it off again'
   await expect(pill()).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('the shop edit panel turns 검수됨 on, and the list shows the badge', async ({ page }) => {
+test('the library edit panel turns 검수됨 on, and the list shows the badge', async ({ page }) => {
   await signIn(page);
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/#tools');

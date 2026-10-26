@@ -8,7 +8,7 @@
  */
 
 export const NAV_CSS = /* css */ `
-.up-entry{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;border-radius:100px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 13px inherit;font-family:inherit;text-decoration:none;white-space:nowrap}
+.up-entry{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 13px inherit;font-family:inherit;text-decoration:none;white-space:nowrap}
 .up-entry:hover{border-color:var(--text)}
 .up-entry svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .up-entry[aria-current="page"]{background:var(--text);color:var(--panel);border-color:var(--text)}
@@ -16,7 +16,7 @@ export const NAV_CSS = /* css */ `
 .subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto}
 /* The sidebar lists these tasks already: the page does not repeat them as a tab row. */
 #retro-subtabs,#homebrew-subtabs{display:none}
-.subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:600;white-space:nowrap}
+.subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:var(--fw-bold);white-space:nowrap}
 .subtabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--text)}
 .subtabs button:hover{color:var(--text)}
 .subtabs{--fade:34px}

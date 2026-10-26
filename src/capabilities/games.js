@@ -6,7 +6,7 @@ import { arr, bool, int, nullable, num, obj, str, titleId } from "./shape.js";
 import { findLibraryGames } from "../meta/library-games.js";
 import { MAX_LIMIT, SORTS } from "../meta/game-search.js";
 import { titleDetail } from "../meta/title-detail.js";
-import * as shopCache from "../meta/shop-cache.js";
+import * as libraryCache from "../meta/library-cache.js";
 import * as titledbStore from "../meta/titledb-store.js";
 import * as userPatches from "../meta/user-patches.js";
 import { parseLang } from "../meta/langs.js";
@@ -15,12 +15,12 @@ const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const notFound = (message) => Object.assign(new Error(message), { status: 404 });
 const badInput = (message) => Object.assign(new Error(message), { status: 400 });
 
-/** One base game for an agent: the shop detail without its URLs, plus what the library holds of it. */
+/** One base game for an agent: the library detail without its URLs, plus what the library holds of it. */
 async function gameOf(input) {
   const base = String(input?.titleId ?? "").toUpperCase();
   if (!TITLE_ID_RE.test(base)) throw badInput("titleId must be 16 hex digits");
-  await shopCache.get();
-  const files = shopCache.files().filter((f) => f.baseTitleId === base);
+  await libraryCache.get();
+  const files = libraryCache.files().filter((f) => f.baseTitleId === base);
   // The language as GET /api/title reads ?lang=: ko-KR and KO are ko, an unknown tag is English.
   const asked = input.lang ? parseLang(input.lang) ?? "en" : null;
   const d = await titleDetail(base, { lang: asked ?? "en", asked });
@@ -74,7 +74,7 @@ export const gamesCapabilities = [
       offset: int(),
       items: arr(obj({
         titleId: titleId("base game id"),
-        name: str("name shown in the shop"),
+        name: str("name shown in the library"),
         edited: bool("an admin wrote this game's name, description or notes"),
         matched: str("the other name that matched, when it is not the shown one"),
       }, { optional: ["matched"] })),
@@ -98,7 +98,7 @@ export const gamesCapabilities = [
     },
     output: obj({
       titleId: titleId("base game id"),
-      name: nullable(str("name shown in the shop")),
+      name: nullable(str("name shown in the library")),
       names: nullable({ type: "object", description: "name per language code" }),
       publisher: nullable(str()),
       description: nullable(str()),
@@ -111,8 +111,8 @@ export const gamesCapabilities = [
       size: nullable(num("bytes, as titledb has it")),
       requiredFirmware: nullable(str()),
       score: nullable(num("review score 0-100")),
-      screenshots: int("how many the shop shows"),
-      banner: bool("the shop has a banner"),
+      screenshots: int("how many the library shows"),
+      banner: bool("the library has a banner"),
       latestVersion: nullable(int("newest published update version")),
       updates: arr(obj({ version: int(), date: nullable(str()), inLibrary: bool() }), "published updates, oldest first"),
       dlc: obj({ total: int("published DLC"), inLibrary: arr(titleId(), "DLC title ids the library holds") }),

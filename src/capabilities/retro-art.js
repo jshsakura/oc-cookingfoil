@@ -251,7 +251,6 @@ export const retroArtCapabilities = [
         throw err;
       }
       await retroCatalog.scan(envs.retroDir);
-      (await import("../routes/retro.js")).rebuildRetroShortcut(g.id);
       return { boxart: "ok" };
     },
   }),

@@ -26,7 +26,7 @@
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
 import { libraryGames } from "../../meta/library-games.js";
-import * as shopCache from "../../meta/shop-cache.js";
+import * as libraryCache from "../../meta/library-cache.js";
 import * as titledbVersions from "../../meta/titledb-versions.js";
 import { gameOf } from "../../meta/game-info.js";
 import * as itemVerified from "../../meta/item-verified.js";
@@ -96,8 +96,8 @@ export function libraryUpdates(files) {
 }
 
 const libraryFiles = async () => {
-  await shopCache.get().catch(() => null);
-  return shopCache.files();
+  await libraryCache.get().catch(() => null);
+  return libraryCache.files();
 };
 
 /** A game the library does not hold is still named from titledb or the patch's own files (Korean first). */
@@ -144,7 +144,7 @@ export function mountPatchesApi(router, requireSession) {
     if (!where?.key || where.dir.startsWith("homebrew/")) return res.status(404).json({ error: apiWord(req, "patches.noPatch") });
     patchInfo.set(where.key, withRequired(userPatches.infoOf(id), req.body.required));
     debug.log("admin: patch %s required=%s", where.key, req.body.required);
-    shopCache.invalidate(); // the game's card and the consoles' shop carry required_patches
+    libraryCache.invalidate(); // the game's card and the consoles' library carry required_patches
     res.json({ ok: true });
   }));
 

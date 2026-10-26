@@ -21,8 +21,8 @@ export const ORGANIZE_HTML = `  <div class="hd"><h2 class="first">${top("lo.titl
   <h3>${top("lo.recent")}</h3><div id="lo-recent"></div>`;
 
 export const ORGANIZE_CSS = `.lo-rules{margin:4px 0 12px;padding-left:20px;line-height:1.6}.lo-rules li{margin:2px 0}
-.lo-systems{margin:0 0 12px}.lo-systems summary{cursor:pointer;font-weight:600}
-#lo-systems{display:flex;flex-wrap:wrap;gap:6px}#lo-systems code{font-size:12.5px}`;
+.lo-systems{margin:0 0 12px}.lo-systems summary{cursor:pointer;font-weight:var(--fw-bold)}
+#lo-systems{display:flex;flex-wrap:wrap;gap:6px}#lo-systems code{font-size:var(--fs-xs)}`;
 
 export const ORGANIZE_SCRIPT = /* js */ `
 const loReasons=${JSON.stringify(REASON_TEXT)};

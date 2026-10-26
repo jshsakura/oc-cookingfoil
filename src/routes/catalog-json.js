@@ -7,22 +7,22 @@
  *   → { files: [{ url, name, size, mtime?, titleId?, baseTitleId?, kind?, icon_url? }] }
  *
  * `name` ends in "[TITLEID][vVERSION]" for every file with a title id, and every
- * URL is absolute on the request's origin. Served from the warmed shop cache
+ * URL is absolute on the request's origin. Served from the warmed library cache
  * with br/gzip and an ETag, like the sections list.
  */
 import debug from "../debug.js";
-import * as shopCache from "../meta/shop-cache.js";
+import * as libraryCache from "../meta/library-cache.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import * as downloadLinks from "../security/download-links.js";
 
-export default async function shopJsonRoute(req, res) {
+export default async function catalogJsonRoute(req, res) {
   if (!req.apiToken) return res.status(404).type("text/plain").send("not found");
   let payload;
   try {
-    payload = await shopCache.getEncodedForOrigin(req.acceptsEncodings(), resolveOrigin(req, publicBaseUrl), downloadLinks.forRequest(req));
+    payload = await libraryCache.getEncodedForOrigin(req.acceptsEncodings(), resolveOrigin(req, publicBaseUrl), downloadLinks.forRequest(req));
   } catch (err) {
-    debug.error("shop.json: build failed: %s", err.stack || err.message);
+    debug.error("games.json: build failed: %s", err.stack || err.message);
     return res.status(503).json({ error: "catalog unavailable" });
   }
   res.header("Content-Type", "application/json");

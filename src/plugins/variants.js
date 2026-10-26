@@ -9,7 +9,7 @@
  *                              { refusal: { status, body } }  409; body is { error, errors, code }
  *                              { variant: { tag, patches, vary } }   send the file with these bytes replaced
  *   list(files, ctx)         the options of several files at once (POST /api/library/variants)
- *   shopInfoExtras(lang)     what plugins add to shop info (features, info keys), kept for a short while
+ *   libraryInfoExtras(lang)     what plugins add to library info (features, info keys), kept for a short while
  *
  * What a console says about itself comes in one header, X-CookingFoil-Console: "firmware=21.0.1; region=kor".
  * Only the items core knows are read, only values of the right shape are kept, and a plugin is handed only
@@ -24,9 +24,9 @@ export const MAX_FILES = 200;
 const MAX_HEADER_BYTES = 256;
 const FIRMWARE_RE = /^\d{1,2}\.\d{1,2}\.\d{1,2}$/;
 const REGIONS = new Set(["jpn", "usa", "eur", "aus", "htk", "chn", "kor", "twn"]);
-const SHOP_INFO_FRESH_MS = 30_000;
+const LIBRARY_INFO_FRESH_MS = 30_000;
 const LIST_PARALLEL = 8;
-// Query keys the core keeps for plugins that came before the plugin system: "rewrap" is in every old client's cached shop info.
+// Query keys the core keeps for plugins that came before the plugin system: "rewrap" is in every old client's cached library info.
 export const LEGACY_KEYS = Object.freeze(["rewrap"]);
 const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
 const CARD_ICONS = ["warning", "info"];
@@ -100,7 +100,7 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
   /**
    * The first query key a plugin claimed: { id, available, keys } or null. A key the core reserves
    * (LEGACY_KEYS) with no plugin running behind it is never a plain download: old clients ask for it
-   * from a cached shop info, and the original file must not stand in for the option they asked for.
+   * from a cached library info, and the original file must not stand in for the option they asked for.
    */
   function ownerOf(query) {
     for (const key of Object.keys(query ?? {})) {
@@ -226,7 +226,7 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     return out;
   }
 
-  // ── shop info ──
+  // ── library info ──
   // Per plugin, language, plugin version and prod.keys: a new key file or a new plugin build answers afresh.
   // An answer that did not come (timeout, error, cooling) is not kept as if it had.
   const infoCache = new Map(); // `${id}\0${version}\0${keys}\0${lang}` -> { at, value, pending }
@@ -234,10 +234,10 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
   async function extrasOf(id, lang) {
     const key = [id, registry.versionOf(id), registry.keysStamp(), lang].join("\0");
     const hit = infoCache.get(key);
-    if (hit?.value && now() - hit.at < SHOP_INFO_FRESH_MS) return hit.value;
+    if (hit?.value && now() - hit.at < LIBRARY_INFO_FRESH_MS) return hit.value;
     if (hit?.pending) return hit.pending;
     const stale = hit?.value ?? null;
-    const pending = registry.callHook(id, "shopInfo", { lang }, { lang }).then((r) => {
+    const pending = registry.callHook(id, "libraryInfo", { lang }, { lang, pick: (inst) => inst?.libraryInfo ?? inst?.shopInfo }).then((r) => {
       const v = r.value;
       const value = !r.error && !r.skipped && v && typeof v === "object"
         ? { features: Array.isArray(v.features) ? v.features.filter((f) => typeof f === "string" && /^[a-z0-9-]{1,40}$/.test(f)) : [], info: v.info && typeof v.info === "object" && !Array.isArray(v.info) ? v.info : {} }
@@ -250,16 +250,16 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     return pending;
   }
 
-  /** { features, info } from every plugin that is on and answers shopInfo; info keys are the plugin's to claim, nothing is overwritten by the caller. */
-  async function shopInfoExtras(lang) {
+  /** { features, info } from every plugin that is on and answers libraryInfo (or shopInfo, its old name); info keys are the plugin's to claim, nothing is overwritten by the caller. */
+  async function libraryInfoExtras(lang) {
     const ids = registry.activeProviding("variant").concat(registry.activeProviding("metadata"), registry.activeProviding("art"), registry.activeProviding("task"));
     const unique = [...new Set(ids)].sort();
     const parts = await Promise.all(unique.map((id) => extrasOf(id, lang)));
     return { features: parts.flatMap((p) => p.features), info: Object.assign({}, ...parts.map((p) => p.info)) };
   }
 
-  /** The variants block of shop info: what to strip from a URL to tell two of one file apart, and what a console is asked for. */
-  function shopInfoFacts() {
+  /** The variants block of library info: what to strip from a URL to tell two of one file apart, and what a console is asked for. */
+  function libraryInfoFacts() {
     const keys = registry.variantKeys();
     const wants = registry.wantedConsole();
     return {
@@ -269,5 +269,5 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     };
   }
 
-  return { resolve, list, shopInfoExtras, shopInfoFacts };
+  return { resolve, list, libraryInfoExtras, libraryInfoFacts };
 }

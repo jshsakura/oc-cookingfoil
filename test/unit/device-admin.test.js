@@ -22,7 +22,7 @@ after(() => store.shutdown());
 test("a flagged console on its access key or session is an admin device", () => {
   assert.equal(adminDeviceOf({ pairedDevice: ADMIN }), ADMIN);
   assert.equal(adminDeviceOf({ pairedDevice: ADMIN, sessionLane: true, sessionDevice: ADMIN }), ADMIN);
-  // A shop account's session made on the flagged console.
+  // A library account's session made on the flagged console.
   assert.equal(adminDeviceOf({ sessionLane: true, sessionDevice: ADMIN, auth: { user: "alice" } }), ADMIN);
 });
 

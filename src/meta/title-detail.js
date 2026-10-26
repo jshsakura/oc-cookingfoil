@@ -15,13 +15,14 @@ import { normalizeCategories, normalizeGenres, genreLabel } from "./categories.j
 import { fallbacks, parseLang, pick } from "./langs.js";
 import * as scores from "./ratings.js";
 import { versionedArtwork } from "./artwork-version.js";
+import { bannerFallback, iconFallback, shotSlots, sourceOf as artSourceOf } from "./art-fill.js";
 import * as titledbVersions from "./titledb-versions.js";
 import * as userPatches from "./user-patches.js";
 import * as gameDescriptions from "./game-descriptions.js";
 import * as itemVerified from "./item-verified.js";
 import { mergeField, valueOf, ADMIN, TITLEDB, LOCAL } from "./field-merge.js";
 import { agentOrder, agentValues, creditOf } from "../plugins/agent-values.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import { titleKeyNeed } from "./key-needs.js";
 import { findingOf, signedOf } from "./file-integrity.js";
 import { signedHelp } from "./signed-help.js";
@@ -35,7 +36,7 @@ import path from "path";
  * "base" | "update" | "dlc", "modified" | "damaged", and the label and help
  * in `lang` (integrity-help.js). Informational; every file is offered all the same.
  */
-export function integrityFor(base, lang = "en", files = shopCache.files()) {
+export function integrityFor(base, lang = "en", files = libraryCache.files()) {
   const out = [];
   for (const f of files) {
     if (f.baseTitleId !== base) continue;
@@ -50,7 +51,7 @@ export function integrityFor(base, lang = "en", files = shopCache.files()) {
  * nca, ticket, help? }], nca and ticket true, false or null, help { title, body } in `lang` when one is
  * false. A stock console refuses a file with a false.
  */
-export function signedFor(base, lang = "en", files = shopCache.files()) {
+export function signedFor(base, lang = "en", files = libraryCache.files()) {
   const out = [];
   for (const f of files) {
     if (f.baseTitleId !== base) continue;
@@ -85,8 +86,9 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     return origin ? origin + url : url;
   };
 
-  // Game files carry no screenshots: only the admin's.
+  // Game files carry no screenshots: the admin's, else the ones filled in from titledb or a plugin.
   const slots = new Set(overrides.screens.filter((i) => Number.isInteger(i) && i >= 0 && i <= 30));
+  if (!slots.size) for (const i of shotSlots(base)) slots.add(i);
   const screenshots = [...slots].sort((a, b) => a - b).map((i) => art(`/api/library/screenshot/${base}/${i}`));
 
   const categories = normalizeGenres(fromDb?.category);
@@ -117,6 +119,10 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     [LOCAL]: perLanguage ? null : extracted?.description,
     ...agentValues("description", base, { lang }),
   }, { order: agentOrder("description", [TITLEDB, LOCAL], base) });
+  // Who supplied a picture that was filled in from a metadata plugin (not titledb), so the detail view can say so.
+  const pluginArt = [iconFallback(base) && artSourceOf(base, "icon"), bannerFallback(base) && artSourceOf(base, "banner"), !overrides.screens.length && shotSlots(base).length ? artSourceOf(base, "screenshot", shotSlots(base)[0]) : null]
+    .find((src) => typeof src === "string" && src.startsWith("plugin:"));
+  const artCredit = pluginArt ? creditOf(`agent:${pluginArt.slice(7)}`, base) : null;
   const categoryLabels = categories?.map((key) => genreLabel(key, lang));
   const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   return {
@@ -167,6 +173,7 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
       : null,
     screenshots,
     screenshotCount: screenshots.length,
+    ...(artCredit ? { artCredit } : {}),
     videos: titleVideos(fromDb),
     // Published updates, oldest first: [{ version, date }], and the DLC count.
     latestVersion: titledbVersions.latestVersion(base),

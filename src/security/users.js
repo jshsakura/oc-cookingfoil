@@ -1,5 +1,5 @@
 /**
- * Shop accounts, managed from /admin.
+ * Library accounts, managed from /admin.
  *
  * Persisted in the security database (one row an account) with scrypt hashes. On
  * the first start there are none yet, so the COOK_AUTH_USERS accounts are

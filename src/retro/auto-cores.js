@@ -16,7 +16,7 @@
  *                         up to a day) unless the admin asks
  *   update()              the admin's "update installed cores": each core the server owns whose CRC-32
  *                         is not the index's is replaced in place (no copy of the old one is kept).
- *                         Forwarders keep their key: shortcuts are never made again by themselves
+ *                         Shortcuts keep their key: they are never made again by themselves
  *   useOfficial(core)     a pinned core goes to the retro trash and the nightly build takes its place
  *   useUserVersion(core)  the core from the trash comes back under its own name and the server's file
  *                         is deleted; refused, with the trash item left, when the name is taken

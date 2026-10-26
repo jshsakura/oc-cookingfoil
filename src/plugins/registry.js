@@ -1,6 +1,6 @@
 /**
  * The plugin registry: which plugins exist, which are switched on, how each is behaving, and the one
- * way to call into them. The rule it keeps: a plugin cannot stop the server from starting, the shop
+ * way to call into them. The rule it keeps: a plugin cannot stop the server from starting, the library
  * from listing, or a download from being served. A plugin that is missing, off, slow or broken gives
  * the same result as no plugin.
  *
@@ -16,7 +16,7 @@
  *   registry.stopAll()
  *
  * States: off, starting, on, cooling, failed, auto-disabled, crash-disabled, broken, incompatible, missing.
- * Hooks are never called on the request path of the shop or a download: metadata and art run in the
+ * Hooks are never called on the request path of the library or a download: metadata and art run in the
  * background and are cached (stage 2). A variant plan runs while a file is sent, so its failure is a
  * plain { error } the sender turns into the original refusal, never a thrown error.
  */
@@ -34,7 +34,7 @@ export const MINUTE_MS = 60_000;
 export const DEFAULT_LIMITS = Object.freeze({
   startMs: 10_000,
   stopMs: 5_000,
-  hookMs: Object.freeze({ metadata: 15_000, art: 15_000, variants: 5_000, plan: 30_000, tasks: 5_000, shopInfo: 2_000, beforeDownload: 5_000, afterDownload: 5_000, installReported: 5_000, libraryChanged: 5_000, deviceApproved: 5_000 }),
+  hookMs: Object.freeze({ metadata: 15_000, art: 15_000, variants: 5_000, plan: 30_000, tasks: 5_000, libraryInfo: 2_000, beforeDownload: 5_000, afterDownload: 5_000, installReported: 5_000, libraryChanged: 5_000, deviceApproved: 5_000 }),
   hookMsDefault: 15_000,
   startFailLimit: 3,
   hookFailLimit: 5,
@@ -69,7 +69,7 @@ function readOnlyKeys(keys) {
 }
 
 /** The hooks of a plugin that said needsKeys are handed the parsed prod.keys, for that call only. */
-const KEYED_HOOKS = new Set(["plan", "variants", "shopInfo"]);
+const KEYED_HOOKS = new Set(["plan", "variants", "libraryInfo"]);
 
 // Module-wide: a second registry (a test, a reload) must not import a URL the first one already cached.
 let importCount = 0;

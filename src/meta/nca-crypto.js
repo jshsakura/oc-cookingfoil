@@ -23,14 +23,12 @@ const KEY_AREA_NAMES = ["application", "ocean", "system"];
 // Master key generations a prod.keys can name: master_key_00 … master_key_3f.
 export const MAX_GENERATION = 0x3f;
 
-const ecb = (decrypt, key, data) => {
-  const c = decrypt ? crypto.createDecipheriv("aes-128-ecb", key, null) : crypto.createCipheriv("aes-128-ecb", key, null);
-  c.setAutoPadding(false);
-  return Buffer.concat([c.update(data), c.final()]);
-};
-
 /** AES-128-ECB decryption, no padding. */
-export const ecbDecrypt = (key, data) => ecb(true, key, data);
+export const ecbDecrypt = (key, data) => {
+  const d = crypto.createDecipheriv("aes-128-ecb", key, null);
+  d.setAutoPadding(false);
+  return Buffer.concat([d.update(data), d.final()]);
+};
 
 const hexOf = (gen) => gen.toString(16).padStart(2, "0");
 const key16 = (keys, name) => (keys.get(name)?.length === 32 ? Buffer.from(keys.get(name), "hex") : null);
@@ -73,24 +71,22 @@ export function maxGeneration(keys) {
   return null;
 }
 
-function xts(decrypt, raw, headerKey) {
+/** Decrypts the 0xC00 NCA header. */
+export function decryptHeader(raw, headerKey) {
   const out = Buffer.alloc(HEADER_BYTES);
   const sector = (i, tweak) => {
     const iv = Buffer.alloc(16);
     iv.writeBigUInt64BE(BigInt(tweak), 8);
-    const c = decrypt ? crypto.createDecipheriv("aes-128-xts", headerKey, iv) : crypto.createCipheriv("aes-128-xts", headerKey, iv);
-    Buffer.concat([c.update(raw.subarray(i * SECTOR, (i + 1) * SECTOR)), c.final()]).copy(out, i * SECTOR);
+    const d = crypto.createDecipheriv("aes-128-xts", headerKey, iv);
+    Buffer.concat([d.update(raw.subarray(i * SECTOR, (i + 1) * SECTOR)), d.final()]).copy(out, i * SECTOR);
   };
   sector(0, 0);
   sector(1, 1);
   // The magic decides NCA2's tweaks; it sits in sector 1, plain once that sector is decrypted.
-  const magic = (decrypt ? out : raw).toString("ascii", 0x200, 0x204);
+  const magic = out.toString("ascii", 0x200, 0x204);
   for (let i = 2; i < HEADER_BYTES / SECTOR; i++) sector(i, magic === "NCA2" ? 0 : i);
   return out;
 }
-
-/** Decrypts the 0xC00 NCA header. */
-export const decryptHeader = (raw, headerKey) => xts(true, raw, headerKey);
 
 /** The master key generation an NCA header uses: max(key generation old, key generation) - 1, 0 for 0. Pure. */
 export function headerGeneration(header) {
@@ -98,14 +94,14 @@ export function headerGeneration(header) {
   return byte ? byte - 1 : 0;
 }
 
-/** AES-128-CTR over `data` that starts at byte `at` of an NCA section with this key and upper counter half. */
+/** AES-128-CTR decryption of `data` that starts at byte `at` of an NCA section with this key and upper counter half. */
 export function ctr(key, upper, at, data) {
   const iv = Buffer.alloc(16);
   upper.copy(iv, 0);
   iv.writeBigUInt64BE(BigInt(Math.floor(at / 16)), 8);
-  const c = crypto.createCipheriv("aes-128-ctr", key, iv);
+  const d = crypto.createDecipheriv("aes-128-ctr", key, iv);
   // A start inside a 16-byte block: skip that many keystream bytes first.
   const skip = at % 16;
-  const out = Buffer.concat([c.update(Buffer.concat([Buffer.alloc(skip), data])), c.final()]);
+  const out = Buffer.concat([d.update(Buffer.concat([Buffer.alloc(skip), data])), d.final()]);
   return out.subarray(skip);
 }

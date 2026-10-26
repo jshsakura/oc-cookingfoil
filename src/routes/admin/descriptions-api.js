@@ -12,7 +12,7 @@
  */
 import * as gameDescriptions from "../../meta/game-descriptions.js";
 import * as titledbStore from "../../meta/titledb-store.js";
-import * as shopCache from "../../meta/shop-cache.js";
+import * as libraryCache from "../../meta/library-cache.js";
 import * as extractedMeta from "../../meta/extracted-meta-store.js";
 import debug from "../../debug.js";
 import { requestLang } from "../../meta/langs.js";
@@ -58,7 +58,7 @@ export function mountDescriptionsApi(router, requireSession) {
       if (v != null) gameDescriptions.set(id, field, v);
     }
     // A changed name is baked into the list the server hands out: build it again.
-    if (req.body?.name) shopCache.invalidate({ rename: true });
+    if (req.body?.name) libraryCache.invalidate({ rename: true });
     debug.log("admin: description of %s saved", id);
     res.json({ titleId: id, own: gameDescriptions.get(id) });
   }));
@@ -68,7 +68,7 @@ export function mountDescriptionsApi(router, requireSession) {
     if (!id) return;
     const field = gameDescriptions.FIELDS.includes(req.body?.field) ? req.body.field : null;
     gameDescriptions.reset(id, field);
-    if (!field || field === "name") shopCache.invalidate({ rename: true });
+    if (!field || field === "name") libraryCache.invalidate({ rename: true });
     res.json({ titleId: id, own: gameDescriptions.get(id) });
   }));
 }

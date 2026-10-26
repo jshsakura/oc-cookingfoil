@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-// Shop artwork URLs carry ?v=<hash of what decides the bytes>. A request whose
+// Library artwork URLs carry ?v=<hash of what decides the bytes>. A request whose
 // v is the current one may be kept for good; one without v (or with an old v)
 // gets a short cache plus an ETag, so a client that cached by URL never keeps a
 // replaced picture.

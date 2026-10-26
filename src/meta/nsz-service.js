@@ -6,7 +6,7 @@
 import path from "path";
 import { createNszQueue } from "./nsz-queue.js";
 import * as env from "../helpers/envs.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import drainer from "../security/drain.js";
 import { alert } from "../helpers/alerts.js";
 import { activityText } from "./meta-messages.js";
@@ -36,8 +36,8 @@ const queue = createNszQueue({
   downloads: () => drainer.downloads(),
   // Games are served at their path under the games folder, on both download lanes.
   fileInUse: (rel) => drainer.pathInUse(`/${rel.split(path.sep).join("/")}`),
-  catalog: () => shopCache.files(),
-  onSwapped: (changes) => shopCache.noteFileChanges(changes),
+  catalog: () => libraryCache.files(),
+  onSwapped: (changes) => libraryCache.noteFileChanges(changes),
   alert: (text, subject) => alert("nsz", text, { subject }),
   track: (item, probe) => {
     // The output leaves the work folder just before the run ends: keep the last size read, not 0.
@@ -60,7 +60,7 @@ export function start() {
   if (started) return;
   started = true;
   queue.init().catch(() => {});
-  shopCache.onUpdate(() => queue.onLibraryUpdate());
+  libraryCache.onUpdate(() => queue.onLibraryUpdate());
 }
 
 export default queue;

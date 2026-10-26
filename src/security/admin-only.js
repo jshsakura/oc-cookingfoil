@@ -2,8 +2,8 @@
  * Routes that change what everyone sees (artwork, descriptions, files in the
  * games folder) or list what was sent in, for admin accounts only.
  *
- * Signed in is not enough: a shop account with the user role, a per-device
- * login, a paired console and a console's session token read the shop but
+ * Signed in is not enough: a library account with the user role, a per-device
+ * login, a paired console and a console's session token read the library but
  * never change it. `reads: true` holds GET and HEAD to the same rule (the
  * upload list); otherwise only writes are held.
  */

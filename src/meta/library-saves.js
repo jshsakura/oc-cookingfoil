@@ -1,5 +1,5 @@
 /**
- * Save files the shop hands out (say, a save with every kart unlocked), for a
+ * Save files the library hands out (say, a save with every kart unlocked), for a
  * client to restore into a player's save on the console:
  *
  *   <savesDir>/<base title id>/<save name>/<the save folder's contents>  (+ optional meta.json)

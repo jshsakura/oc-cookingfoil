@@ -508,7 +508,7 @@ test('the header has one account circle that opens the account, the web page, th
   await page.keyboard.press('Escape');
   await expect(page.locator('#acct-list')).toBeHidden();
   await page.goto('/admin#overview');
-  await expect(page.locator('#shop-url')).toHaveText(/^https?:\/\/[^/]+$/);
+  await expect(page.locator('#library-url')).toHaveText(/^https?:\/\/[^/]+$/);
   fs.mkdirSync('out/web', { recursive: true });
   await page.screenshot({ path: 'out/web/admin-overview-connect.png' });
 });

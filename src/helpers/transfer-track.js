@@ -65,7 +65,7 @@ function deviceLabel(dev) {
 
 /**
  * Who asked: the console's device key, else the account (per-device login, a
- * shop account, a Google account), else the client's address. Only a device
+ * library account, a Google account), else the client's address. Only a device
  * key the console proved counts (its access key, or a session made for it:
  * req.pairedDevice); an X-Device-Key header alone is anyone's to write, so
  * without that proof the account or the address names the request. `key`

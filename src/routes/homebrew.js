@@ -11,7 +11,6 @@
  * GET /api/homebrew/:id/files      { files: [{ path, size, sha256, url }] } of a folder install, as the list has them
  * GET /api/homebrew/:id/bundle     every file of a folder install as one uncompressed tar, Range-able
  * GET /api/homebrew/:id/archive    the zip of an app the admin keeps zipped, as it is (Range, ETag = its sha256)
- * GET /api/homebrew/:id/forwarder  the app's HOME-menu shortcut NSP (starts sdmc:/<install_path>)
  * GET /api/homebrew/:id/banner?v=  the wide picture behind the app's header (WebP, meta/homebrew-media.js);
  *                                  banner_url is null when it has none
  * GET /api/homebrew/:id/screenshot/:n?v=   one of its screenshots (WebP), as listed in `screenshots`
@@ -20,8 +19,8 @@
  *       NACP display version as the console reads it off the card, or null), author, description, size, hash, file_name, icon_url,
  *       download_url, source: "github" | "manual", released_at, repo_url,
  *       install_path, install_dir, files, bundle_url, archive,
- *       forwarder_url, forwarder_title_id, forwarder_size, forwarder_key (changes with
- *       every build of the shortcut), forwarder_cores (3 or 4: the CPU cores a shortcut
+ *       forwarder_title_id (the title ID of its HOME-menu shortcut, which the console builds itself),
+ *       forwarder_key (changes with the shortcut's name, icon, target and cores), forwarder_cores (3 or 4: the CPU cores a shortcut
  *       for it may use, also for one a client builds itself), install_type, title_id,
  *       verified (the admin tried it on a console: a 검수됨 badge), verified_at (ISO, or null),
  *       votes: { up, down } (잘 돼요 / 안 돼요), my_vote ("up" | "down" | null: this voter's, see /api/votes),
@@ -34,7 +33,7 @@
  * `install_type` is "file" (copied to the card at install_path) or "title": an
  * app built as an installable NSP (nx.js apps and the like), installed from
  * download_url as the games folder's files are, with `title_id` from its cnmt.
- * A title has no install_path, app, files, archive or forwarder (it is its own
+ * A title has no install_path, app, files, archive or shortcut (it is its own
  * HOME menu entry), and is listed only with ?with=titles: a client from before
  * would copy the .nsp to sdmc:/switch/.
  *
@@ -70,12 +69,9 @@
  *
  * `description` is what the admin wrote (Korean for ?lang=ko or a Korean
  * Accept-Language, else English), the GitHub repository's own when the admin
- * wrote nothing, or null. The forwarder fields are null when this server can't
- * build shortcuts (no prod.keys or hacBrewPack); forwarder_size is null until
- * the NSP has been built, which happens in the background.
+ * wrote nothing, or null.
  *
- * Every download URL (download_url, bundle_url, archive.url, each file's url,
- * forwarder_url) is on the direct address when a signed-in client asked for it
+ * Every download URL (download_url, bundle_url, archive.url, each file's url) is on the direct address when a signed-in client asked for it
  * and a direct address is set (security/download-links.js).
  *
  * `hash` changes whenever the build does; a client compares it with the one it
@@ -87,7 +83,6 @@ import path from "path";
 import express from "express";
 import debug from "../debug.js";
 import { dataDir, homebrewDir, homebrewCheckHours } from "../helpers/envs.js";
-import { keysDir } from "../security/prod-keys.js";
 import * as integrations from "../security/integrations.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import { requestLang } from "../meta/langs.js";
@@ -99,7 +94,7 @@ import * as votes from "../meta/item-votes.js";
 import * as media from "../meta/homebrew-media.js";
 import * as disabled from "../meta/homebrew-disabled.js";
 import { sendTar } from "../helpers/tar-stream.js";
-import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
+import { homebrewTarget, shortcutSpec } from "../retro/shortcut.js";
 import fs from "fs";
 import fsp from "fs/promises";
 import { createTracker, folderHash, idFor, installPathFor, manualNspIcon, scanManual, scanManualOne, useManualHashes } from "../meta/homebrew.js";
@@ -198,11 +193,11 @@ export function changedApps(before, after) {
   const had = new Map(before.map((e) => [e.id, e.hash]));
   return after.filter((e) => had.has(e.id) && had.get(e.id) !== e.hash).map((e) => e.id);
 }
-// Their .nro with the uploaded icon and their shortcut are made now, one after another,
+// Their .nro with the uploaded icon is made now, one after another,
 // not on the next download, so the list already carries what a console would get.
 let rebuilding = Promise.resolve();
 function rebuildChanged(before, after) {
-  for (const id of changedApps(before, after)) rebuilding = rebuilding.then(() => rebuildHomebrewShortcut(id));
+  for (const id of changedApps(before, after)) rebuilding = rebuilding.then(() => refreshHomebrewIcon(id));
 }
 
 /**
@@ -237,27 +232,25 @@ export async function sourcesChanged(repo = null) {
   await githubTracker().fetchDescriptions();
 }
 
-const forwarderDir = path.join(dataDir, "homebrew-forwarders");
-const NO_FORWARDER = { forwarder_url: null, forwarder_title_id: null, forwarder_size: null, forwarder_key: null };
+const NO_SHORTCUT = { forwarder_title_id: null, forwarder_key: null };
 
-/** What the forwarder module needs to know about an app; an uploaded icon is part of its key. */
-const forwarderApp = (e) => ({
+/** What the shortcut module needs to know about an app; an uploaded icon is part of its key. */
+const shortcutApp = (e) => ({
   id: `homebrew-${e.id}`, name: e.name, publisher: e.author || "Homebrew", target: homebrewTarget(e.file_name, e.install_path),
   artKey: [e.hash, media.iconVersion(e.id) ?? null], cores: cores.coresOf(e.id),
 });
 
 /**
- * Builds an app's shortcut again after its icon changed on the web, so the next
- * download carries the new picture (same title ID). Never throws.
+ * Puts the app's current icon into its .nro after the icon changed on the web (or drops it when
+ * the icon is gone), so the card and the shortcut a client builds show the same picture. Never throws.
  */
-export async function rebuildHomebrewShortcut(id) {
-  // The .nro with the new icon first (or none, the icon gone): the shortcut and the app then match.
-  if (!media.iconVersion(id)) await nroIcon.dropOlder(id);
-  else await iconNro(id);
-  if (!forwardersAvailable(keysDir())) return null;
-  return defaultService.forwarder(id)
-    .then((built) => { if (built) debug.log("homebrew: shortcut for %s built again", id); return built; })
-    .catch((err) => { debug.error("homebrew: shortcut for %s: %s", id, err.message); return null; });
+export async function refreshHomebrewIcon(id) {
+  try {
+    if (!media.iconVersion(id)) await nroIcon.dropOlder(id);
+    else await iconNro(id);
+  } catch (err) {
+    debug.error("homebrew: icon of %s: %s", id, err.message);
+  }
 }
 
 const isNro = (p) => /\.nro$/i.test(p ?? "");
@@ -351,26 +344,10 @@ export const defaultService = {
       .map((e) => ({ ...e, ...sizeFields(e), description: descriptions.describe(e.id, lang, e.description ?? null), kind: kinds.kindOf(e.id), forwarder_cores: cores.coresOf(e.id), ...verified.fields(e.id), enabled: !disabled.isDisabled(e.id) }))
       .sort(byRecent);
   },
-  /** forwarder_url, forwarder_title_id and forwarder_size (null until built). */
-  forwarderInfo(e) {
-    const spec = forwardersAvailable(keysDir()) ? forwarderSpec(forwarderApp(e)) : null;
-    if (!spec) return NO_FORWARDER;
-    let size = null;
-    try {
-      size = fs.statSync(forwarderPath(forwarderDir, `homebrew-${e.id}`, spec)).size;
-    } catch {
-      // built in the background
-    }
-    // forwarder_key changes with every build (icon, name, cores …): a client compares it with the one it installed.
-    return { forwarder_url: `/api/homebrew/${e.id}/forwarder`, forwarder_title_id: spec.titleId, forwarder_size: size, forwarder_key: spec.key };
-  },
-  async forwarder(id) {
-    if (!forwardersAvailable(keysDir())) return null;
-    const e = (await this.list()).find((x) => x.id === id);
-    if (!e) return null;
-    // The icon an admin uploaded wins over the one in the app file, as on the card.
-    const custom = media.iconVersion(id) && fs.existsSync(media.iconPath(id));
-    return ensureForwarder(forwarderDir, { ...forwarderApp(e), icon: custom ? media.iconPath(id) : await this.icon(id) }, keysDir());
+  /** forwarder_title_id and forwarder_key. */
+  shortcutInfo(e) {
+    const spec = shortcutSpec(shortcutApp(e));
+    return spec ? { forwarder_title_id: spec.titleId, forwarder_key: spec.key } : NO_SHORTCUT;
   },
   async icon(id) {
     const file = id.startsWith("m-")
@@ -500,9 +477,6 @@ export function readsFilesUrl(agent) {
   return i === -1 || v[i] > LAZY_FILES_SINCE[i];
 }
 
-/** The forwarder fields with forwarder_url on the direct address when `link` is set. Pure. */
-const forwarderWithDirect = ({ forwarder_url: url, ...rest }, link) => ({ ...withDirect("forwarder_url", url, link), ...rest });
-
 /** Ask for a retry once the folder has been read again. */
 /** The folder (its name under the homebrew folder) a hand-placed app was read from, or null. */
 function manualFolderOf(e) {
@@ -543,7 +517,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       icon_url: iconUrlOf(e),
       ...pictures(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
-      ...NO_FORWARDER,
+      ...NO_SHORTCUT,
     } : {
       description: null,
       install_dir: null,
@@ -561,7 +535,7 @@ export function homebrewRouter({ service = defaultService } = {}) {
       icon_url: iconUrlOf(e),
       ...pictures(e.id),
       ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
-      ...forwarderWithDirect(service.forwarderInfo?.(e) ?? NO_FORWARDER, link),
+      ...(service.shortcutInfo?.(e) ?? NO_SHORTCUT),
     }), ...votes.fields("homebrew", e.id, voter) }));
     const body = JSON.stringify({ homebrew: list });
     res.set({
@@ -650,20 +624,6 @@ export function homebrewRouter({ service = defaultService } = {}) {
     const etag = crypto.createHash("sha1").update(JSON.stringify(files.map((f) => [f.path, f.sha256]))).digest("hex");
     const app = files[0].path.split("/")[1] || req.params.id;
     sendTar(res, files.map(({ path: p, size, abs }) => ({ path: p, size, abs, mtime: 0 })), { filename: `${app}.tar`, etag, label: "homebrew", fixedTimes: true });
-  }));
-
-  router.get("/:id/forwarder", wrap(async (req, res) => {
-    let built;
-    try {
-      built = await service.forwarder?.(req.params.id);
-    } catch (err) {
-      debug.error("homebrew: %s shortcut failed: %s", req.params.id, err.message);
-      return res.status(502).json({ error: "the shortcut could not be built" });
-    }
-    if (!built) return res.status(404).json({ error: "no shortcut for this homebrew" });
-    res.attachment(`${built.spec.name.replace(/[^\w .-]+/g, "") || "shortcut"}.nsp`);
-    res.set({ "Cache-Control": "no-cache", "X-Forwarder-Title-Id": built.spec.titleId });
-    res.sendFile(built.path, { etag: true, lastModified: false });
   }));
 
   return router;

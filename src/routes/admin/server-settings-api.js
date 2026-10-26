@@ -2,7 +2,8 @@
  * Server behaviour from the admin page's settings tab:
  *
  *   GET  /admin/api/server-settings                   { settings: { <name>: { value, source: "saved"|"env", envValue } }, titledb,
- *                                                       directDownload: { configured, up, since, checkedAt } }
+ *                                                       directDownload: { configured, up, since, checkedAt },
+ *                                                       artFill: { enabled, titledb, plugin, files, tracked, missing, queued } }
  *   POST /admin/api/server-settings                   { <name>: value | null }  save (null = back to compose); applies at once
  *                                                     400 { error, field } when titledbSource or publicDirectBaseUrl points at a private network
  *                                                     403 { error, field } from an automation token naming a TOKEN_LOCKED setting
@@ -17,6 +18,7 @@
  *
  * The names are security/server-settings.js SETTINGS.
  */
+import { artFiller } from "../../meta/art-filler.js";
 import * as serverSettings from "../../security/server-settings.js";
 import { libraryAbove } from "../../meta/key-needs.js";
 import * as titledbStore from "../../meta/titledb-store.js";
@@ -61,6 +63,8 @@ export function mountServerSettingsApi(router, requireSession) {
     sync: folderSync.status(),
     backup: backups.status(),
     keys: keysView(),
+    // Pictures filled in for games whose files carry none: titles per source and games still without an icon.
+    artFill: artFiller().status(),
   });
 
   router.get("/api/server-settings", handle((req, res) => res.json(view())));

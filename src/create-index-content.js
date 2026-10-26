@@ -1,6 +1,6 @@
 /**
- * Build the shop response payload (consumed by /games.json and the sections
- * view via the chokidar-warmed cache in src/meta/shop-cache.js).
+ * Build the library response payload (consumed by /games.json and the sections
+ * view via the chokidar-warmed cache in src/meta/library-cache.js).
  *
  * Pipeline:
  *   fast-glob scan
@@ -23,7 +23,7 @@
  * Invariants (FINDINGS §6, §7):
  *   - Every scanned file ends up in `files[]`. Parse failures only thin out
  *     metadata; they never drop the item.
- *   - The shop response is self-contained: one request, all the metadata.
+ *   - The library response is self-contained: one request, all the metadata.
  *   - Image URLs in the response point to OUR proxy endpoints — never raw
  *     eShop CDN URLs, so the client app gets locally-cached
  *     bytes (offline-friendly) and we control retention.
@@ -58,6 +58,7 @@ import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
 import { valueOf, LOCAL_PREFERRED, TITLEDB, LOCAL, FILENAME } from "./meta/field-merge.js";
 import { agentOrder, agentValues } from "./plugins/agent-values.js";
 import { agentParts } from "./plugins/instance.js";
+import { artFiller } from "./meta/art-filler.js";
 import { parseLang } from "./meta/langs.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import { findingOf, signedOf } from "./meta/file-integrity.js";
@@ -76,7 +77,7 @@ import {
   extractMaxBytes,
   langPriority,
 } from "./helpers/envs.js";
-import { addUrlEncodedFileInfo as encodeUrlObject } from "./helpers/helpers.js";
+import { withEncodedUrl as encodeUrlObject } from "./helpers/file-url.js";
 import { versionedArtwork as withVersion } from "./meta/artwork-version.js";
 import { cachePathFor, hasCached } from "./meta/image-cache.js";
 
@@ -243,7 +244,7 @@ export function rebuildFileItem(relPath, item) {
 /**
  * Full library scan + custom-entries load. Returns the primitive state
  * (`filesMap` keyed by relative path, plus `customs` array) that the
- * shop-cache layer then mutates via delta apply and re-composes on each
+ * library-cache layer then mutates via delta apply and re-composes on each
  * change.
  */
 export async function scanLibrary() {
@@ -283,7 +284,7 @@ function catalogEntry({ version, ...item }) {
 }
 
 /**
- * Produce the shop response payload from current primitive state. Cheap
+ * Produce the library response payload from current primitive state. Cheap
  * (O(filesMap.size + customs.length) iteration, no I/O), so safe to call
  * after every chokidar delta. Output ordering follows Map insertion order
  * + customs append, which is deterministic given the same state.
@@ -545,6 +546,8 @@ export function composeSections(filesMap, customs) {
   })));
   // The library's base games to the metadata plugins; they are asked in the background and the answers are read from the cache.
   agentParts().runner.track(items.filter((i) => i.app_type === "base" && i.title_id).map((i) => ({ titleId: i.title_id, name: i.name ?? null, hasFile: true })));
+  // The same games to the picture filler: one lacking an icon gets titledb's, else a plugin's, fetched in the background (meta/art-fill.js).
+  artFiller().track(items.filter((i) => i.app_type === "base" && i.title_id).map((i) => i.title_id));
   const body = { sections: [{ id: "all", title: "All", items }] };
   // Item categories are English keys; this maps each to its label per language.
   body.genres = GENRE_LABELS;

@@ -28,7 +28,7 @@ export function envString(name, fallback = null) {
 /**
  * A number, or `fallback` when unset/blank/unparseable.
  * `min`/`max` clamp; `integer` rounds. An unusable value warns rather than
- * failing the boot — a shop server should still come up.
+ * failing the boot — a library server should still come up.
  */
 export function envNumber(name, fallback, { min, max, integer = false } = {}) {
   const raw = envRaw(name);

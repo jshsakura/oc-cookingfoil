@@ -209,6 +209,3 @@ title.keys
 !/test/project/games/**
 # The storage folder docker-compose.yml makes beside itself.
 storage/
-
-# Built by forwarder/build.sh or the Docker image, never committed
-/forwarder/exefs/

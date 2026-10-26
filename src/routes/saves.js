@@ -1,5 +1,5 @@
 /**
- * Save files the shop hands out (see meta/shop-saves.js). Off (404) until the
+ * Save files the library hands out (see meta/library-saves.js). Off (404) until the
  * saves folder (COOK_SAVES_DIR, default /saves) exists.
  *
  *   GET /api/saves?lang=ko          { saves: [{ id, titleId, name, description, gameVersion, source,
@@ -24,7 +24,7 @@ import crypto from "crypto";
 import fs from "fs";
 import express from "express";
 import { savesDir, publicBaseUrl } from "../helpers/envs.js";
-import { createCatalog, localize } from "../meta/shop-saves.js";
+import { createCatalog, localize } from "../meta/library-saves.js";
 import { appDb } from "../db/database.js";
 import { watchItems } from "../meta/folder-watch.js";
 import { requestLang } from "../meta/langs.js";
@@ -77,7 +77,7 @@ export default function savesRouter() {
   const router = express.Router();
   const catalog = savesCatalog();
 
-  router.use((req, res, next) => (savesEnabled() ? next() : res.status(404).json({ error: "this shop hands out no save files" })));
+  router.use((req, res, next) => (savesEnabled() ? next() : res.status(404).json({ error: "this library hands out no save files" })));
 
   router.get("/", wrap(async (req, res) => {
     const origin = resolveOrigin(req, publicBaseUrl);

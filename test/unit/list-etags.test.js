@@ -10,7 +10,7 @@ import { CONSOLE, seedConsole } from "../support/console.js";
 // when what it lists does, so a client can ask often and pay almost nothing.
 const PORT = 17500 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// An approved console: the shop takes its keys, never a password.
+// An approved console: the library takes its keys, never a password.
 const AUTH = CONSOLE;
 const TID = "0100000000ABC000";
 
@@ -76,8 +76,8 @@ for (const url of LISTS) {
 
 test("lists and downloads advertise the per-console connection count; images don't", async () => {
   for (const url of LISTS) assert.equal((await get(url)).headers.get("x-cookingfoil-max-connections"), "4", url);
-  const shop = await (await get("/api/library/sections")).json();
-  const download = await get(new URL(shop.sections[0].items[0].url, `${BASE}/`).pathname, { Range: "bytes=0-1" });
+  const library = await (await get("/api/library/sections")).json();
+  const download = await get(new URL(library.sections[0].items[0].url, `${BASE}/`).pathname, { Range: "bytes=0-1" });
   assert.equal(download.status, 206);
   assert.equal(download.headers.get("x-cookingfoil-max-connections"), "4");
   assert.equal((await get(`/api/library/icon/${TID}`)).headers.get("x-cookingfoil-max-connections"), null);

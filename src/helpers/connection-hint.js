@@ -10,7 +10,7 @@
  * server right now, the caller included if it is one of them. A client that
  * tunes its connection count stays lower when others share the line. It is
  * added only when the response goes out with a status under 400: a request the
- * guards after this one refuse (a pairing-only shop's deviceContentGuard) never
+ * guards after this one refuse (a pairing-only library's deviceContentGuard) never
  * learns how busy the server is.
  */
 import { downloadMaxConnections } from "./envs.js";

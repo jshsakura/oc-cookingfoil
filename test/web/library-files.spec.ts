@@ -9,7 +9,7 @@ const EXTRA = `${GAMES}/zz-e2e-extras`;
 
 
 test('the library tab lists files by kind with counts, pages and a search inside the kind', async ({ page, request }) => {
-  // 55 stray files: not game files, so the shop list stays as it is.
+  // 55 stray files: not game files, so the library list stays as it is.
   fs.rmSync(EXTRA, { recursive: true, force: true });
   fs.mkdirSync(EXTRA, { recursive: true });
   for (let i = 0; i < 55; i++) fs.writeFileSync(`${EXTRA}/note-${String(i).padStart(2, '0')}.txt`, 'x'.repeat(i + 1));

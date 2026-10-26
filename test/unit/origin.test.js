@@ -28,23 +28,23 @@ test("resolveOrigin: honours X-Forwarded-Proto/Host first value from a trusted p
   const req = fakeReq({
     headers: {
       host: "internal:80",
-      "x-forwarded-host": "shop.example.com, proxy.local",
+      "x-forwarded-host": "library.example.com, proxy.local",
       "x-forwarded-proto": "https, http",
     },
     protocol: "http",
   });
-  assert.equal(resolveOrigin(req, null, { trusted: true }), "https://shop.example.com");
+  assert.equal(resolveOrigin(req, null, { trusted: true }), "https://library.example.com");
 });
 
 test("resolveOrigin: ignores X-Forwarded-Proto/Host from an untrusted peer", () => {
   const req = fakeReq({
-    headers: { host: "shop.example.org", "x-forwarded-host": "evil.example.net", "x-forwarded-proto": "https" },
+    headers: { host: "library.example.org", "x-forwarded-host": "evil.example.net", "x-forwarded-proto": "https" },
     protocol: "http",
   });
-  assert.equal(resolveOrigin(req, null, { trusted: false }), "http://shop.example.org");
+  assert.equal(resolveOrigin(req, null, { trusted: false }), "http://library.example.org");
   // The default asks COOK_TRUST_PROXY (unset in tests) about the socket peer.
   req.socket = { remoteAddress: "203.0.113.9" };
-  assert.equal(resolveOrigin(req, null), "http://shop.example.org");
+  assert.equal(resolveOrigin(req, null), "http://library.example.org");
 });
 
 test("trustsForwardedHeaders: decided by the socket peer against the trust rule", async () => {
@@ -59,9 +59,9 @@ test("trustsForwardedHeaders: decided by the socket peer against the trust rule"
 });
 
 test("resolveOrigin: works on a raw upgrade request (headers object, no get())", () => {
-  const raw = { headers: { host: "shop.example.org", "x-forwarded-host": "evil.example.net" }, socket: { remoteAddress: "203.0.113.9" } };
-  assert.equal(resolveOrigin(raw, null), "http://shop.example.org");
-  assert.equal(resolveOrigin({ ...raw, socket: { encrypted: true } }, null, { trusted: false }), "https://shop.example.org");
+  const raw = { headers: { host: "library.example.org", "x-forwarded-host": "evil.example.net" }, socket: { remoteAddress: "203.0.113.9" } };
+  assert.equal(resolveOrigin(raw, null), "http://library.example.org");
+  assert.equal(resolveOrigin({ ...raw, socket: { encrypted: true } }, null, { trusted: false }), "https://library.example.org");
   assert.equal(resolveOrigin(raw, null, { trusted: true }), "http://evil.example.net");
 });
 

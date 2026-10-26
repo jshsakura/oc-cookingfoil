@@ -79,7 +79,7 @@ test("an upload turned by EXIF is stored upright", async () => {
   assert.deepEqual({ w: m.w, h: m.h }, { w: 200, h: 400 });
 });
 
-test("the drawn banner is a JPEG of the shop's banner shape", async () => {
+test("the drawn banner is a JPEG of the library's banner shape", async () => {
   const m = await sharp(await drawBanner(await png(256, 256))).metadata();
   assert.equal(m.format, "jpeg");
   assert.deepEqual({ w: m.width, h: m.height }, { w: 1280, h: 720 });

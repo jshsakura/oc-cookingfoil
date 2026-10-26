@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 // GET /api/title/:baseTitleId surfaces the rich titledb detail (description,
-// publisher, screenshots, banner) the shop response drops. Exercise the route
+// publisher, screenshots, banner) the library response drops. Exercise the route
 // handler directly against a warmed store fixture, with mock req/res, in a
 // child process so COOK_DATA_DIR/module state stay isolated.
 
@@ -62,7 +62,7 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
         id: "0100000000ABC000",
         name: "Test Title",
         publisher: "OpenCourse",
-        description: "A rich description that the shop response would drop.",
+        description: "A rich description that the library response would drop.",
         releaseDate: 20240101,
         screenshots: ["https://cdn/a.jpg", "https://cdn/b.jpg"],
         bannerUrl: "https://cdn/banner.jpg",
@@ -98,7 +98,7 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
   assert.equal(r.shot0, "/api/library/screenshot/0100000000ABC000/4?v=" + r.shot0.split("v=")[1]);
   assert.ok(r.banner.startsWith("/api/library/banner/0100000000ABC000"), "a banner drawn from the icon");
   // The console client reads category as text; the array stays under categories
-  // (same name the shop sections use) for the web dashboard.
+  // (same name the library sections use) for the web dashboard.
   assert.equal(r.category, "Adventure, Action");
   assert.deepEqual(r.categories, ["Adventure", "Action"]);
   assert.equal(r.artworkOnly.body.category, null);

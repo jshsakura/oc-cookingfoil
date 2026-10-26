@@ -9,7 +9,7 @@
 [![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
 [![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-Switch の自作ソフト向けの、個人用でセルフホストのライブラリサーバーです。ファイルは自宅のマシンに置き、1 つの管理ページですべてを管理し、本体の CookingFoil クライアントからインストールします。
+Switch のゲーム、レトロゲーム、自作ソフトを扱う、個人用でセルフホストのゲームライブラリ管理サーバーです。ファイルは自宅のマシンに置き、1 つの管理ページですべてを管理します。レトロゲームは RetroArch と連携して HOME メニューのショートカットを作れ、Switch のゲームはライブラリから本体の CookingFoil クライアントでインストールします。
 
 <p align="center">
   <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=ja"><img src="brand/buttons/website-ja.svg" alt="ウェブサイト" width="160" height="44" /></a>
@@ -41,7 +41,7 @@ Switch の自作ソフト向けの、個人用でセルフホストのライブ�
 
 ## 概要
 
-CookingFoil は自分のサーバー上の Docker で動きます。入れたファイルの名前とアイコンを調べ、その一覧を本体のクライアントに配信します。
+CookingFoil は自分のサーバー上の Docker で動きます。入れたファイルをライブラリとして管理します。名前とアイコンを調べ、その一覧を本体のクライアントに配信すると、クライアントがそこからインストールします。
 
 - **すべてを 1 つの管理ページで。** 設定、アカウント、本体、アップロード、自作ソフト、パッチ、セーブ、名前はブラウザーで変更します。変更はすぐに反映され、再起動も手でのファイル編集も要りません。
 - **何も同梱していません。** ゲーム、キー、ファームウェア、BIOS ファイル、RetroArch は含まれていません。それらのフォルダーは空の状態で始まり、正当に所有するファイルを入れるまで、関係する機能はオフのままです。
@@ -61,9 +61,10 @@ Web ページ、初回セットアップ、サインイン、本体承認のペ�
 - **ライブラリ一覧。** CookingFoil クライアントと Web 画面向けのセクション分けされた一覧を提供します。おすすめの列は管理ページで並べられます。自動化トークンを持つスクリプト向けに、ファイルの一覧 (`/games.json`) もあります。
 - **名前とアイコン。** タイトル、説明、アートワークは [blawar/titledb](https://github.com/blawar/titledb) から取得し、titledb にないファイルはファイル自体から (自分の `prod.keys` を使って) 読み取ります。名前の言語の優先順位と地域は設定で変えられます。
 - **アートワークと評価。** アイコンはゲームファイルから直接読み（ご自身の `prod.keys` を使用）、バナーはそのアイコンから描きます。ストアから画像は取得しません。Steam のレビュースコア、IGDB スコアも任意で使えます。どの取得元もオフにでき、自分のアートワークをアップロードすることもできます。
+- **レトロゲーム。** システムごとの ROM、libretro-thumbnails のボックスアート、The Bezel Project のベゼル、LaunchBox Games Database のゲーム情報 (説明、パブリッシャー、開発元、発売日、人数、ジャンル、スクリーンショット) を扱い、足りない分は IGDB で補います。1 つのゲームの複数の版 (アーケードの親セットとクローンセット、複数の言語や地域の版) は 1 枚のカードにまとまり、ほかの版はもう 1 回押すと出ます。
+- **RetroArch 連携と HOME メニューのショートカット。** 自分で用意した RetroArch ベースパックを本体に配ることができ、ゲームごとに HOME メニューのショートカットも作れます。
 - **GitHub からの自作ソフト。** リポジトリを登録すると最新リリース (`.nro`、または中に `.nro` を含む zip) を追いかけます。手で置いたアプリも扱えます。アプリはツールか移植版に分けられ、オフにでき、HOME メニューのショートカットも用意できます。
 - **セーブとパッチ。** セーブファイルとパッチ (SD カードのルートと同じ構成) をサーバーに置いておき、どれを入れるかをクライアントで選びます。パッチは必須に指定でき、対応するゲームの更新バージョンを記録できます。
-- **RetroArch 向けレトロゲーム。** システムごとの ROM、libretro-thumbnails のボックスアート、The Bezel Project のベゼル、LaunchBox Games Database のゲーム情報 (説明、パブリッシャー、開発元、発売日、人数、ジャンル、スクリーンショット) を扱い、足りない分は IGDB で補います。1 つのゲームの複数の版 (アーケードの親セットとクローンセット、複数の言語や地域の版) は 1 枚のカードにまとまり、ほかの版はもう 1 回押すと出ます。自分で用意した RetroArch ベースパックを本体に配ることができ、ゲームごとに HOME メニューのショートカットも作れます。
 - **本体ごとに自分のキーで接続。** CookingFoil クライアントが表示する QR をスマートフォンで承認するか、Web 画面からダウンロードしたクライアントがそのまま接続します。どちらでも本体は自分専用のアクセスキーを受け取り、パスワードは保存されません。
 - **アカウントと Google サインイン。** 管理者とユーザーの役割を持つ ID とパスワードのアカウントと、任意の Google サインインに対応します。新しい Google アカウントは承認待ちになります。
 - **2 要素目のある管理ページ。** 管理ページは認証アプリ (TOTP) のコードか、別の管理者パスワードをもう一度求めます。自動化トークンを使えば、スクリプトから同じ API を使えます。
@@ -217,7 +218,7 @@ RetroArch ベースパックは、本体が遊ぶ前に一度だけ必要にな�
 | 概要 (개요) | サーバーの状態、設定の警告、ゲーム名の取得元 |
 | ユーザー (사용자) | アカウントと役割、承認待ちの Google アカウント |
 | 本体 (기기) | 本体の承認と拒否、名前の変更と切断、本体 1 台用のログイン作成 |
-| 設定 (설정) | サーバーの動作 (本体の承認、アップロード、公開アドレス、歓迎メッセージ、名前と地域、ストアのデータ、評価、ダウンロード、安全な再起動)、外部サービスのキー、Google サインイン、管理者パスワード、認証アプリ、自動化トークン |
+| 設定 (설정) | サーバーの動作 (本体の承認、アップロード、公開アドレス、歓迎メッセージ、名前と地域、タイトル情報、評価、ダウンロード、安全な再起動)、外部サービスのキー、Google サインイン、管理者パスワード、認証アプリ、自動化トークン |
 | 通知 (알림) | Telegram 通知と、その対象のイベント |
 | ログ (로그) | ロックされたアドレス、理由付きの拒否されたリクエスト、クライアントのエラー報告 |
 | おすすめ (추천) | クライアントのホーム画面の上部に並ぶ列 |
@@ -371,12 +372,12 @@ CookingFoil 自体は平文の HTTP で通信します。`http://` で接続す�
 | `GET /api/activity` | ログイン済みのユーザーは実行中と最近の作業を閲覧できます。停止は管理者のみ管理 API で実行できます。 |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 1 件の詳細と、その追加ファイル |
 | `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | アートワーク |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 自作アプリ (`.nro` 1 つか、`switch/<app>/` フォルダー全体) と、その HOME メニューのショートカット。管理ページでオフにしたアプリは含まれません |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive` | 自作アプリ (`.nro` 1 つか、`switch/<app>/` フォルダー全体)。管理ページでオフにしたアプリは含まれません |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | パッチ |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | セーブファイル |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | レトロフォルダーに ROM があるときの、レトロゲームとそのアート |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png` | レトロフォルダーに ROM があるときの、レトロゲームとそのアート |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 自分で用意した RetroArch ベースパック |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` に置いた CookingFoil クライアントのビルド (そのフォルダーに置くか、管理ページのアップロードタブで「クライアント」としてアップロードします) と、その HOME メニューのショートカット。`latest` は、ビルドの隣の `cookingfoil.nro.sig.json` がそのビルドのバージョン、サイズ、sha256 と一致するときだけ `signature` (ビルドした場所で作った Ed25519 署名) を載せます |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` に置いた CookingFoil クライアントのビルド (そのフォルダーに置くか、管理ページのアップロードタブで「クライアント」としてアップロードします)。`latest` は、ビルドの隣の `cookingfoil.nro.sig.json` がそのビルドのバージョン、サイズ、sha256 と一致するときだけ `signature` (ビルドした場所で作った Ed25519 署名) を載せます |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR による本体ペアリング (QR による本体接続がオンのときのみ)。本体はリクエスト時にランダムな `pairSecret` (16 進数 64 文字) を送り、状態を問い合わせるときに同じ値を `X-Pair-Secret` で送ります。アクセスキーはその値を送った側にだけ渡します。承認方法が「サインインした本体はすぐ承認」なら、Basic で送ったアカウントの ID とパスワードで本体をすぐ承認します。JSON の応答にはすべて `passwordOnly: true` が付き、`/api/library/info` には機能名 `pair-password-only` が載ります。パスワードはペアリング専用です |
 | `POST /api/pair/enroll` | ダウンロードしたクライアントに入っている登録トークンを `X-Device-Key` とともに送り、自分のアクセスキーに替えます。ダウンロードしたアカウントの下で承認され、ダウンロードから 1 時間以内に本体 `COOK_ENROLL_PER_HOUR` 台まで (既定 5、手動承認では 1 台) 使え、それ以上は QR で承認します。拒否: 401 と `X-CookingFoil-Enroll: limit` (`X-CookingFoil-Auth: enroll-limit`)、`used`、`expired`、`revoked`、`invalid`。アカウントの本体数が上限なら 403 と `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | ペアリング済みの本体のアクセスキーを 12 時間のセッショントークンに替えます (Basic ヘッダーは無視します)。以後は同じデバイスキーで `Authorization: Bearer cfs_…` だけを送ります。セッションでセッションを更新することはできず、本体を承認したアカウントのパスワード変更、本体の取り消し、ロックアウトですぐに終わります。機能名は `session-token` です |
@@ -426,7 +427,6 @@ src/
 ├── retro/          # retro folder, names, art, details and shortcuts
 ├── realtime/       # WebSocket updates for the web page (/ws/library)
 └── views/          # the web page and the operator guide
-forwarder/          # the HOME menu shortcut loader (nx-hbloader with a patch)
 site/               # the GitHub Pages site
 test/unit, test/web # node --test and Playwright
 ```
@@ -447,7 +447,6 @@ MIT です。[LICENSE](./LICENSE) を参照してください。
 
 - タイトル名、説明、アートワークのアドレス: [blawar/titledb](https://github.com/blawar/titledb)。実行時に取得します。
 - イメージに同梱: [nstool](https://github.com/jakcron/nstool) (MIT) と [nsz](https://github.com/nicoboss/nsz) (MIT)。
-- HOME メニューのショートカット: [hacBrewPack](https://github.com/rlaphoenix/hacBrewPack/tree/745b16ecfc9ce055743067d200572204cb2aac6c) (GPL-2.0) と [nx-hbloader](https://github.com/switchbrew/nx-hbloader) (ISC)。
 - [libretro-thumbnails](https://github.com/libretro-thumbnails) のボックスアートと [The Bezel Project](https://github.com/thebezelproject) のベゼル。実行時に取得します。
 - ゲーム情報とスコア: [LaunchBox Games Database](https://gamesdb.launchbox-app.com/)、[IGDB](https://www.igdb.com/)、Steam。実行時に取得します。
 - アーケードの名前: [FinalBurn Neo](https://github.com/finalburnneo/FBNeo) のセット一覧。

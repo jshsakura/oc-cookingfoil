@@ -14,7 +14,7 @@ import { adminSession } from "../support/web-session.js";
 // release, and what /api/homebrew then lists is pinned down exactly.
 const PORT = 15600 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// The shop is read by an approved console; uploads go through the admin page.
+// The library is read by an approved console; uploads go through the admin page.
 const ALICE = CONSOLE;
 
 /** A minimal NRO whose NACP names the app. */

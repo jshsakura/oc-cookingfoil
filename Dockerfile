@@ -32,34 +32,7 @@ RUN make -j"$(nproc)" deps && \
     cp bin/nstool /nstool && \
     strip /nstool
 
-# ---- hacbrewpack: packs each retro game's home-screen forwarder NSP ----
-# GPL-2.0, run as a separate program (src/retro/forwarder.js). The original
-# The-4n repository is gone; this is its v3.05 at a pinned commit of the
-# mirror. musl has no *64 stdio names, so they're mapped to the plain ones.
-FROM alpine:3.20 AS hacbrewpack-builder
-RUN apk add --no-cache git build-base
-WORKDIR /build
-ARG HACBREWPACK_REF=745b16ecfc9ce055743067d200572204cb2aac6c
-RUN git clone https://github.com/rlaphoenix/hacBrewPack.git && \
-    cd hacBrewPack && git checkout -q "${HACBREWPACK_REF}" && \
-    git archive --format=tar.gz --prefix=hacBrewPack/ HEAD > /hacBrewPack-source.tar.gz && \
-    cp config.mk.template config.mk && \
-    make -j"$(nproc)" CFLAGS="-O2 -std=gnu11 -fPIC -D_GNU_SOURCE -Dfseeko64=fseeko -Dftello64=ftello -Dfopen64=fopen" && \
-    cp hacbrewpack /hacbrewpack && \
-    strip /hacbrewpack
-
 # ---- runtime ----
-# ---- forwarder exefs: switchbrew's nx-hbloader (ISC) with the romfs patch ----
-# Built here so the repository carries no Switch executable. The pinned image and
-# tag give the same bytes as before, so forwarders already built stay valid.
-FROM devkitpro/devkita64:20260219 AS forwarder-builder
-ARG HBLOADER_TAG=v2.4.5
-COPY forwarder/hbloader-romfs.patch forwarder/forwarder.json /fwd/
-# /tmp/hbl as in forwarder/build.sh: the build path is part of the bytes.
-RUN git clone -q --depth 1 --branch "${HBLOADER_TAG}" https://github.com/switchbrew/nx-hbloader.git /tmp/hbl && \
-    cd /tmp/hbl && git apply /fwd/hbloader-romfs.patch && cp /fwd/forwarder.json hbl.json && \
-    make -s && mkdir /exefs && cp build/exefs/main build/exefs/main.npdm /exefs/
-
 FROM node:22-alpine AS runtime
 
 LABEL org.opencontainers.image.title="CookingFoil" \
@@ -74,7 +47,6 @@ ENV NODE_ENV=production \
     # A server that still mounts /games, /data, /keys, ... separately keeps them.
     COOK_STORAGE_DIR=/storage \
     COOK_NSTOOL_BIN=/usr/local/bin/nstool \
-    COOK_HACBREWPACK_BIN=/usr/local/bin/hacbrewpack \
     COOK_NSZ_BIN=/usr/bin/nsz \
     # Info + errors by default; bump to `oc-cookingfoil*` for full traces
     # (incl. per-icon cache I/O during prewarm — chatty on big libraries).
@@ -89,13 +61,10 @@ WORKDIR /app
 
 # nstool — copied from the builder stage. Single static binary, ~1-2 MB.
 COPY --from=nstool-builder /nstool /usr/local/bin/nstool
-COPY --from=hacbrewpack-builder /hacbrewpack /usr/local/bin/hacbrewpack
 
-# License texts for this project and every bundled binary. hacBrewPack is
-# GPL-2.0, so its exact source ships next to the binary it was built from.
+# License texts for this project and every bundled binary.
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/cookingfoil/
 COPY licenses/ /usr/share/licenses/cookingfoil/
-COPY --from=hacbrewpack-builder /hacBrewPack-source.tar.gz /usr/share/licenses/cookingfoil/
 
 # nsz — decompresses .nsz / .xcz wrappers into .nsp / .xci so the NSP
 # extractor can run against the inner container. Pure Python (uses the
@@ -117,8 +86,6 @@ COPY src ./src
 COPY i18n ./i18n
 # Box art and bezel fetchers, run for a console after a retro ROM is uploaded.
 COPY scripts/retro-art.mjs scripts/retro-art-match.mjs scripts/retro-ratings.mjs ./scripts/
-# The forwarder's exefs, built in its own stage above.
-COPY --from=forwarder-builder /exefs ./forwarder/exefs
 COPY docker/entrypoint.sh /usr/local/bin/cookingfoil-entrypoint
 
 EXPOSE 80

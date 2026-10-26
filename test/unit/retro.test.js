@@ -141,7 +141,7 @@ test("the catalog lists games, folds disc tracks into their .cue, and finds art"
 
 const PORT = 14900 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// An approved console: the shop takes its keys, never a password.
+// An approved console: the library takes its keys, never a password.
 const AUTH = CONSOLE;
 
 async function boot(retroDir, extraEnv = {}) {
@@ -172,7 +172,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
   const dir = fixture();
   const server = await boot(dir);
   try {
-    assert.equal((await fetch(`${BASE}/api/retro/systems`)).status, 401, "behind the shop's sign-in");
+    assert.equal((await fetch(`${BASE}/api/retro/systems`)).status, 401, "behind the library's sign-in");
     assert.ok((await (await get("/api/library/info")).json()).features.includes("retro"));
     const { systems, retroarch } = await (await get("/api/retro/systems")).json();
     const snes = systems.find((s) => s.id === "snes");
@@ -222,7 +222,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     page = await (await get("/api/retro/games?search=mario")).json();
     const smw = page.games[0];
     assert.equal(page.total, 1);
-    assert.equal(smw.forwarderUrl, null);
+    assert.ok(!("forwarderUrl" in smw), "no shortcut package is offered");
     assert.equal(smw.bezel.hasBezel, true);
     // Which bezel each game installs with, the same in lists, home rows and a game's own reply.
     assert.equal(smw.bezel.kind, "game");
@@ -362,7 +362,7 @@ test("the retro index pages every version of every listed game by id, trimmed, a
   for (let i = 0; i < 30; i++) put(dir, `roms/gb/Filler ${i} (USA).gb`, `GB${i}`);
   const server = await boot(dir);
   try {
-    assert.equal((await fetch(`${BASE}/api/retro/index`)).status, 401, "behind the shop's sign-in");
+    assert.equal((await fetch(`${BASE}/api/retro/index`)).status, 401, "behind the library's sign-in");
     assert.ok((await (await get("/api/library/info")).json()).features.includes("retro-index"));
     const res = await get("/api/retro/index");
     assert.equal(res.status, 200);
@@ -406,7 +406,7 @@ test("the retro index pages every version of every listed game by id, trimmed, a
     // Defaults and what the id says are left out; per-console and download fields never appear.
     for (const key of ["verified", "votes", "rom_size", "ownBezel", "group", "representative"]) assert.ok(!(key in chrono), `chrono leaves ${key} out`);
     for (const g of games) {
-      for (const key of ["system", "my_vote", "romUrl", "bundleUrl", "install", "forwarderUrl", "iconUrl", "file", "variants"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
+      for (const key of ["system", "my_vote", "romUrl", "bundleUrl", "install", "forwarderTitleId", "iconUrl", "file", "variants"]) assert.ok(!(key in g), `${g.id} has no ${key}`);
     }
 
     const gz = await new Promise((resolve, reject) => {
@@ -585,29 +585,21 @@ test("the games list filters by rating, size and own bezel", async () => {
   assert.deepEqual(names({ minRating: "-5", maxSize: "big" }), ["a", "b", "c"], "malformed values are ignored");
 });
 
-test("with keys and hacBrewPack, each game offers its HOME-menu forwarder", async () => {
+test("each game names its HOME-menu shortcut, which the console builds itself", async () => {
   const dir = fixture();
-  const tools = fs.mkdtempSync(path.join(os.tmpdir(), "retro-fwd-tools-"));
-  const bin = path.join(tools, "hacbrewpack");
-  fs.writeFileSync(bin, '#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in --titleid) t="$2"; shift ;; --nspdir) n="$2"; shift ;; esac; shift; done\nmkdir -p "$n" && echo NSP > "$n/$t.nsp"\n', { mode: 0o755 });
-  fs.mkdirSync(path.join(tools, "keys"));
-  fs.writeFileSync(path.join(tools, "keys", "prod.keys"), `header_key = ${"ab".repeat(32)}\n`);
   put(dir, "roms/snes/Super Mario World (Japan).sfc", "SMWJ");
-  const server = await boot(dir, { COOK_HACBREWPACK_BIN: bin, COOK_KEYS_DIR: path.join(tools, "keys") });
+  const server = await boot(dir);
   try {
     const smw = (await (await get("/api/retro/games?q=mario")).json()).games[0];
     // Two versions of one game: each HOME shortcut says which it is, and the reply carries that name.
     const names = await Promise.all((await (await get(`/api/retro/games/${smw.id}`)).json()).variants.map(async (v) => (await (await get(`/api/retro/games/${v.id}`)).json()).shortcutName));
     assert.deepEqual(names.sort(), ["Super Mario World · 북미", "Super Mario World · 일본"]);
     assert.equal((await (await get("/api/retro/games?q=chrono")).json()).games[0].shortcutName, "Chrono Trigger", "a lone version keeps its plain name");
-    assert.equal(smw.forwarderUrl, `/api/retro/games/${smw.id}/forwarder.nsp`);
     assert.match(smw.forwarderTitleId, /^05[0-9A-F]{11}000$/);
-    const nsp = await get(smw.forwarderUrl);
-    assert.equal(nsp.status, 200);
-    assert.equal(nsp.headers.get("x-forwarder-title-id"), smw.forwarderTitleId);
-    assert.equal((await nsp.text()).trim(), "NSP");
-    const again = (await (await get(`/api/retro/games/${smw.id}`)).json());
-    assert.equal(again.forwarderSize, 4, "the size is known once the NSP is built");
+    const game = await (await get(`/api/retro/games/${smw.id}`)).json();
+    assert.equal(game.forwarderTitleId, smw.forwarderTitleId);
+    assert.ok(!("forwarderUrl" in game) && !("forwarderSize" in game), "no shortcut package is offered");
+    assert.equal((await get(`/api/retro/games/${smw.id}/forwarder.nsp`)).status, 404, "the server packs nothing");
   } finally {
     server.kill("SIGKILL");
   }

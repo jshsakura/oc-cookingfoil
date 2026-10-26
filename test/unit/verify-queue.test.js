@@ -246,7 +246,7 @@ test("a hash stopped for a download resumes after the NCAs it already read", asy
   assert.equal(store.rows()["big.nsp"].hashDone, true);
 });
 
-test("a modified or damaged verdict is kept, exposed, and tells the shop to rebuild; a removed file is forgotten", async () => {
+test("a modified or damaged verdict is kept, exposed, and tells the library to rebuild; a removed file is forgotten", async () => {
   addFile("mod.nsp");
   addFile("fine.nsp");
   verdicts["mod.nsp"] = "modified";

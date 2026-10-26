@@ -1,5 +1,5 @@
 /**
- * scrypt password hashes shared by shop accounts and per-device logins.
+ * scrypt password hashes shared by library accounts and per-device logins.
  * Request-path checks use matchesAsync, which never blocks the event loop and
  * caps how many hashes run at once.
  */

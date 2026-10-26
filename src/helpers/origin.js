@@ -2,7 +2,7 @@
  * Absolute-URL hardening for the library response.
  *
  * Why this exists: the CookingFoil client downloads per-item artwork by handing
- * the item's icon URL straight to curl (shopInstall.cpp::downloadImageWithAuth).
+ * the item's icon URL straight to curl (libraryInstall.cpp::downloadImageWithAuth).
  * A host-relative "/api/library/icon/<id>" has no host for curl to resolve, so
  * the icon silently fails on-device even though the browser dashboard — which
  * resolves the relative URL against its own origin — shows it fine. Emitting

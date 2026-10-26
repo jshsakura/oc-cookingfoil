@@ -9,7 +9,7 @@
  *
  * Scope: a title's own subfolder. Files sitting directly in the games root are
  * skipped — there's no reliable way to associate a loose root file with one
- * specific title, and root tends to hold sidecars (shop.json, custom_entries).
+ * specific title, and root tends to hold sidecars (the old catalog files, custom_entries).
  *
  * Download: extras are already served by the games-dir static handler, so the
  * returned `url` is a root-absolute, per-segment-encoded path that resolves
@@ -21,14 +21,14 @@ import path from "path";
 import fs from "fs/promises";
 
 import { romsDirPath } from "../helpers/envs.js";
-import * as shopCache from "../meta/shop-cache.js";
+import * as libraryCache from "../meta/library-cache.js";
 import { isGameFile } from "../create-index-content.js";
 import { isReadme } from "../helpers/readme-name.js";
 import debug from "../debug.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
-// Server sidecars that may sit in a title folder but aren't user content.
+// Catalog files an older version wrote next to the games (named as they were then); not user content.
 const SIDECAR_NAMES = new Set(["shop.json", "shop.tfl"]);
 
 function downloadUrl(relPath) {
@@ -43,13 +43,13 @@ export default async function extrasRoute(req, res) {
   }
 
   try {
-    await shopCache.get(); // ensure the library scan has populated filesMap
+    await libraryCache.get(); // ensure the library scan has populated filesMap
   } catch (err) {
     res.status(503).json({ error: "library not ready: " + err.message });
     return;
   }
 
-  const rels = shopCache.relPathsForBase(base);
+  const rels = libraryCache.relPathsForBase(base);
   // Distinct subfolders containing this title's files. "." (games root) is
   // excluded on purpose — see the scope note above.
   const dirs = new Set(
@@ -72,7 +72,7 @@ export default async function extrasRoute(req, res) {
       if (!ent.isFile()) continue;
       const name = ent.name;
       if (name.startsWith(".")) continue;          // dotfiles
-      if (isGameFile(name)) continue;              // installable → already in shop
+      if (isGameFile(name)) continue;              // installable → already in library
       if (SIDECAR_NAMES.has(name) || name.toLowerCase().endsWith(".tfl")) continue;
       if (isReadme(name)) continue;                // the operator's notes, not the game's
       const rel = path.posix.join(dir.split(path.sep).join("/"), name);

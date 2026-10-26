@@ -1,7 +1,7 @@
 /** List pagination and verification controls shared by content pages. */
 export const LIST_HELPERS_CSS = /* css */ `.pg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}.pg-bar[hidden]{display:none}
 .pg-q{flex:1 1 200px;min-width:0;max-width:340px}.pg-per{flex:none}
-.pg-info{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.pg-info{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .pg-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
 .pg-n{min-width:38px;padding-left:10px;padding-right:10px;font-variant-numeric:tabular-nums}
 .pg-n[aria-current="page"]{background:var(--text);color:var(--bg);border-color:var(--text)}

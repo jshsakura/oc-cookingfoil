@@ -19,7 +19,7 @@ await new Promise((resolve, reject) => {
 const PORT = probe.address().port;
 await new Promise((resolve, reject) => probe.close((error) => error ? reject(error) : resolve()));
 const BASE = `http://127.0.0.1:${PORT}`;
-// An approved console: the shop takes its keys, never a password.
+// An approved console: the library takes its keys, never a password.
 const AUTH = CONSOLE;
 const LIMIT_MS = 1000;
 const PATCHES = 12;

@@ -42,7 +42,7 @@ function fakeNro(name) {
   return Buffer.concat([head, aset, nacp]);
 }
 
-test("the games list (shop scan) leaves the trash out, at the root and on a disk below it", async () => {
+test("the games list (library scan) leaves the trash out, at the root and on a disk below it", async () => {
   put("games", `Kept [${TID}][v0].nsp`);
   put("games", `${T}/Gone [0100000000020000][v0].nsp`);
   put("games", `Mounted/.cookingfoil-trash/2026-10-22/game-0123456789/Mounted/Far [0100000000030000][v0].nsp`);
@@ -95,7 +95,7 @@ test("patches and saves leave the trash out, as a game's folder and inside a pat
   put("saves", `${TID}/세이브/save.dat`);
   put("saves", `${TID}/.cookingfoil-trash/2026-10-22/save-0123456789/${TID}/옛세이브/save.dat`);
   put("saves", `${T}/${TID}/지운세이브/save.dat`);
-  const saves = await import("../../src/meta/shop-saves.js");
+  const saves = await import("../../src/meta/library-saves.js");
   assert.deepEqual((await saves.scanDir(dirs.saves, { hash: async (f) => `${f.path}:${f.size}`, save() {} })).map((s) => s.folder ?? s.name), ["세이브"]);
 });
 
@@ -128,7 +128,7 @@ test("a move's work folder, or one a stop left behind, is never listed as a patc
   put("saves", `${OTHER}/.moving-0a1b2c3d/세이브/save.dat`);
   const patches = await import("../../src/meta/user-patches.js");
   assert.ok(!(await patches.scanDir(dirs.patches, { wait: false })).some((p) => p.folder.startsWith(".")));
-  const saves = await import("../../src/meta/shop-saves.js");
+  const saves = await import("../../src/meta/library-saves.js");
   assert.ok(!(await saves.scanDir(dirs.saves, { hash: async (f) => `${f.path}:${f.size}`, save() {} })).some((s) => String(s.folder ?? s.name).startsWith(".")));
 });
 
@@ -141,7 +141,7 @@ test("the games list leaves out the NSZ keep folder and a copy a stop cut short"
 });
 
 test("the folder watcher ignores the trash, a trash on a disk below the root, and partial copies", async () => {
-  const { ignoredUnder } = await import("../../src/meta/shop-cache.js");
+  const { ignoredUnder } = await import("../../src/meta/library-cache.js");
   const r = dirs.games;
   for (const rel of [".cookingfoil-trash", ".cookingfoil-trash/2026-10-22/game-0123456789/x.nsp", "M/.cookingfoil-trash", "M/.cookingfoil-trash/2026-10-22/game-0123456789/M/a.nsp", "M/.cookingfoil-partial-0123456789-a.nsp", ".cookingfoil-nsz-keep/id/a.nsp"]) {
     assert.equal(ignoredUnder(r, path.join(r, rel)), true, rel);
@@ -153,7 +153,7 @@ test("the folder watcher ignores the trash, a trash on a disk below the root, an
 
 test("a real watcher sees nothing of a move into the trash below a folder or a write inside it", async () => {
   const chokidar = (await import("chokidar")).default;
-  const { ignoredUnder } = await import("../../src/meta/shop-cache.js");
+  const { ignoredUnder } = await import("../../src/meta/library-cache.js");
   const root = fs.mkdtempSync(path.join(base, "watch-"));
   fs.mkdirSync(path.join(root, "M"));
   fs.writeFileSync(path.join(root, "M/a.nsp"), "x");
@@ -178,8 +178,8 @@ test("a title's extras leave out the trash and partial copies in its folder", as
   put("games", "Extra/readme.txt", "hi");
   put("games", "Extra/.cookingfoil-trash/2026-10-22/file-0123456789/Extra/old.zip");
   put("games", "Extra/.cookingfoil-partial-0123456789-mod.zip");
-  const shopCache = await import("../../src/meta/shop-cache.js");
-  shopCache.invalidate({ rescan: true });
+  const libraryCache = await import("../../src/meta/library-cache.js");
+  libraryCache.invalidate({ rescan: true });
   const { default: extrasRoute } = await import("../../src/routes/extras.js");
   let body = null;
   const res = { status() { return this; }, type() { return this; }, set() { return this; }, json(v) { body = v; return this; }, send(t) { body = JSON.parse(t); return this; } };

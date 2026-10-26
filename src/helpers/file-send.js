@@ -25,7 +25,7 @@ import { deviceKeyFromHeaders } from "../security/pairing.js";
 import { patchStream } from "./patch-stream.js";
 
 export const READ_CHUNK = 4 * 1024 * 1024;
-// What the shop lists and serves as games.
+// What the library lists and serves as games.
 export const GAME_FILE_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;
 
 const etagOf = (st, tag) => `W/"${st.size.toString(16)}-${st.mtime.getTime().toString(16)}${tag ? `-${tag}` : ""}"`;

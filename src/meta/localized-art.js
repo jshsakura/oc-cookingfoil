@@ -8,11 +8,13 @@
  * Only languages whose art differs from the default are listed; a client
  * uses the default for the rest. Art the operator uploaded wins outright.
  * Banners are drawn from the icon (icon-banner.js), so they follow it.
+ * A game whose files carry no icon may have one filled in from outside (art-fill.js); it has no languages.
  */
 import * as customArt from "./custom-art.js";
 import { LOCALIZED_LANGS } from "./titledb-store.js";
 import { parseLang } from "./langs.js";
 import { cachePathFor, hasCached } from "./image-cache.js";
+import { bannerFallback, iconFallback } from "./art-fill.js";
 
 /** A ?lang= value we hold art for, or null. */
 export function artLang(value) {
@@ -27,11 +29,11 @@ export function iconSource(baseTitleId, lang) {
 
 /** Whether a language has an icon, the default one included (a custom icon stands for every language). */
 export const iconKnown = (baseTitleId, lang) =>
-  customArt.hasOverride(baseTitleId, "icon") || Boolean(iconSource(baseTitleId, lang)) || hasCached(cachePathFor(baseTitleId, "icon"));
+  customArt.hasOverride(baseTitleId, "icon") || Boolean(iconSource(baseTitleId, lang)) || hasCached(cachePathFor(baseTitleId, "icon")) || Boolean(iconFallback(baseTitleId));
 
-/** Whether a language has a banner, the default one included: any icon gives one. */
+/** Whether a language has a banner, the default one included: any icon gives one (so does a filled banner). */
 export const bannerKnown = (baseTitleId, lang) =>
-  customArt.hasOverride(baseTitleId, "banner") || iconKnown(baseTitleId, lang);
+  customArt.hasOverride(baseTitleId, "banner") || iconKnown(baseTitleId, lang) || Boolean(bannerFallback(baseTitleId));
 
 /** The language whose own banner is drawn (its own icon), or null for the default. */
 export function bannerSource(baseTitleId, lang) {

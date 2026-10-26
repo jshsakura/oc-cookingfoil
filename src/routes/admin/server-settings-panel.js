@@ -18,17 +18,10 @@ export const SERVER_SETTINGS_CSS = `
 .ss-group>.box-b{padding-top:2px;padding-bottom:4px}
 .ss-row{display:grid;grid-template-columns:1fr minmax(220px,420px);gap:6px 18px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
 .ss-group .ss-row:first-child{border-top:0}
-.ss-row b{font-size:14px}.ss-row p{margin:2px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}
+.ss-row b{font-size:var(--fs-md)}.ss-row p{margin:2px 0 0;color:var(--muted);font-size:var(--fs-xs);line-height:1.5}
 .ss-row .ss-ctl{display:flex;justify-content:flex-end;align-items:center;gap:8px}
 .ss-row .ss-ctl input[type=text],.ss-row .ss-ctl input[type=number],.ss-row .ss-ctl select{width:100%;min-width:0}
-.ss-src{grid-column:1/-1;font-size:12px;color:var(--muted)}.ss-src button{font-size:12px;padding:2px 8px;margin-left:6px}
-.ss-switch{position:relative;display:inline-block;vertical-align:middle;width:46px;height:26px;flex:none}
-.ss-switch input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
-.ss-switch span{position:absolute;inset:0;border-radius:100px;background:var(--sunk);border:1px solid var(--line);transition:background .15s}
-.ss-switch span::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
-.ss-switch input:checked+span{background:var(--accent);border-color:var(--accent)}
-.ss-switch input:checked+span::after{transform:translateX(20px);background:var(--accent-ink)}
-.ss-switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.ss-src{grid-column:1/-1;font-size:var(--fs-xs);color:var(--muted)}.ss-src button{font-size:var(--fs-xs);padding:2px 8px;margin-left:6px}
 @media (max-width:640px){.ss-row{grid-template-columns:1fr}.ss-row .ss-ctl{justify-content:flex-start}}
 `;
 
@@ -84,6 +77,7 @@ const SS_GROUPS=[
   ]],
   ['lookups',[
     ['ratingSync','bool',()=>topText('ss.f.ratingSync'),()=>topText('ss.f.ratingSyncD')],
+    ['fillMissingArt','bool',()=>topText('ss.f.fillMissingArt'),()=>topText('ss.f.fillMissingArtD')],
     ['retroMeta','bool',()=>topText('ss.f.retroMeta'),()=>topText('ss.f.retroMetaD')],
     ['retroAutoCores','bool',()=>topText('ss.autoCores'),()=>topText('ss.autoCoresD')],
     ['retroAutoArt','bool',()=>topText('ss.autoArt'),()=>topText('ss.autoArtD')],
@@ -124,6 +118,7 @@ function ssRender(d){ssLast=d;const list=$('ss-list');list.replaceChildren();con
     for(const [key,kind,label,desc,ph] of rows){const s=d.settings[key];if(!s)continue;const r=el('div',null,'ss-row');r.dataset.key=key;
       const t=el('div');t.append(el('b',ssText(label)),el('p',ssText(desc)));const c=el('div',null,'ss-ctl');c.append(ssControl(key,kind,s,ph));
       if(key==='publicDirectBaseUrl'&&d.directDownload?.configured)t.append(el('p',ssDirectNote(d.directDownload),'muted'));
+      if(key==='fillMissingArt'&&d.artFill)t.append(el('p',topFill('ss.artFillCounts',{t:num(d.artFill.titledb),p:num(d.artFill.plugin),m:num(d.artFill.missing)}),'muted'));
       const src=el('div',null,'ss-src');
       if(s.source==='saved'){src.append(topFill('ss.srcSaved',{v:ssShow(key,s.envValue)}));
         src.append(tbtn('restore','ss.srcRevertBtn',()=>ssSave({[key]:null},topText('ss.srcReverted'))));}

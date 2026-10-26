@@ -23,29 +23,24 @@ export const PLUGINS_HTML = `<section id="tab-settings">
 </section>`;
 
 export const PLUGINS_CSS = `
-.pl-safe{background:rgba(var(--accent-rgb),.1);border:1px solid rgba(var(--accent-rgb),.5);border-radius:14px;padding:10px 14px;margin:6px 0 12px;font-weight:600}
+.pl-safe{background:rgba(var(--accent-rgb),.1);border:1px solid rgba(var(--accent-rgb),.5);border-radius:var(--r-xl);padding:10px 14px;margin:6px 0 12px;font-weight:var(--fw-bold)}
 #ask-text{white-space:pre-line}
-.pl-off{margin:0;padding:10px 14px;border-radius:12px;background:var(--sunk);color:var(--muted);font-size:13px}
+.pl-off{margin:0;padding:10px 14px;border-radius:var(--r-lg);background:var(--sunk);color:var(--muted);font-size:var(--fs-sm)}
 #pl-install-on[hidden]{display:none}
 .pl-list{display:grid;gap:10px}
 .pl-list>p.muted{margin:0}
-.pl-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.pl-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:12px 14px}
 .pl-main{display:grid;gap:3px;min-width:0}
 .pl-main b{overflow-wrap:anywhere}
-.pl-main span{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.pl-main span{color:var(--muted);font-size:var(--fs-sm);overflow-wrap:anywhere}
 .pl-main .err{color:var(--bad)}
-.pl-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.pl-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:var(--fs-sm)}
 .pl-sw{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-width:92px;padding:9px 12px 9px 16px;color:var(--muted)}
-.pl-sw .switch{position:relative;flex:none;width:30px;height:18px;border-radius:100px;background:var(--line);transition:background .15s}
-.pl-sw .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .pl-sw[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
-.pl-sw[aria-checked="true"] .switch{background:var(--accent)}
-.pl-sw[aria-checked="true"] .switch::after{transform:translateX(12px)}
 .pl-sw:disabled{opacity:.6;cursor:not-allowed}
-@media (prefers-reduced-motion:reduce){.pl-sw .switch,.pl-sw .switch::after{transition:none}}
 .pl-ag{display:grid;gap:6px}
 .pl-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.pl-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:100px;padding:2px 4px 2px 10px;font-size:13px}
+.pl-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:var(--r-pill);padding:2px 4px 2px 10px;font-size:var(--fs-sm)}
 .pl-chip button{min-width:28px;height:26px;padding:0 6px}
 .pl-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:640px){.pl-row{grid-template-columns:1fr}.pl-act{justify-content:flex-start}}

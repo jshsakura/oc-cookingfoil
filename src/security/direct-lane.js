@@ -32,8 +32,8 @@
  * first line: the proxy logs every refusal, and a firewall rule built on those
  * logs (CrowdSec) is the hard ban.
  *
- * The request is answered by the very routers the shop uses (`routes`) and by
- * the games folder with the same options as the shop's own static handler, so
+ * The request is answered by the very routers the library uses (`routes`) and by
+ * the games folder with the same options as the library's own static handler, so
  * ETag, Last-Modified, Range and If-Range behave the same on both lanes and a
  * resume may switch between them. It never reaches pages, lists, the admin
  * API, uploads, sign-in or any write.
@@ -65,16 +65,16 @@ export const EDGE_HEADER = "X-CookingFoil-Edge";
 
 // The downloads the lane serves besides games-folder files. Matched on the raw path, case and all.
 const DOWNLOAD_ROUTES = [
-  /^\/api\/retro\/games\/[^/]+\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg|forwarder\.nsp)$/,
+  /^\/api\/retro\/games\/[^/]+\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg)$/,
   /^\/api\/retro\/base-pack(\/bundle)?$/,
   /^\/api\/retro\/base-pack\/file\/.+$/,
   /^\/api\/patches\/[^/]+\/download$/,
-  /^\/api\/homebrew\/[^/]+\/(download|file|archive|bundle|forwarder)$/,
+  /^\/api\/homebrew\/[^/]+\/(download|file|archive|bundle)$/,
   /^\/api\/saves\/[^/]+\/download$/,
-  /^\/api\/client\/(cookingfoil\.nro|forwarder)$/,
+  /^\/api\/client\/cookingfoil\.nro$/,
 ];
 
-// Paths the shop itself answers at the root; never served from the games folder here.
+// Paths the library itself answers at the root; never served from the games folder here.
 const CATALOG_PATHS = new Set(["/games.json", "/shop.json", "/robots.txt", "/healthz"]);
 
 /** "route" for a download route, "file" for a path in the games folder, null for anything else. Pure. */
@@ -152,7 +152,7 @@ function laneRouter(root, routes) {
   for (const [prefix, route] of Object.entries(routes)) router.use(prefix, route);
   const serve = express.static(root, { index: false, redirect: false, fallthrough: false, dotfiles: "ignore" });
   const large = largeFiles(root, GAME_FILE_RE);
-  // Nothing inside a dot-folder (the NSZ work folder), "%2e" or not: the shop's own handlers refuse it too.
+  // Nothing inside a dot-folder (the NSZ work folder), "%2e" or not: the library's own handlers refuse it too.
   router.use((req, res, next) => {
     if (laneOf(req.path) !== "file") return next();
     if (hasHiddenSegment(req.path)) return res.status(404).end();
@@ -186,7 +186,7 @@ const isDownload = (req) => (req.method === "GET" || req.method === "HEAD") && l
 
 /**
  * `root` is the games folder; `routes` maps a mount prefix to its router
- * ({ "/api/retro": retroRouter, … }), the same instances the shop mounts.
+ * ({ "/api/retro": retroRouter, … }), the same instances the library mounts.
  */
 export default function directLane(root, { routes = {}, ban = newBan(), staleBan = newBan({ limit: STALE_BAN_LIMIT, what: "stale" }), edgeSecret = env.directEdgeSecret } = {}) {
   const lane = laneRouter(root, routes);

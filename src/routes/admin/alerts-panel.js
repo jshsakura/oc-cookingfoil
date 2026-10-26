@@ -51,10 +51,10 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
 </section>`;
 
 export const ALERTS_CSS = `
-.al-status{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:12px 0 18px}
-.al-status strong{display:block;font-size:15px}.al-status span:not(.al-dot){font-size:13px;color:var(--muted)}
-.al-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}.al-status.on .al-dot{background:var(--good)}.al-status.bad .al-dot{background:var(--bad,#d33)}
-#al-form h3{margin:18px 0 8px;font-size:15px}
+.al-status{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:14px 16px;margin:12px 0 18px}
+.al-status strong{display:block;font-size:var(--fs-md)}.al-status span:not(.al-dot){font-size:var(--fs-sm);color:var(--muted)}
+.al-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}.al-status.on .al-dot{background:var(--good)}.al-status.bad .al-dot{background:var(--bad)}
+#al-form h3{margin:18px 0 8px;font-size:var(--fs-md)}
 #al-form .add{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-bottom:6px}
 #al-form .add input{flex:1 1 220px;min-width:0}
 #al-form .add button{flex:none;white-space:nowrap}
@@ -64,10 +64,10 @@ export const ALERTS_CSS = `
 #al-msg:empty{display:none}#al-msg{margin-top:10px}
 @media(max-width:640px){#al-form .add button,#al-form .row button{flex:1 1 auto}}
 .al-events{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:14px}
-.al-event{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer}
-.al-event input{margin-top:3px;width:18px;height:18px}.al-event b{font-size:14px}.al-event small{grid-column:2;color:var(--muted);font-size:12.5px;line-height:1.5}
-.al-st{font-size:12px;font-weight:700;padding:2px 9px;border-radius:100px;background:var(--sunk);color:var(--muted);white-space:nowrap}
-.al-st.sent{color:var(--good)}.al-st.failed{color:var(--bad,#d33)}
+.al-event{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:12px 14px;cursor:pointer}
+.al-event input{margin-top:3px;width:18px;height:18px}.al-event b{font-size:var(--fs-md)}.al-event small{grid-column:2;color:var(--muted);font-size:var(--fs-xs);line-height:1.5}
+.al-st{font-size:var(--fs-xs);font-weight:700;padding:2px 9px;border-radius:var(--r-pill);background:var(--sunk);color:var(--muted);white-space:nowrap}
+.al-st.sent{color:var(--good)}.al-st.failed{color:var(--bad)}
 `;
 
 export const ALERTS_SCRIPT = /* js */ `

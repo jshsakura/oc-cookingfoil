@@ -98,7 +98,7 @@ test("only a console the admin flagged reads and changes item settings, and each
     const changed = await fromConsole("PATCH", fieldsUrl, { key: "verified", value: true });
     assert.equal(changed.status, 200);
     assert.equal((await changed.json()).fields.find((f) => f.key === "verified").value, true);
-    assert.equal((await apps()).find((a) => a.id === app.id).verified, true, "the shop's list says so too");
+    assert.equal((await apps()).find((a) => a.id === app.id).verified, true, "the library's list says so too");
 
     for (const [body, status] of [[{ key: "nope", value: true }, 400], [{ key: "kind", value: "x" }, 400], [{ key: "cores", value: "9" }, 400],
       [{ key: "cores", value: 4 }, 400], [{ key: "verified", value: "yes" }, 400]]) {

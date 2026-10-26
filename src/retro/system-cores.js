@@ -3,7 +3,7 @@
  * ${COOK_DATA_DIR}/retro-system-cores.json as { <system id>: <core> } and laid
  * over the system table when the catalog scans, so the operator's
  * systems.json is never written. The pick changes every game's core, and with
- * it each HOME menu forwarder's key, so consoles fetch a new forwarder.
+ * it each HOME menu shortcut's key, so consoles see it as out of date.
  */
 import fs from "fs";
 import path from "path";

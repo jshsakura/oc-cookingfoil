@@ -5,8 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import express from "express";
 
-// /api/patches names the game of a patch the shop does not list, so the client
-// can label it: the name, the name in each shop language, and the icon.
+// /api/patches names the game of a patch the library does not list, so the client
+// can label it: the name, the name in each library language, and the icon.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "patch-game-block-"));
 const patches = path.join(root, "patches");
 process.env.COOK_DATA_DIR = root;
@@ -38,7 +38,7 @@ after(async () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test("a patch for a game the shop does not list carries its name, names in each language titledb has and icon", async () => {
+test("a patch for a game the library does not list carries its name, names in each language titledb has and icon", async () => {
   let patch;
   for (let i = 0; i < 40 && !patch; i++) {
     const body = await (await fetch(`${BASE}/api/patches?lang=ko`)).json();
@@ -49,5 +49,5 @@ test("a patch for a game the shop does not list carries its name, names in each 
   assert.equal(typeof patch.game.name, "string");
   assert.ok(patch.game.name.length > 0);
   assert.deepEqual(patch.game.names, { ko: "한국어 이름", en: "English Name", ja: "日本語の名前", "zh-Hant": "中文名稱" }, "Hong Kong's Chinese is traditional");
-  assert.match(patch.game.icon, new RegExp(`^${BASE}/api/library/icon/${TID}`), "an absolute icon the shop serves");
+  assert.match(patch.game.icon, new RegExp(`^${BASE}/api/library/icon/${TID}`), "an absolute icon the library serves");
 });

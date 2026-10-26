@@ -16,7 +16,7 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 
-import pkg from "../package.js";
+import pkg from "../app-info.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, activityScript } from "./admin/activity-panel.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";

@@ -1,6 +1,6 @@
 /**
  * Item settings changed from an admin device: a console the admin allowed on the
- * devices tab (security/device-admin.js; shop info then lists "admin-edit").
+ * devices tab (security/device-admin.js; library info then lists "admin-edit").
  * Any other caller, a browser included, gets 403 { error: "admin device only" }.
  * The dashboard changes the same settings through meta/item-fields.js, so the
  * console and the web never disagree; every change is kept in admin-edits.jsonl.

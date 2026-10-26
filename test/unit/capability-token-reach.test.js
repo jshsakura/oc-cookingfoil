@@ -78,7 +78,7 @@ for (const [method, pattern, blocked, open] of CASES) {
   });
 }
 
-test("open routes stay open and the shop list is for tokens only", async () => {
+test("open routes stay open and the library list is for tokens only", async () => {
   for (const [method, url, reach] of [["GET", "/admin/api/stats", true], ["GET", "/games.json", true], ["GET", "/api/library/info", false]]) {
     assert.equal(await refusedForToken(method, url), !reach, `${method} ${url}`);
     assert.equal(tokenReach({ method, path: url }), reach, `tokenReach(${url})`);

@@ -177,7 +177,7 @@ const ROLES = {
   },
   games: ({ at }) => ({
     title: `Switch games (${at})`,
-    purpose: ["The shop lists the Switch games in this folder."],
+    purpose: ["The library lists the Switch games in this folder."],
     accepts: SWITCH_EXTS,
     holds: [`${SWITCH_EXTS.join(" ")} files, one folder per game.`, `Updates in \`<game>/${SUB.update}/\`, DLC in \`<game>/${SUB.dlc}/\`.`],
     structure: [
@@ -186,11 +186,11 @@ const ROLES = {
       `    ${SUB.dlc}/`, "      Some Game Pack [0100000000011001][v0].nsp",
     ],
     naming: [
-      "`[TITLEID]` and `[vN]` in a file name tell the shop what the file is when prod.keys cannot read it. The drop box adds them.",
+      "`[TITLEID]` and `[vN]` in a file name tell the library what the file is when prod.keys cannot read it. The drop box adds them.",
       "Folder names are yours: every folder below this one is read, and a game keeps its folder when more of its files arrive.",
     ],
     server: [
-      "Lists every game file here in the shop and checks the files for damage in the hours the admin page sets.",
+      "Lists every game file here in the library and checks the files for damage in the hours the admin page sets.",
       `${BY_HAND} NSZ conversion, once an admin turns it on, replaces .nsp files with .nsz.`,
       TRASH_NOTE,
       "Files left in the drop box (incoming) arrive here sorted.",
@@ -199,12 +199,12 @@ const ROLES = {
     doNotPut: [
       "Retro ROMs, homebrew, patches and saves: each has its own folder.",
       "Files still being copied: copy them into the drop box, which waits until they stop changing.",
-      "Other files: the shop does not serve them; the admin page lists them as other files.",
+      "Other files: the library does not serve them; the admin page lists them as other files.",
     ],
   }),
   homebrew: ({ at }) => ({
     title: `Homebrew (${at})`,
-    purpose: ["The shop lists the homebrew apps in this folder; each goes to the console's `switch/<folder>/`."],
+    purpose: ["The library lists the homebrew apps in this folder; each goes to the console's `switch/<folder>/`."],
     consolePath: "sdmc:/switch/",
     accepts: [".nro"],
     holds: [
@@ -244,7 +244,7 @@ const ROLES = {
   }),
   patches: ({ at }) => ({
     title: `Patches (${at})`,
-    purpose: ["Mods and cheats the shop hands out; a console installs them onto its SD card and turns them on and off."],
+    purpose: ["Mods and cheats the library hands out; a console installs them onto its SD card and turns them on and off."],
     consolePath: "sdmc:/",
     holds: [
       "`<TITLEID>/<patch name>/`: one folder per patch, its files laid out as from the SD card root.",
@@ -261,7 +261,7 @@ const ROLES = {
   }),
   saves: ({ at }) => ({
     title: `Saves (${at})`,
-    purpose: ["Save files the shop hands out, for a console to restore into a player's save."],
+    purpose: ["Save files the library hands out, for a console to restore into a player's save."],
     holds: [
       "`<TITLEID>/<save name>/`: the save folder's contents.",
       "`homebrew/<app>/<save name>/`: a homebrew app's save, its files as in the app's `switch/<app>/`.",

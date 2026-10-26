@@ -38,7 +38,7 @@ function subOf(who) {
   };
 }
 
-/** Whether a session may be made for `who`: a console (a device key) with a shop account, or its pairing. Pure. */
+/** Whether a session may be made for `who`: a console (a device key) with a library account, or its pairing. Pure. */
 export function eligible(who) {
   if (!who?.dev) return false;
   if (who.acct) return KINDS.has(who.acct.kind);

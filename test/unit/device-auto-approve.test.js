@@ -41,7 +41,7 @@ test("a console that signs in at pairing is approved on the spot (the default); 
   const server = await boot();
   try {
     assert.equal((await status(SIGNED_IN)).status, "pending");
-    // The password counts at pairing only: on the shop it opens nothing and approves nothing.
+    // The password counts at pairing only: on the library it opens nothing and approves nothing.
     const r = await fetch(`${BASE}/api/library/sections`, { headers: { Authorization: ALICE, "X-Device-Key": SIGNED_IN } });
     assert.equal(r.status, 401);
     assert.equal((await status(SIGNED_IN)).status, "pending");

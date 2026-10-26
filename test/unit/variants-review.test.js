@@ -12,7 +12,7 @@ process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "variants-revi
 const { largeFiles, GAME_FILE_RE } = await import("../../src/helpers/file-send.js");
 const { createVariants } = await import("../../src/plugins/variants.js");
 const { default: libraryVariants } = await import("../../src/routes/library-variants.js");
-const { withPlugins } = await import("../../src/routes/shop-info.js");
+const { withPlugins } = await import("../../src/routes/library-info.js");
 const { parseManifest } = await import("../../src/plugins/manifest.js");
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "variants-review-games-"));
@@ -99,15 +99,15 @@ test("the keys a plugin is handed are its own read-only copy", async () => {
   assert.deepEqual([...env.keys], [["header_key", "x"]], "the server's Map is untouched");
 });
 
-test("a shop info answer that did not come is not kept; a new plugin version or key file asks again", async () => {
+test("a library info answer that did not come is not kept; a new plugin version or key file asks again", async () => {
   const env = await withTweaker();
   let t = 0;
   const variants = createVariants(env.registry, { now: () => t });
   globalThis.__infoHangs = true;
-  assert.deepEqual(await variants.shopInfoExtras("en"), { features: [], info: {} });
+  assert.deepEqual(await variants.libraryInfoExtras("en"), { features: [], info: {} });
   globalThis.__infoHangs = false;
   t += 1000;
-  assert.deepEqual((await variants.shopInfoExtras("en")).info, { level: 1 }, "the timeout was not remembered as an empty answer");
+  assert.deepEqual((await variants.libraryInfoExtras("en")).info, { level: 1 }, "the timeout was not remembered as an empty answer");
   const stamp = env.registry.keysStamp();
   assert.equal(env.registry.keysStamp(), stamp, "the same keys, the same stamp");
   env.held.keys = new Map([["header_key", "z"]]);

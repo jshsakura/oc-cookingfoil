@@ -1,5 +1,5 @@
 /**
- * The phone's half of the RetroAchievements sign-in, outside the shop's sign-in
+ * The phone's half of the RetroAchievements sign-in, outside the library's sign-in
  * like pairing: the console's QR opens it, and the one-time code in the link is
  * all it needs (retro/achievements/link.js). The page seals the password to
  * the console's key in the browser, so it works over plain http too (with a warning).
