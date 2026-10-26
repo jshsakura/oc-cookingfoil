@@ -7,6 +7,7 @@ export const PLUGINS_WORDS = {
   "ko": {
     "m.setPlugins": "플러그인",
     "pl.h": "플러그인",
+    "pl.listH": "설치된 플러그인",
     "pl.lead": "플러그인은 이 서버 안에서 그대로 실행되는 코드입니다. 믿는 것만 data/plugins 폴더에 직접 넣어 주세요. 새로 찾은 플러그인은 항상 꺼진 채로 보입니다.",
     "pl.safe": "안전 모드입니다. 모든 플러그인이 꺼진 채로 떠 있고 켜기 설정은 그대로 남아 있습니다.",
     "pl.rescan": "다시 검사",
@@ -125,6 +126,7 @@ export const PLUGINS_WORDS = {
   "en": {
     "m.setPlugins": "Plugins",
     "pl.h": "Plugins",
+    "pl.listH": "Installed plugins",
     "pl.lead": "A plugin is code that runs inside this server as it is. Put only plugins you trust into the data/plugins folder yourself. A plugin found for the first time always shows as off.",
     "pl.safe": "Safe mode. Every plugin is held off, and your on/off choices are kept.",
     "pl.rescan": "Scan again",
@@ -243,6 +245,7 @@ export const PLUGINS_WORDS = {
   "ja": {
     "m.setPlugins": "プラグイン",
     "pl.h": "プラグイン",
+    "pl.listH": "インストール済みのプラグイン",
     "pl.lead": "プラグインはこのサーバーの中でそのまま実行されるコードです。信頼できるものだけを data/plugins フォルダに自分で入れてください。新しく見つかったプラグインは常にオフで表示されます。",
     "pl.safe": "セーフモードです。すべてのプラグインがオフのままで、オンの設定は保たれています。",
     "pl.rescan": "再スキャン",
@@ -361,6 +364,7 @@ export const PLUGINS_WORDS = {
   "zh": {
     "m.setPlugins": "插件",
     "pl.h": "插件",
+    "pl.listH": "已安装的插件",
     "pl.lead": "插件是在本服务器内原样运行的代码。请只把你信任的插件亲手放进 data/plugins 文件夹。新发现的插件始终显示为关闭。",
     "pl.safe": "安全模式。所有插件都保持关闭，开启设置会保留。",
     "pl.rescan": "重新扫描",
@@ -479,6 +483,7 @@ export const PLUGINS_WORDS = {
   "zh-Hant": {
     "m.setPlugins": "外掛",
     "pl.h": "外掛",
+    "pl.listH": "已安裝的外掛",
     "pl.lead": "外掛是在本伺服器內原樣執行的程式碼。請只把你信任的外掛親手放進 data/plugins 資料夾。新發現的外掛一律顯示為關閉。",
     "pl.safe": "安全模式。所有外掛都保持關閉，開啟設定會保留。",
     "pl.rescan": "重新掃描",
@@ -597,6 +602,7 @@ export const PLUGINS_WORDS = {
   "es": {
     "m.setPlugins": "Complementos",
     "pl.h": "Complementos",
+    "pl.listH": "Complementos instalados",
     "pl.lead": "Un complemento es código que se ejecuta tal cual dentro de este servidor. Pon tú mismo en la carpeta data/plugins solo los que merezcan tu confianza. Un complemento recién encontrado aparece siempre desactivado.",
     "pl.safe": "Modo seguro. Todos los complementos están desactivados y tus ajustes de activación se conservan.",
     "pl.rescan": "Buscar de nuevo",
@@ -715,6 +721,7 @@ export const PLUGINS_WORDS = {
   "fr": {
     "m.setPlugins": "Modules",
     "pl.h": "Modules",
+    "pl.listH": "Modules installés",
     "pl.lead": "Un module est du code exécuté tel quel dans ce serveur. Placez vous-même dans le dossier data/plugins uniquement ceux en qui vous avez confiance. Un module trouvé pour la première fois apparaît toujours désactivé.",
     "pl.safe": "Mode sans échec. Tous les modules restent désactivés et vos réglages d'activation sont conservés.",
     "pl.rescan": "Analyser à nouveau",
@@ -833,6 +840,7 @@ export const PLUGINS_WORDS = {
   "de": {
     "m.setPlugins": "Plugins",
     "pl.h": "Plugins",
+    "pl.listH": "Installierte Plugins",
     "pl.lead": "Ein Plugin ist Code, der unverändert in diesem Server läuft. Lege nur Plugins, denen du vertraust, selbst in den Ordner data/plugins. Ein neu gefundenes Plugin erscheint immer als ausgeschaltet.",
     "pl.safe": "Abgesicherter Modus. Alle Plugins bleiben ausgeschaltet, deine Ein-Aus-Einstellungen bleiben erhalten.",
     "pl.rescan": "Erneut suchen",
@@ -951,6 +959,7 @@ export const PLUGINS_WORDS = {
   "it": {
     "m.setPlugins": "Plugin",
     "pl.h": "Plugin",
+    "pl.listH": "Plugin installati",
     "pl.lead": "Un plugin è codice che gira così com'è dentro questo server. Metti tu stesso nella cartella data/plugins solo quelli di cui ti fidi. Un plugin trovato per la prima volta appare sempre disattivato.",
     "pl.safe": "Modalità sicura. Tutti i plugin restano disattivati e le tue scelte di attivazione sono conservate.",
     "pl.rescan": "Cerca di nuovo",
@@ -1069,6 +1078,7 @@ export const PLUGINS_WORDS = {
   "pt": {
     "m.setPlugins": "Plugins",
     "pl.h": "Plugins",
+    "pl.listH": "Plugins instalados",
     "pl.lead": "Um plugin é código que roda como está dentro deste servidor. Coloque você mesmo na pasta data/plugins apenas os que merecem sua confiança. Um plugin encontrado pela primeira vez sempre aparece desligado.",
     "pl.safe": "Modo seguro. Todos os plugins ficam desligados e suas escolhas de ligar são mantidas.",
     "pl.rescan": "Verificar de novo",
@@ -1187,6 +1197,7 @@ export const PLUGINS_WORDS = {
   "nl": {
     "m.setPlugins": "Plug-ins",
     "pl.h": "Plug-ins",
+    "pl.listH": "Geïnstalleerde plug-ins",
     "pl.lead": "Een plug-in is code die ongewijzigd binnen deze server draait. Zet alleen plug-ins die je vertrouwt zelf in de map data/plugins. Een voor het eerst gevonden plug-in staat altijd uit.",
     "pl.safe": "Veilige modus. Alle plug-ins blijven uit en je aan-uitkeuzes blijven bewaard.",
     "pl.rescan": "Opnieuw zoeken",
@@ -1305,6 +1316,7 @@ export const PLUGINS_WORDS = {
   "ru": {
     "m.setPlugins": "Плагины",
     "pl.h": "Плагины",
+    "pl.listH": "Установленные плагины",
     "pl.lead": "Плагин это код, который выполняется внутри этого сервера как есть. Кладите в папку data/plugins только те плагины, которым доверяете, и делайте это сами. Только что найденный плагин всегда показывается выключенным.",
     "pl.safe": "Безопасный режим. Все плагины выключены, а ваши настройки включения сохранены.",
     "pl.rescan": "Сканировать снова",

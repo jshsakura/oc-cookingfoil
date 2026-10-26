@@ -43,7 +43,6 @@ export const ADMIN_PAGES = [
   { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops", icon: "download" },
   { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops", icon: "device" },
   { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", icon: "lock", count: "lock-count" },
-  { path: "/admin/client", tab: "overview", label: "m.client", anchor: "client-release", icon: "download" },
   // settings
   { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", group: "set", icon: "sliders" },
   { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", group: "set", icon: "package" },
@@ -53,6 +52,7 @@ export const ADMIN_PAGES = [
   { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "set", icon: "key" },
   { path: "/admin/settings/plugins", tab: "settings", sub: "plugins", label: "m.setPlugins", group: "set", icon: "puzzle" },
   { path: "/admin/settings/notifications", tab: "alerts", label: "m.alerts", group: "set", icon: "bell" },
+  { path: "/admin/client", tab: "overview", label: "m.client", anchor: "client-release", group: "set", icon: "download" },
 ];
 
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));

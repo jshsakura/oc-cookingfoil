@@ -63,7 +63,7 @@ test('a settings page opens its own area', async ({ page }) => {
 test('homebrew and library task choices keep their addresses and selection on reload', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/homebrew?tab=apps');
-  await page.locator('#homebrew-subtabs [data-sub="sources"]').click();
+  await page.locator('aside.adm-side a.adm-task[href*="tab=sources"]').click();
   expect(new URL(page.url()).searchParams.get('tab')).toBe('sources');
   await expect(page.locator('aside.adm-side > nav [aria-current="page"]')).toHaveText('GitHub 저장소');
   await page.reload();
