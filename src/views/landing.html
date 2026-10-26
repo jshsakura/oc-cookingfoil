@@ -1185,6 +1185,11 @@
       .modal-x:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
       .modal-x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
       .share-modal .modal-x { color: var(--ink); background: var(--sunk); }
+      .send-box[hidden], #modal-send[hidden] { display: none; }
+      .send-box { display: grid; gap: 8px; margin-bottom: 12px; }
+      .send-box .send-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
+      .send-box .send-row .btn { flex: none; padding: 8px 14px; font-size: 14px; }
+      .send-box .send-pick { display: flex; flex-wrap: wrap; gap: 8px; }
       .modal-actions .btn { flex: 1; padding: 15px 20px; font-size: 16px; border-radius: 16px; }
 
       /* SHARE: files, a memo and links for the operator (the inbox), in the detail modal's frame */
@@ -1576,8 +1581,10 @@
           <section class="modal-videos" id="modal-videos" hidden></section>
           <div class="extras" id="modal-extras"></div>
           <div class="extras modal-install" id="modal-install" hidden></div>
+          <div class="send-box" id="modal-send-box" hidden></div>
           <div class="modal-actions">
             <a class="btn" id="modal-download" href="#" target="_blank" data-i18n="action.download"></a>
+            <button class="btn" id="modal-send" type="button" data-i18n="send.btn" hidden></button>
             <div class="edit-danger" hidden></div>
             <button class="btn ghost" id="modal-close" type="button" data-i18n="action.close"></button>
           </div>
@@ -1683,6 +1690,15 @@
           "client.saved": (n) => `다운로드했습니다. 1시간 안에 SD 카드 루트에 압축을 풀고 앱을 실행해 주세요. 기기 ${n}대까지 자동으로 연결됩니다.`,
           "client.noBuild": "아직 올린 클라이언트가 없습니다.",
           "client.failed": "다운로드하지 못했습니다. 다시 시도합니다.",
+          "send.btn": "내 기기로 보내기",
+          "send.pick": "보낼 기기를 고릅니다",
+          "send.done": (n) => `${n}에 보냈습니다. 기기에서 확인하면 받기 시작합니다.`,
+          "send.already": (n) => `${n}에 이미 대기 중입니다.`,
+          "send.full": "그 기기에 대기 중인 요청이 너무 많습니다.",
+          "send.failed": "보내지 못했습니다. 다시 시도합니다.",
+          "send.waiting": (n) => `${n}에서 받기를 기다리고 있습니다`,
+          "send.cancel": "취소",
+          "send.cancelled": "보낸 요청을 취소했습니다.",
           "tab.games": "모든 게임",
           "tab.pair": "기기 승인",
           "tab.admin": "서버 관리",
@@ -2027,6 +2043,15 @@
           "client.saved": (n) => `Downloaded. Within 1 hour, extract it to the SD card root and launch the app. Up to ${n} consoles connect on their own.`,
           "client.noBuild": "No client has been uploaded yet.",
           "client.failed": "Could not download. Try again.",
+          "send.btn": "Send to my console",
+          "send.pick": "Choose a console",
+          "send.done": (n) => `Sent to ${n}. The console asks before it starts downloading.`,
+          "send.already": (n) => `Already waiting on ${n}.`,
+          "send.full": "That console has too many requests waiting.",
+          "send.failed": "Could not send. Try again.",
+          "send.waiting": (n) => `Waiting for ${n} to pick it up`,
+          "send.cancel": "Cancel",
+          "send.cancelled": "The request was cancelled.",
           "section.recent": "Recently added",
           "tab.games": "All games",
           "tab.pair": "Devices",
@@ -2371,6 +2396,15 @@
           "client.saved": (n) => `ダウンロード完了。1時間以内に SD カードのルートに解凍してアプリを起動してください。本体${n}台まで自動で接続されます。`,
           "client.noBuild": "まだクライアントがアップロードされていません。",
           "client.failed": "ダウンロードできませんでした。もう一度試します。",
+          "send.btn": "本体に送る",
+          "send.pick": "送る本体を選びます",
+          "send.done": (n) => `${n} に送りました。本体で確認するとダウンロードが始まります。`,
+          "send.already": (n) => `${n} ですでに待機中です。`,
+          "send.full": "その本体の待機中のリクエストが多すぎます。",
+          "send.failed": "送れませんでした。もう一度試します。",
+          "send.waiting": (n) => `${n} が受け取るのを待っています`,
+          "send.cancel": "取り消す",
+          "send.cancelled": "送信を取り消しました。",
           "section.recent": "最近の追加",
           "tab.games": "すべてのゲーム",
           "tab.pair": "デバイス承認",
@@ -2715,6 +2749,15 @@
           "client.saved": (n) => `下載完成。請於 1 小時內解壓至 SD 卡根目錄並開啟應用。最多 ${n} 台主機會自動連線。`,
           "client.noBuild": "尚未上傳客戶端。",
           "client.failed": "無法下載。請再試一次。",
+          "send.btn": "傳送到我的主機",
+          "send.pick": "請選擇主機",
+          "send.done": (n) => `已傳送到 ${n}。主機確認後才會開始下載。`,
+          "send.already": (n) => `${n} 已在等待中。`,
+          "send.full": "該主機等待中的請求太多。",
+          "send.failed": "無法傳送。請再試一次。",
+          "send.waiting": (n) => `等待 ${n} 接收`,
+          "send.cancel": "取消",
+          "send.cancelled": "已取消傳送。",
           "section.recent": "最近新增",
           "tab.games": "所有遊戲",
           "tab.pair": "设备批准",
@@ -3313,6 +3356,96 @@
           button.disabled = false;
         }
       });
+      // ─── send to my console ───────────────────────────────────────────────
+      // A signed-in account with an approved console queues the open game for it; the console asks its
+      // player before it downloads. Waiting requests for this file show here and can be cancelled.
+      const sendPanel = (() => {
+        let consoles = null; // [{ deviceKey, label }] this account approved, once known
+        let file = null;     // library path of the open game, or null when it cannot be sent
+        let picking = false;
+        // Reads go around the page's sign-in redirect: a refusal here only means no button.
+        const sameOrigin = (url) => { try { return new URL(url, location.href).origin === location.origin; } catch { return false; } };
+        const pathOf = (url) => decodeURIComponent(new URL(url, location.href).pathname.slice(1));
+        const nameOf = (key) => (consoles || []).find((c) => c.deviceKey === key)?.label || key.slice(0, 8).toUpperCase();
+        const post = (url, body) => fetch(url, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+
+        async function waiting() {
+          try {
+            const r = await pageFetch("/pair/api/sends", { credentials: "same-origin" });
+            return r.ok ? (await r.json()).consoles.flatMap((c) => c.items.filter((i) => i.path === file).map((i) => ({ ...i, deviceKey: c.deviceKey }))) : [];
+          } catch { return []; }
+        }
+
+        async function paint() {
+          const box = $("modal-send-box");
+          const mine = file ? await waiting() : [];
+          if (!file) { box.hidden = true; return; }
+          box.replaceChildren();
+          for (const item of mine) {
+            const row = Object.assign(document.createElement("div"), { className: "send-row" });
+            const cancel = Object.assign(document.createElement("button"), { type: "button", className: "btn ghost", textContent: t("send.cancel") });
+            cancel.addEventListener("click", async () => {
+              cancel.disabled = true;
+              try {
+                const r = await post(`/pair/api/sends/${encodeURIComponent(item.id)}/cancel`);
+                if (r.ok) toast(t("send.cancelled")); else toast(t("send.failed"));
+              } catch { toast(t("send.failed")); }
+              paint();
+            });
+            row.append(Object.assign(document.createElement("span"), { textContent: t("send.waiting", nameOf(item.deviceKey)) }), cancel);
+            box.append(row);
+          }
+          if (picking) {
+            const pick = Object.assign(document.createElement("div"), { className: "send-pick" });
+            pick.append(Object.assign(document.createElement("span"), { textContent: t("send.pick") }));
+            for (const c of consoles) {
+              const b = Object.assign(document.createElement("button"), { type: "button", className: "btn ghost", textContent: c.label || nameOf(c.deviceKey) });
+              b.addEventListener("click", () => send(c));
+              pick.append(b);
+            }
+            box.append(pick);
+          }
+          box.hidden = !box.childElementCount;
+        }
+
+        async function send(c) {
+          picking = false;
+          try {
+            const r = await post("/pair/api/sends", { deviceKey: c.deviceKey, path: file });
+            const d = await r.json().catch(() => ({}));
+            if (r.ok) toast(t(d.existing ? "send.already" : "send.done", nameOf(c.deviceKey)));
+            else toast(t(r.status === 409 ? "send.full" : "send.failed"));
+          } catch { toast(t("send.failed")); }
+          paint();
+        }
+
+        $("modal-send").addEventListener("click", () => {
+          if (!consoles?.length) return;
+          if (consoles.length === 1) { send(consoles[0]); return; }
+          picking = !picking;
+          paint();
+        });
+
+        return {
+          hide() { file = null; picking = false; $("modal-send").hidden = true; $("modal-send-box").hidden = true; },
+          async show(url) {
+            this.hide();
+            if (!session || !url || !sameOrigin(url)) return;
+            const open = pathOf(url);
+            if (consoles === null) {
+              try {
+                const r = await pageFetch("/pair/api/mine", { credentials: "same-origin" });
+                consoles = r.ok ? (await r.json()).devices : [];
+              } catch { consoles = []; }
+            }
+            if (!consoles.length || currentModal?.item?.url !== url) return;
+            file = open;
+            $("modal-send").hidden = false;
+            paint();
+          },
+        };
+      })();
+
       // An install path as code: whole, and shortened in the middle for phones (the start and the last two folders).
       function pathCode(p) {
         const full = String(p);
@@ -6105,6 +6238,7 @@
         $("modal-download").href = f.url || "#";
         $("modal-download").removeAttribute("download");
         $("modal-download").textContent = t("action.download");
+        sendPanel.show(f.url);
         openSheet("modal");
         loadVideos(validBase ? "title/" + baseId : null);
 
@@ -6614,6 +6748,7 @@
         $("modal-patches").replaceChildren(); $("modal-patches").hidden = true;
         $("modal-install").replaceChildren(); $("modal-install").hidden = true;
         showRetroVersions(g, sys);
+        sendPanel.hide();
         const discs = g.file.endsWith(".m3u") ? g.install?.extras?.filter((x) => !/\.(bin|img|sub)$/i.test(x)).length || 0 : 0;
         const dl = $("modal-download");
         dl.href = discs ? g.bundleUrl : g.romUrl;

@@ -20,8 +20,8 @@ export const AREA_TEXT = {
   library: "Library folders, removing files, and the trash.",
   retro: "Retro (RetroArch) games, cores, Korean names, ROM patches and box art.",
   jobs: "Background jobs and their progress.",
-  admin: "Consoles, accounts, alerts, settings and restarting the server.",
-  plugins: "Plugins, their state and where field values come from. Switching one on is for the admin page.",
+  admin: "Consoles, accounts, alerts, settings, restart.",
+  plugins: "Plugins, their state and field value sources. Switching one on is for the admin page.",
 };
 
 /** Whether an action changes something, and so previews first and takes confirm. */

@@ -19,6 +19,7 @@ import { dropRepair } from "./pairing-repair.js";
 import { isLoopbackIp, isPrivateIp } from "./net.js";
 import { doneAt, eventLog, markDone, recordStore } from "../db/security-stores.js";
 import { securityDb, transaction } from "../db/database.js";
+import * as deviceSends from "./device-sends.js";
 
 const FLUSH_DEBOUNCE_MS = 500;
 // Steady traffic keeps pushing the debounce back; a change waits at most this long.
@@ -451,6 +452,7 @@ export function revokeDevice(deviceKey) {
   const dismissed = dropPending(deviceKey);
   const hadSecret = state.pairSecrets.delete(deviceKey);
   dropRepair(deviceKey);
+  deviceSends.forget(deviceKey);
   if (removed) appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
   if (removed || dismissed || hadSecret) scheduleFlush();
   return removed;

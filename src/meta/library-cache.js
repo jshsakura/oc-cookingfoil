@@ -360,6 +360,12 @@ export function files() {
   return [...filesMap].map(([rel, i]) => ({ rel, name: i.name, size: i.size, kind: i.kind ?? null, titleId: i.titleId ?? null, baseTitleId: i.baseTitleId ?? null, version: i.version ?? null, mtime: i.mtime ?? null }));
 }
 
+/** One scanned game file by its library-relative path, or null: { rel, name, size, titleId }. No rescan, no copy of the list. */
+export function fileByRel(rel) {
+  const i = filesMap?.get(rel);
+  return i ? { rel, name: i.name, size: i.size, titleId: i.titleId ?? null } : null;
+}
+
 /**
  * Files this process changed itself ([{ rel, op: "upsert" | "remove" }]):
  * queued like the watcher's events, so several land in one incremental

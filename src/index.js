@@ -73,6 +73,7 @@ import webLoginRouter from "./routes/web-login.js";
 import setupRouter from "./routes/setup.js";
 import { needsSetup, setupCode } from "./security/setup.js";
 import devicePairRouter from "./routes/device-pair.js";
+import { consoleSendsRouter } from "./routes/device-sends.js";
 import raLinkRouter from "./routes/ra-link.js";
 import retroRouter from "./routes/retro.js";
 import savesRouter, { savesCatalog, savesEnabled, watchSaves } from "./routes/saves.js";
@@ -376,6 +377,8 @@ expressApp.get("/api/client-config", clientConfigRoute);
 
 // Device approval for signed-in users: the console's QR opens here (COOK_DEVICE_PAIRING).
 expressApp.use("/pair", devicePairRouter());
+// A console reads and acks the downloads queued for it (routes/device-sends.js).
+expressApp.use("/api/device/sends", consoleSendsRouter());
 
 // 2FA-gated operator dashboard (behind the web sign-in). 404s when
 // COOK_ADMIN_TOTP_SECRET is unset.

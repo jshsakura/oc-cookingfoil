@@ -19,6 +19,9 @@
  *                                          holding this server and a one-hour enrollment token
  *   POST /pair/api/clients/<id>/revoke     withdraw a download's token before a console used it
  *   /pair/api/mine lists the downloads too (no token in it: id, when, state, the console's code)
+ *
+ * Send to my console (routes/device-sends.js has the wire format):
+ *   POST /pair/api/sends { deviceKey, path } · GET /pair/api/sends · POST /pair/api/sends/<id>/cancel
  */
 import express from "express";
 import { createRequire } from "node:module";
@@ -40,6 +43,7 @@ import { deviceCode } from "../security/pairing-link.js";
 import { latestBuild, publishedNroPath } from "./client-update.js";
 import { zipStore } from "../helpers/zip-store.js";
 import fs from "node:fs";
+import { mountWebSends } from "./device-sends.js";
 
 const JSQR_PATH = createRequire(import.meta.url).resolve("jsqr/dist/jsQR.js");
 const TOKEN_RE = /^[a-f0-9]{32}$/;
@@ -139,6 +143,8 @@ function mountMineApi(router) {
     if (!/^[0-9a-f]{8}$/.test(req.params.id) || !enrollTokens.revoke(req.params.id, { owner: approver })) return res.status(404).json({ error: "no such download waiting" });
     res.json({ ok: true });
   });
+
+  mountWebSends(router, { guardWrite, approverOf, ownsApproval });
 
   router.post("/api/devices/revoke", json, (req, res) => {
     const approver = guardWrite(req, res);

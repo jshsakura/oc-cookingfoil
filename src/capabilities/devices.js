@@ -13,6 +13,8 @@ import { approveWaitingDevice } from "../security/pairing-approve.js";
 import { accountFull } from "../security/device-limit.js";
 import { tokenApprover } from "../security/admin-actor.js";
 import * as enrollTokens from "../security/enroll-tokens.js";
+import * as sends from "../security/device-sends.js";
+import { queueFile } from "../routes/device-sends.js";
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 
@@ -73,6 +75,15 @@ function check(input) {
   return found;
 }
 
+const SENT = obj({
+  id: str("12-hex id, the id argument of sends_set with op cancel"),
+  path: str("library path of the file"),
+  name: str("game name"),
+  size: int("bytes"),
+  sentAt: str("ISO time the server queued it"),
+});
+const sentRow = ({ id, path, name, size, sentAt }) => ({ id, path, name, size, sentAt });
+
 const name = (row) => row.label || row.name || row.message || "";
 
 export const devicesCapabilities = [
@@ -80,14 +91,16 @@ export const devicesCapabilities = [
     id: "device_list",
     area: "admin",
     title: "List consoles",
-    description: "Lists the consoles waiting for approval and the approved ones, each with the 8-character code device_set takes. Read before approving or removing one.",
+    description: "Lists consoles waiting for approval and approved ones with the code device_set takes, plus downloads sent to consoles and not yet picked up (sends).",
     input: { type: "object", properties: {} },
-    output: obj({ waiting: arr(WAITING), approved: arr(APPROVED), downloads: arr(DOWNLOAD) }),
+    output: obj({ waiting: arr(WAITING), approved: arr(APPROVED), downloads: arr(DOWNLOAD), sends: arr(obj({ code: str("8-character console code"), items: arr(SENT) })) }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/devices" },
-    handler: async () => {
+    also: ["GET /pair/api/sends"],
+    handler: async (ctx) => {
       const { approved, pending } = store.devicesSnapshot();
       return leanDevices({
+        sends: sends.listBy(approver(ctx)).map(({ deviceKey, items }) => ({ code: deviceCode(deviceKey), items: items.map(sentRow) })),
         waiting: pending.map((d) => ({ code: deviceCode(d.deviceKey), name: d.name ?? null, message: d.message ?? null, firstSeenAt: d.firstSeenAt ?? null, lastSeenAt: d.lastSeenAt ?? null })),
         downloads: enrollTokens.list().filter((t) => t.state === "waiting").map((t) => ({ id: t.id, owner: t.owner, expiresAt: t.expiresAt })),
         approved: approved.map((d) => ({ code: deviceCode(d.deviceKey), label: d.label, admin: d.admin, addedBy: d.addedBy, addedAt: d.addedAt, lastSeenAt: d.lastSeenAt ?? null })),
@@ -157,6 +170,51 @@ export const devicesCapabilities = [
       }
       store.revokeDevice(key);
       return { done: "revoke", code: deviceCode(key), label: name(row), admin: false };
+    },
+  }),
+  defineCapability({
+    id: "sends_set",
+    area: "admin",
+    title: "Send a game to a console, or cancel",
+    description: "Queues a library file for an approved console to download (send), or withdraws a queued one (cancel). The console asks its player before it starts.",
+    input: {
+      type: "object",
+      properties: {
+        op: { type: "string", enum: ["send", "cancel"], description: "send queues a file for a console; cancel withdraws a queued one by its id from device_list" },
+        device: { type: "string", description: "For send: the console's 8-character code from device_list, such as 3F9A01BC" },
+        path: { type: "string", description: "For send: the file's library path as game_get lists it, such as Game Name/Game Name.nsp" },
+        id: { type: "string", description: "For cancel: the queued item's 12-character id from device_list" },
+      },
+      required: ["op"],
+    },
+    output: obj({ done: oneOf(["send", "cancel"]), code: str(), item: SENT }),
+    preview: async (ctx, input) => {
+      if (input.op === "cancel") {
+        const found = sends.find(String(input.id), { sentBy: approver(ctx) });
+        if (!found) throw fail(404, `no queued item ${input.id}; device_list shows them`);
+        return { op: "cancel", code: deviceCode(found.deviceKey), name: found.item.name, changes: "Withdraws it; the console no longer sees it." };
+      }
+      if (input.op !== "send") throw fail(400, "op is send or cancel");
+      const found = findDevice(input.device);
+      if (found.state !== "approved") throw fail(409, "only an approved console can be sent to");
+      return { op: "send", code: deviceCode(found.key), name: String(input.path ?? ""), changes: "Queues the file; the console asks its player before it downloads." };
+    },
+    previewOutput: obj({ op: str(), code: str(), name: str(), changes: str() }),
+    safety: "write",
+    http: { method: "POST", path: "/pair/api/sends" },
+    also: ["POST /pair/api/sends/:id/cancel"],
+    mcp: true,
+    handler: async (ctx, input) => {
+      if (input.op === "cancel") {
+        const found = sends.find(String(input.id), { sentBy: approver(ctx) });
+        if (!found) throw fail(404, `no queued item ${input.id}; device_list shows them`);
+        sends.remove(found.deviceKey, [found.item.id]);
+        return { done: "cancel", code: deviceCode(found.deviceKey), item: sentRow(found.item) };
+      }
+      const found = findDevice(input.device);
+      if (found.state !== "approved") throw fail(409, "only an approved console can be sent to");
+      const { item } = queueFile(found.key, input.path, approver(ctx));
+      return { done: "send", code: deviceCode(found.key), item: sentRow(item) };
     },
   }),
 ];
