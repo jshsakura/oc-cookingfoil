@@ -34,6 +34,14 @@ export const PLUGINS_CSS = `
 .pl-main span{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
 .pl-main .err{color:var(--bad)}
 .pl-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.pl-sw{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;height:34px;min-width:92px;padding:0 10px 0 12px;color:var(--muted)}
+.pl-sw .switch{position:relative;flex:none;width:30px;height:18px;border-radius:100px;background:var(--line);transition:background .15s}
+.pl-sw .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.pl-sw[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
+.pl-sw[aria-checked="true"] .switch{background:var(--accent)}
+.pl-sw[aria-checked="true"] .switch::after{transform:translateX(12px)}
+.pl-sw:disabled{opacity:.6;cursor:not-allowed}
+@media (prefers-reduced-motion:reduce){.pl-sw .switch,.pl-sw .switch::after{transition:none}}
 .pl-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:640px){.pl-row{grid-template-columns:1fr}.pl-act{justify-content:flex-start}}
 `;
@@ -59,6 +67,18 @@ function plPerms(p){const L=[];
   if(p.libraries&&p.libraries.length)L.push(plT('permLibs',{list:p.libraries.join(', ')}));
   if(p.provides&&p.provides.length)L.push(plT('permProvides',{list:p.provides.map((k)=>plT('k.'+k)).join(', ')}));
   return L.length?L.join('\\n'):plT('permNone');}
+// The on/off switch of a row (the same .switch look as the patches page). Turning on opens the permission and
+// password dialog; if that is cancelled or fails, the row is drawn again and the switch is back where it was.
+function plToggle(p,name,usable){
+  const b=el('button',p.enabled?plT('s.on'):plT('s.off'),'pl-sw');b.type='button';
+  b.setAttribute('role','switch');b.setAttribute('aria-checked',String(p.enabled));b.setAttribute('aria-label',name);
+  b.append(el('span',null,'switch'));
+  if(!usable){b.disabled=true;b.setAttribute('aria-disabled','true');return b;}
+  b.title=plT(p.enabled?'turnOff':'turnOn');
+  b.addEventListener('click',async()=>{
+    const want=!p.enabled;b.disabled=true;b.setAttribute('aria-checked',String(want));
+    try{await plSwitch(p,want);}finally{plRender();}});
+  return b;}
 function plRow(p){
   const r=el('div',null,'pl-row');const main=el('div',null,'pl-main');
   const name=plName(p);
@@ -77,7 +97,9 @@ function plRow(p){
   if(p.state==='cooling')main.append(el('span',plT('retry',{when:plWhen(p.retryAt)})));
   const act=el('div',null,'pl-act');
   const usable=!['broken','incompatible','missing'].includes(p.state);
-  if(usable)act.append(p.enabled?btn(plT('turnOff'),()=>plSwitch(p,false)):btn(plT('turnOn'),()=>plSwitch(p,true)));
+  if(p.restartNeeded)main.append(el('span',plT('restartNeeded'),'err'));
+  act.append(plToggle(p,name,usable&&!p.restartNeeded&&p.state!=='crash-disabled'));
+  if(p.state!=='missing'){const dl=el('a',plT('download'),'btn');dl.href='/admin/api/plugins/'+encodeURIComponent(p.id)+'/download';dl.setAttribute('download','');act.append(dl);}
   if(p.state!=='missing')act.append(btn(plT('del'),()=>plDelete(p,name),'danger'));
   r.append(main,act);return r;}
 function plTrashedRow(t){
@@ -95,13 +117,14 @@ async function loadPlugins(){try{plData=await api('/admin/api/plugins');plRender
   catch(err){if(err.message!=='session')toast(plT('loadFail',{err:err.message}));}}
 async function plSwitch(p,on){
   // Switching on runs the plugin's code in this server: show what it asks for and ask for the password again.
-  let password;
+  let password,code;
   if(on){const text=plT('askEnable',{name:plName(p),perms:plPerms(p)});
     const kind=plData?plData.reconfirm:'password';
     if(kind==='unavailable'){toast(plT('e.noPassword'));return;}
     if(kind==='none'){if(!await ask(plT('askEnableNoPw',{name:plName(p),perms:plPerms(p)})))return;}
+    else if(kind==='totp'){code=await askText(plT('askEnableTotp',{name:plName(p),perms:plPerms(p)}),'');if(!code)return;}
     else{password=await askText(text,'',{secret:true});if(!password)return;}}
-  try{await api('/admin/api/plugins/'+encodeURIComponent(p.id)+'/enabled',{method:'POST',body:{on,confirmKeys:on&&p.needsKeys,password}});toast(plT(on?'tOn':'tOff'));}
+  try{await api('/admin/api/plugins/'+encodeURIComponent(p.id)+'/enabled',{method:'POST',body:{on,confirmKeys:on&&p.needsKeys,password,code}});toast(plT(on?'tOn':'tOff'));}
   catch(err){toast(err.message);}loadPlugins();}
 async function plDelete(p,name){if(!await ask(plT('askDel',{name})))return;
   const dropData=await ask(plT('askDrop'));
@@ -121,7 +144,7 @@ $('pl-install-file').addEventListener('change',async()=>{
     if(!r.ok)throw new Error((d.error||('HTTP '+r.status))+(d.reason?' ('+plT('u.'+d.reason)+')':''));
     state.textContent='';
     const m=d.manifest;let overwrite=false;
-    if(d.existing){if(!await ask(plT('overwriteAsk',{id:m.id,old:d.existing.version,new:m.version}),{danger:true}))return;overwrite=true;}
+    if(d.existing){if(!await ask(plT('overwriteAsk',{id:m.id,old:d.existing.version,new:m.version,sha:d.sha256}),{danger:true}))return;overwrite=true;}
     if(!await ask(plT('installAsk',{name:plName(m),id:m.id,version:m.version,perms:plPerms(m),sha:d.sha256})))return;
     await api('/admin/api/plugins/install/confirm',{method:'POST',body:{stagedId:d.stagedId,overwrite}});
     toast(plT('tInstalled'));

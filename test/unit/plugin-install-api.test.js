@@ -140,3 +140,69 @@ test("a stopped server's leftover uploads are cleared at start", async () => {
   await installer.sweep();
   assert.equal(fs.existsSync(path.join(dataDir, "plugins-incoming")), false);
 });
+
+test("pressing install twice installs once; a second upload or the timer cannot take the waiting one away mid-install", async () => {
+  process.env.COOK_PLUGIN_INSTALL = "1";
+  resetReconfirm();
+  const slow = { ...env.registry, list: env.registry.list, installFrom: async (...args) => { await new Promise((r) => setTimeout(r, 150)); return env.registry.installFrom(...args); } };
+  const own = createInstaller({ registry: slow, dataDir, now: () => clock.t });
+  const staged = await own.stage(zip([{ name: "plugin.json", data: JSON.stringify({ id: "twice", apiVersion: 1, version: "1.0.0", name: { en: "Twice" }, provides: ["metadata"] }) }, { name: "index.js", data: INDEX_JS }]));
+  const first = own.confirm(staged.stagedId, { overwrite: true });
+  const second = own.confirm(staged.stagedId, { overwrite: true });
+  await assert.rejects(second, (e) => e.code === "busy");
+  await assert.rejects(own.stage(zip(good())), (e) => e.code === "busy", "a new upload waits for the install");
+  await own.discard();
+  assert.ok(fs.existsSync(path.join(dataDir, "plugins-incoming", staged.stagedId)), "the folder being installed is not thrown away");
+  assert.equal((await first).id, "twice");
+  assert.ok(fs.existsSync(path.join(dataDir, "plugins/twice/index.js")), "installed once and still there");
+  assert.equal(env.registry.view("twice").state, "off");
+});
+
+test("two uploads at once leave exactly one waiting, and its timer is the new one's", async () => {
+  process.env.COOK_PLUGIN_INSTALL = "1";
+  const own = createInstaller({ registry: env.registry, dataDir, now: () => clock.t });
+  const [a, b] = await Promise.all([own.stage(zip(good())), own.stage(zip(good()))]);
+  assert.notEqual(a.stagedId, b.stagedId);
+  assert.deepEqual(fs.readdirSync(path.join(dataDir, "plugins-incoming")), [b.stagedId], "only the later upload is kept");
+  await own.sweep();
+});
+
+test("what is on disk is checked again at install: a folder changed since the look is not installed", async () => {
+  process.env.COOK_PLUGIN_INSTALL = "1";
+  const own = createInstaller({ registry: env.registry, dataDir, now: () => clock.t });
+  const staged = await own.stage(zip(good()));
+  fs.rmSync(path.join(dataDir, "plugins-incoming", staged.stagedId, "index.js"));
+  await assert.rejects(own.confirm(staged.stagedId, { overwrite: true }), (e) => e.code === "stage-gone");
+  await own.sweep();
+});
+
+test("two hundred wrong passwords at once are counted as they start: five are checked, the rest are locked out", async () => {
+  resetReconfirm();
+  const { reconfirm } = await import("../../src/security/admin-reconfirm.js");
+  const req = { webUser: { kind: "password", name: "nobody" } };
+  const results = await Promise.all(Array.from({ length: 200 }, () => reconfirm(req, { password: "wrong password here" })));
+  assert.equal(results.filter((r) => r.reason === "wrong").length, 5);
+  assert.equal(results.filter((r) => r.reason === "locked").length, 195);
+  resetReconfirm();
+});
+
+const freshZip = () => zip([{ name: "plugin.json", data: JSON.stringify({ id: "fresh", apiVersion: 1, version: "1.0.0", name: { en: "Fresh" }, provides: ["metadata"] }) }, { name: "index.js", data: INDEX_JS }]);
+
+test("a plugin that was loaded and is replaced waits for a restart; the upload note follows the folder", async () => {
+  resetReconfirm();
+  const staged = await json(await upload(freshZip()));
+  await post("/api/plugins/install/confirm", { stagedId: staged.stagedId, overwrite: true });
+  assert.equal((await post("/api/plugins/fresh/enabled", { on: true, password: "correct horse battery" })).status, 200, "first time in this process");
+  const again = await json(await upload(freshZip()));
+  const done = await json(await post("/api/plugins/install/confirm", { stagedId: again.stagedId, overwrite: true }));
+  assert.equal(done.plugin.restartNeeded, true);
+  const refused = await post("/api/plugins/fresh/enabled", { on: true, password: "correct horse battery" });
+  assert.equal(refused.status, 409);
+  assert.equal((await refused.json()).code, "restart-needed");
+  assert.equal(env.registry.view("fresh").origin.source, "upload");
+  fs.writeFileSync(path.join(dataDir, "plugins/fresh/plugin.json"), JSON.stringify({ id: "fresh", apiVersion: 1, version: "9.9.9", name: { en: "Demo" }, provides: ["metadata"] }));
+  await env.registry.rescan();
+  assert.equal(env.registry.view("fresh").origin, null, "replaced by hand: the note is for another version");
+  await post("/api/plugins/fresh/trash", {});
+  assert.equal(fs.existsSync(path.join(dataDir, "plugin-origin/fresh.json")), false, "deleting forgets where it came from");
+});

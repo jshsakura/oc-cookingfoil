@@ -65,6 +65,7 @@ export const OPT_OUT = {
   // Emptying the trash is the one permanent delete; only a person on the admin page does it.
   "POST /admin/api/trash/empty": "token-blocked",
   // A plugin is code that runs in this process: switching one on, deleting or restoring one is a person's choice.
+  "GET /admin/api/plugins/:id/download": "token-blocked",
   "POST /admin/api/plugins/rescan": "token-blocked",
   "POST /admin/api/plugins/restore": "token-blocked",
   "POST /admin/api/plugins/install": "token-blocked",

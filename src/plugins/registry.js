@@ -124,6 +124,10 @@ export function createRegistry({
   const entries = new Map(); // id -> scan entry
   const running = new Map(); // id -> { state: "starting" | "on" | "failed", instance }
   const missing = new Set();
+  // Node keeps every file a plugin imported for as long as the process runs. A plugin that was imported and then
+  // replaced by another version would run the new index.js on the old files it imports, so it waits for a restart.
+  const imported = new Set();
+  const restartNeeded = new Set();
   const capabilities = new Map();
   let queue = Promise.resolve();
   let watcher = null;
@@ -171,6 +175,7 @@ export function createRegistry({
     // what it registered is ignored, so a second switch-on never leaves two live instances.
     const attempt = { dead: false };
     const r = await runInPlugin(id, async () => {
+      imported.add(id);
       const url = `${pathToFileURL(path.join(entry.dir, ENTRY_FILE)).href}?v=${++importCount}`;
       const mod = await importPlugin(url);
       const instance = mod?.default;
@@ -282,7 +287,9 @@ export function createRegistry({
       hosts: entry?.manifest?.hosts ?? [],
       console: entry?.manifest?.console ?? [],
       libraries: entry?.manifest?.libraries ?? [],
-      origin: readOrigin(dataDir, id),
+      // A note that belongs to another version than the folder holds (replaced by hand) is not shown.
+      origin: ((o) => (o && o.version === entry?.manifest?.version ? o : null))(readOrigin(dataDir, id)),
+      restartNeeded: restartNeeded.has(id),
       state,
       enabled: row.enabled === true,
       safeMode,
@@ -314,6 +321,7 @@ export function createRegistry({
         return view(id);
       }
       if (safeMode) throw new PluginError("safe-mode");
+      if (restartNeeded.has(id)) throw new PluginError("restart-needed");
       if (entry.status !== "ok") throw new PluginError(entry.status === "incompatible" ? "incompatible" : "broken");
       if (entry.manifest.needsKeys && confirmKeys !== true) throw new PluginError("keys-confirm-required", 400);
       store.update(id, { enabled: true, failStreak: 0, hookStreak: 0, cooldownStep: 0, cooldownUntil: null, disabledReason: null, disabledAt: null });
@@ -442,10 +450,10 @@ export function createRegistry({
     await moveDir(entry.dir, dest);
     await fsp.writeFile(`${dest}.json`, JSON.stringify({ by: TRASH_META_BY, id, version: entry.manifest?.version ?? null, trashedAt: now() }));
     if (dropCache) await fsp.rm(path.join(dataDir, "plugin-cache", id), { recursive: true, force: true });
+    removeOrigin(dataDir, id);
     if (dropSettings) {
       clearSettings?.(id);
       store.remove(id);
-      removeOrigin(dataDir, id);
     } else {
       // A trashed plugin's keys are forgotten: nothing is left behind to answer for them.
       store.update(id, { disabledReason: "trashed", variantKeys: [] });
@@ -471,6 +479,8 @@ export function createRegistry({
         if (!entries.has(id)) throw new PluginError("exists");
         await trashNow(id);
       }
+      // Whatever was loaded under this id in this process (even before a delete) may still be in memory.
+      if (imported.has(id)) restartNeeded.add(id);
       await fsp.mkdir(root, { recursive: true });
       await moveDir(stageDir, target);
       store.ensure(id);
@@ -508,6 +518,7 @@ export function createRegistry({
       await moveDir(path.join(trashRoot, name), target);
       await fsp.rm(path.join(trashRoot, `${name}.json`), { force: true });
       if (store.get(item.id)) store.update(item.id, { enabled: false, disabledReason: null, disabledAt: null });
+      if (imported.has(item.id)) restartNeeded.add(item.id);
       await applyScan(await scanPluginDir(root));
       return view(item.id);
     });

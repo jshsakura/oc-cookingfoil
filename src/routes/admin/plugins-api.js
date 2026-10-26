@@ -21,6 +21,9 @@ import { PluginError } from "../../plugins/registry.js";
 import { pluginInstaller, pluginRegistry } from "../../plugins/instance.js";
 import { installAllowed } from "../../plugins/installer.js";
 import { UNPACK_LIMITS } from "../../plugins/unpack.js";
+import { PackError, packPlugin } from "../../plugins/pack.js";
+import path from "node:path";
+import { pipeline } from "node:stream/promises";
 import { reconfirm, reconfirmKind } from "../../security/admin-reconfirm.js";
 import { requestLang } from "../../meta/langs.js";
 import { TOP_WORDS } from "./top-i18n.js";
@@ -30,7 +33,7 @@ const NAME_RE = /^[a-z0-9][a-z0-9-]{0,39}\.\d{10,16}$/;
 const ERROR_WORD = {
   "not-found": "pl.e.notFound", "safe-mode": "pl.e.safeMode", broken: "pl.e.broken", incompatible: "pl.e.incompat",
   "keys-confirm-required": "pl.e.keys", exists: "pl.e.exists", "install-off": "pl.e.installOff", "bad-package": "pl.e.package",
-  "stage-gone": "pl.e.stageGone",
+  "stage-gone": "pl.e.stageGone", busy: "pl.e.busy", "restart-needed": "pl.e.restart",
 };
 const REASON_WORD = { wrong: "pl.e.password", unavailable: "pl.e.noPassword", locked: "pl.e.locked" };
 const word = (lang, key) => TOP_WORDS[lang]?.[key] ?? TOP_WORDS.en[key];
@@ -56,6 +59,23 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
 
   router.get("/api/plugins", handle(async (req, res) => res.json(await snapshot(registry, req))));
 
+  // The folder as a zip the install upload takes back. Not gated by the install switch: it only reads.
+  router.get("/api/plugins/:id/download", handle(async (req, res) => {
+    const { id } = req.params;
+    if (!ID_RE.test(id)) return bad(res, req);
+    const plugin = registry.list().find((p) => p.id === id);
+    if (!plugin || plugin.state === "missing") throw new PluginError("not-found", 404);
+    let zip;
+    try {
+      zip = await packPlugin(path.join(registry.paths.root, id));
+    } catch (err) {
+      if (err instanceof PackError) throw new PluginError("bad-package", 413);
+      throw err;
+    }
+    res.set({ "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${id}-${plugin.version ?? "0"}.zip"` });
+    await pipeline(zip.outputStream, res);
+  }));
+
   router.post("/api/plugins/rescan", handle(async (req, res) => {
     await registry.rescan();
     res.json({ ok: true, ...(await snapshot(registry, req)) });
@@ -69,6 +89,8 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
 
   // The zip arrives as the body. It is read only for a signed-in admin and only up to the unpacker's limit.
   router.post("/api/plugins/install", (req, res, next) => (requireSession(req, res) ? next() : undefined),
+    // Refused before the body is read when the server does not allow installing.
+    (req, res, next) => (installer.allowed() ? next() : handle(async () => { throw new PluginError("install-off", 403); })(req, res)),
     express.raw({ type: () => true, limit: UNPACK_LIMITS.zipBytes }),
     handle(async (req, res) => {
       res.json({ ok: true, ...(await installer.stage(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0))) });
@@ -86,7 +108,7 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
     const { id } = req.params;
     if (!ID_RE.test(id) || typeof req.body?.on !== "boolean") return bad(res, req);
     if (req.body.on) {
-      const again = await reconfirm(req, req.body.password);
+      const again = await reconfirm(req, { password: req.body.password, code: req.body.code });
       if (!again.ok) {
         debug.log("admin: switching plugin %s on was refused: %s", id, again.reason);
         return res.status(again.reason === "locked" ? 429 : 403).json({ error: word(requestLang(req), REASON_WORD[again.reason]), code: `password-${again.reason}`, ...(again.retryAfter ? { retryAfter: again.retryAfter } : {}) });

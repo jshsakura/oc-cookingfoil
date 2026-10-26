@@ -34,6 +34,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "서버를 멈추게 한 것으로 보여 껐습니다.",
     "pl.r.rej": "처리되지 않은 오류를 내서 껐습니다.",
     "pl.turnOn": "켜기",
+    "pl.download": "다운로드",
     "pl.turnOff": "끄기",
     "pl.del": "삭제",
     "pl.restore": "되돌리기",
@@ -88,7 +89,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "이 서버는 관리 화면에서 설치하지 못하게 되어 있습니다. 서버의 .env 에 COOK_PLUGIN_INSTALL=1 을 넣고 다시 시작하면 열립니다.",
     "pl.checking": "파일을 검사하는 중입니다.",
     "pl.installAsk": "{name} ({id}) {version} 을 설치할까요?\n설치해도 꺼진 채로 들어옵니다. 이 플러그인이 요구하는 것:\n{perms}\n파일 지문: {sha}",
-    "pl.overwriteAsk": "{id} 는 이미 {old} 이 설치되어 있습니다. {new} 으로 덮어쓸까요?\n기존 것은 되돌리기 목록에 남고, 새 것은 꺼진 채로 들어옵니다.",
+    "pl.overwriteAsk": "{id} 는 이미 {old} 이 설치되어 있습니다. {new}(지문 {sha}) 으로 덮어쓸까요?\n기존 설정은 이어받습니다. 기존 것은 되돌리기 목록에 남고, 새 것은 꺼진 채로 들어옵니다.",
     "pl.tInstalled": "설치했습니다. 꺼진 채로 들어와 있습니다.",
     "pl.tInstallFail": "설치하지 못했습니다: {why}",
     "pl.permNone": "· 특별히 요구하는 것이 없습니다.",
@@ -99,7 +100,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· 하는 일: {list}",
     "pl.askEnable": "{name} 을 켭니다. 플러그인은 이 서버 안에서 그대로 실행되는 코드입니다.\n이 플러그인이 요구하는 것:\n{perms}\n계속하려면 관리자 비밀번호를 입력해 주세요.",
     "pl.fromUpload": "관리 화면에서 설치함 · 지문 {sha}",
-    "pl.askEnableNoPw": "{name} 을 켭니다. 플러그인은 이 서버 안에서 그대로 실행되는 코드입니다.\n이 플러그인이 요구하는 것:\n{perms}\n켤까요?"
+    "pl.askEnableNoPw": "{name} 을 켭니다. 플러그인은 이 서버 안에서 그대로 실행되는 코드입니다.\n이 플러그인이 요구하는 것:\n{perms}\n켤까요?",
+    "pl.askEnableTotp": "{name} 을 켭니다. 플러그인은 이 서버 안에서 그대로 실행되는 코드입니다.\n이 플러그인이 요구하는 것:\n{perms}\n계속하려면 인증 앱의 6자리 코드를 입력해 주세요.",
+    "pl.restartNeeded": "같은 이름의 플러그인이 이미 한 번 불려 있어 서버를 다시 시작해야 새 버전을 켤 수 있습니다.",
+    "pl.e.busy": "다른 설치가 진행 중입니다. 잠시 뒤에 다시 시도해 주세요.",
+    "pl.e.restart": "서버를 다시 시작해야 켤 수 있습니다."
   },
   "en": {
     "m.setPlugins": "Plugins",
@@ -131,6 +136,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "It looks like it stopped the server, so it was switched off.",
     "pl.r.rej": "It raised an unhandled error and was switched off.",
     "pl.turnOn": "Switch on",
+    "pl.download": "Download",
     "pl.turnOff": "Switch off",
     "pl.del": "Delete",
     "pl.restore": "Restore",
@@ -185,7 +191,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -196,7 +202,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
   "ja": {
     "m.setPlugins": "プラグイン",
@@ -228,6 +238,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "サーバーを止めたとみられるためオフにしました。",
     "pl.r.rej": "処理されないエラーを出したためオフにしました。",
     "pl.turnOn": "オンにする",
+    "pl.download": "ダウンロード",
     "pl.turnOff": "オフにする",
     "pl.del": "削除",
     "pl.restore": "元に戻す",
@@ -282,7 +293,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "このサーバーでは管理画面からのインストールが許可されていません。サーバーの .env に COOK_PLUGIN_INSTALL=1 を入れて再起動すると有効になります。",
     "pl.checking": "ファイルを検査しています。",
     "pl.installAsk": "{name} ({id}) {version} をインストールしますか。\nオフの状態で入ります。このプラグインが要求するもの:\n{perms}\nファイルの指紋: {sha}",
-    "pl.overwriteAsk": "{id} は {old} が既にインストールされています。{new} で上書きしますか。\n古いものは元に戻す一覧に残り、新しいものはオフの状態で入ります。",
+    "pl.overwriteAsk": "{id} は {old} が既にインストールされています。{new}（指紋 {sha}）で上書きしますか。\n既存の設定は引き継がれます。古いものは元に戻す一覧に残り、新しいものはオフの状態で入ります。",
     "pl.tInstalled": "インストールしました。オフの状態です。",
     "pl.tInstallFail": "インストールできませんでした: {why}",
     "pl.permNone": "· 特に要求するものはありません。",
@@ -293,7 +304,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· 役割: {list}",
     "pl.askEnable": "{name} をオンにします。プラグインはこのサーバーの中でそのまま実行されるコードです。\nこのプラグインが要求するもの:\n{perms}\n続けるには管理者パスワードを入力してください。",
     "pl.fromUpload": "管理画面からインストール · 指紋 {sha}",
-    "pl.askEnableNoPw": "{name} をオンにします。プラグインはこのサーバーの中でそのまま実行されるコードです。\nこのプラグインが要求するもの:\n{perms}\nオンにしますか。"
+    "pl.askEnableNoPw": "{name} をオンにします。プラグインはこのサーバーの中でそのまま実行されるコードです。\nこのプラグインが要求するもの:\n{perms}\nオンにしますか。",
+    "pl.askEnableTotp": "{name} をオンにします。プラグインはこのサーバーの中でそのまま実行されるコードです。\nこのプラグインが要求するもの:\n{perms}\n続けるには認証アプリの 6 桁コードを入力してください。",
+    "pl.restartNeeded": "同じ名前のプラグインが既に読み込まれているため、新しいバージョンをオンにするにはサーバーの再起動が必要です。",
+    "pl.e.busy": "別のインストールが進行中です。しばらくしてからもう一度お試しください。",
+    "pl.e.restart": "サーバーを再起動するとオンにできます。"
   },
   "zh": {
     "m.setPlugins": "插件",
@@ -325,6 +340,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "它似乎导致了服务器停止，因此已关闭。",
     "pl.r.rej": "它抛出了未处理的错误，因此已关闭。",
     "pl.turnOn": "开启",
+    "pl.download": "下载",
     "pl.turnOff": "关闭",
     "pl.del": "删除",
     "pl.restore": "恢复",
@@ -379,7 +395,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "此服务器不允许在管理页面安装。在服务器的 .env 中加入 COOK_PLUGIN_INSTALL=1 并重启即可允许。",
     "pl.checking": "正在检查文件。",
     "pl.installAsk": "要安装 {name}（{id}）{version} 吗？\n安装后处于关闭状态。该插件要求：\n{perms}\n文件指纹：{sha}",
-    "pl.overwriteAsk": "{id} 已安装 {old}。要用 {new} 覆盖吗？\n旧版本会保留在恢复列表中，新版本处于关闭状态。",
+    "pl.overwriteAsk": "{id} 已安装 {old}。要用 {new}（指纹 {sha}）覆盖吗？\n原有设置会沿用。旧版本会保留在恢复列表中，新版本处于关闭状态。",
     "pl.tInstalled": "已安装，处于关闭状态。",
     "pl.tInstallFail": "无法安装：{why}",
     "pl.permNone": "· 没有特别的要求。",
@@ -390,7 +406,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· 功能：{list}",
     "pl.askEnable": "开启 {name}。插件是在此服务器内直接运行的代码。\n该插件要求：\n{perms}\n如要继续，请输入管理员密码。",
     "pl.fromUpload": "通过管理页面安装 · 指纹 {sha}",
-    "pl.askEnableNoPw": "开启 {name}。插件是在此服务器内直接运行的代码。\n该插件要求：\n{perms}\n要开启吗？"
+    "pl.askEnableNoPw": "开启 {name}。插件是在此服务器内直接运行的代码。\n该插件要求：\n{perms}\n要开启吗？",
+    "pl.askEnableTotp": "开启 {name}。插件是在此服务器内直接运行的代码。\n该插件要求：\n{perms}\n如要继续，请输入验证器应用中的 6 位验证码。",
+    "pl.restartNeeded": "同名插件已被加载过，需要重启服务器后才能开启新版本。",
+    "pl.e.busy": "另一个安装正在进行，请稍后再试。",
+    "pl.e.restart": "需要重启服务器后才能开启。"
   },
   "zh-Hant": {
     "m.setPlugins": "外掛",
@@ -422,6 +442,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "它似乎導致了伺服器停止，因此已關閉。",
     "pl.r.rej": "它擲出了未處理的錯誤，因此已關閉。",
     "pl.turnOn": "開啟",
+    "pl.download": "下载",
     "pl.turnOff": "關閉",
     "pl.del": "刪除",
     "pl.restore": "還原",
@@ -476,7 +497,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -487,7 +508,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
   "es": {
     "m.setPlugins": "Complementos",
@@ -519,6 +544,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "Parece haber detenido el servidor, así que se desactivó.",
     "pl.r.rej": "Produjo un error no gestionado y se desactivó.",
     "pl.turnOn": "Activar",
+    "pl.download": "Download",
     "pl.turnOff": "Desactivar",
     "pl.del": "Eliminar",
     "pl.restore": "Restaurar",
@@ -573,7 +599,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -584,7 +610,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
   "fr": {
     "m.setPlugins": "Modules",
@@ -616,6 +646,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "Il semble avoir arrêté le serveur, il a donc été désactivé.",
     "pl.r.rej": "Il a levé une erreur non gérée et a été désactivé.",
     "pl.turnOn": "Activer",
+    "pl.download": "Download",
     "pl.turnOff": "Désactiver",
     "pl.del": "Supprimer",
     "pl.restore": "Restaurer",
@@ -670,7 +701,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -681,7 +712,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
   "de": {
     "m.setPlugins": "Plugins",
@@ -713,6 +748,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "Es hat offenbar den Server angehalten und wurde ausgeschaltet.",
     "pl.r.rej": "Es löste einen unbehandelten Fehler aus und wurde ausgeschaltet.",
     "pl.turnOn": "Einschalten",
+    "pl.download": "Download",
     "pl.turnOff": "Ausschalten",
     "pl.del": "Löschen",
     "pl.restore": "Wiederherstellen",
@@ -767,7 +803,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -778,7 +814,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
   "it": {
     "m.setPlugins": "Plugin",
@@ -810,6 +850,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "Sembra aver fermato il server, quindi è stato disattivato.",
     "pl.r.rej": "Ha generato un errore non gestito ed è stato disattivato.",
     "pl.turnOn": "Attiva",
+    "pl.download": "Download",
     "pl.turnOff": "Disattiva",
     "pl.del": "Elimina",
     "pl.restore": "Ripristina",
@@ -864,7 +905,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -875,7 +916,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
   "pt": {
     "m.setPlugins": "Plugins",
@@ -907,6 +952,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "Parece ter parado o servidor, então foi desligado.",
     "pl.r.rej": "Gerou um erro não tratado e foi desligado.",
     "pl.turnOn": "Ligar",
+    "pl.download": "Download",
     "pl.turnOff": "Desligar",
     "pl.del": "Excluir",
     "pl.restore": "Restaurar",
@@ -961,7 +1007,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -972,7 +1018,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
   "nl": {
     "m.setPlugins": "Plug-ins",
@@ -1004,6 +1054,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "Hij lijkt de server te hebben gestopt en is uitgezet.",
     "pl.r.rej": "Hij gaf een onafgehandelde fout en is uitgezet.",
     "pl.turnOn": "Aanzetten",
+    "pl.download": "Download",
     "pl.turnOff": "Uitzetten",
     "pl.del": "Verwijderen",
     "pl.restore": "Terugzetten",
@@ -1058,7 +1109,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -1069,7 +1120,11 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
   "ru": {
     "m.setPlugins": "Плагины",
@@ -1101,6 +1156,7 @@ export const PLUGINS_WORDS = {
     "pl.r.crash": "Похоже, он остановил сервер, поэтому выключен.",
     "pl.r.rej": "Он вызвал необработанную ошибку и был выключен.",
     "pl.turnOn": "Включить",
+    "pl.download": "Download",
     "pl.turnOff": "Выключить",
     "pl.del": "Удалить",
     "pl.restore": "Восстановить",
@@ -1155,7 +1211,7 @@ export const PLUGINS_WORDS = {
     "pl.installOffNote": "This server does not allow installing from the admin page. Put COOK_PLUGIN_INSTALL=1 in the server .env and restart to allow it.",
     "pl.checking": "Checking the file.",
     "pl.installAsk": "Install {name} ({id}) {version}?\nIt arrives switched off. What this plugin asks for:\n{perms}\nFile fingerprint: {sha}",
-    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new}?\nThe old one stays in the restore list, and the new one arrives switched off.",
+    "pl.overwriteAsk": "{id} {old} is already installed. Replace it with {new} (fingerprint {sha})?\nIts settings carry over. The old one stays in the restore list, and the new one arrives switched off.",
     "pl.tInstalled": "Installed. It is switched off.",
     "pl.tInstallFail": "Could not install: {why}",
     "pl.permNone": "· Nothing special.",
@@ -1166,6 +1222,10 @@ export const PLUGINS_WORDS = {
     "pl.permProvides": "· What it does: {list}",
     "pl.askEnable": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the admin password.",
     "pl.fromUpload": "Installed from the admin page · fingerprint {sha}",
-    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?"
+    "pl.askEnableNoPw": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nSwitch it on?",
+    "pl.askEnableTotp": "Switch on {name}. A plugin is code that runs inside this server as it is.\nWhat this plugin asks for:\n{perms}\nTo go on, enter the 6-digit code from your authenticator app.",
+    "pl.restartNeeded": "A plugin of this name was already loaded, so the server must be restarted before the new version can be switched on.",
+    "pl.e.busy": "Another install is in progress. Try again in a moment.",
+    "pl.e.restart": "The server must be restarted before it can be switched on."
   },
 };

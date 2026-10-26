@@ -14,24 +14,36 @@ import crypto from "node:crypto";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { PluginError } from "./registry.js";
-import { unpackPlugin, UnpackError, UNPACK_LIMITS } from "./unpack.js";
+import { readStagedManifest, unpackPlugin, UnpackError, UNPACK_LIMITS } from "./unpack.js";
 
 export const STAGE_TTL_MS = 10 * 60_000;
 export const installAllowed = () => process.env.COOK_PLUGIN_INSTALL === "1";
 
 export function createInstaller({ registry, dataDir, now = Date.now, allowed = installAllowed, notify = () => {}, limits = UNPACK_LIMITS }) {
   const incoming = path.join(dataDir, "plugins-incoming");
-  let staged = null; // { stagedId, dir, manifest, sha256, expiresAt }
-  let timer = null;
+  let staged = null; // { stagedId, dir, manifest, sha256, expiresAt, timer }
+  let confirming = false;
+  let queue = Promise.resolve();
 
+  /** Uploads are handled one at a time: two at once would race over the one waiting place. */
+  const serial = (fn) => {
+    const next = queue.then(fn, fn);
+    queue = next.catch(() => {});
+    return next;
+  };
+
+  const forget = (item) => { if (item) clearTimeout(item.timer); };
   const dropStaged = async () => {
-    clearTimeout(timer);
+    // What is being installed right now is not thrown away from under the install.
+    if (confirming) return;
     const gone = staged;
     staged = null;
+    forget(gone);
     if (gone) await fsp.rm(gone.dir, { recursive: true, force: true });
   };
 
   async function sweep() {
+    forget(staged);
     staged = null;
     await fsp.rm(incoming, { recursive: true, force: true });
   }
@@ -40,8 +52,9 @@ export function createInstaller({ registry, dataDir, now = Date.now, allowed = i
     if (!allowed()) throw new PluginError("install-off", 403);
   }
 
-  async function stage(zip) {
+  const stage = (zip) => serial(async () => {
     guard();
+    if (confirming) throw new PluginError("busy");
     await dropStaged();
     const stagedId = crypto.randomBytes(12).toString("hex");
     const dir = path.join(incoming, stagedId);
@@ -55,9 +68,10 @@ export function createInstaller({ registry, dataDir, now = Date.now, allowed = i
     }
     const sha256 = crypto.createHash("sha256").update(zip).digest("hex").slice(0, 16);
     const expiresAt = now() + STAGE_TTL_MS;
-    staged = { stagedId, dir, manifest: unpacked.manifest, sha256, expiresAt };
-    timer = setTimeout(() => { dropStaged().catch(() => {}); }, STAGE_TTL_MS);
-    timer.unref?.();
+    const item = { stagedId, dir, manifest: unpacked.manifest, sha256, expiresAt, timer: null };
+    item.timer = setTimeout(() => { if (staged === item) dropStaged().catch(() => {}); }, STAGE_TTL_MS);
+    item.timer.unref?.();
+    staged = item;
     const current = registry.list().find((p) => p.id === unpacked.manifest.id);
     return {
       stagedId,
@@ -66,22 +80,37 @@ export function createInstaller({ registry, dataDir, now = Date.now, allowed = i
       sha256,
       expiresAt,
     };
-  }
+  });
 
   async function confirm(stagedId, { overwrite = false } = {}) {
     guard();
+    if (confirming) throw new PluginError("busy");
     // A stale or foreign id never discards the upload that is really waiting; only an expired one goes.
     if (staged && now() > staged.expiresAt) await dropStaged();
-    if (!staged || staged.stagedId !== stagedId) throw new PluginError("stage-gone", 404);
-    const { manifest, dir, sha256 } = staged;
-    const current = registry.list().find((p) => p.id === manifest.id);
-    if (current && !overwrite) throw new PluginError("exists", 409, { existing: { version: current.version, state: current.state } });
-    const plugin = await registry.installFrom(dir, manifest.id, { overwrite, origin: { source: "upload", sha256, version: manifest.version, at: now() } });
-    staged = null;
-    clearTimeout(timer);
-    notify({ id: manifest.id, event: "installed", reason: "upload", message: manifest.version });
-    return plugin;
+    const item = staged;
+    if (!item || item.stagedId !== stagedId) throw new PluginError("stage-gone", 404);
+    const current = registry.list().find((p) => p.id === item.manifest.id);
+    if (current && !overwrite) throw new PluginError("exists", 409, { existing: { version: current.version, state: current.state }, sha256: item.sha256 });
+    // From here until it is installed this upload is spoken for: no new upload and no timer takes it away,
+    // and a second press of the button finds it busy rather than installing it twice.
+    confirming = true;
+    forget(item);
+    try {
+      // What is on disk is what gets installed, so it is read and checked again, not trusted from the first look.
+      let manifest;
+      try { ({ manifest } = await readStagedManifest(item.dir)); } catch { throw new PluginError("stage-gone", 404); }
+      const plugin = await registry.installFrom(item.dir, manifest.id, { overwrite, origin: { source: "upload", sha256: item.sha256, version: manifest.version, at: now() } });
+      staged = null;
+      notify({ id: manifest.id, event: "installed", reason: "upload", message: manifest.version });
+      return plugin;
+    } catch (err) {
+      // The folder may be gone (moved or never there): then there is nothing left to confirm.
+      if (!await fsp.lstat(item.dir).then(() => true, () => false)) staged = null;
+      throw err;
+    } finally {
+      confirming = false;
+    }
   }
 
-  return { stage, confirm, sweep, discard: dropStaged };
+  return { stage, confirm, sweep, discard: dropStaged, allowed };
 }

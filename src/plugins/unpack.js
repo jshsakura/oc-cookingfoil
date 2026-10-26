@@ -166,6 +166,9 @@ export async function unpackPlugin(zip, destDir, limits = UNPACK_LIMITS) {
   }
 }
 
+/** The manifest of an unpacked folder, checked again (for a folder that waited between the look and the install). */
+export const readStagedManifest = (dir) => readManifest(dir);
+
 async function readManifest(dir) {
   const manifestFile = path.join(dir, MANIFEST_FILE);
   const st = await fs.promises.lstat(manifestFile).catch(() => null);

@@ -161,7 +161,7 @@ export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|
 
 // Reads a token may not make either: the token list (tokens never handle tokens), the admin
 // login's second step, and where consoles and accounts connected from.
-export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa|access-history|counts)(?:\/|$)/i;
+export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:(?:tokens|2fa|access-history|counts)(?:\/|$)|plugins\/[^/]+\/download\/?$)/i;
 
 /**
  * Whether an automation token is refused `method path`, with the path decoded and as this router

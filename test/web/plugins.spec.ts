@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './admin-sign-in';
+import { signIn, SECRET } from './admin-sign-in';
+import { generate } from 'otplib';
 import fs from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error a plain ES module shared with the unit tests
@@ -31,15 +32,21 @@ test('a new plugin is listed off, switches on and off, is deleted into the trash
   await expect(row).toContainText('웹 시험 플러그인');
   await expect(row).toContainText('버전 1.2.3');
 
-  await row.getByRole('button', { name: '켜기' }).click();
-  // This server has no account or admin password to repeat, so the dialog lists what the plugin asks for and asks once.
+  await expect(row.getByRole('link', { name: '다운로드' })).toHaveAttribute('href', `/admin/api/plugins/${ID}/download`);
+  const toggle = row.getByRole('switch');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await toggle.click();
+  // This server is guarded by an authenticator only, so the dialog lists what the plugin asks for and asks for a code.
   await expect(page.locator('#ask-text')).toContainText('요구하는 것');
-  await expect(page.locator('#ask-input')).toBeHidden();
+  await expect(page.locator('#ask-text')).toContainText('6자리 코드');
+  await page.locator('#ask-input').fill(await generate({ secret: SECRET }));
   await page.locator('#ask-ok').click();
   await expect(page.locator('#toast')).toContainText('켰습니다');
   await expect(row).toContainText('켜짐');
-  await row.getByRole('button', { name: '끄기' }).click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await toggle.click();
   await expect(row).toContainText('꺼짐');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
 
   await row.getByRole('button', { name: '삭제' }).click();
   await expect(page.locator('#ask-text')).toContainText('휴지통으로 옮기므로 되돌릴 수 있습니다');
