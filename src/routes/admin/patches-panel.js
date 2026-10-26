@@ -67,13 +67,8 @@ export const PATCHES_CSS = `
 .pt-row .pt-name{flex:1;min-width:0;overflow-wrap:anywhere}.pt-row .pt-name small{display:block;color:var(--muted);font-size:var(--fs-xs)}
 .pt-row .pt-size{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
 .pt-req{height:34px;min-width:92px;padding:0 10px 0 12px;gap:8px;justify-content:space-between;color:var(--muted)}
-.pt-req .switch{position:relative;flex:none;width:30px;height:18px;border-radius:var(--r-pill);background:var(--line);transition:background .15s}
-.pt-req .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .pt-req[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
-.pt-req[aria-checked="true"] .switch{background:var(--accent)}
-.pt-req[aria-checked="true"] .switch::after{transform:translateX(12px)}
 .pt-req:disabled{opacity:.6;cursor:progress}
-@media (prefers-reduced-motion:reduce){.pt-req .switch,.pt-req .switch::after{transition:none}}
 .pt-edit{width:34px;height:34px;padding:0;position:relative}.pt-edit>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #gd-patches .pt-row{border-top:1px solid var(--line)}#gd-patches .pt-row:first-child{border-top:0}
 .ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden],.ct-note[hidden],#ct-form label[hidden],#ct-form button[hidden]{display:none}.ct-note{margin:0;font-size:var(--fs-xs)}

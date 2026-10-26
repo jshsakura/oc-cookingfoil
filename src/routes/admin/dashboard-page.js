@@ -95,11 +95,6 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .pop-list a:hover,.pop-list button:hover{background:var(--sunk)}.pop-list #logout{color:var(--bad)}
 /* theme: one row with a switch; on means dark */
 .pop-list .menu-sep{height:1px;margin:4px 6px;background:var(--line)}
-.menu-toggle .switch{position:relative;flex:none;width:34px;height:20px;margin-left:auto;border-radius:var(--r-pill);background:var(--line);transition:background .15s}
-.menu-toggle .switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
-.menu-toggle[aria-checked="true"] .switch{background:var(--text)}
-.menu-toggle[aria-checked="true"] .switch::after{transform:translateX(14px)}
-@media (prefers-reduced-motion:reduce){.menu-toggle .switch,.menu-toggle .switch::after{transition:none}}
 .howto-list{margin:0;padding-left:20px;display:grid;gap:6px;font-size:var(--fs-md);line-height:1.6}
 #tab-overview>.copy-row{margin-bottom:12px}
 .copy-row code{flex:1;min-width:0;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px;font-size:var(--fs-sm);user-select:all}
@@ -173,7 +168,7 @@ button.ib.picked{color:var(--accent);opacity:1}button.ib.picked svg{fill:current
 :is(td,.gc).dim{color:var(--faint)}
 dl.kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:18px}
 dl.kv dt{color:var(--muted);font-size:var(--fs-sm)}dl.kv dd{margin:0;font-size:var(--fs-sm);word-break:break-all}
-dialog{border:1px solid var(--line2);border-radius:var(--r-2xl);background:var(--panel);color:var(--text);padding:24px;width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
+dialog{--dlg-pad:24px;border:1px solid var(--line2);border-radius:var(--r-2xl);background:var(--panel);color:var(--text);padding:var(--dlg-pad);width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
 dialog::backdrop{background:rgba(0,0,0,.55)}
 dialog.ask{width:min(420px,calc(100vw - 32px))}dialog.ask input{width:100%;box-sizing:border-box;margin:0 0 14px}dialog.ask p{margin:2px 0 14px;font-size:var(--fs-md);line-height:1.55;overflow-wrap:anywhere}
 button.danger-solid{background:var(--bad);border-color:var(--bad);color:var(--white);font-weight:700}button.danger-solid:hover{filter:brightness(1.06);border-color:var(--bad)}

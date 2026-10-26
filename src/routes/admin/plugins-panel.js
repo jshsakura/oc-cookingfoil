@@ -36,13 +36,8 @@ export const PLUGINS_CSS = `
 .pl-main .err{color:var(--bad)}
 .pl-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:var(--fs-sm)}
 .pl-sw{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-width:92px;padding:9px 12px 9px 16px;color:var(--muted)}
-.pl-sw .switch{position:relative;flex:none;width:30px;height:18px;border-radius:var(--r-pill);background:var(--line);transition:background .15s}
-.pl-sw .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .pl-sw[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
-.pl-sw[aria-checked="true"] .switch{background:var(--accent)}
-.pl-sw[aria-checked="true"] .switch::after{transform:translateX(12px)}
 .pl-sw:disabled{opacity:.6;cursor:not-allowed}
-@media (prefers-reduced-motion:reduce){.pl-sw .switch,.pl-sw .switch::after{transition:none}}
 .pl-ag{display:grid;gap:6px}
 .pl-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .pl-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:var(--r-pill);padding:2px 4px 2px 10px;font-size:var(--fs-sm)}

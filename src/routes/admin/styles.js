@@ -56,7 +56,7 @@ table{width:100%;border-collapse:collapse;background:var(--panel);border:1px sol
 th,td{text-align:left;padding:12px 14px;font-size:var(--fs-sm);border-bottom:1px solid var(--line);vertical-align:middle}
 th{color:var(--muted);font-weight:var(--fw-bold);background:var(--panel);white-space:nowrap}
 tr:last-child td{border-bottom:none}
-.pill{display:inline-block;padding:3px 10px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:var(--fw-bold);background:var(--sunk);color:var(--text);white-space:nowrap}
+.pill{display:inline-block;padding:3px 8px;border-radius:var(--r-sm);font-size:var(--fs-xs);font-weight:var(--fw-bold);background:var(--sunk);color:var(--text);white-space:nowrap}
 .pill.on{background:rgba(var(--good-rgb),.14);color:var(--good)}
 .pill.off{background:rgba(var(--bad-rgb),.12);color:var(--bad)}
 .pill.warn{background:rgba(var(--accent-rgb),.22);color:var(--warn)}
@@ -81,7 +81,23 @@ input:not([type=checkbox]):not([type=radio]):focus,select:focus{outline:none;bor
 :where(input[type=checkbox]):focus-visible{outline:none;box-shadow:0 0 0 3px rgba(var(--accent-rgb),.3)}
 :where(input[type=checkbox]):disabled{opacity:.45;cursor:default}
 button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.empty{color:var(--faint);padding:20px;text-align:center;background:var(--panel);border:1px dashed var(--line2);border-radius:var(--r-2xl);margin-bottom:20px}
+/* The client's toggle (52x30 pill, a white knob, green when on) at web size. Two markups share it: a
+   button[role=switch or menuitemcheckbox][aria-checked] holding span.switch, and label.ss-switch holding
+   a checkbox and a span. */
+.switch,.ss-switch>span{position:relative;display:inline-block;flex:none;width:40px;height:24px;border-radius:var(--r-pill);background:var(--line2);transition:background .15s}
+.switch::after,.ss-switch>span::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--white);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+[aria-checked="true"]>.switch,.ss-switch>input:checked+span{background:var(--good)}
+[aria-checked="true"]>.switch::after,.ss-switch>input:checked+span::after{transform:translateX(16px)}
+.ss-switch{position:relative;display:inline-block;vertical-align:middle;width:40px;height:24px;flex:none}
+.ss-switch>input{position:absolute;inset:0;z-index:1;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
+.ss-switch>input:disabled{cursor:default}.ss-switch>input:disabled+span{opacity:.5}
+.ss-switch>input:focus-visible+span,[role=switch]:focus-visible>.switch,[role=menuitemcheckbox]:focus-visible>.switch{outline:3px solid var(--accent);outline-offset:2px}
+.menu-toggle .switch{margin-left:auto}
+@media (prefers-reduced-motion:reduce){.switch,.switch::after,.ss-switch>span,.ss-switch>span::after{transition:none}}
+/* The client's empty state: a plain white card, its text in the secondary colour. */
+.empty{color:var(--muted);padding:24px 20px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);margin-bottom:20px}
+/* The client's dialog foot: the buttons on a ground-coloured band under a line, to the dialog's edges. */
+dialog>.dialog-actions:last-child{margin:16px calc(-1 * var(--dlg-pad,24px)) calc(-1 * var(--dlg-pad,24px));padding:14px var(--dlg-pad,24px);background:var(--bg);border-top:1px solid var(--line);border-radius:0 0 var(--r-2xl) var(--r-2xl)}
 /* A note with a title reads like a box: the title on its own band, so it never sinks into the page. */
 .note{border-radius:var(--r-2xl);padding:16px 18px;margin-bottom:12px;border:1px solid var(--line);background:var(--panel)}
 .note.warn{border-color:rgba(var(--accent-rgb),.7);background:rgba(var(--accent-rgb),.12)}

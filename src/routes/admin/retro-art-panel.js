@@ -116,7 +116,7 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 .rm-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .rm-genres{display:flex;flex-wrap:wrap;gap:6px 14px}.rm-genres label{display:flex;gap:6px;align-items:center}
 @media (max-width:560px){.rm-pair{grid-template-columns:1fr}}
-.ra-dialog{width:min(860px,94vw);max-height:88vh;border:1px solid var(--line2);border-radius:var(--r-2xl);background:var(--panel);color:var(--text);padding:20px;box-shadow:0 30px 60px var(--shadow)}
+.ra-dialog{--dlg-pad:20px;width:min(860px,94vw);max-height:88vh;border:1px solid var(--line2);border-radius:var(--r-2xl);background:var(--panel);color:var(--text);padding:var(--dlg-pad);box-shadow:0 30px 60px var(--shadow)}
 .ra-dialog::backdrop{background:rgba(0,0,0,.55)}.ra-close{float:right}.ra-dialog h3{margin:0 0 12px;font-size:var(--fs-lg)}
 .ra-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:12px 0;overflow:auto;max-height:52vh}
 .ra-grid button{display:flex;flex-direction:column;gap:6px;align-items:stretch;padding:6px;text-align:left;font-size:var(--fs-xs);font-weight:var(--fw);background:var(--panel)}

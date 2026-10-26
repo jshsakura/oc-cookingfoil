@@ -22,13 +22,6 @@ export const SERVER_SETTINGS_CSS = `
 .ss-row .ss-ctl{display:flex;justify-content:flex-end;align-items:center;gap:8px}
 .ss-row .ss-ctl input[type=text],.ss-row .ss-ctl input[type=number],.ss-row .ss-ctl select{width:100%;min-width:0}
 .ss-src{grid-column:1/-1;font-size:var(--fs-xs);color:var(--muted)}.ss-src button{font-size:var(--fs-xs);padding:2px 8px;margin-left:6px}
-.ss-switch{position:relative;display:inline-block;vertical-align:middle;width:46px;height:26px;flex:none}
-.ss-switch input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
-.ss-switch span{position:absolute;inset:0;border-radius:var(--r-pill);background:var(--sunk);border:1px solid var(--line);transition:background .15s}
-.ss-switch span::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
-.ss-switch input:checked+span{background:var(--accent);border-color:var(--accent)}
-.ss-switch input:checked+span::after{transform:translateX(20px);background:var(--accent-ink)}
-.ss-switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:640px){.ss-row{grid-template-columns:1fr}.ss-row .ss-ctl{justify-content:flex-start}}
 `;
 
