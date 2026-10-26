@@ -1,5 +1,5 @@
 import { LIBRARY_HTML, LIBRARY_PAGE_SCRIPT } from "./library-page.js";
-import { LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
+import { LIBRARY_FILES_CSS, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
 import { LIB_BROWSER_CSS, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
 import { ORGANIZE_CSS, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
 import { PATCHES_SCRIPT } from "./patches-panel.js";
@@ -78,7 +78,7 @@ const bundle = (extra) => extra;
 /** The first bundle's pages, by the path the router already knows. */
 export const SPLIT_PAGES = {
   "/admin/games": bundle({
-    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+ORGANIZE_CSS,
+    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+ORGANIZE_CSS+LIBRARY_FILES_CSS,
     body: LIBRARY_HTML+CONTENT_DIALOG_HTML,
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT+ORGANIZE_SCRIPT,
     init: "libShowSub(location.hash.split('/')[1]||'files',true);loadLibrary();",

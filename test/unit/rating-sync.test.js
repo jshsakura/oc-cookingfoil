@@ -63,6 +63,18 @@ test("never-looked-up titles come first, then misses past two weeks and hits pas
   assert.deepEqual(dueTitles(wanted, store, now).map((d) => d.tid), ["A", "D", "B"]);
 });
 
+test("a failed lookup waits a day, then a week, and keeps its old score", () => {
+  const hour = 60 * 60 * 1000, now = 1000 * hour;
+  const wanted = new Map([["A", { names: ["A game"] }], ["B", { names: ["B game"] }], ["C", { names: ["C game"] }]]);
+  const store = {
+    A: { steam: { failAt: now - 20 * hour, fails: 1 } },                             // first failure, 20 hours ago: waits a day
+    B: { steam: { failAt: now - 25 * hour, fails: 1 } },                             // first failure, 25 hours ago: due
+    C: { steam: { at: now - 30 * 24 * hour, percent: 80, count: 900, failAt: now - 6 * 24 * hour, fails: 2 } }, // second failure waits a week
+  };
+  assert.deepEqual(dueTitles(wanted, store, now).map((d) => d.tid), ["B"]);
+  assert.deepEqual(dueTitles(wanted, store, now + 25 * hour).map((d) => d.tid).sort(), ["A", "B", "C"]);
+});
+
 test("collected scores pass the vote floor and match confidence", () => {
   reset({
     T1: { steam: { at: 1, percent: 91.6, count: 1234, confidence: 1, label: "Very Positive" } },

@@ -5,11 +5,11 @@
  *   reconfirm(req, { password, code })   { ok: true } | { ok: false, reason: "wrong" | "locked" | "unavailable", retryAfter? }
  *
  * What is asked, in this order:
+ *   an authenticator is set up                        a code from it, whoever signed in and however
  *   an account signed in with ID and password         that account's password
  *   an admin password is set (COOK_ADMIN_PASSWORD or on the page)   the admin password
  *   accounts exist but this admin has no password to give (a Google admin)   "unavailable": set an admin password first
  *   a Google admin on a server with no accounts and no admin password   "unavailable" too, for the same reason
- *   an authenticator is set up                        a code from it
  *   nothing guards /admin at all                      "none": there is no gate to repeat
  * Attempts are counted before they are checked, so many at once cannot all pass on a count that was
  * read before the first of them finished: FAIL_LIMIT in WINDOW_MS locks asking for that long.
@@ -29,11 +29,12 @@ const keyOf = (req) => {
 };
 
 export function reconfirmKind(req) {
+  if (isEnrolled()) return "totp";
   const actor = adminActor(req);
   if (actor?.kind === "password" && users.hasUsers()) return "password";
   if (adminPasswordMode()) return "password";
   if (users.hasUsers() || actor?.kind === "google") return "unavailable";
-  return isEnrolled() ? "totp" : "none";
+  return "none";
 }
 
 export function resetReconfirm() { tries.clear(); }

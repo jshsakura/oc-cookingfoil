@@ -6,7 +6,7 @@ import { top } from "./top-i18n.js";
  */
 
 export const INBOX_HTML = `<section id="tab-inbox" hidden>
-  <div class="hd"><h2 class="first" data-top="s.inbox">${top("s.inbox")}</h2>
+  <div class="hd"><h2 class="first" data-top="m.inbox">${top("m.inbox")}</h2>
     <div class="seg" id="ib-show" role="group" aria-label="보기">
       <button type="button" data-show="open" aria-pressed="true" class="active">정리할 것</button>
       <button type="button" data-show="done" aria-pressed="false">정리함</button>

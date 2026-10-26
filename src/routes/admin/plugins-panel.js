@@ -5,34 +5,30 @@
  * state codes from the server and words them here, so every language gets the same facts.
  */
 import { top } from "./top-i18n.js";
+import { box } from "./boxes.js";
 
 export const PLUGINS_HTML = `<section id="tab-settings">
   <div class="hd"><h2 class="first">${top("pl.h")}</h2>
     <div class="actions"><button type="button" id="pl-rescan">${top("pl.rescan")}</button></div></div>
   <p class="muted">${top("pl.lead")}</p>
   <p class="pl-safe" id="pl-safe" hidden>${top("pl.safe")}</p>
-  <div class="pl-install">
-    <h3>${top("pl.installH")}</h3>
-    <p class="muted">${top("pl.installLead")}</p>
-    <p class="muted" id="pl-install-off" hidden>${top("pl.installOffNote")}</p>
-    <div class="actions"><button type="button" id="pl-install-btn">${top("pl.installBtn")}</button><span class="muted" id="pl-install-state" role="status"></span></div>
-    <input type="file" id="pl-install-file" accept=".zip,application/zip" hidden>
-  </div>
-  <div class="pl-list" id="pl-list"></div>
-  <div class="pl-agents" id="pl-agents" hidden>
-    <h3>${top("pl.agH")}</h3>
-    <p class="muted">${top("pl.agLead")}</p>
-    <div class="pl-list" id="pl-agents-list"></div>
-  </div>
-  <h3 id="pl-trashed-h" hidden>${top("pl.trashedH")}</h3>
-  <div class="pl-list" id="pl-trashed"></div>
+  ${box("pl-install", top("pl.installH"), `<p class="muted">${top("pl.installLead")}</p>
+    <p class="pl-off" id="pl-install-off" hidden>${top("pl.installOffNote")}</p>
+    <div class="actions" id="pl-install-on"><button type="button" id="pl-install-btn">${top("pl.installBtn")}</button><span class="muted" id="pl-install-state" role="status"></span></div>
+    <input type="file" id="pl-install-file" accept=".zip,application/zip" hidden>`, { level: "h3" })}
+  ${box("pl-installed", top("pl.listH"), `<div class="pl-list" id="pl-list"></div>`, { level: "h3", meta: `<span id="pl-count"></span>` })}
+  <div id="pl-agents" hidden>${box("pl-agents-box", top("pl.agH"), `<p class="muted">${top("pl.agLead")}</p>
+    <div class="pl-list" id="pl-agents-list"></div>`, { level: "h3" })}</div>
+  <div id="pl-trashed-h" hidden>${box("pl-trash", top("pl.trashedH"), `<div class="pl-list" id="pl-trashed"></div>`, { level: "h3" })}</div>
 </section>`;
 
 export const PLUGINS_CSS = `
 .pl-safe{background:rgba(var(--accent-rgb),.1);border:1px solid rgba(var(--accent-rgb),.5);border-radius:14px;padding:10px 14px;margin:6px 0 12px;font-weight:600}
 #ask-text{white-space:pre-line}
-.pl-install{margin:6px 0 14px}
-.pl-list{display:grid;gap:10px;margin:8px 0 14px}
+.pl-off{margin:0;padding:10px 14px;border-radius:12px;background:var(--sunk);color:var(--muted);font-size:13px}
+#pl-install-on[hidden]{display:none}
+.pl-list{display:grid;gap:10px}
+.pl-list>p.muted{margin:0}
 .pl-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
 .pl-main{display:grid;gap:3px;min-width:0}
 .pl-main b{overflow-wrap:anywhere}
@@ -47,7 +43,6 @@ export const PLUGINS_CSS = `
 .pl-sw[aria-checked="true"] .switch::after{transform:translateX(12px)}
 .pl-sw:disabled{opacity:.6;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){.pl-sw .switch,.pl-sw .switch::after{transition:none}}
-.pl-agents{margin:6px 0 14px}
 .pl-ag{display:grid;gap:6px}
 .pl-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .pl-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:100px;padding:2px 4px 2px 10px;font-size:13px}
@@ -157,7 +152,7 @@ function plTrashedRow(t){
   r.append(main,act);return r;}
 function plRender(){if(!plData)return;
   $('pl-safe').hidden=!plData.safeMode;
-  $('pl-install-btn').disabled=!plData.installAllowed;$('pl-install-off').hidden=!!plData.installAllowed;
+  $('pl-install-on').hidden=!plData.installAllowed;$('pl-install-off').hidden=!!plData.installAllowed;$('pl-count').textContent=plData.plugins.length?String(plData.plugins.length):'';
   $('pl-list').replaceChildren(...(plData.plugins.length?plData.plugins.map(plRow):[el('p',plT('none'),'muted')]));
   $('pl-trashed-h').hidden=!plData.trashed.length;
   $('pl-trashed').replaceChildren(...plData.trashed.map(plTrashedRow));}
