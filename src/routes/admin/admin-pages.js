@@ -202,7 +202,7 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-drawer-hd{flex:none;display:flex;align-items:center;gap:10px;padding:max(18px, env(safe-area-inset-top, 0px)) 16px 16px;border-bottom:1px solid var(--line);font-weight:800}
 .adm-drawer-hd b{font-size:16px;letter-spacing:-.01em}
 .adm-drawer-hd .logo{display:block}
-#adm-drawer-close{margin-left:auto;border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer;width:44px;height:44px;border-radius:10px}
+#adm-drawer-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:100px;background:var(--panel);color:var(--text);font-size:13px;line-height:1;cursor:pointer}
 #adm-drawer-close:hover{background:var(--sunk);color:var(--text)}
 @media (prefers-reduced-motion:no-preference){.adm-drawer[open]{animation:adm-drawer-in .18s ease-out}
 @keyframes adm-drawer-in{from{transform:translateX(-14px)}to{transform:none}}}

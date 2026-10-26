@@ -34,6 +34,9 @@ test('a new plugin is listed off, switches on and off, is deleted into the trash
   await expect(row.getByRole('link', { name: '다운로드' })).toHaveAttribute('href', `/admin/api/plugins/${ID}/download`);
   const toggle = row.getByRole('switch');
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  // The switch is as tall as the row's other buttons.
+  const heights = await Promise.all([toggle, row.getByRole('button', { name: '삭제' })].map((l) => l.evaluate((e) => e.getBoundingClientRect().height)));
+  expect(heights[0]).toBe(heights[1]);
   await toggle.click();
   // The dialog lists what the plugin asks for and asks no password or code.
   await expect(page.locator('#ask-text')).toContainText('요구하는 것');

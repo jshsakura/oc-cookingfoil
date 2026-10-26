@@ -35,7 +35,7 @@ export const PLUGINS_CSS = `
 .pl-main span{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
 .pl-main .err{color:var(--bad)}
 .pl-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
-.pl-sw{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;height:34px;min-width:92px;padding:0 10px 0 12px;color:var(--muted)}
+.pl-sw{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-width:92px;padding:9px 12px 9px 16px;color:var(--muted)}
 .pl-sw .switch{position:relative;flex:none;width:30px;height:18px;border-radius:100px;background:var(--line);transition:background .15s}
 .pl-sw .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .pl-sw[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
@@ -100,8 +100,8 @@ function plPerms(p){const L=[];
   if(has('event')&&p.identity&&p.identity.length)L.push(plT('permIdentity',{list:p.identity.map((i)=>plT('id.'+i)).join(', ')}));
   if(p.provides&&p.provides.length)L.push(plT('permProvides',{list:p.provides.map((k)=>plT('k.'+k)).join(', ')}));
   return L.length?L.join('\\n'):plT('permNone');}
-// The on/off switch of a row (the same .switch look as the patches page). Turning on opens the permission and
-// password dialog; if that is cancelled or fails, the row is drawn again and the switch is back where it was.
+// The on/off switch of a row, as tall as the row's other buttons. Turning on opens the permission
+// dialog; if that is cancelled or fails, the row is drawn again and the switch is back where it was.
 function plToggle(p,name,usable){
   const b=el('button',p.enabled?plT('s.on'):plT('s.off'),'pl-sw');b.type='button';
   b.setAttribute('role','switch');b.setAttribute('aria-checked',String(p.enabled));b.setAttribute('aria-label',name);

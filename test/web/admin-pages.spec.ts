@@ -195,6 +195,10 @@ test.describe('on a phone', () => {
     expect(fit.radius).toBe('0px');
     expect(fit.bottom).toBeLessThanOrEqual(fit.screen);
     expect(fit.lastBottom).toBeLessThanOrEqual(fit.navBottom);
+    // The close button is a small round outlined button like the header's, not a bare 44px glyph.
+    const close = await page.locator('#adm-drawer-close').evaluate((b) => ({ w: b.getBoundingClientRect().width, border: getComputedStyle(b).borderTopWidth }));
+    expect(close.w).toBeLessThanOrEqual(40);
+    expect(close.border).toBe('1px');
   });
 });
 
