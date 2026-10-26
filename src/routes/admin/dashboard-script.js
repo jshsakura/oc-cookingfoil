@@ -122,7 +122,7 @@ ${ADMIN_SECURITY_SCRIPT}
 // A tab that fails to load says so instead of leaving old rows on screen; the same failure is told once.
 let loadErr='';
 function guarded(fn){return async(...a)=>{try{const r=await fn(...a);loadErr='';return r;}
-  catch(err){const m='불러오지 못했습니다: '+(err&&err.message||err);if(m!==loadErr)toast(m);loadErr=m;}};}
+  catch(err){const m=topFill('as.loadFail',{msg:err&&err.message||err});if(m!==loadErr)toast(m);loadErr=m;}};}
 loadHealth=guarded(loadHealth);loadStats=guarded(loadStats);loadDevices=guarded(loadDevices);
 loadAccounts=guarded(loadAccounts);loadServerSettings=guarded(loadServerSettings);loadGoogleSettings=guarded(loadGoogleSettings);loadLibrary=guarded(loadLibrary);loadHomebrew=guarded(loadHomebrew);
 showTab();loadStats();loadDevices();loadAccounts();loadGoogleSettings();

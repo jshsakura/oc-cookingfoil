@@ -45,6 +45,7 @@ export const EVENTS = {
   nsz: { label: "NSZ 변환", desc: "변환 대기열을 모두 처리했을 때와, 작업 공간이 모자라거나 잇달아 실패해 멈췄을 때 알립니다.", on: true },
   security: { label: "보안 감시", desc: "누가 로그인을 거듭 틀리기 시작하면 주소가 잠기기 전에 알리고, 6시간마다 그동안 틀린 로그인, 잠근 주소, 막은 요청을 모아 보냅니다. 틀린 로그인도 잠금도 없던 동안에는 보내지 않습니다.", on: true },
   server: { label: "서버 시작", desc: "서버가 켜질 때 알립니다. 업데이트 뒤나 예상하지 못한 재시작을 알 수 있고, 외부 다운로드 전용 주소의 상태도 함께 적습니다.", on: true },
+  plugin: { label: translator("ko")("event.plugin"), desc: translator("ko")("eventDesc.plugin"), on: true },
 };
 export const DEDUPE_MS = 30 * 60 * 1000;
 export const DIGEST_MS = 10 * 60 * 1000;
@@ -168,7 +169,7 @@ export async function recentChats(botToken) {
 
 const link = () => (publicBaseUrl ? `\n\n🔗 ${publicBaseUrl.replace(/\/$/, "")}/admin` : "");
 // Each kind of alert leads with its own emoji, so the chat reads at a glance.
-const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", test: "🔔" };
+const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", plugin: "🧩", test: "🔔" };
 
 /** Sends now and records how it went. Resolves to the history entry. */
 async function deliver(event, text, now, title = translator(alertLang())(`event.${event}`), extra = {}) {

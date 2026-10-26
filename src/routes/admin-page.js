@@ -72,6 +72,7 @@ import { mountKeysApi } from "./admin/keys-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
 import { mountTrashApi } from "./admin/trash-api.js";
+import { mountPluginsApi } from "./admin/plugins-api.js";
 import { mountLibraryOrganizeApi } from "./admin/library-organize-api.js";
 import { mountLibraryBrowseApi } from "./admin/library-browse-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
@@ -81,6 +82,7 @@ import { mountTransfersApi } from "./admin/transfers-api.js";
 import * as inboxStore from "../meta/inbox.js";
 import * as googleAccounts from "../security/google-accounts.js";
 import { clientBuildStatus } from "./client-update.js";
+import { TOP_WORDS } from "./admin/top-i18n.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
 import { authLanes, configWarnings } from "../security/config-health.js";
@@ -127,20 +129,20 @@ function loginMode() {
 }
 
 /** Session check that also leaves a trail when it fails. */
-const BUILD_REASONS = {
-  empty: "파일이 비어 있습니다", "not-nro": "NRO 파일이 아닙니다(0x10 에 NRO0 가 없습니다)", truncated: "파일이 잘렸습니다(헤더가 말하는 크기보다 작습니다)",
-  "trailing-bytes": "헤더가 말하는 크기 뒤에 군더더기가 붙어 있습니다", "no-assets": "ASET 자산이 없습니다", "no-nacp": "NACP 가 없습니다",
-  "bad-version": "NACP 표시 버전이 x.y.z 형식이 아닙니다", downgrade: "지금 내보내는 버전보다 낮습니다", "too-large": "파일이 너무 큽니다",
-};
-
-/** A rejected client build, as an overview warning. */
+/**
+ * A rejected client build, as an overview warning. The page words it from the reason, message and
+ * version in its dictionary; title and detail are the English fallback for any other reader.
+ */
 function clientBuildWarnings() {
   const { published, rejected } = clientBuildStatus();
   if (!rejected) return [];
+  const en = TOP_WORDS.en;
+  const fill = (text, vars) => Object.entries(vars).reduce((t, [k, v]) => t.split(`{${k}}`).join(v), text);
   return [{
     code: "client-build-rejected", severity: "warn",
-    title: "새 클라이언트 파일을 내보내지 않았습니다",
-    detail: `data/client/cookingfoil.nro 가 검사를 통과하지 못했습니다: ${BUILD_REASONS[rejected.code] ?? rejected.code} (${rejected.message}). ${published ? `기기에는 ${published.version} 을 계속 내보냅니다.` : "아직 내보내는 버전이 없습니다."}`,
+    reason: rejected.code, message: rejected.message, version: published?.version ?? null,
+    title: en["ov.w.buildT"],
+    detail: `${fill(en["ov.w.buildLead"], { code: en[`ov.w.buildR.${rejected.code}`] ?? rejected.code, msg: rejected.message })} ${published ? fill(en["ov.w.buildKept"], { v: published.version }) : en["ov.w.buildNone"]}`,
   }];
 }
 
@@ -155,7 +157,7 @@ function clientBuildWarnings() {
 // the trash, the one delete nothing brings back. Restoring from the trash and undoing a move
 // stay open. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty|plugins\/(?:rescan|restore|[^/]+\/(?:enabled|trash)))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 // Reads a token may not make either: the token list (tokens never handle tokens), the admin
 // login's second step, and where consoles and accounts connected from.
@@ -572,6 +574,7 @@ export default function adminPageRouter() {
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
   mountTrashApi(router, requireSession);
+  mountPluginsApi(router, requireSession);
   mountLibraryOrganizeApi(router, requireSession);
   mountLibraryBrowseApi(router, requireSession);
   mountInboxApi(router, requireSession);

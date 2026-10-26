@@ -35,7 +35,7 @@ import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import { TRASH_DIR, cleanRel, measure, trashError } from "./trash.js";
+import { TRASH_DIR, cleanRel, isProtectedRel, measure, trashError } from "./trash.js";
 import { trashText } from "./trash-messages.js";
 import { moveAcross, realInside, sweepPartials, withLocks } from "./safe-move.js";
 
@@ -188,6 +188,7 @@ export async function undoMove(roots, id, { by = null, now = Date.now(), after =
     if (!again) throw trashError("noOp", 404);
     const { root: r, lines, op, want } = again;
     if (lines.some((l) => l.undo === want)) throw trashError("alreadyUndone");
+    if (isProtectedRel(op.fromRoot, op.from) || isProtectedRel(op.toRoot, op.to)) throw trashError("bad-path", 400);
     const check = await undoable(op, roots);
     if (!check.ok) throw trashError(check.reason);
     const back = path.join(fromRoot.dir, ...op.from.split("/"));

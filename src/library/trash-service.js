@@ -94,6 +94,7 @@ function refresh(keys) {
 export async function trash(key, items, meta = {}) {
   const root = rootOf(key);
   if (!root) throw trashStore.trashError("noRoot", 404);
+  if (items.some((it) => trashStore.isProtectedRel(key, it.rel))) throw trashStore.trashError("bad-path", 400);
   const out = await trashStore.trashItems(root, items, meta);
   debug.log("trash: %s %s → %s (%s, %s)", key, out.files.join(", "), out.entries.map((e) => e.entry).join(", "), meta.action ?? "-", meta.by?.name ?? "-");
   return out;

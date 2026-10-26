@@ -52,6 +52,7 @@ export const ADMIN_PAGES = [
   { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", group: "set", shared: true },
   { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", group: "set", shared: true },
   { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "set" },
+  { path: "/admin/settings/plugins", tab: "settings", sub: "plugins", label: "m.setPlugins", group: "set" },
 ];
 
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
@@ -216,7 +217,7 @@ const H2P=${JSON.stringify(PATH_FOR_TAB)};
 const P2F=${JSON.stringify(Object.fromEntries(ADMIN_PAGES.map((p) => [p.path, "#" + p.tab + (p.sub ? "/" + p.sub : "")])))};
 const TAB_OF=${JSON.stringify(Object.fromEntries(ADMIN_PAGES.map((p) => [p.path, p.tab])))};
 function pathForHash(parts){const [tab,sub]=parts;
-  if(tab==='settings')return ({integrations:'/admin/settings/integrations',security:PAGE.path==='/admin/settings/login'?PAGE.path:'/admin/settings/admin',tokens:'/admin/settings/automation'})[sub]||'/admin/settings/server';
+  if(tab==='settings')return ({integrations:'/admin/settings/integrations',security:PAGE.path==='/admin/settings/login'?PAGE.path:'/admin/settings/admin',tokens:'/admin/settings/automation',plugins:'/admin/settings/plugins'})[sub]||'/admin/settings/server';
   if(tab==='logs')return ({client:'/admin/logs/clients',deny:'/admin/logs/security'})[sub]||'/admin/logs/downloads';
   return H2P[tab]||'/admin';}
 const legacy=location.hash.slice(1).split('/');
@@ -227,6 +228,7 @@ function activePath(){let p=location.pathname;
   if(parts[0]==='settings'){const sub=parts[1];
     if(sub==='integrations')p='/admin/settings/integrations';
     else if(sub==='tokens')p='/admin/settings/automation';
+    else if(sub==='plugins')p='/admin/settings/plugins';
     else if(sub==='security')p=(p==='/admin/settings/admin')?p:'/admin/settings/login';}
   return p;}
 function mark(){const p=activePath(),q=new URLSearchParams(location.search);

@@ -43,6 +43,8 @@ export const DIRECT_DELETES = Object.freeze({
   "src/retro/pack-fill.js": { count: 11, why: "files this run placed and verified, and its work folders" },
   "src/retro/rom-patch.js": { count: 4, why: "work files, and the backup once it is back over the ROM" },
   "src/retro/square-art.js": { count: 3, why: "derived square art and temporary files" },
+  "src/plugins/registry.js": { count: 3, why: "a plugin's cache folder when the operator asks to drop it, the source of a cross-disk move after the copy, and the note of a restored trash entry" },
+  "src/plugins/state.js": { count: 1, why: "the boot and crash marks, which the server writes itself" },
   "src/routes/admin/homebrew-upload.js": { count: 1, why: "the waiting copy, after the old file could not go to the trash" },
   "src/routes/admin/retro-patch-api.js": { count: 2, why: "uploaded patch work folders" },
   "src/routes/admin/upload-api.js": { count: 3, why: "upload work folders" },

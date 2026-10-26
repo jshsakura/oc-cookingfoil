@@ -21,6 +21,13 @@ const M = {
   "event.direct": { ko: "외부 다운로드 전용 주소", en: "External download address", ja: "外部ダウンロード専用アドレス", zh: "外部下载专用地址" },
   "event.nsz": { ko: "NSZ 변환", en: "NSZ conversion", ja: "NSZ 変換", zh: "NSZ 转换" },
   "event.security": { ko: "보안 감시", en: "Security watch", ja: "セキュリティ監視", zh: "安全监控" },
+  "event.plugin": { ko: "플러그인", en: "Plugin", ja: "プラグイン", zh: "插件" },
+  "eventDesc.plugin": {
+    ko: "플러그인이 기동에 거듭 실패해 자동으로 꺼졌을 때, 서버가 죽는 원인이 되어 꺼졌을 때, 호출이 계속 실패해 잠시 쉬기 시작할 때 알립니다.",
+    en: "Tells you when a plugin is switched off automatically after failing to start, after it brought the server down, or when its calls keep failing and it is paused.",
+    ja: "プラグインが起動に失敗し続けて自動でオフになったとき、サーバーを止める原因となってオフになったとき、呼び出しが失敗し続けて休止に入ったときに知らせます。",
+    zh: "插件因连续启动失败被自动关闭、因导致服务器停止被关闭，或调用持续失败而暂停时通知。",
+  },
   "event.server": { ko: "서버 시작", en: "Server started", ja: "サーバー起動", zh: "服务器启动" },
   "event.test": { ko: "알림 시험", en: "Alert test", ja: "通知テスト", zh: "通知测试" },
 
@@ -66,6 +73,19 @@ const M = {
     en: ({ mins, count, addresses, top }) => `⛔ Blocked ${count} more in the last ${mins} minutes, from ${addresses} addresses. Most tried: ${top}.`,
     ja: ({ mins, count, addresses, top }) => `⛔ 直近 ${mins} 分間にさらに ${count} 件をブロックしました。送信元アドレスは ${addresses} 件、よく狙われたパスは ${top} です。`,
     zh: ({ mins, count, addresses, top }) => `⛔ 过去 ${mins} 分钟内又拦截了 ${count} 次，来自 ${addresses} 个地址，最常尝试的路径：${top}。`,
+  },
+
+  pluginAutoOff: {
+    ko: ({ id, why }) => `🧩 플러그인 ${id} 를 자동으로 껐습니다: ${why}. 관리 화면의 플러그인 페이지에서 원인을 보고 다시 켤 수 있습니다.`,
+    en: ({ id, why }) => `🧩 The plugin ${id} was switched off automatically: ${why}. See why on the admin page's plugins page and switch it on again from there.`,
+    ja: ({ id, why }) => `🧩 プラグイン ${id} を自動的にオフにしました: ${why}。管理画面のプラグインページで原因を確認し、再度オンにできます。`,
+    zh: ({ id, why }) => `🧩 插件 ${id} 已被自动关闭：${why}。可在管理页面的插件页查看原因并重新开启。`,
+  },
+  pluginCooling: {
+    ko: ({ id, minutes }) => `🧩 플러그인 ${id} 의 호출이 연달아 실패해 ${minutes}분 동안 쉽니다. 그동안은 다음 출처로 넘어갑니다.`,
+    en: ({ id, minutes }) => `🧩 Calls to the plugin ${id} keep failing, so it is paused for ${minutes} minutes. Other sources are used meanwhile.`,
+    ja: ({ id, minutes }) => `🧩 プラグイン ${id} の呼び出しが続けて失敗したため、${minutes} 分間休止します。その間は次の取得元を使います。`,
+    zh: ({ id, minutes }) => `🧩 插件 ${id} 的调用连续失败，暂停 ${minutes} 分钟。期间将使用其他来源。`,
   },
 
   lockout: {

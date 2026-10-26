@@ -82,7 +82,7 @@ async function loadAlerts(){
     :!d.chatId?[topText('al.noChatT'),topText('al.noChatS')]
     :[topText('al.onT'),(d.bot?topFill('al.botName',{bot:d.bot}):'')+topFill('al.onS',{chat:d.chatId,env:d.source==='env'?topText('al.envTag'):''})];
   st.querySelector('strong').textContent=title;st.querySelector('span:not(.al-dot)').textContent=sub;
-  const f=$('al-form');f.botToken.value='';f.botToken.placeholder=topText('al.botTokenPh')+(d.tokenSet?topText('ig.storedSet'):'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons===true;f.lang.value=d.lang||'ko';f.approvers.value=(d.approvers||[]).join(',');
+  const f=$('al-form');f.botToken.value='';if(d.tokenSet)f.botToken.dataset.topPhTail='ig.storedSet';else delete f.botToken.dataset.topPhTail;f.botToken.placeholder=topText('al.botTokenPh')+(d.tokenSet?topText('ig.storedSet'):'');f.chatId.value=d.chatId||'';f.buttons.checked=d.buttons===true;f.lang.value=d.lang||'ko';f.approvers.value=(d.approvers||[]).join(',');
   // People the bot heard from lately; a click adds one to the list.
   $('al-users').replaceChildren(...(d.users||[]).length?[el('span',topText('al.usersLede'),'muted'),...d.users.map((u)=>btn(topFill('al.userBtn',{name:u.name||topText('al.noName'),id:u.id}),()=>{
     const ids=f.approvers.value.split(',').map((x)=>x.trim()).filter(Boolean);if(!ids.includes(u.id))f.approvers.value=[...ids,u.id].join(',');}))]:[]);

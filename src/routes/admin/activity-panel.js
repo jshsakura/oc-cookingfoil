@@ -69,22 +69,31 @@ export const ACTIVITY_CSS = /* css */ `
 
 export const ACTIVITY_BUTTON_HTML = `${icon("account")}<span class="act-count" id="act-count" hidden></span>`;
 
+const ACTIVITY_WORDS = {
+  ko: { label: "서버 활동", menu: "계정 메뉴 및 서버 활동", heading: "지금 하는 일", recent: "최근 10분", idle: "지금은 하는 일이 없습니다.", connecting: "연결하고 있습니다", none: "최근에 끝난 일이 없습니다.", live: "실시간", polling: "15초마다 확인합니다", stop: "중지", confirm: "이 작업을 중지할까요?", stopping: "작업을 중지합니다.", stopped: "중지했습니다", failed: "실패했습니다", now: "방금", seconds: "초", minutes: "분", hours: "시간", ago: "분 전" },
+  en: { label: "Server activity", menu: "Account menu and server activity", heading: "Running now", recent: "Last 10 minutes", idle: "No tasks are running.", connecting: "connecting", none: "No recently completed tasks.", live: "Live", polling: "Checking every 15 seconds", stop: "Stop", confirm: "Stop this task?", stopping: "Stopping the task.", stopped: "Stopped", failed: "Failed", now: "Just now", seconds: "s", minutes: "m", hours: "h", ago: "m ago" },
+  ja: { label: "サーバーの動作", menu: "アカウントメニューとサーバーの動作", heading: "実行中", recent: "直近10分", idle: "実行中の作業はありません。", connecting: "接続しています", none: "最近完了した作業はありません。", live: "リアルタイム", polling: "15秒ごとに確認", stop: "停止", confirm: "この作業を停止しますか？", stopping: "作業を停止します。", stopped: "停止しました", failed: "失敗しました", now: "たった今", seconds: "秒", minutes: "分", hours: "時間", ago: "分前" },
+  zh: { label: "服务器活动", menu: "账户菜单与服务器活动", heading: "正在运行", recent: "最近10分钟", idle: "目前没有正在运行的任务。", connecting: "正在连接", none: "最近没有已完成的任务。", live: "实时", polling: "每15秒检查一次", stop: "停止", confirm: "停止此任务？", stopping: "正在停止任务。", stopped: "已停止", failed: "失败", now: "刚刚", seconds: "秒", minutes: "分", hours: "小时", ago: "分钟前" },
+  "zh-Hant": { label: "伺服器活動", menu: "帳戶選單與伺服器活動", heading: "正在進行", recent: "最近10分鐘", idle: "目前沒有正在執行的任務。", connecting: "正在連線", none: "最近沒有已完成的任務。", live: "即時", polling: "每15秒檢查一次", stop: "停止", confirm: "停止此任務？", stopping: "正在停止任務。", stopped: "已停止", failed: "失敗", now: "剛剛", seconds: "秒", minutes: "分", hours: "小時", ago: "分鐘前" },
+  es: { label: "Actividad del servidor", menu: "Menú de cuenta y actividad del servidor", heading: "En marcha", recent: "Últimos 10 minutos", idle: "No hay tareas en marcha.", connecting: "conectando", none: "No hay tareas terminadas hace poco.", live: "En directo", polling: "Comprueba cada 15 segundos", stop: "Parar", confirm: "¿Parar esta tarea?", stopping: "Parando la tarea.", stopped: "Parada", failed: "Fallida", now: "Ahora mismo", seconds: "s", minutes: "m", hours: "h", ago: "hace m" },
+  fr: { label: "Activité du serveur", menu: "Menu du compte et activité du serveur", heading: "En cours", recent: "10 dernières minutes", idle: "Aucune tâche en cours.", connecting: "connexion", none: "Aucune tâche finie récemment.", live: "En direct", polling: "Vérifie toutes les 15 secondes", stop: "Arrêter", confirm: "Arrêter cette tâche ?", stopping: "Arrêt de la tâche.", stopped: "Arrêtée", failed: "Échouée", now: "À l’instant", seconds: "s", minutes: "min", hours: "h", ago: "il y a min" },
+  de: { label: "Serveraktivität", menu: "Kontomenü und Serveraktivität", heading: "Läuft gerade", recent: "Letzte 10 Minuten", idle: "Keine Aufgaben laufen.", connecting: "verbinde", none: "Keine kürzlich beendeten Aufgaben.", live: "Live", polling: "Prüft alle 15 Sekunden", stop: "Anhalten", confirm: "Diese Aufgabe anhalten?", stopping: "Aufgabe wird angehalten.", stopped: "Angehalten", failed: "Fehlgeschlagen", now: "Gerade eben", seconds: "s", minutes: "min", hours: "h", ago: "vor min" },
+  it: { label: "Attività del server", menu: "Menu account e attività del server", heading: "In corso", recent: "Ultimi 10 minuti", idle: "Nessuna attività in corso.", connecting: "connessione", none: "Nessuna attività completata di recente.", live: "In diretta", polling: "Controlla ogni 15 secondi", stop: "Ferma", confirm: "Fermare questa attività?", stopping: "Fermo l’attività.", stopped: "Ferma", failed: "Fallita", now: "Proprio ora", seconds: "s", minutes: "min", hours: "h", ago: "min fa" },
+  pt: { label: "Atividade do servidor", menu: "Menu da conta e atividade do servidor", heading: "Em andamento", recent: "Últimos 10 minutos", idle: "Nenhuma tarefa em execução.", connecting: "conectando", none: "Nenhuma tarefa concluída recentemente.", live: "Ao vivo", polling: "Confere a cada 15 segundos", stop: "Parar", confirm: "Parar esta tarefa?", stopping: "Parando a tarefa.", stopped: "Parada", failed: "Falhou", now: "Agora mesmo", seconds: "s", minutes: "min", hours: "h", ago: "min atrás" },
+  ru: { label: "Активность сервера", menu: "Меню аккаунта и активность сервера", heading: "Выполняется", recent: "Последние 10 минут", idle: "Задач нет.", connecting: "соединение", none: "Недавно завершённых задач нет.", live: "Вживую", polling: "Проверка каждые 15 секунд", stop: "Остановить", confirm: "Остановить эту задачу?", stopping: "Останавливаю задачу.", stopped: "Остановлено", failed: "Не удалось", now: "Только что", seconds: "с", minutes: "мин", hours: "ч", ago: "мин назад" },
+  nl: { label: "Serveractiviteit", menu: "Accountmenu en serveractiviteit", heading: "Bezig", recent: "Laatste 10 minuten", idle: "Geen taken bezig.", connecting: "verbinden", none: "Geen recent afgeronde taken.", live: "Live", polling: "Controleert elke 15 seconden", stop: "Stoppen", confirm: "Deze taak stoppen?", stopping: "Taak wordt gestopt.", stopped: "Gestopt", failed: "Mislukt", now: "Zojuist", seconds: "s", minutes: "min", hours: "u", ago: "min geleden" },
+};
+
 export const ACTIVITY_HTML = /* html */ `
-    <section class="act-pop" id="act-pop" role="region" aria-label="서버 활동">
-      <div class="act-h"><b id="act-heading">지금 하는 일</b><span class="act-live" id="act-live">연결하고 있습니다</span></div>
+    <section class="act-pop" id="act-pop" role="region" aria-label="${ACTIVITY_WORDS.ko.label}">
+      <div class="act-h"><b id="act-heading">${ACTIVITY_WORDS.ko.heading}</b><span class="act-live" id="act-live">${ACTIVITY_WORDS.ko.connecting}</span></div>
       <ul class="act-list" id="act-running" aria-live="polite"></ul>
-      <p class="act-empty" id="act-idle">지금은 하는 일이 없습니다.</p>
-      <div class="act-h sub"><b id="act-recent-heading">최근 10분</b></div>
+      <p class="act-empty" id="act-idle">${ACTIVITY_WORDS.ko.idle}</p>
+      <div class="act-h sub"><b id="act-recent-heading">${ACTIVITY_WORDS.ko.recent}</b></div>
       <ul class="act-list" id="act-recent"></ul>
-      <p class="act-empty" id="act-none">최근에 끝난 일이 없습니다.</p>
+      <p class="act-empty" id="act-none">${ACTIVITY_WORDS.ko.none}</p>
     </section>`;
 
-const ACTIVITY_WORDS = {
-  ko: { label: "서버 활동", menu: "계정 메뉴 및 서버 활동", heading: "지금 하는 일", recent: "최근 10분", idle: "지금은 하는 일이 없습니다.", none: "최근에 끝난 일이 없습니다.", live: "실시간", polling: "15초마다 확인합니다", stop: "중지", confirm: "이 작업을 중지할까요?", stopping: "작업을 중지합니다.", stopped: "중지했습니다", failed: "실패했습니다", now: "방금", seconds: "초", minutes: "분", hours: "시간", ago: "분 전" },
-  en: { label: "Server activity", menu: "Account menu and server activity", heading: "Running now", recent: "Last 10 minutes", idle: "No tasks are running.", none: "No recently completed tasks.", live: "Live", polling: "Checking every 15 seconds", stop: "Stop", confirm: "Stop this task?", stopping: "Stopping the task.", stopped: "Stopped", failed: "Failed", now: "Just now", seconds: "s", minutes: "m", hours: "h", ago: "m ago" },
-  ja: { label: "サーバーの動作", menu: "アカウントメニューとサーバーの動作", heading: "実行中", recent: "直近10分", idle: "実行中の作業はありません。", none: "最近完了した作業はありません。", live: "リアルタイム", polling: "15秒ごとに確認", stop: "停止", confirm: "この作業を停止しますか？", stopping: "作業を停止します。", stopped: "停止しました", failed: "失敗しました", now: "たった今", seconds: "秒", minutes: "分", hours: "時間", ago: "分前" },
-  zh: { label: "服务器活动", menu: "账户菜单与服务器活动", heading: "正在运行", recent: "最近10分钟", idle: "目前没有正在运行的任务。", none: "最近没有已完成的任务。", live: "实时", polling: "每15秒检查一次", stop: "停止", confirm: "停止此任务？", stopping: "正在停止任务。", stopped: "已停止", failed: "失败", now: "刚刚", seconds: "秒", minutes: "分", hours: "小时", ago: "分钟前" },
-};
 
 const ADMIN_FOLLOW_SCRIPT = /* js */ `const ACT_FOLLOW=[
   // A split page carries only its own panels: the hooks must not name a

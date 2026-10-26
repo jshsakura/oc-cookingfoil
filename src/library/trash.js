@@ -465,6 +465,14 @@ export function numbered(rel, k, isDir) {
 const takenError = (rel) => trashError("placeTaken", 409, { rel });
 
 /**
+ * Folders of the server's own data root that the trash never touches in either direction: plugins are
+ * code that runs in this process, so the only way in or out of them is the plugin registry's own
+ * move (plugins/registry.js), never a restore, undo or trash of a path.
+ */
+const PROTECTED_DATA_DIRS = new Set(["plugins", "plugins-trash"]);
+export const isProtectedRel = (rootKey, rel) => rootKey === "data" && PROTECTED_DATA_DIRS.has(String(rel).split("/").find((p) => p && p !== ".") ?? "");
+
+/**
  * Puts an entry back. Nothing is ever overwritten: by default an entry whose
  * places are taken comes back beside them, every item under the same number
  * ("<name> (2)"), so files that belong together keep matching names. With
@@ -484,6 +492,7 @@ export async function restoreEntry(root, home, entry, { exactName = false, after
   return withLocks([root.dir], async () => {
     const m = normalizeManifest(readJson(path.join(base, MANIFEST)), root.key);
     if (!m) throw trashError("notInTrash", 404);
+    if (m.items.some((it) => isProtectedRel(root.key, it.rel))) throw trashError("bad-path", 400);
     await sweepBeside(m.items.map((it) => path.join(root.dir, ...it.rel.split("/"))), [base]);
     const todo = [];
     const already = [];

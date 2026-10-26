@@ -56,10 +56,16 @@ export const OPT_OUT = {
   "GET /admin/settings/login": "browser-only",
   "GET /admin/settings/admin": "browser-only",
   "GET /admin/settings/automation": "browser-only",
+  "GET /admin/settings/plugins": "browser-only",
   // The shell's four sidebar numbers: a read for the page's own badges, not a tool.
   "GET /admin/api/counts": "browser-only",
   // Emptying the trash is the one permanent delete; only a person on the admin page does it.
   "POST /admin/api/trash/empty": "token-blocked",
+  // A plugin is code that runs in this process: switching one on, deleting or restoring one is a person's choice.
+  "POST /admin/api/plugins/rescan": "token-blocked",
+  "POST /admin/api/plugins/restore": "token-blocked",
+  "POST /admin/api/plugins/:id/enabled": "token-blocked",
+  "POST /admin/api/plugins/:id/trash": "token-blocked",
   // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.
   "POST /admin/api/retro-cores/official": "token-blocked",
   "POST /admin/api/retro-cores/user-version": "token-blocked",

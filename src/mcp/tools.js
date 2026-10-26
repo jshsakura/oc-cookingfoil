@@ -21,6 +21,7 @@ export const AREA_TEXT = {
   retro: "Retro (RetroArch) games, cores, Korean names, ROM patches and box art.",
   jobs: "Background jobs and their progress.",
   admin: "Consoles, accounts, alerts, settings and restarting the server.",
+  plugins: "Plugins found in data/plugins and their state. Reading only: switching one on is for a person on the admin page.",
 };
 
 /** Whether an action changes something, and so previews first and takes confirm. */

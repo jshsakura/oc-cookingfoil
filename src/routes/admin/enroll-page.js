@@ -9,6 +9,7 @@
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { escapeHtml } from "./escape.js";
+import { TOP_WORDS, topScript, TOP_LANG_HTML, TOP_LANG_CSS, top, topHtml } from "./top-i18n.js";
 
 /** Groups the base32 secret into 4-char blocks so it can be typed accurately. */
 function grouped(secret) {
@@ -20,7 +21,7 @@ export function enrollPage({ secret, uri, owner }) {
   const safeOwner = escapeHtml(owner || "admin");
   return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 서버 관리 설정</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
+<title data-top="er.docTitle">${TOP_WORDS.ko["er.docTitle"]}</title>${ADMIN_HEAD}<style>${ADMIN_CSS}
 body{min-height:100vh;display:grid;place-items:center;padding:20px}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px;width:min(460px,100%);
 box-shadow:0 30px 60px var(--shadow)}
@@ -34,30 +35,32 @@ details{margin-top:16px}summary{cursor:pointer;color:var(--muted);font-size:13px
 .uri{margin-top:8px;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:10px;
 font-family:ui-monospace,monospace;font-size:11px;word-break:break-all;color:var(--muted)}
 .done{margin-top:20px}.ok{color:var(--good);font-size:13px;min-height:18px;text-align:center;margin-top:8px}
-</style></head><body>
-<div class="box"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="52" height="52"><h1>관리자 인증 설정</h1>
-<p class="lead">관리 페이지는 인증 앱의 6자리 코드로 엽니다. 아래 키를 인증 앱에 등록하면 설정이 끝납니다.</p>
+${TOP_LANG_CSS}
+#enroll .lang-menu{position:fixed;top:16px;right:16px}
+</style></head><body><div id="enroll">${TOP_LANG_HTML}
+<div class="box"><img class="logo" src="/assets/cookingfoil.svg" alt="" width="52" height="52"><h1>${top("er.h1")}</h1>
+<p class="lead">${top("er.lead")}</p>
 <ol>
-<li>인증 앱(Google Authenticator, Aegis, 1Password 등)을 엽니다</li>
-<li><b>설정 키 입력</b>(수동 입력)을 고릅니다</li>
-<li>계정 이름은 <b>CookingFoil (${safeOwner})</b>, 종류는 <b>시간 기반</b>으로 둡니다</li>
-<li>아래 키를 붙여 넣고 다음으로 넘어갑니다</li>
+<li>${top("er.s1")}</li>
+<li>${topHtml("er.s2")}</li>
+<li>${top("er.s3a")}<b>CookingFoil (${safeOwner})</b>${topHtml("er.s3b")}</li>
+<li>${top("er.s4")}</li>
 </ol>
 <div class="key" id="key">${escapeHtml(grouped(secret))}</div>
 <div class="row">
-  <button type="button" id="copy">키 복사</button>
-  <button type="button" class="primary" id="next">등록했습니다</button>
+  <button type="button" id="copy">${top("er.copyBtn")}</button>
+  <button type="button" class="primary" id="next">${top("er.doneBtn")}</button>
 </div>
 <div class="ok" id="ok"></div>
-<details><summary>고급: otpauth:// 주소</summary><div class="uri">${safeUri}</div>
-<div class="muted" style="margin-top:8px">키는 <span class="mono">&lt;data&gt;/security/security.db</span> 에 암호화해 저장합니다.
-직접 관리하려면 <span class="mono">COOK_ADMIN_TOTP_SECRET</span> 을 설정합니다. 처음으로 코드가 맞으면 이 화면은 더 나오지 않습니다.</div>
-</details></div>
+<details><summary>${top("er.advanced")}</summary><div class="uri">${safeUri}</div>
+<div class="muted" style="margin-top:8px">${topHtml("er.storage")}</div>
+</details></div></div>
 <script>
+${topScript(["er."])}
 const raw=${JSON.stringify(String(secret))};
 document.getElementById('copy').addEventListener('click',async()=>{
-  try{await navigator.clipboard.writeText(raw);document.getElementById('ok').textContent='키를 복사했습니다';}
-  catch{document.getElementById('ok').textContent='복사하지 못했습니다. 키를 직접 선택해 복사합니다';}});
+  try{await navigator.clipboard.writeText(raw);document.getElementById('ok').textContent=topText('er.copied');}
+  catch{document.getElementById('ok').textContent=topText('er.copyFail');}});
 document.getElementById('next').addEventListener('click',()=>{location.href='/admin?enrolled=1';});
 </script></body></html>`;
 }

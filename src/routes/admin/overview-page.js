@@ -29,6 +29,7 @@ const WARNINGS={
   'no-auth':{t:'ov.w.noAuthT',d:'ov.w.noAuthD',go:['ov.w.makeAccount','/admin/users']},
   'proxy-collapse':{t:'ov.w.proxyT',d:'ov.w.proxyD'},
   'both-lanes':{t:'ov.w.bothLanesT',d:'ov.w.bothLanesD'},
+  'client-build-rejected':{t:'ov.w.buildT',df:(w)=>topFill('ov.w.buildLead',{code:topWords.en['ov.w.buildR.'+w.reason]?topText('ov.w.buildR.'+w.reason):w.reason,msg:w.message})+' '+(w.version?topFill('ov.w.buildKept',{v:w.version}):topText('ov.w.buildNone'))},
 };
 function renderWarnings(list){const box=$('warnings');box.replaceChildren();
   for(const w of list){const k=WARNINGS[w.code];const n=el('div',null,'note'+(w.severity==='warn'?' warn':''));
