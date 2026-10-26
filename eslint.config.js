@@ -30,6 +30,8 @@ export default [
     },
     rules: {
       "no-undef": "error",
+      // A key written twice in one object literal: the later silently wins (a translation block once held four).
+      "no-dupe-keys": "error",
       // Unused imports are the other half of the same story: they mean the
       // import block and the code below it have drifted apart.
       "no-unused-vars": [
@@ -62,6 +64,8 @@ export default [
     },
     rules: {
       "no-undef": "error",
+      // A key written twice in one object literal: the later silently wins (a translation block once held four).
+      "no-dupe-keys": "error",
     },
   },
 ];

@@ -67,7 +67,11 @@ export function createPluginCache({ dataDir, capBytes = CAP_BYTES, log = () => {
     for (const id of ids) await sweep(id).catch((err) => log(`${id}: cache sweep failed: ${err.message}`));
   }
 
-  const clear = (id) => fsp.rm(dirOf(id), { recursive: true, force: true });
+  // The folder stays: a plugin keeps the ctx.cacheDir it was handed at start.
+  async function clear(id) {
+    const entries = await fsp.readdir(dirOf(id)).catch(() => []);
+    await Promise.all(entries.map((name) => fsp.rm(path.join(dirOf(id), name), { recursive: true, force: true })));
+  }
 
   function startSweeper(every = SWEEP_EVERY_MS) {
     const timer = setInterval(() => { sweepAll().catch(() => {}); }, every);

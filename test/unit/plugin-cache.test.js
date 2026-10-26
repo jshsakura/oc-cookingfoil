@@ -50,5 +50,5 @@ test("sweepAll sweeps every plugin, and clear empties one", async () => {
   assert.deepEqual(fs.readdirSync(cache.dirOf("p")), ["b.bin"]);
   assert.deepEqual(fs.readdirSync(cache.dirOf("q")), ["c.bin"]);
   await cache.clear("q");
-  assert.equal(fs.existsSync(cache.dirOf("q")), false);
+  assert.deepEqual(fs.readdirSync(cache.dirOf("q")), [], "the folder stays for a plugin that holds its path");
 });
