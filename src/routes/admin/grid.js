@@ -70,6 +70,12 @@ export const GRID_CSS = /* css */ `
 .ag-cell.tall .gc,.ag-cell.tall .gc>*{white-space:normal;overflow:visible}.ag-cell.tall .gc .xline{flex-wrap:wrap}
 .ag-header-cell-text{font-size:12px;letter-spacing:.02em}
 /* Scrollbars come from the shared admin scope in styles.js (html.adm), so the grid matches every panel. */
+/* The pager's page box is a small number field, not the page's 44px input; on a phone the pager wraps. */
+.ag-paging-number input{height:28px;min-height:0;width:3.2em;padding:0 4px;margin:0;border-radius:8px;font-size:13px;text-align:center;box-sizing:border-box}
+.ag-paging-number .ag-input-field-input{-moz-appearance:textfield}
+.ag-paging-number input::-webkit-inner-spin-button,.ag-paging-number input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+@media (max-width:640px){.ag-paging-panel{flex-wrap:wrap;height:auto;justify-content:center;gap:4px 12px;padding:8px}
+.ag-paging-panel>span{margin:0}}
 .ag-row.live{background:rgba(var(--accent-rgb),.06)}
 `;
 
