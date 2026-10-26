@@ -1201,5 +1201,7 @@
   "Downloading additional language data": "추가 언어 정보 다운로드",
   "Getting additional language data.": "추가 언어 정보를 받는 중입니다.",
   "Could not get the additional language data.": "추가 언어 정보를 받지 못했습니다.",
-  "Nothing arrived for 5 seconds. Check the connection and try again.": "5초 동안 받은 내용이 없습니다. 연결을 확인하고 다시 시도해 주세요."
+  "Nothing arrived for 5 seconds. Check the connection and try again.": "5초 동안 받은 내용이 없습니다. 연결을 확인하고 다시 시도해 주세요.",
+  "Damaged|file": "손상됨",
+  "File status": "파일 상태"
 }
