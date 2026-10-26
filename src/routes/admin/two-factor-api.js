@@ -17,12 +17,17 @@ import * as savedPassword from "../../security/admin-password.js";
 import * as twoFactorSkip from "../../security/admin-2fa-skip.js";
 import { adminPassword } from "../../helpers/envs.js";
 import {
-  isEnrolled, canManage, startEnrollment, pendingSecret, commitEnrollment, disableEnrollment,
+  adminSecret, isEnrolled, canManage, startEnrollment, pendingSecret, commitEnrollment, disableEnrollment,
 } from "../../security/admin-secret.js";
+import * as totpGuard from "../../security/totp-guard.js";
+import { clientIp } from "../../security/deny.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import { publicBaseUrl } from "../../helpers/envs.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
+
+// Sign-in codes are counted against one admin account, as on the sign-in page (routes/admin-page.js).
+const TOTP_ACCOUNT = "admin";
 
 function status() {
   return {
@@ -75,9 +80,22 @@ export function mountTwoFactorApi(router, { requireSession }) {
     res.json(status());
   }));
 
-  // The admin password set here: a password already in force must be given to change or remove it.
-  router.post("/api/admin-password", guarded((req, res) => {
-    if (adminPasswordMode() && !verifyPassword(req.body?.current)) {
+  // The password in force, or a code from the authenticator when one is set up, so a forgotten
+  // password can be replaced. Wrong codes count toward the sign-in code lockout.
+  const provesAdmin = async (req) => {
+    const given = req.body?.current;
+    if (verifyPassword(given)) return true;
+    if (!isEnrolled() || typeof given !== "string" || !/^\d{6}$/.test(given.trim())) return false;
+    const ip = clientIp(req);
+    if (totpGuard.lockedFor(TOTP_ACCOUNT, ip)) return false;
+    if (await codeMatches(adminSecret(), given.trim(), 1)) { totpGuard.reset(TOTP_ACCOUNT, ip); return true; }
+    totpGuard.recordFailure(TOTP_ACCOUNT, ip);
+    return false;
+  };
+
+  // The admin password set here: the one in force (or an authenticator code) must be given to change or remove it.
+  router.post("/api/admin-password", guarded(async (req, res) => {
+    if (adminPasswordMode() && !(await provesAdmin(req))) {
       res.status(403).json({ error: apiWord(req, "password.wrong") });
       return;
     }
@@ -91,7 +109,7 @@ export function mountTwoFactorApi(router, { requireSession }) {
     res.json(status());
   }));
 
-  router.post("/api/admin-password/clear", guarded((req, res) => {
+  router.post("/api/admin-password/clear", guarded(async (req, res) => {
     if (!savedPassword.has()) {
       res.status(404).json({ error: apiWord(req, "password.none") });
       return;
@@ -101,7 +119,7 @@ export function mountTwoFactorApi(router, { requireSession }) {
       res.status(409).json({ error: apiWord(req, "password.needTotp") });
       return;
     }
-    if (!verifyPassword(req.body?.current)) {
+    if (!(await provesAdmin(req))) {
       res.status(403).json({ error: apiWord(req, "password.wrong") });
       return;
     }
