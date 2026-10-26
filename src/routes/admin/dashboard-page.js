@@ -171,7 +171,10 @@ dl.kv dt{color:var(--muted);font-size:var(--fs-sm)}dl.kv dd{margin:0;font-size:v
 dialog{--dlg-pad:24px;border:1px solid var(--line2);border-radius:var(--r-2xl);background:var(--panel);color:var(--text);padding:var(--dlg-pad);width:min(520px,calc(100vw - 32px));box-shadow:0 30px 60px var(--shadow)}
 dialog::backdrop{background:rgba(0,0,0,.55)}
 dialog.ask{width:min(420px,calc(100vw - 32px))}dialog.ask input{width:100%;box-sizing:border-box;margin:0 0 14px}dialog.ask p{margin:2px 0 14px;font-size:var(--fs-md);line-height:1.55;overflow-wrap:anywhere}
-button.danger-solid{background:var(--bad);border-color:var(--bad);color:var(--white);font-weight:700}button.danger-solid:hover{filter:brightness(1.06);border-color:var(--bad)}
+/* The client's way to warn: no red button, the message sits on a red card with a warning sign and the confirm
+   button stays the ordinary butter one. */
+dialog.ask.warn #ask-text{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:var(--r-lg);background:var(--warn-card)}
+dialog.ask.warn #ask-text::before{content:"";flex:none;width:22px;height:22px;background:var(--bad);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3Cpath d='M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/%3E%3C/svg%3E") center/contain no-repeat}
 .hb-verify{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 9px;border-radius:var(--r-pill);border:1px dashed var(--line);background:transparent;color:var(--faint);font:inherit;font-size:var(--fs-xs);font-weight:700;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s}
 .tfa-warn{color:var(--bad)!important;font-weight:var(--fw-bold)}
 .tfa-ok{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:14px;border-radius:var(--r-xl);border:1px solid rgba(var(--good-rgb),.45);background:rgba(var(--good-rgb),.12)}
@@ -182,7 +185,7 @@ button.danger-solid{background:var(--bad);border-color:var(--bad);color:var(--wh
 .hb-verify[aria-pressed=true]{border:1px solid rgba(var(--good-rgb),.5);background:rgba(var(--good-rgb),.14);color:var(--good);box-shadow:inset 0 0 0 1px rgba(var(--good-rgb),.08)}
 .hb-verify[aria-pressed=true] svg{fill:rgba(var(--good-rgb),.22)}
 .hb-verify:disabled{opacity:.6;cursor:progress}
-.hb-verify:focus-visible{outline:2px solid var(--good);outline-offset:2px}
+.hb-verify:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.hb-verify{transition:none}}
 .hb-app{padding:0;gap:0;overflow:hidden}
 .hb-media{position:relative;aspect-ratio:16/5;background:linear-gradient(135deg,var(--sunk),var(--line)) center/cover no-repeat;border-bottom:1px solid var(--line)}

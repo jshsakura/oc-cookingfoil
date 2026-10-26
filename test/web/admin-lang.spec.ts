@@ -78,7 +78,7 @@ test('the people pages follow en, ja, zh and ko', async ({ page }) => {
   }
 
   // Destructive confirm: switch to English, find the Delete button by its
-  // accessible name, check the dialog's message, focus and danger colour.
+  // accessible name, check the dialog's message, focus and the warning card (the client's way: no red button).
   await page.goto('/admin/users');
   await page.waitForSelector('#users .ag-row', { timeout: 15000 });
   await page.locator('#lang-btn').click();
@@ -94,7 +94,8 @@ test('the people pages follow en, ja, zh and ko', async ({ page }) => {
   await expect(dialog).toBeVisible();
   await expect(page.locator('#ask-text')).toHaveText('langtest is the last account. Removing it opens the server to anyone without a password.');
   await expect(page.locator('#ask-no')).toBeFocused();
-  await expect(page.locator('#ask-ok')).toHaveClass(/danger/);
+  await expect(dialog).toHaveClass(/\bwarn\b/);
+  await expect(page.locator('#ask-ok')).toHaveClass('primary');
   await page.locator('#ask-no').click();
   await expect(dialog).toBeHidden();
   await expect(page.locator('#users .ag-row', { hasText: NAME })).toHaveCount(1);

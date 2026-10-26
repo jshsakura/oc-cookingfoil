@@ -179,11 +179,11 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-side-in .ico{width:20px;height:20px}
 .adm-grp summary::-webkit-details-marker{display:none}
 .adm-grp summary:hover{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
-.adm-grp summary:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.adm-grp summary:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .adm-grp summary .chev{width:14px;height:14px;margin-left:auto;flex:none;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round;color:var(--muted);transition:transform .15s}
 .adm-grp[open] summary .chev{transform:rotate(180deg)}
-.adm-item:focus-visible{outline:2px solid var(--text);outline-offset:-2px}
+.adm-item:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .adm-grp summary .count{margin-left:auto}
 .adm-grp-in{display:grid;gap:4px;margin:6px 0 10px;padding-left:20px}
 .adm-grp-in .ico{width:17px;height:17px}
