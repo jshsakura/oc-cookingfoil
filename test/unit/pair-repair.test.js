@@ -307,3 +307,20 @@ test("revoking a console ends its re-pair request: its old QR cannot re-pair it 
   assert.equal((await poll(target, secret("e"))).body.accessKey, undefined);
   assert.deepEqual(await mine("alice"), [target]);
 }));
+
+test("a console the admin let in takes a new key from any account's download and keeps its approval", () => withServer(async ({ data }) => {
+  for (const k of Object.keys(sessions)) delete sessions[k];
+  adminHeaders = null;
+  const target = key("C");
+  assert.equal((await request(target, secret("c"))).body.status, "pending");
+  assert.equal((await admin("POST", "/admin/api/devices/approve", { deviceKey: target })).status, 200);
+  const old = (await poll(target, secret("c"))).body.accessKey;
+  assert.ok(old);
+
+  const r = await enroll(target, await downloadToken(data, "alice"));
+  assert.equal(r.status, 200);
+  const fresh = (await r.json()).accessKey;
+  assert.equal(await shop(target, fresh), 200);
+  assert.equal(await shop(target, old), 401);
+  assert.deepEqual(await mine("alice"), [], "the admin's approval stays: it does not become alice's console");
+}));
