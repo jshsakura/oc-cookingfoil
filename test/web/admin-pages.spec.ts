@@ -146,6 +146,26 @@ test.describe('on a phone', () => {
     await page.keyboard.press('Escape');
     await expect(drawer).toBeHidden();
   });
+
+  test('the drawer fits the screen: square corners, and the last menu item scrolls fully into view', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/admin/games');
+    await page.locator('#adm-menu').click();
+    const drawer = page.locator('#adm-drawer');
+    await expect(drawer).toBeVisible();
+    for (const g of await drawer.locator('details.adm-grp').all()) await g.evaluate((d) => { (d as HTMLDetailsElement).open = true; });
+    const fit = await drawer.evaluate((d) => {
+      const nav = d.querySelector('nav') as HTMLElement;
+      nav.scrollTop = nav.scrollHeight;
+      const items = nav.querySelectorAll('.adm-item');
+      const last = items[items.length - 1].getBoundingClientRect();
+      const box = d.getBoundingClientRect();
+      return { radius: getComputedStyle(d).borderRadius, bottom: box.bottom, screen: window.innerHeight, lastBottom: last.bottom, navBottom: nav.getBoundingClientRect().bottom };
+    });
+    expect(fit.radius).toBe('0px');
+    expect(fit.bottom).toBeLessThanOrEqual(fit.screen);
+    expect(fit.lastBottom).toBeLessThanOrEqual(fit.navBottom);
+  });
 });
 
 test('dictionary text keeps its links and never shows a raw key or source', async ({ page }) => {
