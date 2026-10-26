@@ -95,6 +95,38 @@ replaced. The server does everything except the part only the plugin knows.
 - `shopInfo({ lang })` adds feature names and keys to shop info. A name core or another plugin already
   uses is dropped. Its answer is kept for 30 seconds.
 
+## Before and after a download, your own addresses, and events
+
+Three more things a plugin can provide. The manifest says which (`provides`), and the admin page lists them
+in the permission window when the operator switches the plugin on.
+
+**`request`: `beforeDownload({ file, size, mtimeMs, query }, { lang, clientVersion, console })`**
+Runs before a game file goes out (5 s). Answer one of:
+- `{ allow: true }`
+- `{ rewrite: { query: { key: "value" } } }` the query the variant path then sees (8 keys, values up to 64 characters)
+- `{ deny: { text: { en: "...", ko: "..." } } }` a refusal you chose: 403, `code: "plugin-denied"`
+
+Any answer may carry `headers` (`X-*` names only, not `X-CookingFoil-*`, up to 8, no line breaks) and a
+`filename` (the core writes `Content-Disposition` with an RFC 6266 `filename*`; a quote, slash or line break fails the call).
+A throw, a timeout or an answer in another shape is a 409 `plugin-failed`: the original file never stands in for it.
+Failures count toward the pause (5 in a row), and while the plugin is paused downloads wait (409) instead of going out unchecked.
+
+**`route`: `routes: [{ name, method: "GET"|"POST", access: "device"|"admin", maxBody?, timeoutMs? }]`**
+Opens `/api/plugins/<id>/<name>`. Export `routes: { <name>: async ({ method, query, body }, { lang, clientVersion, console }) => answer }`.
+The core's sign-in runs first; `admin` also needs an administrator; automation tokens (MCP) are always refused.
+The core answers 404 (off, unknown), 405, 413 (body over `maxBody`, 256 KiB by default, 4 MiB at most), 415 (POST bodies are JSON only),
+429 (120 calls a minute per plugin and device) and 503 (pausing) itself, and none of those count against the plugin.
+Answer `{ status?, headers?, json | text | bytes }` (status 200-299 or 400-499, up to 4 MiB). A throw, a timeout (`timeoutMs`, 10 s by default,
+30 s at most) or another shape is a 502 `plugin-failed` and counts.
+
+**`event`: export any of `afterDownload`, `installReported`, `libraryChanged`, `deviceApproved`**
+Nobody waits for you. Events go on a queue per plugin, are handled in order, one at a time, 5 s each. A queue holds 200; the oldest are
+dropped and counted (shown on the plugin's row with the handled and failed counts). A failing handler never pauses the plugin.
+Payloads hold no person: `device` is a 12-character HMAC that differs for every plugin. `ip` and `account` appear only if the manifest says
+`"events": { "identity": ["ip", "account"] }`, and the operator sees that when switching the plugin on.
+`afterDownload` is told once per download: `file`, `titleId`, `kind`, `status`, `bytes` (read from disk for this response), `aborted`.
+`libraryChanged` carries `added`/`removed` (up to 100 paths) and their counts. `deviceApproved` carries `isNew` and `admin`.
+
 ## When a plugin misbehaves
 
 The server keeps going. A plugin that is off, missing, slow or broken gives the same result as no plugin.

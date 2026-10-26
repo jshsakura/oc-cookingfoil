@@ -65,6 +65,11 @@ function plPerms(p){const L=[];
   if(p.hosts&&p.hosts.length)L.push(plT('permHosts',{list:p.hosts.join(', ')}));
   if(p.console&&p.console.length)L.push(plT('permConsole',{list:p.console.join(', ')}));
   if(p.libraries&&p.libraries.length)L.push(plT('permLibs',{list:p.libraries.join(', ')}));
+  const has=(k)=>p.provides&&p.provides.includes(k);
+  if(has('request'))L.push(plT('permRequest'));
+  if(has('route')&&p.routes&&p.routes.length)L.push(plT('permRoutes',{list:p.routes.map((r)=>r.method+' /api/plugins/'+p.id+'/'+r.name+' ('+plT('access.'+r.access)+')').join(', ')}));
+  if(has('event'))L.push(plT('permEvents'));
+  if(has('event')&&p.identity&&p.identity.length)L.push(plT('permIdentity',{list:p.identity.map((i)=>plT('id.'+i)).join(', ')}));
   if(p.provides&&p.provides.length)L.push(plT('permProvides',{list:p.provides.map((k)=>plT('k.'+k)).join(', ')}));
   return L.length?L.join('\\n'):plT('permNone');}
 // The on/off switch of a row (the same .switch look as the patches page). Turning on opens the permission and
@@ -94,6 +99,7 @@ function plRow(p){
   if(p.state==='incompatible')main.append(el('span',plT('needs',{n:p.needs}),'err'));
   if(p.disabledReason&&PL_REASON[p.disabledReason]&&!p.enabled)main.append(el('span',plT(PL_REASON[p.disabledReason]),'err'));
   if(p.lastError&&p.state!=='on'&&p.state!=='off')main.append(el('span',plT('lastErr',{when:plWhen(p.lastErrorAt),msg:p.lastError}),'err'));
+  if(p.events&&(p.events.handled||p.events.dropped||p.events.failed||p.events.queued))main.append(el('span',plT('evStats',{handled:p.events.handled,dropped:p.events.dropped,failed:p.events.failed})));
   if(p.state==='cooling')main.append(el('span',plT('retry',{when:plWhen(p.retryAt)})));
   const act=el('div',null,'pl-act');
   const usable=!['broken','incompatible','missing'].includes(p.state);

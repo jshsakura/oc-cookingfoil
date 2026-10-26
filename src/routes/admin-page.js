@@ -24,6 +24,7 @@
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
  * anything" is no longer a reachable state.
  */
+import { pluginEvents } from "../plugins/instance.js";
 import { gravatarUrl } from "../helpers/gravatar.js";
 import { clientRows } from "./device-pair.js";
 import * as enrollTokens from "../security/enroll-tokens.js";
@@ -574,7 +575,7 @@ export default function adminPageRouter() {
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
   mountTrashApi(router, requireSession);
-  mountPluginsApi(router, requireSession);
+  mountPluginsApi(router, requireSession, undefined, undefined, pluginEvents());
   mountLibraryOrganizeApi(router, requireSession);
   mountLibraryBrowseApi(router, requireSession);
   mountInboxApi(router, requireSession);

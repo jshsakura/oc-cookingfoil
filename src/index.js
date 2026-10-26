@@ -106,7 +106,7 @@ import * as retroScaffold from "./retro/scaffold.js";
 import * as envs from "./helpers/envs.js";
 import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import * as trashService from "./library/trash-service.js";
-import { pluginRegistry, pluginVariants, startPlugins } from "./plugins/instance.js";
+import { pluginRegistry, pluginRouter, pluginVariants, startPlugins } from "./plugins/instance.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
@@ -302,7 +302,7 @@ expressApp.use("/assets", webAssets);
 
 // Pairing-only shops must guard API content as well as the legacy shop/files.
 // Keep admin approval and clean configuration export reachable for onboarding.
-expressApp.use(["/api/library", "/api/shop", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", BRIDGE_PATH], deviceContentGuard());
+expressApp.use(["/api/library", "/api/shop", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", "/api/plugins", BRIDGE_PATH], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -328,6 +328,8 @@ expressApp.get("/api/library/sections", sectionsRoute);
 expressApp.get("/api/library/info", shopInfoRoute);
 // The download options of up to 200 files at once, asked just before an install (plugins/variants.js).
 expressApp.post("/api/library/variants", sameOriginWrites(), ...libraryVariants({ root: romsDirPath, variants: pluginVariants }));
+// A plugin's own addresses, as its manifest declares them (plugins/routes.js). The server's auth runs ahead of it.
+expressApp.use("/api/plugins", sameOriginWrites(), pluginRouter());
 expressApp.get("/games.json", shopJsonRoute);
 
 // Transitional aliases: retain until both client and scraper migrations are confirmed.

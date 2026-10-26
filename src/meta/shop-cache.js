@@ -28,6 +28,7 @@ import chokidar from "chokidar";
 import path from "path";
 import zlib from "zlib";
 import crypto from "crypto";
+import { emitPluginEvent } from "../plugins/emit.js";
 import { promisify } from "util";
 import {
   scanLibrary,
@@ -132,6 +133,27 @@ export function onUpdate(fn) {
   return () => subscribers.delete(fn);
 }
 
+const CHANGED_LIST_MAX = 100;
+
+/** libraryChanged for plugins: which game files appeared or went since the last build (not on the first one). */
+function tellLibraryChanged(before, now) {
+  const added = [];
+  let addedCount = 0;
+  for (const rel of now.keys()) {
+    if (before.has(rel)) continue;
+    addedCount++;
+    if (added.length < CHANGED_LIST_MAX) added.push(rel);
+  }
+  const removed = [];
+  let removedCount = 0;
+  for (const rel of before) {
+    if (now.has(rel)) continue;
+    removedCount++;
+    if (removed.length < CHANGED_LIST_MAX) removed.push(rel);
+  }
+  if (addedCount || removedCount) emitPluginEvent("libraryChanged", { added, removed, addedCount, removedCount });
+}
+
 function notify(payload) {
   for (const fn of subscribers) {
     try { fn(payload); } catch (err) {
@@ -182,6 +204,7 @@ async function build() {
     try {
       // Pick the cheapest valid path to fresh state.
       let mode;
+      const listedBefore = filesMap ? new Set(filesMap.keys()) : null;
       if (!filesMap || needsFullRescan) {
         // Only a full read shows up as a job: the incremental passes run on every file change.
         scanJob = activity.begin("scan:games", { title: activityText("act.scanGames") });
@@ -280,6 +303,7 @@ async function build() {
       // Push to ws subscribers so dashboards open across the network see
       // library changes within ~debounce + ~build_ms instead of having to
       // refresh manually.
+      if (listedBefore) tellLibraryChanged(listedBefore, filesMap);
       notify({
         etag,
         files: filesMap.size,

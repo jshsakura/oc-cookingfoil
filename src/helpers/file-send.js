@@ -20,7 +20,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream";
-import { CONSOLE_HEADER } from "../plugins/variants.js";
+import { CONSOLE_HEADER, parseConsoleHeader } from "../plugins/variants.js";
+import { deviceKeyFromHeaders } from "../security/pairing.js";
 import { patchStream } from "./patch-stream.js";
 
 export const READ_CHUNK = 4 * 1024 * 1024;
@@ -60,7 +61,7 @@ function ifRangeMatches(req, etag, lastModified) {
  * Serves an already-resolved regular file; `variant` ({ tag, patches, vary }, from
  * plugins/variants.js resolve) serves it with those bytes replaced.
  */
-export function sendLargeFile(req, res, abs, st, variant = null) {
+export function sendLargeFile(req, res, abs, st, variant = null, { headers = null, tally = null } = {}) {
   const etag = etagOf(st, variant?.tag);
   const lastModified = st.mtime.getTime();
   res.set({
@@ -69,6 +70,7 @@ export function sendLargeFile(req, res, abs, st, variant = null) {
     "Last-Modified": st.mtime.toUTCString(),
     ETag: etag,
   });
+  if (headers) res.set(headers);
   if (variant?.vary) res.vary(CONSOLE_HEADER);
   if (!res.get("Content-Type")) res.type(path.extname(abs) || "application/octet-stream");
   if (req.fresh) return res.status(304).end();
@@ -89,6 +91,7 @@ export function sendLargeFile(req, res, abs, st, variant = null) {
   res.set("Content-Length", String(st.size === 0 ? 0 : end - start + 1));
   if (req.method === "HEAD" || st.size === 0) return res.end();
   const read = fs.createReadStream(abs, { start, end, highWaterMark: READ_CHUNK });
+  tally?.(read);
   const done = () => {
     // A console that hangs up mid-file is normal; the streams are closed either way.
   };
@@ -132,11 +135,48 @@ export function gameFilePath(root, rawPath, match) {
 
 const refuseVariant = (res, { status, body }) => res.status(status).set("Cache-Control", "no-store").json(body);
 
-// The plugins are asked only when the query has something in it: a plain download never touches them.
-async function pluginVariant(req, abs, st) {
-  if (!req.query || !Object.keys(req.query).length) return null;
-  const { pluginVariants } = await import("../plugins/instance.js");
-  return pluginVariants().resolve(req, abs, st);
+// Plugins that look at a download first (beforeDownload) are asked for every download; the variants only when the
+// query has something in it. With none of either on, a plain download gets nothing but two cheap checks.
+async function pluginVariant(req, abs, st, { file }) {
+  const { pluginRequestHooks, pluginVariants } = await import("../plugins/instance.js");
+  const pre = await pluginRequestHooks().before(req, { file, st, query: req.query ?? {} });
+  if (pre?.refusal) return { refusal: pre.refusal };
+  const query = pre?.query ?? req.query;
+  const found = query && Object.keys(query).length ? await pluginVariants().resolve(req, abs, st, { query }) : null;
+  if (found?.refusal) return found;
+  if (!pre) return found;
+  const variant = found?.variant
+    ? { ...found.variant, tag: `${pre.tag}.${found.variant.tag}`, vary: true }
+    : { tag: pre.tag, patches: [], vary: true };
+  return { variant, headers: pre.headers };
+}
+
+const TITLE_ID_RE = /\[([0-9A-Fa-f]{16})\]/;
+
+/**
+ * afterDownload: told once per download, when it ends or the console hangs up. Returns the function that
+ * receives the file's read stream (its bytesRead is what was read from disk for this response).
+ */
+function pluginEvents(req, res, file) {
+  let read = null;
+  let told = false;
+  const tell = (aborted) => {
+    if (told) return;
+    told = true;
+    // A body that went out: not a 304, not a HEAD, not a refusal.
+    if (req.method !== "GET" || (res.statusCode !== 200 && res.statusCode !== 206)) return;
+    import("../plugins/emit.js").then(({ emitPluginEvent }) => emitPluginEvent("afterDownload", {
+      file,
+      titleId: TITLE_ID_RE.exec(file)?.[1]?.toUpperCase() ?? null,
+      kind: path.extname(file).slice(1).toLowerCase(),
+      status: res.statusCode,
+      bytes: read?.bytesRead ?? 0,
+      aborted,
+    }, { deviceKey: deviceKeyFromHeaders(req), ip: req.ip, account: req.webUser?.name ?? req.webUser?.email ?? req.auth?.user ?? null, console: parseConsoleHeader(req.get?.(CONSOLE_HEADER)) }));
+  };
+  res.once("finish", () => tell(false));
+  res.once("close", () => tell(!res.writableFinished));
+  return (stream) => { read = stream; };
 }
 
 /**
@@ -146,17 +186,17 @@ async function pluginVariant(req, abs, st) {
  * through too: hiddenPaths(), mounted ahead, answers those with a 404.
  * `variants(req, abs, st)` is plugins/variants.js resolve.
  */
-export function largeFiles(root, match, { variants = pluginVariant } = {}) {
+export function largeFiles(root, match, { variants = pluginVariant, events = pluginEvents } = {}) {
   return (req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD") return next();
     const abs = gameFilePath(root, req.path, match);
     if (!abs) return next();
     fs.stat(abs, (err, st) => {
       if (err || !st.isFile()) return next();
-      variants(req, abs, st).then((found) => {
+      const file = path.relative(path.resolve(root), abs).split(path.sep).join("/");
+      variants(req, abs, st, { file }).then((found) => {
         if (found?.refusal) return refuseVariant(res, found.refusal);
-        if (found?.variant) return sendLargeFile(req, res, abs, st, found.variant);
-        return sendLargeFile(req, res, abs, st);
+        return sendLargeFile(req, res, abs, st, found?.variant ?? null, { headers: found?.headers, tally: events(req, res, file) });
       }).catch(next);
     });
   };
