@@ -43,7 +43,7 @@
  * games-folder relative path:
  *   { path, size, mtimeMs, verdict?, reason?, checks?, detail?, at?, wantHash, hashDone,
  *     ncaHashes?, stale?, identity?, misnamed?, alerted?, signed? }   stale: the mtime changed, the signatures run again
- *   signed: { nca, ticket } (file-verify.js), what a console without signature patches needs
+ *   signed: { nca, ticket } (file-verify.js), what a stock console needs
  *
  * A file newly found damaged is told to the admin once (`onDamaged`, one call
  * per run with every such file): `alerted` marks it, and it is told again only

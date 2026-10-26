@@ -6,7 +6,7 @@ import { freshCode, signIn } from './admin-sign-in';
 // keep working by landing on the page that section now lives on.
 
 const PAGES: [string, string, string][] = [
-  ['/admin', 'tab-overview', '관리 개요'],
+  ['/admin', 'tab-overview', '서버 현황'],
   ['/admin/games', 'tab-library', '게임 라이브러리'],
   ['/admin/upload', 'tab-upload', '올리기'],
   // Stage B first bundle: these pages carry only their own panel.

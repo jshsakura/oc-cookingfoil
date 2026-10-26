@@ -12,6 +12,11 @@ import { createRegistry } from "./registry.js";
 import { createVariants } from "./variants.js";
 import { createPluginCache } from "./cache.js";
 import { createInstaller } from "./installer.js";
+import { createRequestHooks } from "./request-hooks.js";
+import { createEvents } from "./events.js";
+import { connectPluginEvents } from "./emit.js";
+import { pluginRoutes } from "./routes.js";
+import { signingKey } from "../security/download-token.js";
 
 let shared = null;
 
@@ -39,6 +44,16 @@ let variantsShared = null;
 /** The generic variant path (plugins/variants.js) on the shared registry. */
 export const pluginVariants = () => (variantsShared ??= createVariants(pluginRegistry(), { log: (m) => debug.log("plugins: %s", m) }));
 
+let requestShared = null;
+/** beforeDownload (plugins/request-hooks.js) on the shared registry. */
+export const pluginRequestHooks = () => (requestShared ??= createRequestHooks(pluginRegistry(), { log: (m) => debug.log("plugins: %s", m) }));
+
+let eventsShared = null;
+/** The event queues (plugins/events.js); the server's modules reach them through plugins/emit.js. */
+export const pluginEvents = () => (eventsShared ??= createEvents(pluginRegistry(), { secret: () => signingKey(), log: (m) => debug.log("plugins: %s", m) }));
+
+/** The router for /api/plugins/<id>/<name> (plugins/routes.js). */
+export const pluginRouter = () => pluginRoutes(pluginRegistry(), { log: (m) => debug.log("plugins: %s", m) });
 let cacheShared = null;
 /** The bounded cache folders of the plugins (plugins/cache.js). */
 export const pluginCache = () => (cacheShared ??= createPluginCache({ dataDir: env.dataDir, log: (m) => debug.log("plugins: %s", m) }));
@@ -56,6 +71,7 @@ export function startPlugins() {
     clearBooting: registry.clearBooting,
   });
   guards.install();
+  connectPluginEvents((kind, facts, who) => pluginEvents().emit(kind, facts, who));
   pluginCache().startSweeper();
   pluginInstaller().sweep().catch((err) => debug.error("plugins: clearing old uploads failed: %s", err.message));
   registry.init().then(() => registry.startWatching()).catch((err) => debug.error("plugins: start failed: %s", err.message));

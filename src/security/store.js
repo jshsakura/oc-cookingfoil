@@ -9,6 +9,7 @@
  * changed and the log lines added since the last one. State survives container
  * restarts so attackers can't just bounce us to reset their failure count.
  */
+import { emitPluginEvent } from "../plugins/emit.js";
 import { translator } from "../helpers/alert-messages.js";
 import debug from "../debug.js";
 import { envBool } from "../helpers/env-read.js";
@@ -439,6 +440,7 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash, admin 
   dropPending(deviceKey);
   appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, at: now });
   scheduleFlush();
+  emitPluginEvent("deviceApproved", { isNew: !prev, admin: state.devices.get(deviceKey)?.admin === true }, { deviceKey });
 }
 
 export function revokeDevice(deviceKey) {

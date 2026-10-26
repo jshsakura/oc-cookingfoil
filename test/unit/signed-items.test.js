@@ -53,6 +53,6 @@ test("the title detail lists every known file by name, with the help only on the
     ["Mario [0100000000010000][v0].nsp", "base", false, true, true],
     ["Mario Update [0100000000010800][v65536].nsp", "update", true, true, false],
   ]);
-  assert.equal(detail[0].help.title, "설치할 수 없습니다", "help in the reader's language");
+  assert.equal(detail[0].help.title, "서명이 없는 파일", "help in the reader's language");
   assert.match(detail[0].help.body, /콘텐츠 서명/);
 });

@@ -73,8 +73,6 @@
   "Connects once you approve this device on the server website.",
   "This console is linked to another account. Scan the QR code to approve it.",
   "Approve this console again",
-  "Made the {0} shortcut. No signature patches were found, so it may fail to open. Install signature patches such as sys-patch first.",
-  "No signature patches were found. A shortcut opens only with signature patches installed.",
   "Downloading additional language data",
   "Getting additional language data.",
   "Could not get the additional language data.",

@@ -25,7 +25,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { scanPluginDir, ENTRY_FILE } from "./loader.js";
-import { API_VERSION } from "./manifest.js";
+import { API_VERSION, EVENT_KINDS } from "./manifest.js";
 import { firstLine, runInPlugin } from "./guard.js";
 import { createMarkers, createPluginStore } from "./state.js";
 import { makeCtx } from "./context.js";
@@ -34,7 +34,7 @@ export const MINUTE_MS = 60_000;
 export const DEFAULT_LIMITS = Object.freeze({
   startMs: 10_000,
   stopMs: 5_000,
-  hookMs: Object.freeze({ metadata: 15_000, art: 15_000, variants: 5_000, plan: 30_000, tasks: 5_000, shopInfo: 2_000 }),
+  hookMs: Object.freeze({ metadata: 15_000, art: 15_000, variants: 5_000, plan: 30_000, tasks: 5_000, shopInfo: 2_000, beforeDownload: 5_000, afterDownload: 5_000, installReported: 5_000, libraryChanged: 5_000, deviceApproved: 5_000 }),
   hookMsDefault: 15_000,
   startFailLimit: 3,
   hookFailLimit: 5,
@@ -43,10 +43,10 @@ export const DEFAULT_LIMITS = Object.freeze({
 });
 
 /** The hook functions each `provides` entry obliges a plugin to export. */
-export const HOOKS_OF = Object.freeze({ metadata: ["metadata"], art: ["art"], variant: ["variants", "plan"], task: ["tasks"] });
+export const HOOKS_OF = Object.freeze({ metadata: ["metadata"], art: ["art"], variant: ["variants", "plan"], task: ["tasks"], request: ["beforeDownload"], route: [], event: [] });
 
 /** Hooks that only decorate a listing: a failure of one does not count toward a pause. */
-const LISTING_HOOKS = new Set(["variants"]);
+const LISTING_HOOKS = new Set(["variants", ...EVENT_KINDS]);
 
 const readOnlyCopies = new WeakMap();
 
@@ -163,6 +163,10 @@ export function createRegistry({
     for (const kind of manifest.provides) {
       for (const fn of HOOKS_OF[kind]) if (typeof instance[fn] !== "function") return `missing-hook-${fn}`;
     }
+    if (manifest.provides.includes("route")) {
+      for (const r of manifest.routes) if (typeof instance.routes?.[r.name] !== "function") return `missing-route-${r.name}`;
+    }
+    if (manifest.provides.includes("event") && !EVENT_KINDS.some((k) => typeof instance[k] === "function")) return "missing-event-handler";
     return null;
   }
 
@@ -287,6 +291,8 @@ export function createRegistry({
       hosts: entry?.manifest?.hosts ?? [],
       console: entry?.manifest?.console ?? [],
       libraries: entry?.manifest?.libraries ?? [],
+      routes: entry?.manifest?.routes ?? [],
+      identity: entry?.manifest?.events?.identity ?? [],
       // A note that belongs to another version than the folder holds (replaced by hand) is not shown.
       origin: ((o) => (o && o.version === entry?.manifest?.version ? o : null))(readOrigin(dataDir, id)),
       restartNeeded: restartNeeded.has(id),
@@ -299,6 +305,8 @@ export function createRegistry({
       lastErrorAt: row.lastErrorAt ?? null,
       failStreak: row.failStreak ?? 0,
       hookStreak: row.hookStreak ?? 0,
+      routeStreak: routeHealth.get(id)?.streak ?? 0,
+      routeRetryAt: routePausedUntil(id),
       disabledReason: row.disabledReason ?? null,
       disabledAt: row.disabledAt ?? null,
       retryAt: state === "cooling" ? row.cooldownUntil : null,
@@ -324,6 +332,7 @@ export function createRegistry({
       if (restartNeeded.has(id)) throw new PluginError("restart-needed");
       if (entry.status !== "ok") throw new PluginError(entry.status === "incompatible" ? "incompatible" : "broken");
       if (entry.manifest.needsKeys && confirmKeys !== true) throw new PluginError("keys-confirm-required", 400);
+      routeHealth.delete(id);
       store.update(id, { enabled: true, failStreak: 0, hookStreak: 0, cooldownStep: 0, cooldownUntil: null, disabledReason: null, disabledAt: null });
       await stopInstance(id);
       await start(id);
@@ -332,6 +341,32 @@ export function createRegistry({
   }
 
   // ── hooks ──
+  // A plugin's own addresses pause on their own: one device making a route fail must not stop the downloads
+  // the same plugin answers for every device. Kept in memory; a restart gives the routes a fresh start.
+  const routeHealth = new Map(); // id -> { streak, step, until }
+  const routePausedUntil = (id) => {
+    const h = routeHealth.get(id);
+    return h && now() < h.until ? h.until : null;
+  };
+
+  function recordRouteFailure(id, error, timedOut) {
+    const message = timedOut ? "hook-timeout" : firstLine(error);
+    store.update(id, { lastError: message, lastErrorAt: now() });
+    const h = routeHealth.get(id) ?? { streak: 0, step: 0, until: 0 };
+    // Calls that were already running when the pause began fail inside it: they do not deepen it.
+    if (now() < h.until) return message;
+    const streak = h.streak + 1;
+    if (streak < (h.step > 0 ? 1 : lim.hookFailLimit)) {
+      routeHealth.set(id, { ...h, streak });
+      return message;
+    }
+    const minutes = lim.cooldownMinutes[Math.min(h.step, lim.cooldownMinutes.length - 1)];
+    routeHealth.set(id, { streak: 0, step: h.step + 1, until: now() + minutes * MINUTE_MS });
+    log("warn", `${id}: routes cooling for ${minutes} min after ${streak} failures: ${message}`);
+    notify({ id, event: "cooling", reason: "route-failures", message, minutes });
+    return message;
+  }
+
   function recordHookFailure(id, error, timedOut) {
     const row = store.get(id);
     const message = timedOut ? "hook-timeout" : firstLine(error);
@@ -369,21 +404,32 @@ export function createRegistry({
   }
 
   /**
-   * call: { lang?, clientVersion?, console? } the caller knows (the Accept-Language and Version headers, and what
+   * call: { lang?, clientVersion?, console?, pick?, timeoutMs?, valid? } the caller knows (valid(value) false = an answer it can not use, counted as a failure) (the Accept-Language and Version headers, and what
    * the console told it). The hook gets (args, { signal, lang, clientVersion, console }) with console cut
    * down to the manifest's `console` list; language and version are never part of it.
    */
   async function callHook(id, kind, args, call = {}) {
     const rt = running.get(id);
     if (rt?.state !== "on") return { skipped: "not-running" };
-    const fn = rt.instance?.[kind];
+    const fn = call.pick ? call.pick(rt.instance) : rt.instance?.[kind];
     if (typeof fn !== "function") return { skipped: "no-hook" };
     const row = store.get(id);
-    if (row?.cooldownUntil && now() < row.cooldownUntil) return { skipped: "cooling", retryAt: row.cooldownUntil };
+    const isRoute = kind === "route";
+    const pausedUntil = isRoute ? routePausedUntil(id) : row?.cooldownUntil && now() < row.cooldownUntil ? row.cooldownUntil : null;
+    if (pausedUntil) return { skipped: "cooling", retryAt: pausedUntil };
 
     // A plugin that said needsKeys gets the parsed keys for this one call; they are never kept in ctx.
     const given = KEYED_HOOKS.has(kind) && entries.get(id)?.manifest?.needsKeys ? { ...args, keys: readOnlyKeys(keysProvider?.()) } : args;
-    const r = await runInPlugin(id, (signal) => fn.call(rt.instance, given, { signal, lang: call.lang ?? "en", clientVersion: call.clientVersion ?? null, console: consoleFor(id, call.console) }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
+    const r = await runInPlugin(id, (signal) => fn.call(rt.instance, given, { signal, lang: call.lang ?? "en", clientVersion: call.clientVersion ?? null, console: consoleFor(id, call.console) }), { timeoutMs: call.timeoutMs ?? lim.hookMs[kind] ?? lim.hookMsDefault });
+    // An answer the core can not use is the plugin failing, and must not reset the count a success resets.
+    if (r.ok && call.valid && !call.valid(r.value)) {
+      (isRoute ? recordRouteFailure : recordHookFailure)(id, new Error("unusable-answer"), false);
+      return { error: { message: "unusable-answer", timedOut: false } };
+    }
+    if (r.ok && isRoute) {
+      routeHealth.delete(id);
+      return { value: r.value };
+    }
     if (r.ok) {
       if (row.hookStreak || row.cooldownStep || row.cooldownUntil) store.update(id, { hookStreak: 0, cooldownStep: 0, cooldownUntil: null });
       return { value: r.value };
@@ -392,7 +438,7 @@ export function createRegistry({
     // start the pause that would refuse a download in progress.
     const message = LISTING_HOOKS.has(kind)
       ? noteFailure(id, r.error, r.timedOut)
-      : recordHookFailure(id, r.error, r.timedOut);
+      : (isRoute ? recordRouteFailure : recordHookFailure)(id, r.error, r.timedOut);
     // A hook that fails because its files are gone is a plugin that went missing, not a failing one.
     if (r.error?.code === "ENOENT" && entries.has(id)) {
       const gone = await fsp.access(entries.get(id).dir).then(() => false, () => true);
@@ -484,6 +530,7 @@ export function createRegistry({
       await fsp.mkdir(root, { recursive: true });
       await moveDir(stageDir, target);
       store.ensure(id);
+      routeHealth.delete(id);
       store.update(id, { enabled: false, failStreak: 0, hookStreak: 0, cooldownStep: 0, cooldownUntil: null, disabledReason: null, disabledAt: null });
       if (origin) writeOrigin(dataDir, id, origin);
       await applyScan(await scanPluginDir(root));
@@ -561,8 +608,13 @@ export function createRegistry({
     .filter((e) => e.status === "ok" && e.manifest.provides.includes(kind) && stateOf(e.id) === "on")
     .map((e) => e.id).sort();
 
+  /** The ids of plugins that provide `kind` and are paused after their own failures (cooling), in id order. */
+  const pausedProviding = (kind) => [...entries.values()]
+    .filter((e) => e.status === "ok" && e.manifest.provides.includes(kind) && stateOf(e.id) === "cooling")
+    .map((e) => e.id).sort();
+
   /** What the plugins that are on ask of a console: the union of their manifests' `console` lists. */
-  const wantedConsole = () => [...new Set(activeProviding("variant").flatMap((id) => entries.get(id).manifest.console))].sort();
+  const wantedConsole = () => [...new Set(["variant", "request", "route"].flatMap(activeProviding).flatMap((id) => entries.get(id).manifest.console))].sort();
 
   async function stopAll() {
     if (watcher) { clearInterval(watcher); watcher = null; }
@@ -571,11 +623,16 @@ export function createRegistry({
 
   return {
     API_VERSION, init, list, view, setEnabled, callHook, rescan, startWatching, trash, installFrom, listTrashed, restore,
-    recordVariantKeys, variantKeyStatus, variantKeys, keysOf, consoleWanted, keysStamp, activeProviding, wantedConsole, consoleFor, stopAll, pluginRejected, writeCrash,
+    recordVariantKeys, variantKeyStatus, variantKeys, keysOf, consoleWanted, keysStamp, activeProviding, pausedProviding, routePausedUntil, wantedConsole, consoleFor, stopAll, pluginRejected, writeCrash,
     clearBooting: markers.clearBooting,
     capabilities: () => [...capabilities.values()],
     safeMode,
     versionOf: (id) => entries.get(id)?.manifest?.version ?? null,
+    manifestOf: (id) => (entries.get(id)?.status === "ok" ? entries.get(id).manifest : null),
+    /** "on", "cooling", "off", ... of one plugin, as the page shows it. */
+    stateOf,
+    /** Whether the running plugin exports `fn` (events are queued only for plugins that handle them). */
+    hasHook: (id, fn) => running.get(id)?.state === "on" && typeof running.get(id).instance?.[fn] === "function",
     paths: { root, trashRoot },
     /** For tests: the plugin's instance when it is running. */
     _instance: (id) => running.get(id)?.instance ?? null,
