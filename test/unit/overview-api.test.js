@@ -20,6 +20,8 @@ function overviewWith(over = {}) {
     plugins: () => [{ id: "a", enabled: true, state: "on" }, { id: "b", enabled: true, state: "failed" }, { id: "c", enabled: false, state: "off" }],
     recentAlerts: () => Array.from({ length: 12 }, (_, i) => ({ at: 100 - i, event: "device", text: `\nline ${i}\nmore`, status: "sent" })),
     disks: async () => [{ key: "games", free: 5, size: 10 }, null],
+    patches: () => [],
+    nameOf: () => null,
     now: () => t,
     ...over,
   });
@@ -59,4 +61,29 @@ test("the answer is kept for ten seconds, then read again", async () => {
   tick(10_001);
   await o.read();
   assert.equal(calls.files, 2);
+});
+
+test("the newest game files and patches come first, each with when and the patch's game", async () => {
+  const files = Array.from({ length: 10 }, (_, i) => ({ name: `Game ${i}`, kind: i % 2 ? "update" : "base", titleId: `01000000000${String(i).padStart(2, "0")}000`, version: 0, size: 1, mtime: 1000 + i }));
+  const { o } = overviewWith({
+    files: () => [...files, { name: "No time", kind: "base", titleId: "0100000000099000", size: 1, mtime: null }],
+    patches: () => [
+      { name: "Old", title_id: "0100000000001000", updated_at: 10 },
+      { name: "New", title_id: "0100000000002000", updated_at: 30 },
+      { name: "App", homebrew: "app", updated_at: 20 },
+    ],
+    nameOf: (id) => (id === "0100000000002000" ? "Second game" : null),
+  });
+  const { added } = await o.read();
+  assert.equal(added.games.length, 8);
+  assert.deepEqual(added.games[0], { name: "Game 9", kind: "update", titleId: "0100000000009000", version: 0, at: 1_009_000 });
+  assert.ok(!added.games.some((g) => g.name === "No time"));
+  assert.deepEqual(added.patches.map((p) => [p.name, p.game, p.at]), [["New", "Second game", 30_000], ["App", null, 20_000], ["Old", null, 10_000]]);
+});
+
+test("a patch listing that fails leaves the patches empty and the rest standing", async () => {
+  const { o } = overviewWith({ patches: async () => { throw new Error("scan"); } });
+  const r = await o.read();
+  assert.deepEqual(r.added.patches, []);
+  assert.ok(r.status.games);
 });
