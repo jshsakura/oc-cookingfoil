@@ -6,7 +6,9 @@
  *       todo:   [{ code, n?, severity?, ...warning }]   only what needs doing; config warnings first
  *       status: { games: { titles, files, bytes }, disk: [{ key, free, size }],
  *                 verify: { status, total, counts }, transfers: { active }, plugins: { on, total } }
- *       recent: [{ at, event, text, status }]           the newest alerts, sent or not, first line only }
+ *       recent: [{ at, event, text, status }]           the newest alerts, sent or not, first line only
+ *       added:  { games: [{ name, kind, titleId, version, at }], patches: [{ name, game, titleId, at }] }
+ *               the newest game files and patches in the library, newest first }
  *
  * Everything here is already kept in memory by its owner, so a read only counts. The answer is kept
  * for a few seconds anyway: the page asks every 15 seconds and several tabs may be open. Counts and
@@ -19,10 +21,14 @@ import transferLog from "../../helpers/transfer-log.js";
 import * as alerts from "../../helpers/alerts.js";
 import { pluginRegistry } from "../../plugins/instance.js";
 import { romsDirPath, dataDir } from "../../helpers/envs.js";
+import * as userPatches from "../../meta/user-patches.js";
+import { gameOf } from "../../meta/game-info.js";
 
 const FRESH_MS = 10_000;
 const RECENT_MAX = 8;
 const TEXT_MAX = 140;
+const ADDED_GAMES = 8;
+const ADDED_PATCHES = 6;
 // A plugin in one of these states was turned on and is not running as asked.
 const PLUGIN_FAILING = new Set(["failed", "crash-disabled", "auto-disabled", "cooling"]);
 
@@ -46,6 +52,15 @@ function gamesOf(files) {
   return { titles: titles.size, files: files.length, bytes };
 }
 
+/** The newest game files and patches: what came in lately, at a glance. */
+function addedOf(files, patches, nameOf) {
+  const games = files.filter((f) => f.mtime).sort((a, b) => b.mtime - a.mtime).slice(0, ADDED_GAMES)
+    .map((f) => ({ name: f.name, kind: f.kind, titleId: f.titleId, version: f.version, at: f.mtime * 1000 }));
+  const newest = patches.filter((p) => p.updated_at).sort((a, b) => b.updated_at - a.updated_at).slice(0, ADDED_PATCHES)
+    .map((p) => ({ name: p.name, game: p.title_id ? nameOf(p.title_id) : null, titleId: p.title_id ?? null, at: p.updated_at * 1000 }));
+  return { games, patches: newest };
+}
+
 const firstLine = (text) => String(text ?? "").split("\n").find((l) => l.trim())?.trim().slice(0, TEXT_MAX) ?? "";
 
 /**
@@ -61,6 +76,8 @@ export function createOverview({
   activeTransfers = () => transferLog.active().length,
   plugins = () => pluginRegistry().list(),
   recentAlerts = () => alerts.recent(),
+  patches = () => userPatches.list(),
+  nameOf = (titleId) => gameOf(titleId)?.name ?? null,
   disks = () => Promise.all([diskOf("games", romsDirPath), diskOf("data", dataDir)]),
   now = Date.now,
 } = {}) {
@@ -70,6 +87,7 @@ export function createOverview({
     const c = await counts();
     const v = verify();
     const pl = plugins();
+    const all = files();
     const failing = pl.filter((p) => p.enabled && PLUGIN_FAILING.has(p.state));
     const todo = [
       ...warnings().map((w) => ({ ...w })),
@@ -85,13 +103,14 @@ export function createOverview({
       lanes: lanes(),
       todo,
       status: {
-        games: gamesOf(files()),
+        games: gamesOf(all),
         disk: (await disks()).filter(Boolean),
         verify: { status: v.status, total: v.total, counts: v.counts },
         transfers: { active: activeTransfers() },
         plugins: { on: pl.filter((p) => p.state === "on" || p.state === "cooling").length, total: pl.length },
       },
       recent: recentAlerts().slice(0, RECENT_MAX).map((e) => ({ at: e.at, event: e.event, text: firstLine(e.text), status: e.status })),
+      added: addedOf(all, await Promise.resolve(patches()).catch(() => []), nameOf),
     };
   }
 

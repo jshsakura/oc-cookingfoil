@@ -8,6 +8,11 @@ export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
   <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy" data-top="ov.copy">${ko("ov.copy")}</button></div>
   <h3 class="ov-h" data-top="ov.todoH">${ko("ov.todoH")}</h3>
   <div id="warnings"></div>
+  <h3 class="ov-h" data-top="ov.addedH">${ko("ov.addedH")}</h3>
+  <div class="ov-added">
+    <section class="ov-col"><div class="ov-col-h"><b data-top="ov.addedGames">${ko("ov.addedGames")}</b><a href="/admin/games" data-top="ov.seeAll">${ko("ov.seeAll")}</a></div><ul class="ov-list" id="ov-added-games"></ul></section>
+    <section class="ov-col"><div class="ov-col-h"><b data-top="ov.addedPatches">${ko("ov.addedPatches")}</b><a href="/admin/games#library/patches" data-top="ov.seeAll">${ko("ov.seeAll")}</a></div><ul class="ov-list" id="ov-added-patches"></ul></section>
+  </div>
   <h3 class="ov-h" data-top="ov.statusH">${ko("ov.statusH")}</h3>
   <div class="cards" id="ov-status"></div>
   <div class="lanes" id="lanes"></div>
@@ -22,12 +27,26 @@ export const OVERVIEW_CSS = /* css */ `
 .ov-h{margin:26px 0 10px;font-size:15px}
 .card .s{color:var(--muted);font-size:12px;margin-top:2px}
 .card.alert .v{color:var(--accent)}
+#ov-status .card .v{font-size:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ov-recent{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
 .ov-recent li{display:flex;gap:12px;padding:10px 16px;border-top:1px solid var(--line);font-size:13.5px;min-width:0}
 .ov-recent li:first-child{border-top:0}
 .ov-recent time{color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
 .ov-recent span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ov-recent li.none{color:var(--muted)}
+.ov-added{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px}
+.ov-col{border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden;min-width:0}
+.ov-col-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:13.5px}
+.ov-col-h a{color:var(--muted);font-size:12.5px;text-decoration:none;white-space:nowrap}.ov-col-h a:hover{color:var(--text)}
+.ov-list{list-style:none;margin:0;padding:0}
+.ov-list li{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--line);font-size:13.5px;min-width:0}
+.ov-list li:first-child{border-top:0}
+.ov-list img{width:30px;height:30px;border-radius:7px;flex:none;object-fit:cover;background:var(--sunk)}
+.ov-list .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-list .nm small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.ov-list .pill{flex:none}
+.ov-list time{flex:none;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ov-list li.none{color:var(--muted)}
 `;
 
 export const OVERVIEW_SCRIPT = /* js */ `
@@ -87,16 +106,31 @@ function renderStatus(st){const box=$('ov-status');box.replaceChildren();
   const card=(l,v,sub,alert)=>{const c=el('div',null,'card'+(alert?' alert':''));c.append(el('div',v,'v'),el('div',l,'l'));if(sub)c.append(el('div',sub,'s'));return c;};
   box.append(card(topText('ov.s.games'),topFill('ov.s.gamesV',{n:num(st.games.titles)}),topFill('ov.s.gamesSub',{files:num(st.games.files),size:ovBytes(st.games.bytes)})));
   for(const dk of st.disk||[])box.append(card(topText(dk.key==='games'?'ov.s.diskGames':'ov.s.diskData'),ovBytes(dk.free),topFill('ov.s.diskSub',{size:ovBytes(dk.size)}),dk.size&&dk.free/dk.size<0.05));
-  const vc=st.verify.counts||{};const bad=(vc.damaged||0)+(vc.modified||0);
-  box.append(card(topText('ov.s.verify'),bad?topFill('ov.s.verifyBad',{d:num(vc.damaged),m:num(vc.modified)}):topText('ov.s.verifyOk'),topFill('ov.s.verifySub',{n:num(st.verify.total-(vc.unchecked||0))}),(vc.damaged||0)>0));
+  // Damage is the headline; a modified file (a translation patch) is not damage, so it goes in the small line.
+  const vc=st.verify.counts||{};const checked=topFill('ov.s.verifySub',{n:num(st.verify.total-(vc.unchecked||0))});
+  box.append(card(topText('ov.s.verify'),vc.damaged?topFill('ov.s.verifyDamaged',{d:num(vc.damaged)}):topText('ov.s.verifyOk'),vc.modified?checked+' · '+topFill('ov.s.verifyModified',{m:num(vc.modified)}):checked,(vc.damaged||0)>0));
   box.append(card(topText('ov.s.xfer'),topFill('ov.s.xferV',{n:num(st.transfers.active)})));
   box.append(card(topText('ov.s.plugins'),topFill('ov.s.pluginsV',{on:num(st.plugins.on),total:num(st.plugins.total)})));}
 function renderRecent(list){const box=$('ov-recent');box.replaceChildren();
   for(const e of list){const li=el('li');const t=el('time',fmt(e.at));t.dateTime=new Date(e.at).toISOString();li.append(t,el('span',e.text));li.title=e.text;box.append(li);}
   if(!list.length)box.append(el('li',topText('ov.recentNone'),'none'));}
+// What came in lately: the newest game files and patches, each with when.
+const OV_KIND={base:'ov.kind.base',update:'ov.kind.update',dlc:'ov.kind.dlc'};
+function ovDay(at){return new Date(at).toLocaleDateString(loc(),{month:'short',day:'numeric'});}
+function ovRow(iconId,name,sub,tag,at){const li=el('li');
+  if(iconId&&/^[0-9A-F]{16}$/i.test(iconId)){const im=document.createElement('img');im.alt='';im.loading='lazy';im.src='/api/library/icon/'+iconId+'?size=sm';im.onerror=()=>{im.style.visibility='hidden';};li.append(im);}
+  const nm=el('span',name,'nm');if(sub)nm.append(el('small',sub));li.title=name;
+  li.append(nm);if(tag)li.append(pill(tag,''));const t=el('time',ovDay(at));t.dateTime=new Date(at).toISOString();li.append(t);return li;}
+function renderAdded(a){
+  const g=$('ov-added-games');g.replaceChildren();
+  for(const f of a?.games||[])g.append(ovRow(f.titleId,f.name,null,OV_KIND[f.kind]?topText(OV_KIND[f.kind]):'',f.at));
+  if(!g.children.length)g.append(el('li',topText('ov.addedGamesNone'),'none'));
+  const p=$('ov-added-patches');p.replaceChildren();
+  for(const x of a?.patches||[])p.append(ovRow(x.titleId,x.name,x.game,null,x.at));
+  if(!p.children.length)p.append(el('li',topText('ov.addedPatchesNone'),'none'));}
 function renderOverview(d){
   $('ts').textContent=topFill('overview.asOf',{at:fmt(d.generatedAt)});
-  renderWarnings(d.todo||[]);if(d.lanes)renderLanes(d.lanes);renderStatus(d.status);renderRecent(d.recent||[]);}
+  renderWarnings(d.todo||[]);if(d.lanes)renderLanes(d.lanes);renderAdded(d.added);renderStatus(d.status);renderRecent(d.recent||[]);}
 function showShopUrl(){$('shop-url').textContent=location.origin.replace(/[/]$/,'');}
 $('shop-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('shop-url').textContent);toast(topText('ov.copied'));}catch{toast(topText('ov.copyFail'));}});
 showShopUrl();
