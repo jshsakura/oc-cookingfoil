@@ -170,13 +170,13 @@ export async function recentChats(botToken) {
 
 const link = () => (publicBaseUrl ? `\n\n🔗 ${publicBaseUrl.replace(/\/$/, "")}/admin` : "");
 // Each kind of alert leads with its own emoji, so the chat reads at a glance.
-const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", plugin: "🧩", damaged: "", test: "🔔" };
+const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", plugin: "🧩", damaged: "🩹", test: "🔔" };
 
 /** Sends now and records how it went. Resolves to the history entry. */
 async function deliver(event, text, now, title = translator(alertLang())(`event.${event}`), extra = {}) {
   const conf = integrations.get("telegram");
   try {
-    const d = await sendTelegram(conf, `${[EVENT_ICON[event] ?? "🔔", title].filter(Boolean).join(" ")} · CookingFoil\n\n${text}${link()}`, extra);
+    const d = await sendTelegram(conf, `${EVENT_ICON[event] ?? "🔔"} ${title} · CookingFoil\n\n${text}${link()}`, extra);
     if (!d.ok) debug.log("alerts: telegram refused: %s", d.description ?? "unknown");
     return remember({ at: now, event, text, status: d.ok ? "sent" : "failed", ...(d.ok ? {} : { detail: d.description ?? "" }) });
   } catch (err) {
