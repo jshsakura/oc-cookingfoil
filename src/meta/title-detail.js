@@ -21,7 +21,8 @@ import * as gameDescriptions from "./game-descriptions.js";
 import * as itemVerified from "./item-verified.js";
 import * as shopCache from "./shop-cache.js";
 import { titleKeyNeed } from "./key-needs.js";
-import { findingOf } from "./file-integrity.js";
+import { findingOf, signedOf } from "./file-integrity.js";
+import { signedHelp } from "./signed-help.js";
 import { explain as explainIntegrity } from "./integrity-help.js";
 import path from "path";
 
@@ -38,6 +39,23 @@ export function integrityFor(base, lang = "en", files = shopCache.files()) {
     if (f.baseTitleId !== base) continue;
     const finding = findingOf(f.rel);
     if (finding) out.push({ file: path.basename(f.rel), kind: f.kind ?? null, titleId: f.titleId ?? null, verdict: finding.verdict, ...explainIntegrity(finding, lang) });
+  }
+  return out;
+}
+
+/**
+ * Whether this title's files are signed, for every file the check knows about: [{ file, kind, titleId,
+ * nca, ticket, help? }], nca and ticket true, false or null, help { title, body } in `lang` when one is
+ * false. A console without signature patches cannot install a file with a false.
+ */
+export function signedFor(base, lang = "en", files = shopCache.files()) {
+  const out = [];
+  for (const f of files) {
+    if (f.baseTitleId !== base) continue;
+    const s = signedOf(f.rel);
+    if (!s) continue;
+    const help = signedHelp(s, lang);
+    out.push({ file: path.basename(f.rel), kind: f.kind ?? null, titleId: f.titleId ?? null, nca: s.nca ?? null, ticket: s.ticket ?? null, ...(help ? { help } : {}) });
   }
   return out;
 }
@@ -152,6 +170,8 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     patches: userPatches.forTitle(base),
     // Files of this title the file check found modified or damaged (see integrityFor).
     integrity: integrityFor(base, lang),
+    // Files of this title whose signatures the check knows (see signedFor).
+    signed: signedFor(base, lang),
     // Tried on a console by the admin (a 검수됨 badge): verified, verified_at (ISO) or null.
     ...itemVerified.fields("game", base),
   };

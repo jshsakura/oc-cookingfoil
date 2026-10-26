@@ -15,11 +15,11 @@ test('all twelve languages format live statistics, persist and reach the API err
   test.setTimeout(120_000);
   await signIn(page);
   let requestedLanguage = '';
-  await page.route('**/admin/api/stats', async (route) => {
+  await page.route('**/admin/api/overview', async (route) => {
     requestedLanguage = route.request().headers()['accept-language'];
     const response = await route.fetch();
     const body = await response.json();
-    await route.fulfill({ response, json: { ...body, generatedAt: AT, totals: { ...body.totals, totalRequests: 1234567 } } });
+    await route.fulfill({ response, json: { ...body, generatedAt: AT, status: { ...body.status, games: { ...body.status.games, titles: 1234567 } } } });
   });
   await page.goto('/admin');
   for (const [code, locale] of LANGUAGES) {
@@ -29,10 +29,10 @@ test('all twelve languages format live statistics, persist and reach the API err
     const number = new Intl.NumberFormat(locale).format(1234567);
     const date = new Intl.DateTimeFormat(locale, { timeZone: 'UTC' }).format(AT);
     // Existing values must change when the menu changes, before any reload.
-    await expect(page.locator('#cards .card').nth(1).locator('.v')).toHaveText(number);
+    await expect(page.locator('#ov-status .card').first().locator('.v')).toContainText(number);
     await expect(page.locator('#ts')).toContainText(date);
     await page.reload();
-    await expect(page.locator('#cards .card').nth(1).locator('.v')).toHaveText(number);
+    await expect(page.locator('#ov-status .card').first().locator('.v')).toContainText(number);
     await expect(page.locator('#ts')).toContainText(date);
     expect(parseLang(requestedLanguage)).toBe(code);
     const expected = apiText(code, 'homebrew.noRepo');
@@ -57,15 +57,15 @@ for (const [saved, code, locale] of [['pt-BR', 'pt', 'pt-BR'], ['zh-TW', 'zh-Han
   test(`the saved language ${saved} is normalized consistently with client language codes`, async ({ page }) => {
     await signIn(page);
     await page.evaluate((value) => localStorage.setItem('cookingfoil:lang', value), saved);
-    await page.route('**/admin/api/stats', async (route) => {
+    await page.route('**/admin/api/overview', async (route) => {
       const response = await route.fetch();
       const body = await response.json();
-      await route.fulfill({ response, json: { ...body, generatedAt: AT, totals: { ...body.totals, totalRequests: 1234567 } } });
+      await route.fulfill({ response, json: { ...body, generatedAt: AT, status: { ...body.status, games: { ...body.status.games, titles: 1234567 } } } });
     });
     await page.reload();
     await expect.poll(async () => parseLang(await page.locator('html').getAttribute('lang'))).toBe(code);
     await expect(page.locator(`#lang-list [data-admin-lang="${code}"]`)).toHaveAttribute('aria-checked', 'true');
-    await expect(page.locator('#cards .card').nth(1).locator('.v')).toHaveText(new Intl.NumberFormat(locale).format(1234567));
+    await expect(page.locator('#ov-status .card').first().locator('.v')).toContainText(new Intl.NumberFormat(locale).format(1234567));
     await expect(page.locator('#ts')).toContainText(new Intl.DateTimeFormat(locale, { timeZone: 'UTC' }).format(AT));
   });
 }

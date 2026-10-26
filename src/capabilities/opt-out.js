@@ -60,6 +60,7 @@ export const OPT_OUT = {
   "GET /admin/settings/admin": "browser-only",
   "GET /admin/settings/automation": "browser-only",
   "GET /admin/settings/plugins": "browser-only",
+  "GET /admin/settings/notifications": "browser-only",
   // The shell's four sidebar numbers: a read for the page's own badges, not a tool.
   "GET /admin/api/counts": "browser-only",
   // Emptying the trash is the one permanent delete; only a person on the admin page does it.
