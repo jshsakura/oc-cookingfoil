@@ -4,7 +4,7 @@
  * name: reading what the console told us, asking the plugins, checking what they answer, picking the
  * reader's language, refusing when an option cannot be served, and making the ETag.
  *
- *   resolve(req, abs, st)    the download of a file whose query names a variant key:
+ *   resolve(req, abs, st, { query? })    (query: what a beforeDownload plugin rewrote the query to) the download of a file whose query names a variant key:
  *                              null                       no variant key in the query: send the file as it is
  *                              { refusal: { status, body } }  409; body is { error, errors, code }
  *                              { variant: { tag, patches, vary } }   send the file with these bytes replaced
@@ -111,12 +111,12 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     return null;
   }
 
-  async function resolve(req, abs, st) {
-    const owner = ownerOf(req.query);
+  async function resolve(req, abs, st, { query: asked = req.query } = {}) {
+    const owner = ownerOf(asked);
     if (!owner) return null;
     const lang = requestLang(req);
     if (!owner.available) return refusal("variant.unavailable", "unavailable", lang);
-    const query = Object.fromEntries(Object.entries(req.query).filter(([k]) => owner.keys.includes(k)));
+    const query = Object.fromEntries(Object.entries(asked).filter(([k]) => owner.keys.includes(k)));
     const facts = parseConsoleHeader(req.get?.(CONSOLE_HEADER));
     const r = await registry.callHook(owner.id, "plan", { file: abs, size: st.size, mtimeMs: st.mtimeMs, query }, { lang, clientVersion: req.get?.("version") ?? null, console: facts });
     if (r.skipped) return refusal("variant.unavailable", "unavailable", lang);

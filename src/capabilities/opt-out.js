@@ -67,6 +67,8 @@ export const OPT_OUT = {
   "POST /admin/api/trash/empty": "token-blocked",
   // A plugin is code that runs in this process: switching one on, deleting or restoring one is a person's choice.
   "GET /admin/api/plugins/:id/download": "token-blocked",
+  // A plugin's own addresses (plugins/routes.js): one pattern for every route a manifest declares, refused to tokens in the router.
+  "ALL /api/plugins/:id/:name": "token-blocked",
   "POST /admin/api/plugins/rescan": "token-blocked",
   "POST /admin/api/plugins/restore": "token-blocked",
   "POST /admin/api/plugins/install": "token-blocked",

@@ -14,7 +14,13 @@
  */
 
 export const API_VERSION = 1;
-export const PROVIDES = Object.freeze(["metadata", "art", "variant", "task"]);
+export const PROVIDES = Object.freeze(["metadata", "art", "variant", "task", "request", "route", "event"]);
+/** Events a plugin may handle (functions of the same name on its default export), and what a payload may name beyond the plain facts. */
+export const EVENT_KINDS = Object.freeze(["afterDownload", "installReported", "libraryChanged", "deviceApproved"]);
+export const IDENTITY_ITEMS = Object.freeze(["ip", "account"]);
+/** A plugin's own addresses, /api/plugins/<id>/<name>: who may call (device = any console or account the core let in, admin = administrators), and the caps. */
+export const ROUTE_ACCESS = Object.freeze(["device", "admin"]);
+export const ROUTE_LIMITS = Object.freeze({ bodyDefault: 256 * 1024, bodyMax: 4 * 1024 * 1024, timeoutDefault: 10_000, timeoutMax: 30_000, maxRoutes: 16 });
 /**
  * What a console may tell a plugin about itself, and only when the manifest asks for it by name. The
  * language and the client version are not here: the core reads them from the Accept-Language and Version
@@ -31,6 +37,7 @@ const IP_LIKE_RE = /^[0-9.]+(?::\d+)?$/;
 // Keys the core's own routes read from a URL; a plugin cannot claim them ("rewrap" is the one legacy key a plugin may).
 const CORE_QUERY_KEYS = new Set(["lang", "v", "size"]);
 const QUERY_KEY_RE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
+const ROUTE_NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const LANG_RE = /^[a-z]{2}(?:-[A-Za-z]{2,4})?$/;
 
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -40,6 +47,21 @@ const isStrList = (v) => Array.isArray(v) && v.every((s) => typeof s === "string
 function isLabel(v) {
   return isObj(v) && typeof v.en === "string" && v.en.length > 0
     && Object.entries(v).every(([k, s]) => LANG_RE.test(k) && typeof s === "string" && s.length > 0 && s.length <= 400);
+}
+
+/** The routes list, checked and filled in; null when it is not valid. */
+function parseRoutes(list) {
+  if (!Array.isArray(list) || !list.length || list.length > ROUTE_LIMITS.maxRoutes) return null;
+  const out = [];
+  for (const r of list) {
+    if (!isObj(r) || typeof r.name !== "string" || !ROUTE_NAME_RE.test(r.name) || out.some((o) => o.name === r.name)) return null;
+    if (!["GET", "POST"].includes(r.method) || !ROUTE_ACCESS.includes(r.access)) return null;
+    const body = r.maxBody ?? ROUTE_LIMITS.bodyDefault;
+    const timeout = r.timeoutMs ?? ROUTE_LIMITS.timeoutDefault;
+    if (!Number.isInteger(body) || body < 1 || body > ROUTE_LIMITS.bodyMax || !Number.isInteger(timeout) || timeout < 100 || timeout > ROUTE_LIMITS.timeoutMax) return null;
+    out.push({ name: r.name, method: r.method, access: r.access, maxBody: body, timeoutMs: timeout });
+  }
+  return out;
 }
 
 export function parseManifest(raw, dirName) {
@@ -64,8 +86,13 @@ export function parseManifest(raw, dirName) {
   if (m.settings !== undefined && !isObj(m.settings)) problems.push("bad-settings");
   if (m.variantKeys !== undefined && !(isStrList(m.variantKeys) && m.variantKeys.every((k) => QUERY_KEY_RE.test(k) && !CORE_QUERY_KEYS.has(k)))) problems.push("bad-variant-keys");
   if (m.console !== undefined && !(Array.isArray(m.console) && m.console.every((c) => CONSOLE_ITEMS.includes(c)) && new Set(m.console).size === m.console.length)) problems.push("bad-console");
-  else if (m.console?.length && Array.isArray(m.provides) && !m.provides.includes("variant")) problems.push("console-without-variant");
+  else if (m.console?.length && Array.isArray(m.provides) && !m.provides.some((k) => ["variant", "request", "route"].includes(k))) problems.push("console-without-variant");
   if (m.variantKeys?.length && Array.isArray(m.provides) && !m.provides.includes("variant")) problems.push("variant-keys-without-variant");
+  const routes = m.routes === undefined ? [] : parseRoutes(m.routes);
+  if (routes === null) problems.push("bad-routes");
+  else if (Array.isArray(m.provides) && m.provides.includes("route") !== (routes.length > 0)) problems.push("routes-mismatch");
+  if (m.events !== undefined && !(isObj(m.events) && (m.events.identity === undefined || (Array.isArray(m.events.identity) && m.events.identity.every((i) => IDENTITY_ITEMS.includes(i)) && new Set(m.events.identity).size === m.events.identity.length)))) problems.push("bad-events");
+  else if (m.events?.identity?.length && Array.isArray(m.provides) && !m.provides.includes("event")) problems.push("identity-without-event");
   if (problems.length) return { ok: false, problems };
 
   return {
@@ -84,6 +111,8 @@ export function parseManifest(raw, dirName) {
       settings: m.settings ?? {},
       variantKeys: m.variantKeys ?? [],
       console: m.console ?? [],
+      routes,
+      events: { identity: m.events?.identity ?? [] },
     },
   };
 }
