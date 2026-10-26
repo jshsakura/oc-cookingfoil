@@ -4,15 +4,15 @@
  */
 
 export const BOX_CSS = /* css */ `
-.box{background:var(--panel);border:1px solid var(--line);border-radius:16px;margin:0 0 20px;overflow:hidden}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);margin:0 0 20px;overflow:hidden}
 .box>.box-h{display:flex;align-items:baseline;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);background:var(--sunk)}
-.box>.box-h>h2,.box>.box-h>h3{margin:0;font-size:15px}
-.box>.box-h .box-meta{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12.5px}
+.box>.box-h>h2,.box>.box-h>h3{margin:0;font-size:var(--fs-md)}
+.box>.box-h .box-meta{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:var(--fs-xs)}
 .box>.box-b{padding:14px 18px 16px}
 .box>.box-b>:first-child{margin-top:0}.box>.box-b>:last-child{margin-bottom:0}
 .box-b>form.add,.box-b>.tfa{background:none;border:0;padding:0;border-radius:0}
 .box-jump{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
-.box-jump button{padding:6px 13px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--text);font-size:13px;font-weight:600;min-height:0}
+.box-jump button{padding:6px 13px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel);color:var(--text);font-size:var(--fs-sm);font-weight:var(--fw-bold);min-height:0}
 .box-jump button:hover{background:var(--sunk)}
 .box-jump button[aria-selected=true]{background:var(--text);color:var(--panel);border-color:var(--text)}
 .box-fold>summary{list-style:none;cursor:pointer}.box-fold>summary::-webkit-details-marker{display:none}

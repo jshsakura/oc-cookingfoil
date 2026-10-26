@@ -52,41 +52,41 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
 </section>`;
 
 export const NSZ_CSS = `
-.nz-head{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin:6px 0 12px;display:grid;gap:10px}
-.nz-state{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.nz-state .pill{font-size:13px;padding:4px 12px}
+.nz-head{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:16px 18px;margin:6px 0 12px;display:grid;gap:10px}
+.nz-state{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.nz-state .pill{font-size:var(--fs-sm);padding:4px 12px}
 .nz-head p{margin:0}
 .nz-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}
-.nz-cards .card{padding:14px 16px}.nz-cards .card .v{font-size:24px}
+.nz-cards .card{padding:14px 16px}.nz-cards .card .v{font-size:var(--fs-2xl)}
 .nz-cards .card.bad .v{color:var(--bad)}.nz-cards .card.good .v{color:var(--good)}
 .nz-active{display:grid;gap:10px;margin-bottom:6px}
-.nz-run{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;background:var(--panel);border:1px solid rgba(var(--accent-rgb),.6);border-radius:18px;padding:14px 16px}
-.nz-run .nz-ico{width:64px;height:64px;border-radius:14px}
-.nz-run b{font-size:16px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nz-run .nz-file{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nz-run .nz-meta{display:flex;gap:6px 14px;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin:6px 0;font-variant-numeric:tabular-nums}
-.nz-bar{height:8px;border-radius:8px;background:var(--sunk);overflow:hidden;position:relative}
-.nz-bar>i{display:block;height:100%;width:0;background:var(--accent);border-radius:8px;transition:width .4s}
+.nz-run{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;background:var(--panel);border:1px solid rgba(var(--accent-rgb),.6);border-radius:var(--r-2xl);padding:14px 16px}
+.nz-run .nz-ico{width:64px;height:64px;border-radius:var(--r-xl)}
+.nz-run b{font-size:var(--fs-lg);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nz-run .nz-file{color:var(--muted);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nz-run .nz-meta{display:flex;gap:6px 14px;flex-wrap:wrap;color:var(--muted);font-size:var(--fs-xs);margin:6px 0;font-variant-numeric:tabular-nums}
+.nz-bar{height:8px;border-radius:var(--r-sm);background:var(--sunk);overflow:hidden;position:relative}
+.nz-bar>i{display:block;height:100%;width:0;background:var(--accent);border-radius:var(--r-sm);transition:width .4s}
 .nz-bar.ind>i{width:30%;position:absolute;animation:nz-slide 1.4s ease-in-out infinite}
 @keyframes nz-slide{from{left:-30%}to{left:100%}}
 @keyframes nz-pulse{0%,100%{opacity:1}50%{opacity:.45}}
-.nz-sk{color:transparent!important;background:var(--sunk)!important;border-radius:8px;animation:nz-pulse 1.4s ease-in-out infinite}
+.nz-sk{color:transparent!important;background:var(--sunk)!important;border-radius:var(--r-sm);animation:nz-pulse 1.4s ease-in-out infinite}
 .nz-tools{margin-top:16px}.nz-tools .seg{margin:6px 0}
 .nz-list{display:grid;gap:8px;margin-top:8px}
-.nz-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.nz-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:10px 12px}
 .nz-row.running{border-color:rgba(var(--accent-rgb),.6)}
-.nz-ico{width:40px;height:40px;border-radius:10px;background:var(--sunk);object-fit:cover;display:block;flex:none}
+.nz-ico{width:40px;height:40px;border-radius:var(--r-md);background:var(--sunk);object-fit:cover;display:block;flex:none}
 .nz-main{min-width:0;display:grid;gap:2px}
-.nz-main b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
-.nz-main span{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nz-main b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
+.nz-main span{color:var(--muted);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nz-main .err{color:var(--bad);white-space:normal;overflow-wrap:anywhere}
-.nz-info{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.nz-info{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;font-size:var(--fs-xs);font-variant-numeric:tabular-nums;color:var(--muted)}
 .nz-acts{display:flex;gap:6px}.nz-acts button{padding:6px 10px}
 .nz-skel{grid-template-columns:40px 1fr}.nz-skel .nz-main span{width:60%}
 .nz-lead{display:flex;align-items:center;gap:10px}
 .nz-lead input,.nz-chk input{width:18px;height:18px;margin:0;accent-color:var(--accent)}.nz-cb-sp{width:18px;flex:none}
 /* The select-all box sits right above the rows' boxes (row border 1px + padding 12px). */
 .nz-pick{display:flex;align-items:center;margin-top:10px;padding-left:13px}.nz-pick[hidden],.nz-kept[hidden]{display:none}
-.nz-chk{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
+.nz-chk{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);cursor:pointer}
 .nz-kept{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 #box-nsz-log{margin-top:16px}#nz-log-q{width:100%;margin:4px 0 8px}
 .nz-lrow{grid-template-columns:minmax(0,1fr) auto}

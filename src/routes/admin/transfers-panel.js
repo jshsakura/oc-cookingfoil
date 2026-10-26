@@ -25,13 +25,13 @@ export const TRANSFERS_HTML = `
   <p class="muted" id="xf-foot"></p>`;
 
 export const TRANSFERS_CSS = `
-.xf-cards .card .v{font-size:24px}
-.xf-cards .card .s{color:var(--muted);font-size:12px;margin-top:2px;font-variant-numeric:tabular-nums}
+.xf-cards .card .v{font-size:var(--fs-2xl)}
+.xf-cards .card .s{color:var(--muted);font-size:var(--fs-xs);margin-top:2px;font-variant-numeric:tabular-nums}
 .xf-cards .card.slow{border-color:rgba(var(--warn-rgb),.6)}.xf-cards .card.slow .v{color:var(--warn)}
 .xf-cards .card.fast .v{color:var(--good)}
 #tab-logs .hd .seg{flex-wrap:wrap}
 .xf-table .gc{font-variant-numeric:tabular-nums}
-.xf-table .gc.xf-client{color:var(--muted);font-size:12px}
+.xf-table .gc.xf-client{color:var(--muted);font-size:var(--fs-xs)}
 `;
 
 export const TRANSFERS_SCRIPT = /* js */ `

@@ -24,28 +24,28 @@ export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
 </section>`;
 
 export const OVERVIEW_CSS = /* css */ `
-.ov-h{margin:26px 0 10px;font-size:15px}
-.card .s{color:var(--muted);font-size:12px;margin-top:2px}
+.ov-h{margin:26px 0 10px;font-size:var(--fs-md)}
+.card .s{color:var(--muted);font-size:var(--fs-xs);margin-top:2px}
 .card.alert .v{color:var(--accent)}
-#ov-status .card .v{font-size:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ov-recent{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
-.ov-recent li{display:flex;gap:12px;padding:10px 16px;border-top:1px solid var(--line);font-size:13.5px;min-width:0}
+#ov-status .card .v{font-size:var(--fs-2xl);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-recent{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden}
+.ov-recent li{display:flex;gap:12px;padding:10px 16px;border-top:1px solid var(--line);font-size:var(--fs-sm);min-width:0}
 .ov-recent li:first-child{border-top:0}
 .ov-recent time{color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
 .ov-recent span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ov-recent li.none{color:var(--muted)}
 .ov-added{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px}
-.ov-col{border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden;min-width:0}
-.ov-col-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:13.5px}
-.ov-col-h a{color:var(--muted);font-size:12.5px;text-decoration:none;white-space:nowrap}.ov-col-h a:hover{color:var(--text)}
+.ov-col{border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden;min-width:0}
+.ov-col-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
+.ov-col-h a{color:var(--muted);font-size:var(--fs-xs);text-decoration:none;white-space:nowrap}.ov-col-h a:hover{color:var(--text)}
 .ov-list{list-style:none;margin:0;padding:0}
-.ov-list li{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--line);font-size:13.5px;min-width:0}
+.ov-list li{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--line);font-size:var(--fs-sm);min-width:0}
 .ov-list li:first-child{border-top:0}
-.ov-list img{width:30px;height:30px;border-radius:7px;flex:none;object-fit:cover;background:var(--sunk)}
+.ov-list img{width:30px;height:30px;border-radius:var(--r-sm);flex:none;object-fit:cover;background:var(--sunk)}
 .ov-list .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ov-list .nm small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.ov-list .nm small{display:block;color:var(--muted);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis}
 .ov-list .pill{flex:none}
-.ov-list time{flex:none;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ov-list time{flex:none;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ov-list li.none{color:var(--muted)}
 `;
 

@@ -83,15 +83,15 @@ ${box("keyless", top("ig.keylessTitle"), `<p class="muted">${top("ig.keylessLede
 <div class="intg-frees">${KEYLESS.map(keyless).join("\n")}</div>`, { meta: top("ig.keylessMeta") })}`;
 
 export const INTEGRATIONS_CSS = `
-.intg{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px}
-.intg-hd{display:flex;align-items:center;gap:10px;justify-content:space-between}.intg h3{margin:0;font-size:15px}
-.intg-state{font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;background:var(--sunk);color:var(--muted)}
+.intg{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:16px 18px;margin-bottom:12px}
+.intg-hd{display:flex;align-items:center;gap:10px;justify-content:space-between}.intg h3{margin:0;font-size:var(--fs-md)}
+.intg-state{font-size:var(--fs-xs);font-weight:700;padding:3px 10px;border-radius:var(--r-pill);background:var(--sunk);color:var(--muted)}
 .intg-state.on{color:var(--good)}
-.intg-steps{margin:6px 0 12px;padding-left:20px;color:var(--muted);font-size:13px}.intg-steps li{margin-bottom:4px}
-.intg-steps code{font-size:12px}
+.intg-steps{margin:6px 0 12px;padding-left:20px;color:var(--muted);font-size:var(--fs-sm)}.intg-steps li{margin-bottom:4px}
+.intg-steps code{font-size:var(--fs-xs)}
 .intg-frees{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
-.intg-free{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px}.intg-free h3{margin:0;font-size:14px}
-.intg-free p{margin:6px 0 0;font-size:13px}.intg-host{display:block;margin-top:4px;font-size:12px;word-break:break-all}
+.intg-free{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:12px 16px}.intg-free h3{margin:0;font-size:var(--fs-md)}
+.intg-free p{margin:6px 0 0;font-size:var(--fs-sm)}.intg-host{display:block;margin-top:4px;font-size:var(--fs-xs);word-break:break-all}
 .intg-state.off{color:var(--muted)}
 `;
 

@@ -57,17 +57,17 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
 export const PATCHES_CSS = `
 .pt-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}.pt-tools input{flex:1 1 240px;min-width:0}
 .pt-tools button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
-.pt-game{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 14px;margin:0 0 10px}
+.pt-game{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:6px 14px;margin:0 0 10px}
 .pt-game>header{display:flex;align-items:center;gap:12px;padding:10px 0 6px}
 .pt-game>header>div{display:flex;flex-direction:column;gap:2px;min-width:0}
-.pt-game>header b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pt-game>header span{font-size:12.5px;color:var(--muted);font-family:ui-monospace,monospace}
-.pt-ico{width:44px;height:44px;border-radius:11px;background:var(--sunk);object-fit:cover;flex:none}
+.pt-game>header b{font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pt-game>header span{font-size:var(--fs-xs);color:var(--muted);font-family:ui-monospace,monospace}
+.pt-ico{width:44px;height:44px;border-radius:var(--r-md);background:var(--sunk);object-fit:cover;flex:none}
 .pt-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
 .pt-row:first-of-type{border-top:0}
-.pt-row .pt-name{flex:1;min-width:0;overflow-wrap:anywhere}.pt-row .pt-name small{display:block;color:var(--muted);font-size:12px}
-.pt-row .pt-size{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.pt-row .pt-name{flex:1;min-width:0;overflow-wrap:anywhere}.pt-row .pt-name small{display:block;color:var(--muted);font-size:var(--fs-xs)}
+.pt-row .pt-size{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
 .pt-req{height:34px;min-width:92px;padding:0 10px 0 12px;gap:8px;justify-content:space-between;color:var(--muted)}
-.pt-req .switch{position:relative;flex:none;width:30px;height:18px;border-radius:100px;background:var(--line);transition:background .15s}
+.pt-req .switch{position:relative;flex:none;width:30px;height:18px;border-radius:var(--r-pill);background:var(--line);transition:background .15s}
 .pt-req .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
 .pt-req[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
 .pt-req[aria-checked="true"] .switch{background:var(--accent)}
@@ -76,7 +76,7 @@ export const PATCHES_CSS = `
 @media (prefers-reduced-motion:reduce){.pt-req .switch,.pt-req .switch::after{transition:none}}
 .pt-edit{width:34px;height:34px;padding:0;position:relative}.pt-edit>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #gd-patches .pt-row{border-top:1px solid var(--line)}#gd-patches .pt-row:first-child{border-top:0}
-.ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden],.ct-note[hidden],#ct-form label[hidden],#ct-form button[hidden]{display:none}.ct-note{margin:0;font-size:12.5px}
+.ct-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ct-pair[hidden],.ct-note[hidden],#ct-form label[hidden],#ct-form button[hidden]{display:none}.ct-note{margin:0;font-size:var(--fs-xs)}
 .pt-row .pt-name small.pt-miss{color:var(--warn)}
 .ct-move{display:flex;gap:8px;margin-top:4px}.ct-move input{flex:1;min-width:0}
 #ct-edit{width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box}

@@ -1621,13 +1621,13 @@ export const TOP_LANG_HTML = /* html */ `<div class="lang-menu">
 
 export const TOP_LANG_CSS = /* css */ `
 .lang-menu{position:relative}
-.lang-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;cursor:pointer;border-radius:100px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 13px inherit;font-family:inherit}
+.lang-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;cursor:pointer;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--panel);color:var(--text);font:700 13px inherit;font-family:inherit}
 .lang-btn:hover,.lang-btn[aria-expanded="true"]{border-color:var(--text)}
 .lang-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .lang-btn .chev{width:13px;height:13px;color:var(--muted)}
-.lang-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:148px;max-height:min(60vh,480px);overflow:auto;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px rgba(0,0,0,.18)}
+.lang-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:148px;max-height:min(60vh,480px);overflow:auto;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:0 16px 36px rgba(0,0,0,.18)}
 .lang-list[hidden]{display:none}
-.lang-list button{display:flex;justify-content:flex-start;height:auto;box-shadow:none;text-align:left;padding:9px 12px;border:0;border-radius:9px;cursor:pointer;background:transparent;color:var(--text);font:600 14px inherit;font-family:inherit}
+.lang-list button{display:flex;justify-content:flex-start;height:auto;box-shadow:none;text-align:left;padding:9px 12px;border:0;border-radius:var(--r-md);cursor:pointer;background:transparent;color:var(--text);font:600 14px inherit;font-family:inherit}
 .lang-list button:hover:not([aria-checked="true"]){background:var(--sunk)}
 .lang-list button[aria-checked="true"]{background:var(--text);color:var(--panel)}
 `;

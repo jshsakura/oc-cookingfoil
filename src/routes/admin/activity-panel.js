@@ -27,40 +27,40 @@ export const ACTIVITY_CSS = /* css */ `
 .act-btn img.acct-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;display:block}
 .act-btn:has(img.acct-avatar){padding:0;overflow:visible}
 .act-btn.busy{color:var(--accent);border-color:rgba(var(--accent-rgb),.55)}
-.act-btn.busy::after{content:"";position:absolute;inset:-3px;border-radius:100px;border:2px solid transparent;border-top-color:var(--accent);animation:act-spin 1.1s linear infinite}
+.act-btn.busy::after{content:"";position:absolute;inset:-3px;border-radius:var(--r-pill);border:2px solid transparent;border-top-color:var(--accent);animation:act-spin 1.1s linear infinite}
 /* The badge sits above the busy ring, a later box that would otherwise paint over the number. */
-.act-count{position:absolute;z-index:1;top:-5px;right:-5px;display:grid;place-items:center;box-sizing:border-box;min-width:18px;height:18px;padding:0 5px;border-radius:100px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:11px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.act-count{position:absolute;z-index:1;top:-5px;right:-5px;display:grid;place-items:center;box-sizing:border-box;min-width:18px;height:18px;padding:0 5px;border-radius:var(--r-pill);background:var(--accent);color:var(--accent-ink);font-family:inherit;font-size:var(--fs-2xs);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .act-count[hidden]{display:none}
 .act-pop{max-height:min(45dvh,420px);overflow:auto;padding:10px 0 4px;margin-top:6px;border-top:1px solid var(--line)}
-.act-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px 8px;font-size:13px}
+.act-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 10px 8px;font-size:var(--fs-sm)}
 .act-h.sub{margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
 /* In the account menu the rules run edge to edge across the menu's 6px padding; the content stays where it was. */
 .activity-account .pop-list .menu-sep{margin:4px -6px}
 .activity-account .act-pop{margin:6px -6px 0;padding:10px 6px 4px}
 .activity-account .act-h.sub{margin:6px -6px 0;padding:10px 16px 8px}
-.act-live{color:var(--faint);font-size:12px;font-weight:600}
+.act-live{color:var(--faint);font-size:var(--fs-xs);font-weight:var(--fw-bold)}
 .act-live.on{color:var(--good)}
 .act-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
-.act-row{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:4px 8px;align-items:center;padding:8px 10px;border-radius:10px}
+.act-row{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:4px 8px;align-items:center;padding:8px 10px;border-radius:var(--r-md)}
 .act-row:hover{background:var(--sunk)}
-.act-row .ic{grid-column:1;grid-row:1 / span 3;display:grid;place-items:center;width:26px;height:26px;border-radius:100px;background:var(--sunk);color:var(--muted)}
+.act-row .ic{grid-column:1;grid-row:1 / span 3;display:grid;place-items:center;width:26px;height:26px;border-radius:var(--r-pill);background:var(--sunk);color:var(--muted)}
 .act-row .ic .ico{width:14px;height:14px}
 .act-row.running .ic{background:rgba(var(--accent-rgb),.16);color:var(--accent)}
 .act-row.done .ic{background:rgba(var(--good-rgb),.14);color:var(--good)}
 .act-row.failed .ic{background:rgba(var(--bad-rgb),.14);color:var(--bad)}
-.act-row .t{grid-column:2;grid-row:1;font-weight:600;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:normal;overflow-wrap:anywhere}
-.act-row .n{grid-column:2 / -1;grid-row:2;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere;text-align:left}
-.act-row .d{grid-column:2 / -1;grid-row:3;color:var(--muted);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:normal;overflow-wrap:anywhere}
+.act-row .t{grid-column:2;grid-row:1;font-weight:var(--fw-bold);font-size:var(--fs-md);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:normal;overflow-wrap:anywhere}
+.act-row .n{grid-column:2 / -1;grid-row:2;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:normal;overflow-wrap:anywhere;text-align:left}
+.act-row .d{grid-column:2 / -1;grid-row:3;color:var(--muted);font-size:var(--fs-xs);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:normal;overflow-wrap:anywhere}
 .act-row.failed .d{color:var(--bad)}
-.act-bar{grid-column:2 / -1;grid-row:4;position:relative;height:4px;margin-top:4px;border-radius:100px;background:var(--sunk);overflow:hidden}
+.act-bar{grid-column:2 / -1;grid-row:4;position:relative;height:4px;margin-top:4px;border-radius:var(--r-pill);background:var(--sunk);overflow:hidden}
 .act-bar>i{position:absolute;inset:0 auto 0 0;width:0;border-radius:inherit;background:var(--accent);transition:width .4s ease}
 .act-bar.ind>i{width:30%;animation:act-slide 1.4s ease-in-out infinite}
-.act-row .act-stop{grid-column:3;grid-row:1;display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;margin-left:2px;border-radius:100px;
-  border:1px solid rgba(var(--bad-rgb),.55);background:rgba(var(--bad-rgb),.1);color:var(--bad);font-family:inherit;font-size:12.5px;font-weight:600;line-height:1;cursor:pointer}
+.act-row .act-stop{grid-column:3;grid-row:1;display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;margin-left:2px;border-radius:var(--r-pill);
+  border:1px solid rgba(var(--bad-rgb),.55);background:rgba(var(--bad-rgb),.1);color:var(--bad);font-family:inherit;font-size:var(--fs-xs);font-weight:var(--fw-bold);line-height:1;cursor:pointer}
 .act-row .act-stop .ico{width:12px;height:12px}
-.act-row .act-stop:hover{background:var(--bad);border-color:var(--bad);color:#fff}
+.act-row .act-stop:hover{background:var(--bad);border-color:var(--bad);color:var(--white)}
 .act-row .act-stop:focus-visible{outline:2px solid var(--bad);outline-offset:2px}
-.act-empty{margin:0;padding:6px 10px 10px;color:var(--muted);font-size:13px}
+.act-empty{margin:0;padding:6px 10px 10px;color:var(--muted);font-size:var(--fs-sm)}
 .act-empty[hidden]{display:none}
 @keyframes act-spin{to{transform:rotate(360deg)}}
 @keyframes act-slide{from{left:-30%}to{left:100%}}

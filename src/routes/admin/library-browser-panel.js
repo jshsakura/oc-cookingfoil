@@ -31,12 +31,12 @@ const KINDS = [["all", "lb.kAll"], ["base", "lb.kBase"], ["update", "lb.kUpdate"
 
 export const LIB_BROWSER_CSS = /* css */ `
 #lib-files{display:grid;gap:12px;margin-bottom:8px}
-#lib-files .lb-kinds{position:relative;display:flex;gap:4px;padding:5px;background:var(--sunk);border:1px solid var(--line);border-radius:16px;overflow-x:auto}
-#lib-files .lb-ind{position:absolute;left:0;top:0;width:0;height:0;border-radius:12px;background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2);transition:transform .28s cubic-bezier(.3,.7,.2,1),width .28s cubic-bezier(.3,.7,.2,1),height .28s;pointer-events:none}
-#lib-files .lb-kinds button{position:relative;z-index:1;flex:1 0 auto;gap:7px;padding:8px 12px;border:0;border-radius:12px;background:none;color:var(--muted);white-space:nowrap;transition:color .15s,transform .12s}
+#lib-files .lb-kinds{position:relative;display:flex;gap:4px;padding:5px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-2xl);overflow-x:auto}
+#lib-files .lb-ind{position:absolute;left:0;top:0;width:0;height:0;border-radius:var(--r-lg);background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2);transition:transform .28s cubic-bezier(.3,.7,.2,1),width .28s cubic-bezier(.3,.7,.2,1),height .28s;pointer-events:none}
+#lib-files .lb-kinds button{position:relative;z-index:1;flex:1 0 auto;gap:7px;padding:8px 12px;border:0;border-radius:var(--r-lg);background:none;color:var(--muted);white-space:nowrap;transition:color .15s,transform .12s}
 #lib-files .lb-kinds button:hover{color:var(--text)}
 #lib-files .lb-kinds button[aria-pressed="true"]{color:var(--text)}
-#lib-files .lb-n{min-width:22px;padding:1px 7px;border-radius:100px;background:var(--line2);color:var(--text);font-size:11px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums;transition:background .2s,color .2s}
+#lib-files .lb-n{min-width:22px;padding:1px 7px;border-radius:var(--r-pill);background:var(--line2);color:var(--text);font-size:var(--fs-2xs);font-weight:700;text-align:center;font-variant-numeric:tabular-nums;transition:background .2s,color .2s}
 #lib-files .lb-kinds button[aria-pressed="true"] .lb-n{background:var(--accent);color:var(--accent-ink)}
 #lib-files .lb-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0}
 #lib-files .lb-q{position:relative;flex:1 1 260px;display:flex}
@@ -44,9 +44,9 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files .lb-q input{width:100%;padding-left:38px}
 #lib-files .lb-bar select{flex:0 0 auto}
 #lib-files .lb-filter{display:flex;align-items:center;gap:10px;min-width:0}
-#lib-files .lb-filter-l{flex:none;color:var(--muted);font-size:12.5px;font-weight:700}
+#lib-files .lb-filter-l{flex:none;color:var(--muted);font-size:var(--fs-xs);font-weight:700}
 #lib-files .lb-filter .lb-kinds{flex:1 1 auto;min-width:0}
-#lib-files .lb-note{margin:4px 0 0;font-size:12.5px}
+#lib-files .lb-note{margin:4px 0 0;font-size:var(--fs-xs)}
 #lib-files .lb-act{display:flex;gap:6px;flex-wrap:nowrap}
 #lib-files .lb-act button.ib{width:36px;height:36px;padding:0;position:relative}
 #lib-files .lb-act button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -56,7 +56,7 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files button:not(:disabled):active{transform:scale(.96)}
 #lib-files .lb-count{margin:0}
 #lib-files .lb-for{display:flex;gap:10px;align-items:center}#lib-files .lb-for>div{min-width:0}
-#lib-files .lb-gw{width:36px;height:36px;flex:none;border-radius:9px;overflow:hidden;background:var(--sunk);border:1px solid var(--line)}#lib-files .lb-gi{display:block;width:100%;height:100%;object-fit:cover}
+#lib-files .lb-gw{width:36px;height:36px;flex:none;border-radius:var(--r-md);overflow:hidden;background:var(--sunk);border:1px solid var(--line)}#lib-files .lb-gi{display:block;width:100%;height:100%;object-fit:cover}
 #lib-files .lb-list{min-height:120px}
 /* The server sorts and counts the whole list above; the grid's own page-only sort box and count would say it twice. */
 #lib-files .lb-list .grid-sort,#lib-files .lb-list .grid-count{display:none}
@@ -65,7 +65,7 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files :is(td,.gc) b{word-break:break-all}
 #lib-files :is(td,.gc) .muted{word-break:break-all}
 #lib-files :is(td,.gc).lb-num{white-space:nowrap;font-variant-numeric:tabular-nums}
-#lib-files .lb-skel td span{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--sunk) 0%,var(--line) 50%,var(--sunk) 100%);background-size:200% 100%;animation:lb-shimmer 1.2s linear infinite}
+#lib-files .lb-skel td span{display:block;height:12px;border-radius:var(--r-sm);background:linear-gradient(90deg,var(--sunk) 0%,var(--line) 50%,var(--sunk) 100%);background-size:200% 100%;animation:lb-shimmer 1.2s linear infinite}
 #lib-files .lb-skel td span.w2{width:40%;margin-top:6px;height:10px}
 @keyframes lb-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
 #lib-files .lb-pager{display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap}
@@ -76,7 +76,7 @@ export const LIB_BROWSER_CSS = /* css */ `
 @media (max-width:640px){
   #lib-files .lb-filter{flex-direction:column;align-items:stretch;gap:4px}
   #lib-files .lb-kinds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible}
-  #lib-files .lb-kinds button{flex-direction:row;justify-content:center;gap:4px;padding:7px 2px;font-size:12px;min-width:0}
+  #lib-files .lb-kinds button{flex-direction:row;justify-content:center;gap:4px;padding:7px 2px;font-size:var(--fs-xs);min-width:0}
   #lib-files .lb-kinds button>svg{display:none}
   #lib-files .lb-n{min-width:0;padding:1px 5px}
   #lib-files .lb-kinds button>span:not(.lb-n){overflow:hidden;text-overflow:ellipsis;max-width:100%}

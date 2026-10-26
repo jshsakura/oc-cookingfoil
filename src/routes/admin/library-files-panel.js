@@ -17,8 +17,8 @@ export const LIBRARY_FILES_CSS = /* css */ `
 #lv-list .lv-tip{flex:none;display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:help}
 #lv-list .lv-tip:hover,#lv-list .lv-tip:focus-visible{background:var(--sunk);color:var(--text)}
 #lv-list .lv-tip svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.lv-pop{position:fixed;z-index:60;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);box-shadow:0 10px 30px var(--shadow);font-size:13px;line-height:1.55;pointer-events:none}
-.lv-pop b{display:block;margin-bottom:6px;font-size:13.5px}
+.lv-pop{position:fixed;z-index:60;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);color:var(--text);box-shadow:0 10px 30px var(--shadow);font-size:var(--fs-sm);line-height:1.55;pointer-events:none}
+.lv-pop b{display:block;margin-bottom:6px;font-size:var(--fs-sm)}
 .lv-pop p{margin:0 0 6px;color:var(--muted)}
 .lv-pop p:last-child{margin-bottom:0}
 `;

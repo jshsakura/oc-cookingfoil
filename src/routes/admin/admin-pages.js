@@ -143,17 +143,17 @@ body.adm-shell{padding:0}
 /* The page's name in the header: its menu path on a desktop, the item alone in the phone bar. */
 .adm-crumb{display:flex;align-items:center;gap:6px;min-width:0;margin:0;font-weight:700;white-space:nowrap}
 .adm-crumb>span{overflow:hidden;text-overflow:ellipsis}
-.adm-crumb-g{color:var(--muted);font-weight:600}
+.adm-crumb-g{color:var(--muted);font-weight:var(--fw-bold)}
 .adm-crumb-sep{flex:none;width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:899px){
-.adm-crumb{flex:1;font-size:15px}
+.adm-crumb{flex:1;font-size:var(--fs-md)}
 .adm-crumb-g,.adm-crumb-sep{display:none}
 .adm-side{padding:8px 16px;border-bottom:1px solid var(--line)}
 .adm-side>.adm-side-in{display:none}
 #adm-menu{display:inline-flex;order:-1}
 .adm-side>.adm-hdr{flex-wrap:nowrap;gap:8px}
 .adm-side .hdr-right{display:contents}
-.adm-side .brand .wm{font-size:20px}.adm-side .brand img{width:32px;height:32px}}
+.adm-side .brand .wm{font-size:var(--fs-xl)}.adm-side .brand img{width:32px;height:32px}}
 @media (max-width:479px){.adm-side .brand .wm{display:none}}
 /* The account menu spans the phone's width under the bar, inside the same gutter the page keeps. */
 @media (max-width:640px){.adm-side .activity-account>.pop-list{left:12px;right:12px;width:auto}}
@@ -166,15 +166,15 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-side{display:flex;flex-direction:column;align-self:start;height:100vh;height:100dvh;padding:0;background:var(--panel);border-right:1px solid var(--line)}
 .adm-side>.adm-hdr{display:contents}
 .adm-side .brand{order:0;flex:none;display:flex;align-items:center;height:var(--adm-hdr-h);margin:0;padding:0 22px;box-sizing:border-box;border-bottom:1px solid var(--line)}
-.adm-side .brand a{gap:10px}.adm-side .brand img{width:32px;height:32px}.adm-side .brand .wm{font-size:22px}
+.adm-side .brand a{gap:10px}.adm-side .brand img{width:32px;height:32px}.adm-side .brand .wm{font-size:var(--fs-2xl)}
 .adm-side>.adm-side-in{order:1;display:grid;align-content:start;gap:6px;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px 14px 24px}
 .adm-side .hdr-right{position:fixed;top:0;left:260px;right:0;z-index:40;height:var(--adm-hdr-h);box-sizing:border-box;
   display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 24px 0 32px;background:var(--bg);border-bottom:1px solid var(--line)}
-.adm-side .adm-crumb{margin-right:auto;font-size:16px}
+.adm-side .adm-crumb{margin-right:auto;font-size:var(--fs-lg)}
 .adm-shell>.wrap{padding-top:calc(var(--adm-hdr-h) + 24px)}}
 .adm-grp{border:0}
-.adm-grp summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:11px 14px;border-radius:12px;
-  color:var(--text);font-weight:700;font-size:14.5px}
+.adm-grp summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:11px 14px;border-radius:var(--r-lg);
+  color:var(--text);font-weight:700;font-size:var(--fs-md)}
 /* Icons on the top rows, as in the console client's menu; the rows inside a group line up with the label. */
 .adm-side-in .ico{width:20px;height:20px}
 .adm-grp summary::-webkit-details-marker{display:none}
@@ -187,14 +187,14 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-grp summary .count{margin-left:auto}
 .adm-grp-in{display:grid;gap:4px;margin:6px 0 10px;padding-left:20px}
 .adm-grp-in .ico{width:17px;height:17px}
-.adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:11px 14px;border-radius:12px;position:relative;
-  color:var(--text);font-weight:600;font-size:13.5px;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:11px 14px;border-radius:var(--r-lg);position:relative;
+  color:var(--text);font-weight:var(--fw-bold);font-size:var(--fs-sm);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adm-item:not([aria-current]):hover{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
-.adm-side-in>.adm-item{font-size:14.5px;font-weight:700}
+.adm-side-in>.adm-item{font-size:var(--fs-md);font-weight:700}
 .adm-item[aria-current="page"]{background:var(--text);color:var(--bg)}
 .adm-item[aria-current="page"] .count{background:var(--bg);color:var(--text)}
 .adm-item .count{margin-left:auto}
-.adm-task{font-size:12.5px;font-weight:600;color:var(--muted);padding:9px 14px}
+.adm-task{font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--muted);padding:9px 14px}
 /* The drawer is as tall as what the phone shows (dvh leaves out the browser bars) and square, so nothing at
    the top or the foot hides under a bar or a rounded corner; only the menu scrolls. */
 .adm-drawer{position:fixed;left:0;top:0;width:min(320px,86vw);height:100vh;height:100dvh;max-height:none;margin:0;border:0;
@@ -206,10 +206,10 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 /* Phone menu rows keep a real touch height without stretching to fill. */
 .adm-drawer .adm-item{min-height:44px}
 .adm-drawer .adm-grp summary{min-height:44px;box-sizing:border-box}
-.adm-drawer-hd{flex:none;display:flex;align-items:center;gap:10px;padding:max(18px, env(safe-area-inset-top, 0px)) 16px 16px;border-bottom:1px solid var(--line);font-weight:800}
-.adm-drawer-hd b{font-size:16px;letter-spacing:-.01em}
+.adm-drawer-hd{flex:none;display:flex;align-items:center;gap:10px;padding:max(18px, env(safe-area-inset-top, 0px)) 16px 16px;border-bottom:1px solid var(--line);font-weight:var(--fw-bold)}
+.adm-drawer-hd b{font-size:var(--fs-lg);letter-spacing:-.01em}
 .adm-drawer-hd .logo{display:block}
-#adm-drawer-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:100px;background:var(--panel);color:var(--text);font-size:13px;line-height:1;cursor:pointer}
+#adm-drawer-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel);color:var(--text);font-size:var(--fs-sm);line-height:1;cursor:pointer}
 #adm-drawer-close:hover{background:var(--sunk);color:var(--text)}
 @media (prefers-reduced-motion:no-preference){.adm-drawer[open]{animation:adm-drawer-in .18s ease-out}
 @keyframes adm-drawer-in{from{transform:translateX(-14px)}to{transform:none}}}
