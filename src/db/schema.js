@@ -93,6 +93,27 @@ export const SECURITY_MIGRATIONS = [
   // its build date. source is bundle, adopted (an official build found in place), extra or nightly.
   `ALTER TABLE retro_pack_ledger ADD COLUMN crc32 TEXT;
    ALTER TABLE retro_pack_ledger ADD COLUMN built TEXT;`,
+  // Plugins (src/plugins/): what the operator switched on and how each one has behaved. Here, not in the index,
+  // because the index is thrown away when broken and a lost row would switch every plugin back to its default.
+  // fail_streak counts start failures across restarts, hook_streak consecutive hook failures; a plugin that is
+  // cooling off skips hooks until cooldown_until, and cooldown_step says how long the next pause is.
+  // variant_keys is a JSON list of the query keys its variants use, kept so a request still naming one after the
+  // plugin went away is refused instead of getting the original file.
+  `CREATE TABLE plugins (
+     id TEXT PRIMARY KEY,
+     enabled INTEGER NOT NULL DEFAULT 0,
+     fail_streak INTEGER NOT NULL DEFAULT 0,
+     hook_streak INTEGER NOT NULL DEFAULT 0,
+     cooldown_step INTEGER NOT NULL DEFAULT 0,
+     cooldown_until INTEGER,
+     disabled_reason TEXT,
+     disabled_at INTEGER,
+     last_error TEXT,
+     last_error_at INTEGER,
+     version_seen TEXT,
+     variant_keys TEXT NOT NULL DEFAULT '[]',
+     updated_at INTEGER NOT NULL
+   ) WITHOUT ROWID;`,
 ];
 
 /**
