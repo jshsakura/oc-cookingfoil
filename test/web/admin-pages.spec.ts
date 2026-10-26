@@ -119,13 +119,43 @@ test('an in-page hash link pushes the matching page, and back returns', async ({
   expect(new URL(page.url()).pathname).toBe('/admin/games');
 });
 
-test('a page starts at its own title: brand, upload, language and account live in the sidebar', async ({ page }) => {
+test('a page starts at its own title: brand and menu in the sidebar, upload, language and account in the header band', async ({ page }) => {
   await signIn(page);
   for (const path of ['/admin', '/admin/games', '/admin/retro?view=cores', '/admin/settings/server']) {
     await page.goto(path);
     await expect(page.locator('body.adm-shell > .wrap header.adm-hdr'), path).toHaveCount(0);
     for (const id of ['#up-entry', '#lang-btn', '#acct-btn']) await expect(page.locator(`aside.adm-side ${id}`), `${path} ${id}`).toBeVisible();
   }
+});
+
+test('on a desktop the header band holds the account top right, its menus open down, and only the sidebar menu scrolls', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await signIn(page);
+  await page.goto('/admin/settings/server');
+  const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+  const acct = await box('#acct-btn');
+  const brand = await box('aside.adm-side .brand');
+  const band = await box('aside.adm-side .hdr-right');
+  expect(Math.round(band.y)).toBe(0);
+  expect(Math.round(band.height)).toBe(Math.round(brand.height));
+  expect(acct.y + acct.height).toBeLessThanOrEqual(band.height);
+  expect(1280 - (acct.x + acct.width)).toBeLessThan(40);
+  expect((await box('#lang-btn')).x).toBeLessThan(acct.x);
+  // The page title starts below the band.
+  expect((await box('body.adm-shell > .wrap h2')).y).toBeGreaterThanOrEqual(band.height);
+
+  await page.locator('#acct-btn').click();
+  expect((await box('#acct-list')).y).toBeGreaterThan(acct.y + acct.height);
+  await page.keyboard.press('Escape');
+
+  // Opening every group makes the menu longer than the screen: it scrolls, the brand does not move.
+  for (const g of await page.locator('aside.adm-side details.adm-grp').all()) await g.evaluate((d) => { (d as HTMLDetailsElement).open = true; });
+  const moved = await page.locator('aside.adm-side > nav').evaluate((nav) => {
+    nav.scrollTop = nav.scrollHeight;
+    return { scrolled: nav.scrollTop > 0, page: document.scrollingElement!.scrollTop };
+  });
+  expect(moved).toEqual({ scrolled: true, page: 0 });
+  expect(Math.round((await box('aside.adm-side .brand')).y)).toBe(0);
 });
 
 test.describe('on a phone', () => {
