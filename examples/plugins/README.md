@@ -127,11 +127,11 @@ Failures count toward the pause (5 in a row), and while the plugin is paused dow
 
 **`route`: `routes: [{ name, method: "GET"|"POST", access: "device"|"admin", maxBody?, timeoutMs? }]`**
 Opens `/api/plugins/<id>/<name>`. Export `routes: { <name>: async ({ method, query, body }, { lang, clientVersion, console }) => answer }`.
-The core's sign-in runs first; `admin` also needs an administrator; automation tokens (MCP) are always refused.
+The core's sign-in runs first; `admin` also needs an administrator (on a server with no accounts, a signed-in admin session); automation tokens (MCP) are always refused.
 The core answers 404 (off, unknown), 405, 413 (body over `maxBody`, 256 KiB by default, 4 MiB at most), 415 (POST bodies are JSON only),
-429 (120 calls a minute per plugin and device) and 503 (pausing) itself, and none of those count against the plugin.
+429 (120 calls a minute per plugin and caller; an account counts as one caller whatever headers it sends) and 503 (the plugin's addresses pausing) itself, and none of those count against the plugin.
 Answer `{ status?, headers?, json | text | bytes }` (status 200-299 or 400-499, up to 4 MiB). A throw, a timeout (`timeoutMs`, 10 s by default,
-30 s at most) or another shape is a 502 `plugin-failed` and counts.
+30 s at most) or another shape is a 502 `plugin-failed` and counts. Five in a row pause the addresses, not the plugin's downloads.
 
 **`event`: export any of `afterDownload`, `installReported`, `libraryChanged`, `deviceApproved`**
 Nobody waits for you. Events go on a queue per plugin, are handled in order, one at a time, 5 s each. A queue holds 200; the oldest are
@@ -140,6 +140,7 @@ Payloads hold no person: `device` is a 12-character HMAC that differs for every 
 `"events": { "identity": ["ip", "account"] }`, and the operator sees that when switching the plugin on.
 `afterDownload` is told once per download: `file`, `titleId`, `kind`, `status`, `bytes` (read from disk for this response), `aborted`.
 `libraryChanged` carries `added`/`removed` (up to 100 paths) and their counts. `deviceApproved` carries `isNew` and `admin`.
+`installReported` is a kind a manifest and a handler may name, but the server does not send it yet.
 
 ## When a plugin misbehaves
 

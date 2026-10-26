@@ -2,7 +2,7 @@
  * Events: things that happened (a download ended, a device was approved, the library changed, a client
  * reported an install) told to the plugins that handle them. Nobody waits for a plugin here.
  *
- *   createEvents(registry, { secret, log }) -> { emit(kind, facts, who), statsOf(id), clear(id) }
+ *   createEvents(registry, { secret, log }) -> { emit(kind, facts, who), statsOf(id) }
  *
  * emit() puts the event on the queue of each plugin that is on and exports the handler, and returns; it never
  * throws and costs one push per plugin. Each plugin has one queue, handled in order, one at a time, with the
@@ -91,6 +91,5 @@ export function createEvents(registry, { secret, log = () => {} } = {}) {
   return {
     emit,
     statsOf: (id) => ({ ...statOf(id), queued: queues.get(id)?.items.length ?? 0 }),
-    clear: (id) => { queues.delete(id); },
   };
 }

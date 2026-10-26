@@ -68,7 +68,8 @@ export function createRequestHooks(registry, { log = () => {} } = {}) {
     if (registry.pausedProviding("request").length) return failed(lang);
     if (!ids.length) return null;
     const facts = parseConsoleHeader(req.get?.(CONSOLE_HEADER));
-    let current = { ...query };
+    // Only text values go to a plugin: ?a[]=1 and ?a[b]=1 reach Express as an array and an object.
+    let current = Object.fromEntries(Object.entries(query ?? {}).filter(([, v]) => typeof v === "string"));
     let headers = {};
     const used = [];
     for (const id of ids) {

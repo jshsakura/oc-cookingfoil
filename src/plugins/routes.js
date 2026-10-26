@@ -7,7 +7,8 @@
  * route marked "admin" also needs an administrator, an automation token is refused outright, and everything the
  * core rejects (wrong method, wrong content type, too big a body, too many calls, a plugin that is off or
  * pausing) is answered without counting against the plugin. Only the plugin's own failure counts: it threw,
- * ran out of time, or answered in a shape the core can not send.
+ * ran out of time, or answered in a shape the core can not send. Routes count and pause on their own
+ * (registry.routePausedUntil), apart from the plugin's downloads.
  *
  * Handler: routes[name]({ method, query, body }, { signal, lang, clientVersion, console }) ->
  *   { status?, headers?, json | text | bytes }     status 200-299 or 400-499; headers as answer.js allows
@@ -15,6 +16,8 @@
 import express from "express";
 import { requestLang } from "../meta/langs.js";
 import { mayAdminister } from "../security/admin-actor.js";
+import { hasValidSession } from "../security/admin-session.js";
+import * as users from "../security/users.js";
 import { consoleLane } from "../security/admin-only.js";
 import { deviceKeyFromHeaders } from "../security/pairing.js";
 import { CONSOLE_HEADER, parseConsoleHeader, refusalBody } from "./variants.js";
@@ -24,6 +27,16 @@ import { safeHeaders } from "./answer.js";
 export const ROUTE_PER_MINUTE = 120;
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const WINDOW_MS = 60_000;
+// Callers counted at once; past it a caller not seen before is refused until older windows expire.
+const MAX_WINDOWS = 20_000;
+
+/** Who is calling, for the rate limit: the signed-in account, else the device key, else the address. A header cannot change an account. */
+function callerOf(req) {
+  const who = req.webUser;
+  if (who) return `${who.kind}:${who.sub ?? who.name}`;
+  if (req.auth?.user) return `auth:${req.auth.user}`;
+  return deviceKeyFromHeaders(req) ?? `ip:${req.ip}`;
+}
 
 const bodyOf = (value) => (Buffer.isBuffer(value) ? value : value instanceof Uint8Array ? Buffer.from(value) : null);
 
@@ -54,12 +67,13 @@ export function pluginRoutes(registry, { log = () => {}, now = Date.now, perMinu
     return parsers.get(limit);
   };
 
-  // One window per (plugin, caller): a device that sends nonsense cannot spend a plugin's pause on everyone.
+  // One window per (plugin, route, caller): a caller that sends nonsense uses up only its own calls.
   const windows = new Map(); // key -> { start, n }
   function allowed(key) {
     const t = now();
     if (windows.size > 5000) for (const [k, w] of windows) if (t - w.start >= WINDOW_MS) windows.delete(k);
     const w = windows.get(key);
+    if (!w && windows.size >= MAX_WINDOWS) return false;
     if (!w || t - w.start >= WINDOW_MS) {
       windows.set(key, { start: t, n: 1 });
       return true;
@@ -70,6 +84,16 @@ export function pluginRoutes(registry, { log = () => {}, now = Date.now, perMinu
   const refuse = (res, status, code, key, lang) => res.status(status).set("Cache-Control", "no-store").json(refusalBody(wordsOf(key), code, lang));
 
   router.all("/:id/:name", async (req, res) => {
+    // An async handler's throw is not caught by Express 4, and outside a plugin's own code it would reach the process guard.
+    try {
+      await handle(req, res);
+    } catch (err) {
+      log(`${req.params.id}: route ${req.params.name}: ${err?.message ?? err}`);
+      if (!res.headersSent) refuse(res, 502, "plugin-failed", "routeFailed", requestLang(req));
+    }
+  });
+
+  async function handle(req, res) {
     const lang = requestLang(req);
     const plain = (status, code) => res.status(status).set("Cache-Control", "no-store").json({ error: code, code });
     if (req.apiToken) return plain(403, "token-blocked");
@@ -79,10 +103,12 @@ export function pluginRoutes(registry, { log = () => {}, now = Date.now, perMinu
     if (!route) return plain(404, "no-such-route");
     if (req.method !== route.method) return res.set("Allow", route.method).status(405).json({ error: "method", code: "method-not-allowed" });
     const state = registry.stateOf(id);
-    if (state === "cooling") return plain(503, "plugin-cooling");
-    if (state !== "on") return plain(404, "no-such-route");
-    if (route.access === "admin" && (consoleLane(req) || !mayAdminister(req))) return plain(403, "admin-only");
-    if (!allowed(`${id}\0${name}\0${deviceKeyFromHeaders(req) ?? req.ip}`)) return refuse(res, 429, "plugin-rate-limited", "rateLimited", lang);
+    // Only the plugin's own addresses pause here; a plugin cooling on its downloads still answers them.
+    if (state !== "on" && state !== "cooling") return plain(404, "no-such-route");
+    if (registry.routePausedUntil(id)) return plain(503, "plugin-cooling");
+    // A server with no accounts lets mayAdminister say yes to anyone: an admin route there needs a signed-in admin session.
+    if (route.access === "admin" && (consoleLane(req) || !mayAdminister(req) || (!users.hasUsers() && !hasValidSession(req)))) return plain(403, "admin-only");
+    if (!allowed(`${id}\0${name}\0${callerOf(req)}`)) return refuse(res, 429, "plugin-rate-limited", "rateLimited", lang);
 
     let body;
     if (route.method === "POST") {
@@ -113,7 +139,7 @@ export function pluginRoutes(registry, { log = () => {}, now = Date.now, perMinu
     if (form === "json") return res.type("application/json").send(JSON.stringify(r.value.json));
     if (form === "text") return res.type("text/plain; charset=utf-8").send(r.value.text);
     return res.type("application/octet-stream").send(bytes);
-  });
+  }
 
   return router;
 }

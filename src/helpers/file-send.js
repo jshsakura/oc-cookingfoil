@@ -137,18 +137,22 @@ const refuseVariant = (res, { status, body }) => res.status(status).set("Cache-C
 
 // Plugins that look at a download first (beforeDownload) are asked for every download; the variants only when the
 // query has something in it. With none of either on, a plain download gets nothing but two cheap checks.
-async function pluginVariant(req, abs, st, { file }) {
-  const { pluginRequestHooks, pluginVariants } = await import("../plugins/instance.js");
-  const pre = await pluginRequestHooks().before(req, { file, st, query: req.query ?? {} });
+export const combineVariant = (requestHooks, variants) => async (req, abs, st, { file }) => {
+  const pre = await requestHooks().before(req, { file, st, query: req.query ?? {} });
   if (pre?.refusal) return { refusal: pre.refusal };
   const query = pre?.query ?? req.query;
-  const found = query && Object.keys(query).length ? await pluginVariants().resolve(req, abs, st, { query }) : null;
+  const found = query && Object.keys(query).length ? await variants().resolve(req, abs, st, { query }) : null;
   if (found?.refusal) return found;
   if (!pre) return found;
   const variant = found?.variant
     ? { ...found.variant, tag: `${pre.tag}.${found.variant.tag}`, vary: true }
     : { tag: pre.tag, patches: [], vary: true };
   return { variant, headers: pre.headers };
+};
+
+async function pluginVariant(req, abs, st, ctx) {
+  const { pluginRequestHooks, pluginVariants } = await import("../plugins/instance.js");
+  return combineVariant(pluginRequestHooks, pluginVariants)(req, abs, st, ctx);
 }
 
 const TITLE_ID_RE = /\[([0-9A-Fa-f]{16})\]/;

@@ -9,12 +9,13 @@ import express from "express";
 import { makeDataDir, manifestOf, newRegistry, writePlugin } from "../support/plugin-fixtures.js";
 
 process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "hooks-data-"));
-const { largeFiles, GAME_FILE_RE } = await import("../../src/helpers/file-send.js");
+const { largeFiles, GAME_FILE_RE, combineVariant } = await import("../../src/helpers/file-send.js");
 const { createVariants } = await import("../../src/plugins/variants.js");
 const { createRequestHooks } = await import("../../src/plugins/request-hooks.js");
 const { createEvents, QUEUE_MAX } = await import("../../src/plugins/events.js");
 const { connectPluginEvents } = await import("../../src/plugins/emit.js");
 const { pluginRoutes } = await import("../../src/plugins/routes.js");
+const { issueSession } = await import("../../src/security/admin-session.js");
 
 const BEFORE = `
 export default {
@@ -24,6 +25,10 @@ export default {
     if (q === "boom") throw new Error("boom");
     if (q === "cookie") return { allow: true, headers: { "Set-Cookie": "a=b" } };
     if (q === "reserved") return { allow: true, headers: { "X-CookingFoil-Console": "1" } };
+    if (q === "ctrl") return { allow: true, headers: { "X-Demo": "a\\x01b" } };
+    if (q === "hangul") return { allow: true, headers: { "X-Demo": "한글" } };
+    if (q === "accel") return { allow: true, headers: { "X-Accel-Redirect": "/etc/passwd" } };
+    if (q === "seen-query") return { allow: true, headers: { "X-Demo": JSON.stringify(Object.values(a.query).map((v) => typeof v)) } };
     if (q === "crlf") return { allow: true, headers: { "X-Demo": "a\\r\\nb: c" } };
     if (q === "nonsense") return { maybe: true };
     if (q === "quote") return { allow: true, filename: 'a"b.nsp' };
@@ -46,7 +51,14 @@ export default {
     both: async () => ({ json: 1, text: "x" }),
     teapot: async () => ({ status: 418, text: "short and stout", headers: { "X-Pot": "1" } }),
     admin: async () => ({ text: "secret" }),
+    hangul: async () => ({ text: "x", headers: { "X-Pot": "한글" } }),
+    ctrl: async () => ({ text: "x", headers: { "X-Pot": "a\\x01b" } }),
   },
+};`;
+const DUAL = `
+export default {
+  async beforeDownload() { return { allow: true }; },
+  routes: { boom: async () => { throw new Error("boom"); } },
 };`;
 const EVENTS = `
 globalThis.__seen ??= {};
@@ -57,7 +69,7 @@ export default {
 const routeSpec = (name, access = "device", method = "POST", extra = {}) => ({ name, method, access, ...extra });
 
 let env, root, server, base, events;
-const gate = { token: false, lane: false };
+const gate = { token: false, lane: false, account: null };
 const clock = { t: 1_700_000_000_000 };
 const text = async (r) => Buffer.from(await r.arrayBuffer()).toString();
 const get = (p, headers = {}) => fetch(`${base}${p}`, { headers });
@@ -73,28 +85,22 @@ before(async () => {
   const d = makeDataDir();
   writePlugin(d, "gate", { manifest: manifestOf("gate", { provides: ["request"], console: ["firmware"] }), body: BEFORE });
   writePlugin(d, "tweaker", { manifest: manifestOf("tweaker", { provides: ["variant"], variantKeys: ["tweak"] }), body: TWEAK });
-  writePlugin(d, "api", { manifest: manifestOf("api", { provides: ["route"], routes: [routeSpec("echo", "device", "POST", { maxBody: 64 }), routeSpec("boom"), routeSpec("nonsense"), routeSpec("both"), routeSpec("teapot", "device", "GET"), routeSpec("admin", "admin", "GET")] }), body: ROUTES });
+  writePlugin(d, "api", { manifest: manifestOf("api", { provides: ["route"], routes: [routeSpec("echo", "device", "POST", { maxBody: 64 }), routeSpec("boom"), routeSpec("nonsense"), routeSpec("both"), routeSpec("teapot", "device", "GET"), routeSpec("admin", "admin", "GET"), routeSpec("hangul", "device", "GET"), routeSpec("ctrl", "device", "GET")] }), body: ROUTES });
+  writePlugin(d, "dual", { manifest: manifestOf("dual", { provides: ["request", "route"], routes: [routeSpec("boom", "device", "GET")] }), body: DUAL });
   writePlugin(d, "watch", { manifest: manifestOf("watch", { provides: ["event"] }), body: EVENTS });
   writePlugin(d, "watch-ip", { manifest: manifestOf("watch-ip", { provides: ["event"], events: { identity: ["ip", "account"] } }), body: EVENTS.replaceAll('p.__who ?? "evt"', '"ip"') });
   env = newRegistry(d, { limits: { hookMs: { beforeDownload: 200, afterDownload: 500 } } });
   await env.registry.init();
-  for (const id of ["gate", "tweaker", "api", "watch", "watch-ip"]) await env.registry.setEnabled(id, true);
+  for (const id of ["gate", "tweaker", "api", "watch", "watch-ip", "dual"]) await env.registry.setEnabled(id, true);
   events = createEvents(env.registry, { secret: () => Buffer.from("test-secret"), log: () => {} });
   connectPluginEvents((k, f, w) => events.emit(k, f, w));
   const variants = createVariants(env.registry);
   const request = createRequestHooks(env.registry);
   const app = express();
-  app.use((req, _res, next) => { if (gate.token) req.apiToken = "t"; if (gate.lane) req.pairedDevice = "dev"; next(); });
+  app.use((req, _res, next) => { if (gate.token) req.apiToken = "t"; if (gate.lane) req.pairedDevice = "dev"; if (gate.account) req.webUser = gate.account; next(); });
   app.use("/api/plugins", pluginRoutes(env.registry, { now: () => clock.t, perMinute: 5 }));
-  app.use(largeFiles(root, GAME_FILE_RE, {
-    variants: async (req, abs, st, { file }) => {
-      const pre = await request.before(req, { file, st, query: req.query });
-      if (pre?.refusal) return { refusal: pre.refusal };
-      const found = Object.keys(pre?.query ?? req.query).length ? await variants.resolve(req, abs, st, { query: pre?.query ?? req.query }) : null;
-      if (found?.refusal) return found;
-      return pre ? { variant: found?.variant ?? { tag: pre.tag, patches: [], vary: true }, headers: pre.headers } : found;
-    },
-  }));
+  // The same combination the server uses for every download (helpers/file-send.js), with this registry behind it.
+  app.use(largeFiles(root, GAME_FILE_RE, { variants: combineVariant(() => request, () => variants) }));
   server = await new Promise((resolve) => { const s = app.listen(0, "127.0.0.1", () => resolve(s)); });
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -126,7 +132,7 @@ test("beforeDownload: a refusal the plugin chose is 403 plugin-denied with its t
 });
 
 test("beforeDownload: a plugin that fails is 409 plugin-failed, and the original file does not stand in", async () => {
-  for (const mode of ["boom", "cookie", "reserved", "crlf", "nonsense", "quote"]) {
+  for (const mode of ["boom", "cookie", "reserved", "crlf", "ctrl", "hangul", "accel", "nonsense", "quote"]) {
     const r = await get(`/g.nsp?mode=${mode}`);
     assert.equal(r.status, 409, mode);
     assert.equal((await r.json()).code, "plugin-failed", mode);
@@ -173,11 +179,17 @@ test("routes: automation tokens and console lanes are refused; an admin route is
   assert.equal((await get("/api/plugins/api/admin")).status, 403);
   assert.equal((await post("/api/plugins/api/echo", {})).status, 200);
   gate.lane = false;
-  assert.equal(await text(await get("/api/plugins/api/admin")), "secret");
+  // A server with no accounts says yes to anyone in mayAdminister: the route still wants a signed-in admin session.
+  const refused = await get("/api/plugins/api/admin");
+  assert.equal(refused.status, 403);
+  assert.equal((await refused.json()).code, "admin-only");
+  const fake = { req: { get: () => undefined }, setHeader(_k, v) { this.cookie = v; } };
+  issueSession(fake);
+  assert.equal(await text(await get("/api/plugins/api/admin", { Cookie: fake.cookie.split(";")[0] })), "secret");
 });
 
 test("routes: a plugin's own failure is 502 plugin-failed and counts; what the core refuses never counts", async () => {
-  const streak = () => env.registry.view("api").hookStreak;
+  const streak = () => env.registry.view("api").routeStreak;
   const before = streak();
   for (const p of ["/api/plugins/api/missing"]) await get(p);
   await post("/api/plugins/api/echo", "{nope");
@@ -196,12 +208,12 @@ test("routes: a plugin's own failure is 502 plugin-failed and counts; what the c
 
 test("routes: a device that calls too often is stopped by the core with 429, and that is not counted", async () => {
   clock.t += 61_000;
-  const streak = env.registry.view("api").hookStreak;
+  const streak = env.registry.view("api").routeStreak;
   const codes = [];
   for (let i = 0; i < 8; i++) codes.push((await get("/api/plugins/api/teapot", { "X-Device-Key": "A".repeat(64) })).status);
   assert.deepEqual(codes, [418, 418, 418, 418, 418, 429, 429, 429]);
   assert.equal((await get("/api/plugins/api/teapot", { "X-Device-Key": "B".repeat(64) })).status, 418, "another device has its own window");
-  assert.ok(env.registry.view("api").hookStreak <= streak, "limited calls added nothing");
+  assert.ok(env.registry.view("api").routeStreak <= streak, "limited calls added nothing");
 });
 
 test("events: emit returns at once, handlers run in order, one at a time, and a plugin that is off is not told", async () => {
@@ -280,4 +292,37 @@ test("the only hooks the server calls on a request path are the ones listed here
   for (const f of files) for (const m of fs.readFileSync(f, "utf8").matchAll(/callHook\(\s*[^,]+,\s*"(\w+)"/g)) found.add(m[1]);
   // metadata, art and tasks run in the background and are cached; they are never called while a request waits.
   assert.deepEqual([...found].sort(), ["beforeDownload", "plan", "route", "shopInfo", "variants"]);
+});
+
+test("a header value the socket would refuse is a failed call, not a crash: 409 for a download, 502 for a route, and the server stays up", async () => {
+  for (const name of ["hangul", "ctrl"]) {
+    const r = await get(`/api/plugins/api/${name}`);
+    assert.equal(r.status, 502, name);
+    assert.equal((await r.json()).code, "plugin-failed", name);
+  }
+  assert.equal((await get("/g.nsp")).status, 200);
+});
+
+test("only text values of the query reach beforeDownload", async () => {
+  const r = await get("/g.nsp?mode=seen-query&a[]=1&b[c]=2&d=3");
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get("x-demo"), '["string","string"]', "mode and d; the array and the object were left out");
+});
+
+test("a plugin whose address keeps failing pauses the address, not the downloads it answers for every device", async () => {
+  clock.t += 61_000;
+  for (let i = 0; i < 6; i++) await get("/api/plugins/dual/boom");
+  assert.ok(env.registry.view("dual").routeRetryAt, "the address is paused");
+  assert.equal((await get("/api/plugins/dual/boom")).status, 503);
+  assert.equal(env.registry.view("dual").state, "on", "the plugin itself is not cooling");
+  assert.equal((await get("/g.nsp")).status, 200, "downloads still go out");
+});
+
+test("an account is one caller for the rate limit whatever device key it sends; the table of callers has a ceiling", async () => {
+  clock.t += 61_000;
+  gate.account = { kind: "password", name: "kim" };
+  const codes = [];
+  for (let i = 0; i < 7; i++) codes.push((await get("/api/plugins/api/teapot", { "X-Device-Key": String(i).repeat(64) })).status);
+  gate.account = null;
+  assert.deepEqual(codes, [418, 418, 418, 418, 418, 429, 429]);
 });

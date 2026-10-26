@@ -305,6 +305,8 @@ export function createRegistry({
       lastErrorAt: row.lastErrorAt ?? null,
       failStreak: row.failStreak ?? 0,
       hookStreak: row.hookStreak ?? 0,
+      routeStreak: routeHealth.get(id)?.streak ?? 0,
+      routeRetryAt: routePausedUntil(id),
       disabledReason: row.disabledReason ?? null,
       disabledAt: row.disabledAt ?? null,
       retryAt: state === "cooling" ? row.cooldownUntil : null,
@@ -330,6 +332,7 @@ export function createRegistry({
       if (restartNeeded.has(id)) throw new PluginError("restart-needed");
       if (entry.status !== "ok") throw new PluginError(entry.status === "incompatible" ? "incompatible" : "broken");
       if (entry.manifest.needsKeys && confirmKeys !== true) throw new PluginError("keys-confirm-required", 400);
+      routeHealth.delete(id);
       store.update(id, { enabled: true, failStreak: 0, hookStreak: 0, cooldownStep: 0, cooldownUntil: null, disabledReason: null, disabledAt: null });
       await stopInstance(id);
       await start(id);
@@ -338,6 +341,32 @@ export function createRegistry({
   }
 
   // ── hooks ──
+  // A plugin's own addresses pause on their own: one device making a route fail must not stop the downloads
+  // the same plugin answers for every device. Kept in memory; a restart gives the routes a fresh start.
+  const routeHealth = new Map(); // id -> { streak, step, until }
+  const routePausedUntil = (id) => {
+    const h = routeHealth.get(id);
+    return h && now() < h.until ? h.until : null;
+  };
+
+  function recordRouteFailure(id, error, timedOut) {
+    const message = timedOut ? "hook-timeout" : firstLine(error);
+    store.update(id, { lastError: message, lastErrorAt: now() });
+    const h = routeHealth.get(id) ?? { streak: 0, step: 0, until: 0 };
+    // Calls that were already running when the pause began fail inside it: they do not deepen it.
+    if (now() < h.until) return message;
+    const streak = h.streak + 1;
+    if (streak < (h.step > 0 ? 1 : lim.hookFailLimit)) {
+      routeHealth.set(id, { ...h, streak });
+      return message;
+    }
+    const minutes = lim.cooldownMinutes[Math.min(h.step, lim.cooldownMinutes.length - 1)];
+    routeHealth.set(id, { streak: 0, step: h.step + 1, until: now() + minutes * MINUTE_MS });
+    log("warn", `${id}: routes cooling for ${minutes} min after ${streak} failures: ${message}`);
+    notify({ id, event: "cooling", reason: "route-failures", message, minutes });
+    return message;
+  }
+
   function recordHookFailure(id, error, timedOut) {
     const row = store.get(id);
     const message = timedOut ? "hook-timeout" : firstLine(error);
@@ -385,15 +414,21 @@ export function createRegistry({
     const fn = call.pick ? call.pick(rt.instance) : rt.instance?.[kind];
     if (typeof fn !== "function") return { skipped: "no-hook" };
     const row = store.get(id);
-    if (row?.cooldownUntil && now() < row.cooldownUntil) return { skipped: "cooling", retryAt: row.cooldownUntil };
+    const isRoute = kind === "route";
+    const pausedUntil = isRoute ? routePausedUntil(id) : row?.cooldownUntil && now() < row.cooldownUntil ? row.cooldownUntil : null;
+    if (pausedUntil) return { skipped: "cooling", retryAt: pausedUntil };
 
     // A plugin that said needsKeys gets the parsed keys for this one call; they are never kept in ctx.
     const given = KEYED_HOOKS.has(kind) && entries.get(id)?.manifest?.needsKeys ? { ...args, keys: readOnlyKeys(keysProvider?.()) } : args;
     const r = await runInPlugin(id, (signal) => fn.call(rt.instance, given, { signal, lang: call.lang ?? "en", clientVersion: call.clientVersion ?? null, console: consoleFor(id, call.console) }), { timeoutMs: call.timeoutMs ?? lim.hookMs[kind] ?? lim.hookMsDefault });
     // An answer the core can not use is the plugin failing, and must not reset the count a success resets.
     if (r.ok && call.valid && !call.valid(r.value)) {
-      recordHookFailure(id, new Error("unusable-answer"), false);
+      (isRoute ? recordRouteFailure : recordHookFailure)(id, new Error("unusable-answer"), false);
       return { error: { message: "unusable-answer", timedOut: false } };
+    }
+    if (r.ok && isRoute) {
+      routeHealth.delete(id);
+      return { value: r.value };
     }
     if (r.ok) {
       if (row.hookStreak || row.cooldownStep || row.cooldownUntil) store.update(id, { hookStreak: 0, cooldownStep: 0, cooldownUntil: null });
@@ -403,7 +438,7 @@ export function createRegistry({
     // start the pause that would refuse a download in progress.
     const message = LISTING_HOOKS.has(kind)
       ? noteFailure(id, r.error, r.timedOut)
-      : recordHookFailure(id, r.error, r.timedOut);
+      : (isRoute ? recordRouteFailure : recordHookFailure)(id, r.error, r.timedOut);
     // A hook that fails because its files are gone is a plugin that went missing, not a failing one.
     if (r.error?.code === "ENOENT" && entries.has(id)) {
       const gone = await fsp.access(entries.get(id).dir).then(() => false, () => true);
@@ -495,6 +530,7 @@ export function createRegistry({
       await fsp.mkdir(root, { recursive: true });
       await moveDir(stageDir, target);
       store.ensure(id);
+      routeHealth.delete(id);
       store.update(id, { enabled: false, failStreak: 0, hookStreak: 0, cooldownStep: 0, cooldownUntil: null, disabledReason: null, disabledAt: null });
       if (origin) writeOrigin(dataDir, id, origin);
       await applyScan(await scanPluginDir(root));
@@ -587,7 +623,7 @@ export function createRegistry({
 
   return {
     API_VERSION, init, list, view, setEnabled, callHook, rescan, startWatching, trash, installFrom, listTrashed, restore,
-    recordVariantKeys, variantKeyStatus, variantKeys, keysOf, consoleWanted, keysStamp, activeProviding, pausedProviding, wantedConsole, consoleFor, stopAll, pluginRejected, writeCrash,
+    recordVariantKeys, variantKeyStatus, variantKeys, keysOf, consoleWanted, keysStamp, activeProviding, pausedProviding, routePausedUntil, wantedConsole, consoleFor, stopAll, pluginRejected, writeCrash,
     clearBooting: markers.clearBooting,
     capabilities: () => [...capabilities.values()],
     safeMode,
