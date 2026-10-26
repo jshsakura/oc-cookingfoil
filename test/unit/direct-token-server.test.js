@@ -203,7 +203,7 @@ test("retro, saves, patches and extras are on the direct address; artwork is not
   assert.equal(g.romUrl, `${DL}/api/retro/games/${g.id}/rom`);
   assert.equal(g.bundleUrl, `${DL}/api/retro/games/${g.id}/bundle`);
   assert.equal(g.romDirectUrl, undefined, "no twins");
-  for (const u of JSON.stringify(g).match(/"http:\/\/[^"]+"/g) ?? []) assert.match(u, /\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg|forwarder\.nsp)"$/, "only downloads; artwork stays on the shop address");
+  for (const u of JSON.stringify(g).match(/"http:\/\/[^"]+"/g) ?? []) assert.match(u, /\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg)"$/, "only downloads; artwork stays on the shop address");
   assert.equal((await viaProxy(g.romUrl, token)).body.toString(), "SMW");
   const plainGame = (await json("/api/retro/games", SIGNED_IN)).games[0];
   assert.equal(plainGame.romUrl, `/api/retro/games/${g.id}/rom`);

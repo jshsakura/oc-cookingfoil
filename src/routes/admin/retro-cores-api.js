@@ -7,7 +7,7 @@
  *
  *   POST /admin/api/retro-cores/system   { system, core | null }  the core a console's games start with;
  *                                         null goes back to the system table's. Rescans, so each game's
- *                                         forwarder key changes and consoles fetch a new one
+ *                                         shortcut key changes and consoles see it as out of date
  *
  *   POST /admin/api/retro-cores/enabled  { core, enabled }  switches a core on or off (src/retro/core-settings.js);
  *                                         an off core leaves the console pack and isn't fetched. GET marks it off: true

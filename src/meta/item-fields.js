@@ -26,7 +26,7 @@ import * as edits from "./admin-edits.js";
 import * as shopCache from "./shop-cache.js";
 import * as retroCatalog from "../retro/catalog.js";
 import * as userPatches from "./user-patches.js";
-import { githubTracker, manualApps, rebuildHomebrewShortcut } from "../routes/homebrew.js";
+import { githubTracker, manualApps, refreshHomebrewIcon } from "../routes/homebrew.js";
 import { savesCatalog, savesEnabled } from "../routes/saves.js";
 
 /** A refusal with the HTTP status it answers with (404 no such kind or item, 400 bad key or value). */
@@ -56,7 +56,7 @@ const HOMEBREW = [
     (id, v) => {
       cores.set(id, Number(v));
       // Built now, not on the next download: the list then carries the new shortcut's address.
-      rebuildHomebrewShortcut(id);
+      refreshHomebrewIcon(id);
     },
     // An installable title has no HOME-menu shortcut of ours.
     { applies: (item) => item.installType !== "title" }),

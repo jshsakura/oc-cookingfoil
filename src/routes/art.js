@@ -68,7 +68,6 @@ import * as users from "../security/users.js";
 import adminOnly from "../security/admin-only.js";
 import * as retroCatalog from "../retro/catalog.js";
 import * as retroArt from "../retro/art/sync.js";
-import { rebuildRetroShortcut } from "./retro.js";
 import * as customArt from "../meta/custom-art.js";
 import * as gameDescriptions from "../meta/game-descriptions.js";
 import * as gameMeta from "../meta/game-meta.js";
@@ -79,7 +78,7 @@ import { invalidate } from "../meta/shop-cache.js";
 import * as homebrewMedia from "../meta/homebrew-media.js";
 import patchMedia from "../meta/patch-media.js";
 import { MediaImageError } from "../meta/item-media.js";
-import { defaultService as homebrewService, rebuildHomebrewShortcut } from "./homebrew.js";
+import { defaultService as homebrewService, refreshHomebrewIcon } from "./homebrew.js";
 import * as userPatches from "../meta/user-patches.js";
 import * as patchInfo from "../meta/patch-info.js";
 import * as titledbStore from "../meta/titledb-store.js";
@@ -172,7 +171,7 @@ export default function artRouter() {
     }
   };
   // A homebrew app's HOME-menu shortcut carries its icon: built again in the background with the new one.
-  const iconChanged = (req, id) => { if (req.params.kind === "homebrew") rebuildHomebrewShortcut(id); };
+  const iconChanged = (req, id) => { if (req.params.kind === "homebrew") refreshHomebrewIcon(id); };
   // Pictures to pick from for one slot (meta/art-search.js), and a picked one fetched for the page to cut.
   //   GET /api/art/search?slot=icon|banner|screenshot&q=&base=   { q, items, errors, missing }
   //   GET /api/art/search?slot=boxart&retro=<game id>&q=        a retro game's cover: libretro-thumbnails first, then SteamGridDB and IGDB
@@ -221,7 +220,6 @@ export default function artRouter() {
       if (!g) return res.status(404).json({ error: "no such game" });
       await retroArt.saveCoverImage(retroDir, catalog.systems[g.system], retroCatalog.romKey(g), req.file.buffer);
       await retroCatalog.scan(retroDir);
-      rebuildRetroShortcut(g.id);
       debug.log("art: retro %s box art uploaded", g.id);
       res.status(201).json({ boxart: "ok" });
     } catch (err) {

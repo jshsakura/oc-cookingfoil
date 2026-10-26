@@ -12,7 +12,7 @@
     "dev": "DEBUG=oc-cookingfoil* nodemon ./src/index.js",
     "lint": "eslint .",
     "test": "npm run test:unit && npm run test:web",
-    "test:unit": "d=$(mktemp -d) && COOK_RETRO_AUTO_CORES=${COOK_RETRO_AUTO_CORES:-false} COOK_RETRO_AUTO_ART=${COOK_RETRO_AUTO_ART:-false} COOK_SECRET_KEY=${COOK_SECRET_KEY:-dGVzdC1rZXktbm90LWEtc2VjcmV0LTAxMjM0NTY3ODk=} COOK_STORAGE_DIR= COOK_FORWARDER_EXEFS=${COOK_FORWARDER_EXEFS:-$PWD/test/fixtures/forwarder-exefs} TMPDIR=$d node --test test/unit/*.test.js; s=$?; rm -rf \"$d\"; exit $s",
+    "test:unit": "d=$(mktemp -d) && COOK_RETRO_AUTO_CORES=${COOK_RETRO_AUTO_CORES:-false} COOK_RETRO_AUTO_ART=${COOK_RETRO_AUTO_ART:-false} COOK_SECRET_KEY=${COOK_SECRET_KEY:-dGVzdC1rZXktbm90LWEtc2VjcmV0LTAxMjM0NTY3ODk=} COOK_STORAGE_DIR= TMPDIR=$d node --test test/unit/*.test.js; s=$?; rm -rf \"$d\"; exit $s",
     "test:web": "playwright test --config playwright.web.config.ts",
     "test:pairing": "node scripts/local-pairing.mjs",
     "test:ui": "playwright test --config playwright.web.config.ts --ui",

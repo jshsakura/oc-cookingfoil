@@ -372,12 +372,12 @@ CookingFoil 자체는 평문 HTTP 로 말합니다. `http://` 로 붙으면 기�
 | `GET /api/activity` | 로그인한 사용자는 실행 중인 작업과 최근 작업을 조회합니다. 중지는 관리자 API에서 관리자만 할 수 있습니다. |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 항목 하나의 자세한 정보와 추가 파일 |
 | `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | 그림 |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 홈브류 앱(`.nro` 하나 또는 `switch/<app>/` 폴더 전체)과 홈 메뉴 바로가기. 관리 페이지에서 끈 앱은 빠집니다 |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive` | 홈브류 앱(`.nro` 하나 또는 `switch/<app>/` 폴더 전체). 관리 페이지에서 끈 앱은 빠집니다 |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | 패치 |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | 세이브 파일 |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | 레트로 폴더에 롬이 있을 때 레트로 게임과 그림 |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png` | 레트로 폴더에 롬이 있을 때 레트로 게임과 그림 |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 직접 준비한 RetroArch 기본 묶음 |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(그 폴더에 넣거나 관리 페이지 업로드 탭에서 "클라이언트"로 올립니다)와 그 홈 메뉴 바로가기. `latest` 는 빌드 옆의 `cookingfoil.nro.sig.json` 이 그 빌드의 버전, 크기, sha256 과 맞을 때만 `signature`(빌드한 곳에서 만든 Ed25519 서명)를 싣습니다 |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` 에 둔 CookingFoil 클라이언트 빌드(그 폴더에 넣거나 관리 페이지 업로드 탭에서 "클라이언트"로 올립니다). `latest` 는 빌드 옆의 `cookingfoil.nro.sig.json` 이 그 빌드의 버전, 크기, sha256 과 맞을 때만 `signature`(빌드한 곳에서 만든 Ed25519 서명)를 싣습니다 |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR 기기 연결(QR 기기 연결이 켜져 있을 때만). 기기는 요청할 때 임의의 `pairSecret`(16진수 64자)을 보내고 상태를 물을 때 같은 값을 `X-Pair-Secret` 로 보냅니다. 접근 키는 그 값을 보낸 쪽에만 내려갑니다. 승인 방식이 "로그인한 기기는 바로 승인" 이면 Basic 으로 보낸 계정 아이디와 비밀번호로 바로 승인합니다. JSON 응답에는 모두 `passwordOnly: true` 가 붙고, `/api/library/info` 의 기능 목록에 `pair-password-only` 가 있습니다. 비밀번호는 연결할 때만 씁니다 |
 | `POST /api/pair/enroll` | 기기가 내려받은 클라이언트에 든 등록 토큰을 `X-Device-Key` 와 함께 보내 자기 접근 키로 바꿉니다. 내려받은 계정 아래로 승인되며, 받은 뒤 1시간 안에 기기 `COOK_ENROLL_PER_HOUR` 대까지(기본 5, 수동 승인이면 한 대) 쓸 수 있고 그 이상은 QR 로 승인합니다. 거절: 401 과 `X-CookingFoil-Enroll: limit`(`X-CookingFoil-Auth: enroll-limit`), `used`, `expired`, `revoked`, `invalid`. 계정의 기기 수가 다 찼으면 403 과 `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | 연결한 기기의 접근 키를 12시간짜리 세션 토큰으로 바꿉니다(Basic 헤더는 무시합니다). 이후에는 같은 기기 키로 `Authorization: Bearer cfs_…` 만 보냅니다. 세션으로 세션을 다시 받을 수는 없고, 그 기기를 승인한 계정의 비밀번호 변경, 기기 회수, 잠금이 생기면 바로 끝납니다. 기능 이름은 `session-token` 입니다 |
@@ -427,7 +427,6 @@ src/
 ├── retro/          # retro folder, names, art, details and shortcuts
 ├── realtime/       # WebSocket updates for the web page (/ws/library)
 └── views/          # the web page and the operator guide
-forwarder/          # the HOME menu shortcut loader (nx-hbloader with a patch)
 site/               # the GitHub Pages site
 test/unit, test/web # node --test and Playwright
 ```
@@ -448,7 +447,6 @@ MIT 라이선스입니다. [LICENSE](./LICENSE) 를 봅니다.
 
 - [blawar/titledb](https://github.com/blawar/titledb): 타이틀 이름, 소개, 그림 주소. 실행 중에 받아 옵니다.
 - [nstool](https://github.com/jakcron/nstool)(MIT), [nsz](https://github.com/nicoboss/nsz)(MIT): 이미지에 들어 있습니다.
-- [hacBrewPack](https://github.com/rlaphoenix/hacBrewPack/tree/745b16ecfc9ce055743067d200572204cb2aac6c)(GPL-2.0), [nx-hbloader](https://github.com/switchbrew/nx-hbloader)(ISC): 홈 메뉴 바로가기.
 - [libretro-thumbnails](https://github.com/libretro-thumbnails) 의 표지와 [The Bezel Project](https://github.com/thebezelproject) 의 베젤. 실행 중에 받아 옵니다.
 - [LaunchBox Games Database](https://gamesdb.launchbox-app.com/), [IGDB](https://www.igdb.com/), Steam: 게임 정보와 점수. 실행 중에 받아 옵니다.
 - [FinalBurn Neo](https://github.com/finalburnneo/FBNeo) 세트 목록: 아케이드 이름.

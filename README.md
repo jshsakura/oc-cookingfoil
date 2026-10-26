@@ -136,7 +136,7 @@ cookingfoil/
     └── data/         # cache, accounts and every setting saved on the admin page. Back this one up
 ```
 
-**`prod.keys` is recommended.** With your own console keys the server reads what every Switch game file is from the file itself: names, icons, NSZ conversion and home-screen shortcuts. Without them everything is still served, but a game file is known only by the `[TITLEID][vN]` in its name, and the admin page's overview warns about it. Put it in `storage/keys/` (or point `COOK_PROD_KEYS_PATH` at it), or upload it on the admin page's settings tab; it applies at once, no restart.
+**`prod.keys` is recommended.** With your own console keys the server reads what every Switch game file is from the file itself: names, icons and NSZ conversion. Without them everything is still served, but a game file is known only by the `[TITLEID][vN]` in its name, and the admin page's overview warns about it. Put it in `storage/keys/` (or point `COOK_PROD_KEYS_PATH` at it), or upload it on the admin page's settings tab; it applies at once, no restart.
 
 Your folders keep their names and layout: the server reads them as they are and never moves or renames what is already there. To have files sorted for you, put them in `storage/incoming/`. Once a file has not changed for a minute, the server reads its title id and version from the file (with your `prod.keys`, else from its name or ticket), renames it `<game name> [TITLEID][vN].ext` and moves it into `games/`, one folder per game, with `update/` and `DLC/` beside the base game. The game name is the one set on the admin page, else titledb's, else the NACP inside the file (read from an NSP, NSZ, XCI or XCZ when `prod.keys` and nstool are there), else the original file name without site prefixes, tags and a browser's ` (1)`; a name with broken characters is skipped. A base game and its update that arrive together get one name. A game that already has a folder keeps it; a new one gets a folder named after it. A game titledb does not know gets its folder from the NACP of its base game or update, else from the base file's own name. A DLC alone is placed when its game has a folder or titledb or the admin page knows the game's name; otherwise it waits for the base game or an update, and the admin page says so. A DLC whose file name says nothing (like `dlc2`) is named `<game> DLC n`. Retro ROMs go in a folder named after their system (`incoming/snes/`) and move to `retro/`, and a lone `.nro` moves to `homebrew/`. Nothing is overwritten, and what cannot be placed stays in `incoming/` with the reason on the admin page (Library, Drop box). The server knows the drop box by its place, never by a folder's name or contents, so nothing in `games/` is ever treated as waiting to be sorted.
 
@@ -375,12 +375,12 @@ Canonical catalog paths are `/api/library/*` for CookingFoil clients and `/games
 | `GET /api/activity` | Signed-in users can read running tasks and recent activity. Only admins can stop tasks through the admin API. |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | Detail for one entry, and its extra files |
 | `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | Artwork |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder) and their HOME menu shortcut. Apps turned off on the admin page are left out |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive` | Homebrew apps (a single `.nro` or a whole `switch/<app>/` folder). Apps turned off on the admin page are left out |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | Patches |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | Save files |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | Retro games and their art, when the retro folder holds ROMs |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png` | Retro games and their art, when the retro folder holds ROMs |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | The RetroArch base pack you supplied |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | The CookingFoil client build kept in `data/client/` (drop it there, or upload it on the admin page's upload tab as "client"), and its HOME menu shortcut. `latest` carries `signature` (Ed25519, made where the build is) only while `cookingfoil.nro.sig.json` beside the build names its version, size and sha256 |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | The CookingFoil client build kept in `data/client/` (drop it there, or upload it on the admin page's upload tab as "client"),. `latest` carries `signature` (Ed25519, made where the build is) only while `cookingfoil.nro.sig.json` beside the build names its version, size and sha256 |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR device pairing (only while QR device connection is on). The console sends a random `pairSecret` (64 hex) with its request and the same value as `X-Pair-Secret` when it polls; the access key goes only to that caller. With approval mode "Consoles that sign in", an account's ID and password sent as Basic approve the console at once. Every JSON answer carries `passwordOnly: true`, and `/api/library/info` lists feature `pair-password-only`: the password is for pairing only |
 | `POST /api/pair/enroll` | A console spends the enrollment token from its downloaded client, sent with `X-Device-Key`, for its own access key, approved under the account that downloaded it. Works for up to `COOK_ENROLL_PER_HOUR` consoles (5 unless set) within an hour of the download (one with manual approval); more consoles are approved by QR. Refusals: 401 with `X-CookingFoil-Enroll: limit` (`X-CookingFoil-Auth: enroll-limit`), `used`, `expired`, `revoked` or `invalid`; 403 with `X-CookingFoil-Auth: device-limit` when the account holds all the consoles it may |
 | `GET /api/session` | Trades a paired console's access key for a 12-hour session token (a Basic header is ignored), sent afterwards as `Authorization: Bearer cfs_…` from the same device key. A session cannot renew itself; a password change of the account that approved the console, a revoked console, or a lockout ends it at once. Feature `session-token` |
@@ -430,7 +430,6 @@ src/
 ├── retro/          # retro folder, names, art, details and shortcuts
 ├── realtime/       # WebSocket updates for the web page (/ws/library)
 └── views/          # the web page and the operator guide
-forwarder/          # the HOME menu shortcut loader (nx-hbloader with a patch)
 site/               # the GitHub Pages site
 test/unit, test/web # node --test and Playwright
 ```
@@ -451,7 +450,6 @@ It builds on:
 
 - [blawar/titledb](https://github.com/blawar/titledb) for title names, descriptions and artwork addresses, fetched at run time.
 - [nstool](https://github.com/jakcron/nstool) (MIT) and [nsz](https://github.com/nicoboss/nsz) (MIT), bundled in the image.
-- [hacBrewPack](https://github.com/rlaphoenix/hacBrewPack/tree/745b16ecfc9ce055743067d200572204cb2aac6c) (GPL-2.0) and [nx-hbloader](https://github.com/switchbrew/nx-hbloader) (ISC) for HOME menu shortcuts.
 - [libretro-thumbnails](https://github.com/libretro-thumbnails) box art and [The Bezel Project](https://github.com/thebezelproject) bezels, fetched at run time.
 - The [LaunchBox Games Database](https://gamesdb.launchbox-app.com/), [IGDB](https://www.igdb.com/) and Steam for game details and scores, fetched at run time.
 - The [FinalBurn Neo](https://github.com/finalburnneo/FBNeo) set list for arcade names.

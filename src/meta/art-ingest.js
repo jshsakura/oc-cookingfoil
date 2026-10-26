@@ -13,7 +13,7 @@
  * (art-crop.js); that is its own feature of the admin's pictures and goes through shrink() too.
  *
  * Pictures that are drawn from ones already kept (the banner drawn from an icon, square art, the sized
- * copies image-cache serves, a forwarder's icon) are renderings, not ingest, and live in their own modules.
+ * copies image-cache serves, a shortcut's icon) are renderings, not ingest, and live in their own modules.
  * test/unit/sharp-importers.test.js lists who may import sharp and why.
  */
 import crypto from "node:crypto";

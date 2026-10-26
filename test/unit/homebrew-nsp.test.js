@@ -109,7 +109,7 @@ function service(dir) {
     list: async () => [title, nro],
     icon: async () => PNG,
     download: async (id) => (id === title.id ? { path: nsp, sha256: "f00d", file_name: title.file_name } : null),
-    forwarderInfo: () => ({ forwarder_url: "/should-not-appear", forwarder_title_id: "0500000000000000", forwarder_size: 1 }),
+    shortcutInfo: () => ({ forwarder_title_id: "0500000000000000", forwarder_key: "000000000000" }),
   };
 }
 
@@ -135,7 +135,7 @@ test("titles are listed only to a client that asks, as titles to install with no
     assert.equal(t.app, null);
     assert.equal(t.files, null);
     assert.equal(t.archive, null);
-    assert.equal(t.forwarder_url, null, "an installed title is its own HOME menu entry");
+    assert.equal(t.forwarder_title_id, null, "an installed title is its own HOME menu entry");
     assert.equal(t.download_url, "/api/homebrew/m-0123456789ab/download");
     assert.equal(all.length, 2);
 

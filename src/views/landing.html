@@ -6598,7 +6598,7 @@
           [t("modal.format"), fmtExt(g.file)],
           [t("modal.region"), regionName(g.region)],
           [t("retro.bezelLabel"), own ? t("retro.bezelOwn") : g.bezel?.hasBezel ? t("retro.bezelDefault") : t("retro.bezelNone")],
-          [t("retro.forwarder"), g.forwarderUrl ? t("retro.forwarderWith") : ""],
+          [t("retro.forwarder"), g.forwarderTitleId ? t("retro.forwarderWith") : ""],
           [t("retro.achLabel"), g.achievements ? `${t("retro.achInfo", g.achievements.count, g.achievements.points)} · ${t(g.achievements.matchedBy === "hash" ? "retro.achHash" : "retro.achTitle")}` : ""],
         ]);
         const where = $("modal-where");

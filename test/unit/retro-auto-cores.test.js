@@ -19,7 +19,7 @@ import { coreStates, createAutoCores, restoreCore, STATE_FILE } from "../../src/
 import { forgetIndex, parseIndex } from "../../src/retro/nightly-cores.js";
 import { parseRelease } from "../../src/retro/repo-cores.js";
 import { coreFiles, listPack, manifestView } from "../../src/retro/base-pack.js";
-import { forwarderSpec } from "../../src/retro/forwarder.js";
+import { shortcutSpec } from "../../src/retro/shortcut.js";
 import { listTrash, restoreEntry } from "../../src/retro/trash.js";
 import { toTrash } from "../../src/retro/core-files.js";
 import { coreErrorText } from "../../src/retro/core-messages.js";
@@ -229,7 +229,7 @@ test("setting off: a scan does nothing; a core in the trash is not fetched again
   } finally { bot.close(); }
 });
 
-test("update replaces only the server's cores whose CRC changed, keeps no old copy, and leaves the forwarder key alone", opts, async () => {
+test("update replaces only the server's cores whose CRC changed, keeps no old copy, and leaves the shortcut key alone", opts, async () => {
   const bot = await buildbot(BUILDS);
   try {
     const w = world();
@@ -251,10 +251,10 @@ test("update replaces only the server's cores whose CRC changed, keeps no old co
     const zips = bot.zips().length;
     await auto.update().done;
     assert.equal(bot.zips().length, zips, "a second update downloads nothing");
-    // Shortcuts are never made again by themselves: the core path in a forwarder is the same after an update.
-    assert.equal("revs" in JSON.parse(fs.readFileSync(path.join(w.dataDir, STATE_FILE), "utf8")), false, "no core revision is kept for forwarder keys");
+    // Shortcuts are never made again by themselves: the core path in a shortcut is the same after an update.
+    assert.equal("revs" in JSON.parse(fs.readFileSync(path.join(w.dataDir, STATE_FILE), "utf8")), false, "no core revision is kept for shortcut keys");
     const game = { id: "nes-0123456789", name: "Game", core: "fceumm", romSdPath: "roms/nes/a.nes", publisher: "x" };
-    assert.equal(forwarderSpec({ ...game, coreRev: "2026-10-23" }).key, forwarderSpec(game).key, "a core revision never moves a forwarder key");
+    assert.equal(shortcutSpec({ ...game, coreRev: "2026-10-23" }).key, shortcutSpec(game).key, "a core revision never moves a shortcut key");
   } finally { bot.close(); }
 });
 

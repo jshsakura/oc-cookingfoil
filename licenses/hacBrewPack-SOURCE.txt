@@ -1,9 +1,0 @@
-hacBrewPack is licensed under the GNU General Public License, version 2
-(see hacBrewPack-GPL-2.0.txt).
-
-The /usr/local/bin/hacbrewpack binary in this image was built, unmodified,
-from https://github.com/rlaphoenix/hacBrewPack at commit
-745b16ecfc9ce055743067d200572204cb2aac6c (hacBrewPack v3.05 by The-4n).
-The complete source of that commit ships next to this file as
-hacBrewPack-source.tar.gz. The only build change is compiler flags that map
-the *64 stdio names to their plain musl equivalents (see the Dockerfile).

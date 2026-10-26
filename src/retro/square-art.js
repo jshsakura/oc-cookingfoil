@@ -10,8 +10,7 @@
  * also the icon URL's ?v=, which makes the URL safe to cache for good).
  * Files for games that are gone are removed.
  *
- * The squares stay JPEG on disk: a forwarder's HOME icon is drawn from the md
- * one, and a NACP icon is a JPEG. What goes to a screen over HTTP is WebP: the
+ * The squares stay JPEG on disk. What goes to a screen over HTTP is WebP: the
  * squares' WebP twins, and the box art itself (the detail screen's cover)
  * fitted within 256 px (md) or 160 px (sm) with its own shape and never
  * enlarged, or whole (full). Those are drawn on first use into

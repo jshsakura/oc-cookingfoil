@@ -40,7 +40,7 @@
  *   GET /api/retro/systems/:id/facets            { system, total, genres?: [{ key, name, count }], players?: [{ value, count }]
  *                                                (at least that many), decades?: [{ value, count }], regions?: [{ value, count }],
  *                                                korean?: count, achievements?: count }; values no game has are left out
- *   G.shortcutName                                the HOME menu name of its shortcut (the forwarder's NACP name):
+ *   G.shortcutName                                the HOME menu name of its shortcut (what the console names it):
  *                                                the display name, then " · " and what tells it from the game's
  *                                                other versions (한글 v2, 정발, 일본…) when there is more than one
  *   GET /api/retro/systems/:id/filters           { groups: [{ key, en, ko, ja, zh, pick, options: [{ key, …, count, params }] }], sorts }
@@ -64,7 +64,7 @@
  * Arcade groups whose representative can't run (its parent or BIOS zip is
  * missing) are left out; ?variants=all lists them. romCount counts what the
  * lists show. Every id still resolves, listed or not, so installs and
- * forwarders made from another version keep working.
+ * shortcuts made from another version keep working.
  *   V = { id, name, variant?, edition?, region?, size, file, rom_hash, rom_size, representative: bool, bezel: { kind }, missing?: [set] }
  *   GET /api/retro/games/:id/rom                 the game file (Range works)
  *   GET /api/retro/games/:id/icon?size=sm|md     square box art for tiles, 160 or 256 px WebP (default md);
@@ -97,7 +97,7 @@
  *       bezel: { kind, hasBezel, generic?, credit?: { name, url, text }, imageUrl, overlayCfgUrl, gameCfgUrl },
  *         kind: "game" (made for this game), "system" (the console's default), "none".
  *         New kinds may be added later; hasBezel and generic stay for older clients.
- *       forwarderUrl, forwarderTitleId, forwarderSize, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
+ *       forwarderTitleId, install: { rom, extras, bezelPng, overlayCfg, gameCfg } }
  *
  * size counts a game's extras too (a .cue's tracks); rom_size is its own file
  * alone, null for a made-up .m3u. rom_hash names the ROM's content across
@@ -109,7 +109,7 @@
  * anything unreadable.
  *
  * Every download URL (romUrl, bundleUrl, the bezel's imageUrl, overlayCfgUrl
- * and gameCfgUrl, forwarderUrl, the pack's bundleUrl and each file's url) is on
+ * and gameCfgUrl, the pack's bundleUrl and each file's url) is on
  * the direct address when a signed-in client asked for it and a direct address
  * is set (security/download-links.js); artwork never is.
  *
@@ -118,10 +118,8 @@
  * switch/retroarch_switch.nro. A file marked `once` is only written when the
  * card doesn't have it yet (retroarch.cfg holds the player's own settings).
  *
- * GET /api/retro/games/:id/forwarder.nsp is the game's HOME-menu shortcut
- * (src/retro/forwarder.js): it starts the game's core with install.rom. The
- * forwarder fields are null when the server can't build one (no prod.keys or
- * hacBrewPack); forwarderSize is null until the NSP has been built.
+ * forwarderTitleId is the title ID of the game's HOME-menu shortcut (src/retro/shortcut.js), which
+ * the console builds itself; it is null when the game can't have one.
  */
 import fs from "fs";
 import path from "path";
@@ -131,7 +129,6 @@ import zlib from "zlib";
 import { promisify } from "util";
 import debug from "../debug.js";
 import { retroDir, dataDir } from "../helpers/envs.js";
-import { keysDir } from "../security/prod-keys.js";
 import { requestLang } from "../meta/langs.js";
 import * as catalog from "../retro/catalog.js";
 import * as retroNames from "../retro/names.js";
@@ -143,7 +140,7 @@ import { appDb } from "../db/database.js";
 import { hashStore } from "../db/stores.js";
 import { sendTar, tarEntries } from "../helpers/tar-stream.js";
 import { archiveSize } from "../helpers/ustar.js";
-import { artKey, BOXART_SIZES, ensureBoxart, ensureSquare, ensureSquareWebp, prewarm, squarePath, SQUARE_SIZES } from "../retro/square-art.js";
+import { artKey, BOXART_SIZES, ensureBoxart, ensureSquareWebp, prewarm, SQUARE_SIZES } from "../retro/square-art.js";
 import { fileVersion } from "../retro/file-version.js";
 import { IMMUTABLE } from "../meta/image-cache.js";
 import { listFilter } from "../retro/list-filter.js";
@@ -173,7 +170,7 @@ import * as metaEdits from "../retro/meta/edits.js";
 import { factsOf, facetsOf, factsFilter, genreSlug } from "../retro/themes.js";
 import { folded, gameMatches, groupOf, listedGames, metaCandidates, titleOf } from "../retro/game-view.js";
 import { menuRows, pickMenu, rowIcon, MENU_GAMES } from "../retro/menu.js";
-import { displayName, ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, shortcutName } from "../retro/forwarder.js";
+import { displayName, shortcutName, shortcutSpec } from "../retro/shortcut.js";
 import { versionLabels } from "../retro/shortcut-name.js";
 
 const ID_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
@@ -193,7 +190,6 @@ export const retroEnabled = () => fs.existsSync(retroDir);
 
 // RetroArch itself: <retro dir>/retroarch/ (or base-pack/, the earlier name).
 const artDir = path.join(dataDir, "retro-art");
-const forwarderDir = path.join(dataDir, "retro-forwarders");
 const packDir = () => packDirOf(retroDir);
 let hashCache = null;
 let manifest = null; // { version, files, sources, builtAt, off }
@@ -269,7 +265,6 @@ function systemIconUrls(id, system) {
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 
-/** What the forwarder module needs to know about a game. */
 /** What tells `g` from the other versions of its game on the HOME menu, or null (retro/shortcut-name.js). */
 function versionLabelOf(cat, g) {
   const group = cat ? groupOf(cat, g) : null;
@@ -282,7 +277,8 @@ function versionLabelOf(cat, g) {
   })).get(g.id) ?? null;
 }
 
-function forwarderGame(g, system, cat = null) {
+/** What the shortcut module needs to know about a game. */
+function shortcutGame(g, system, cat = null) {
   return {
     id: g.id,
     // As in the list: a name the admin gave (a kept guess among them), then the Korean
@@ -294,45 +290,14 @@ function forwarderGame(g, system, cat = null) {
     romSdPath: sdPaths(g, system).rom,
     artKey: artKey(g),
     publisher: `RetroArch · ${system.names?.ko ?? system.name ?? g.system}`,
-    icon: squarePath(artDir, g, "md"),
     versionLabel: versionLabelOf(cat, g),
   };
 }
 
-/**
- * Builds a game's shortcut again after its cover or name changed on the web,
- * from the square of that moment (same title ID). Never throws.
- */
-export async function rebuildRetroShortcut(gameId) {
-  if (!forwardersAvailable(keysDir())) return null;
-  try {
-    const state = await catalog.current(retroDir);
-    const g = state.byId.get(gameId);
-    const system = g && state.systems[g.system];
-    if (!system) return null;
-    await ensureSquare(artDir, g, "md").catch(() => null);
-    const built = await ensureForwarder(forwarderDir, forwarderGame(g, system, state), keysDir());
-    if (built) debug.log("retro: shortcut for %s built again", gameId);
-    return built;
-  } catch (err) {
-    debug.error("retro: shortcut for %s: %s", gameId, err.message);
-    return null;
-  }
-}
-
-/** forwarderUrl, forwarderTitleId and forwarderSize (null until the NSP is built). */
-function forwarderFields(g, system, base, link, cat) {
-  const game = forwarderGame(g, system, cat);
-  const shortcut = { shortcutName: shortcutName(game) };
-  const spec = forwardersAvailable(keysDir()) ? forwarderSpec(game) : null;
-  if (!spec) return { forwarderUrl: null, forwarderTitleId: null, forwarderSize: null, ...shortcut };
-  let size = null;
-  try {
-    size = fs.statSync(forwarderPath(forwarderDir, g.id, spec)).size;
-  } catch {
-    // not built yet; the first download builds it
-  }
-  return { forwarderUrl: directUrl(`${base}/forwarder.nsp`, link), forwarderTitleId: spec.titleId, forwarderSize: size, ...shortcut };
+/** forwarderTitleId (null when the game can't have a shortcut) and the shortcut's HOME menu name. */
+function shortcutFields(g, system, cat) {
+  const game = shortcutGame(g, system, cat);
+  return { forwarderTitleId: shortcutSpec(game)?.titleId ?? null, shortcutName: shortcutName(game) };
 }
 
 /** Each group's representative, the admin's pick first; the groups whose representative can't run are left out. */
@@ -486,7 +451,7 @@ function publicGame(g, systems, lang = "en", { lean = false, cat = null, link = 
     ...withDirect("romUrl", `${base}/rom`, link),
     ...withDirect("bundleUrl", `${base}/bundle`, link),
     bezel: bezelFields(g, paths, base, link, lang),
-    ...forwarderFields(g, system, base, link, cat),
+    ...shortcutFields(g, system, cat),
     install: {
       rom: paths.rom,
       extras: g.extras.map((x) => paths.extra(x.rel)),
@@ -618,7 +583,6 @@ export default function retroRouter() {
   const router = express.Router();
 
   // Draw square tiles ahead of time after every scan, starting with one at boot.
-  // Forwarders are built only when one is downloaded, from the square of that moment.
   catalog.onScan((state) => prewarm(artDir, state.games).catch((err) => debug.error("retro: square art: %s", err.message)));
   // Content hashes (rom_hash) of the new and changed files, one at a time.
   catalog.onScan((state) => romHashes.queue(state.games));
@@ -885,16 +849,6 @@ export default function retroRouter() {
     const { game, system } = req.retro;
     sendTar(res, bundleFiles(game, system), { filename: `${game.id}.tar`, label: "retro" });
   });
-  router.get("/games/:id/forwarder.nsp", coreOffGuard, wrap(async (req, res) => {
-    if (!forwardersAvailable(keysDir())) return res.status(404).json({ error: "forwarders are not available on this server" });
-    const { game, system } = req.retro;
-    await ensureSquare(artDir, game, "md").catch(() => null);
-    const built = await ensureForwarder(forwarderDir, forwarderGame(game, system, req.retro.cat), keysDir());
-    if (!built) return res.status(404).json({ error: "this game can't have a forwarder" });
-    res.attachment(`${built.spec.name}.nsp`);
-    res.set("X-Forwarder-Title-Id", built.spec.titleId);
-    sendFile(res, built.path, "application/octet-stream");
-  }));
 
   router.get("/base-pack/manifest", wrap(async (req, res) => {
     const m = await currentManifest();

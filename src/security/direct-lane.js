@@ -65,13 +65,13 @@ export const EDGE_HEADER = "X-CookingFoil-Edge";
 
 // The downloads the lane serves besides games-folder files. Matched on the raw path, case and all.
 const DOWNLOAD_ROUTES = [
-  /^\/api\/retro\/games\/[^/]+\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg|forwarder\.nsp)$/,
+  /^\/api\/retro\/games\/[^/]+\/(rom|bundle|bezel\.png|overlay\.cfg|game\.cfg)$/,
   /^\/api\/retro\/base-pack(\/bundle)?$/,
   /^\/api\/retro\/base-pack\/file\/.+$/,
   /^\/api\/patches\/[^/]+\/download$/,
-  /^\/api\/homebrew\/[^/]+\/(download|file|archive|bundle|forwarder)$/,
+  /^\/api\/homebrew\/[^/]+\/(download|file|archive|bundle)$/,
   /^\/api\/saves\/[^/]+\/download$/,
-  /^\/api\/client\/(cookingfoil\.nro|forwarder)$/,
+  /^\/api\/client\/cookingfoil\.nro$/,
 ];
 
 // Paths the shop itself answers at the root; never served from the games folder here.

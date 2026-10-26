@@ -1,13 +1,11 @@
 /**
  * The CookingFoil client updating itself.
  *
- *   GET /api/client/latest           { version, size, sha256, signature?, url, forwarder_url, forwarder_title_id, forwarder_size },
- *                                    or 404 when no build is there; url and forwarder_url are on the
+ *   GET /api/client/latest           { version, size, sha256, signature?, url, forwarder_title_id },
+ *                                    or 404 when no build is there; url is on the
  *                                    direct address for a client that asked for it (security/download-links.js)
  *   GET /api/client/cookingfoil.nro  the build itself (Content-Length, ETag = its sha256)
  *   GET /api/client/icon             the build's own icon (for the web page's download card)
- *   GET /api/client/forwarder        the client's own HOME-menu shortcut NSP, starting
- *                                    sdmc:/switch/cookingfoil/cookingfoil.nro (fixed title ID)
  *   POST /api/client/log             a console's error log (see client-log.js)
  *   GET /api/client/strings?lang=xx  the client's strings for one language, {lang, base, strings}
  *                                    (meta/client-strings.js); ETag and 304, 404 for a language
@@ -20,9 +18,9 @@
  * ASET, NACP, an x.y.z version not lower than the last one). A build that passes
  * is copied to client/.published/ with its facts, and that copy is what is
  * offered and served, so size and sha256 always describe the bytes sent. A build
- * that fails is logged and shown on the admin page, and the last good one stays. The forwarder
- * fields are null when this server can't build shortcuts (no prod.keys or
- * hacBrewPack); forwarder_size is null until the NSP is built in the background.
+ * that fails is logged and shown on the admin page, and the last good one stays. The
+ * forwarder_title_id is the title ID of the client's own HOME-menu shortcut, which the
+ * console builds itself; it lets the client recognise a shortcut it installed.
  *
  * The build can also come from GitHub (clientSource "github"): the server
  * follows a release (clientReleaseRepo, clientReleaseTag, clientReleaseAsset)
@@ -49,10 +47,9 @@ import { clientStrings } from "../meta/client-strings.js";
 import { pickEncoding } from "../helpers/json-compression.js";
 import * as env from "../helpers/envs.js";
 import { dataDir } from "../helpers/envs.js";
-import { keysDir } from "../security/prod-keys.js";
 import * as integrations from "../security/integrations.js";
 import { createClientRelease } from "../meta/client-release.js";
-import { ensureForwarder, forwarderPath, forwarderSpec, forwardersAvailable, homebrewTarget } from "../retro/forwarder.js";
+import { homebrewTarget, shortcutSpec } from "../retro/shortcut.js";
 import { parseAssets } from "../meta/extract-providers/nro.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../meta/client-build.js";
 import debug from "../debug.js";
@@ -67,36 +64,11 @@ const PUBLISHED_INFO = path.join(PUBLISHED_DIR, "build.json");
 const MAX_BUILD_BYTES = 128 * 1024 * 1024;
 const URL_PATH = "/api/client/cookingfoil.nro";
 
-const FORWARDER_DIR = path.join(dataDir, "client-forwarder");
-const NO_FORWARDER = { forwarder_url: null, forwarder_title_id: null, forwarder_size: null };
-
-/** The client as a forwarder app: same title ID for every build, rebuilt when the build changes. */
+/** The client as a shortcut app: same title ID for every build. */
 const clientApp = (info) => ({ id: "cookingfoil-client", name: "CookingFoil", publisher: "CookingFoil", target: homebrewTarget("cookingfoil.nro"), artKey: info.sha256 });
 
-async function withIcon(info) {
-  return { ...clientApp(info), icon: (await parseAssets(PUBLISHED_NRO).catch(() => null))?.icon ?? null };
-}
-
-/** forwarder_url, forwarder_title_id, forwarder_size (null until the first download builds it). */
-async function forwarderFields(info) {
-  if (!forwardersAvailable(keysDir())) return NO_FORWARDER;
-  const spec = forwarderSpec(clientApp(info));
-  if (!spec) return NO_FORWARDER;
-  let size = null;
-  const nsp = forwarderPath(FORWARDER_DIR, "cookingfoil-client", spec);
-  try {
-    size = fs.statSync(nsp).size;
-    if (size === 0) {
-      // An empty shortcut is never offered: drop it and build it again.
-      debug.error("client update: shortcut %s is empty, rebuilding", path.basename(nsp));
-      fs.rmSync(nsp, { force: true });
-      throw new Error("rebuild");
-    }
-  } catch {
-    size = null;
-  }
-  return { forwarder_url: "/api/client/forwarder", forwarder_title_id: spec.titleId, forwarder_size: size };
-}
+/** forwarder_title_id: the client's shortcut ID. */
+const shortcutFields = (info) => ({ forwarder_title_id: shortcutSpec(clientApp(info))?.titleId ?? null });
 
 let published; // { version, size, sha256, at, source } of the build being offered, or null
 let rejected = null; // { code, message, size, at } for the manual file last turned down
@@ -308,13 +280,7 @@ export default function clientUpdateRouter() {
       res.set("Cache-Control", "no-store");
       if (!info) return res.status(404).json({ error: "no client build on this server" });
       const link = forRequest(req);
-      const { forwarder_url: forwarderUrl, ...forwarder } = await forwarderFields(info);
-      res.json({
-        ...info,
-        url: directUrl(info.url, link),
-        forwarder_url: directUrl(forwarderUrl, link),
-        ...forwarder,
-      });
+      res.json({ ...info, url: directUrl(info.url, link), ...shortcutFields(info) });
     } catch (err) {
       next(err);
     }
@@ -342,20 +308,6 @@ export default function clientUpdateRouter() {
       res.attachment("cookingfoil.nro");
       res.sendFile(PUBLISHED_NRO, { etag: false, lastModified: false, acceptRanges: true });
     } catch (err) {
-      next(err);
-    }
-  });
-  router.get("/forwarder", async (req, res, next) => {
-    try {
-      const info = await latestBuild();
-      if (!info || !forwardersAvailable(keysDir())) return res.status(404).json({ error: "no shortcut on this server" });
-      const built = await ensureForwarder(FORWARDER_DIR, await withIcon(info), keysDir());
-      if (!built) return res.status(404).json({ error: "no shortcut on this server" });
-      res.attachment("CookingFoil.nsp");
-      res.set({ "Cache-Control": "no-cache", "X-Forwarder-Title-Id": built.spec.titleId });
-      res.sendFile(built.path, { etag: true, lastModified: false });
-    } catch (err) {
-      debug.error("client update: shortcut failed: %s", err.message);
       next(err);
     }
   });

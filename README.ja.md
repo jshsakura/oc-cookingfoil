@@ -371,12 +371,12 @@ CookingFoil 自体は平文の HTTP で通信します。`http://` で接続す�
 | `GET /api/activity` | ログイン済みのユーザーは実行中と最近の作業を閲覧できます。停止は管理者のみ管理 API で実行できます。 |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 1 件の詳細と、その追加ファイル |
 | `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | アートワーク |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 自作アプリ (`.nro` 1 つか、`switch/<app>/` フォルダー全体) と、その HOME メニューのショートカット。管理ページでオフにしたアプリは含まれません |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive` | 自作アプリ (`.nro` 1 つか、`switch/<app>/` フォルダー全体)。管理ページでオフにしたアプリは含まれません |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | パッチ |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | セーブファイル |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | レトロフォルダーに ROM があるときの、レトロゲームとそのアート |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png` | レトロフォルダーに ROM があるときの、レトロゲームとそのアート |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 自分で用意した RetroArch ベースパック |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | `data/client/` に置いた CookingFoil クライアントのビルド (そのフォルダーに置くか、管理ページのアップロードタブで「クライアント」としてアップロードします) と、その HOME メニューのショートカット。`latest` は、ビルドの隣の `cookingfoil.nro.sig.json` がそのビルドのバージョン、サイズ、sha256 と一致するときだけ `signature` (ビルドした場所で作った Ed25519 署名) を載せます |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | `data/client/` に置いた CookingFoil クライアントのビルド (そのフォルダーに置くか、管理ページのアップロードタブで「クライアント」としてアップロードします)。`latest` は、ビルドの隣の `cookingfoil.nro.sig.json` がそのビルドのバージョン、サイズ、sha256 と一致するときだけ `signature` (ビルドした場所で作った Ed25519 署名) を載せます |
 | `POST /api/pair/request`, `GET /api/pair/status` | QR による本体ペアリング (QR による本体接続がオンのときのみ)。本体はリクエスト時にランダムな `pairSecret` (16 進数 64 文字) を送り、状態を問い合わせるときに同じ値を `X-Pair-Secret` で送ります。アクセスキーはその値を送った側にだけ渡します。承認方法が「サインインした本体はすぐ承認」なら、Basic で送ったアカウントの ID とパスワードで本体をすぐ承認します。JSON の応答にはすべて `passwordOnly: true` が付き、`/api/library/info` には機能名 `pair-password-only` が載ります。パスワードはペアリング専用です |
 | `POST /api/pair/enroll` | ダウンロードしたクライアントに入っている登録トークンを `X-Device-Key` とともに送り、自分のアクセスキーに替えます。ダウンロードしたアカウントの下で承認され、ダウンロードから 1 時間以内に本体 `COOK_ENROLL_PER_HOUR` 台まで (既定 5、手動承認では 1 台) 使え、それ以上は QR で承認します。拒否: 401 と `X-CookingFoil-Enroll: limit` (`X-CookingFoil-Auth: enroll-limit`)、`used`、`expired`、`revoked`、`invalid`。アカウントの本体数が上限なら 403 と `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | ペアリング済みの本体のアクセスキーを 12 時間のセッショントークンに替えます (Basic ヘッダーは無視します)。以後は同じデバイスキーで `Authorization: Bearer cfs_…` だけを送ります。セッションでセッションを更新することはできず、本体を承認したアカウントのパスワード変更、本体の取り消し、ロックアウトですぐに終わります。機能名は `session-token` です |
@@ -426,7 +426,6 @@ src/
 ├── retro/          # retro folder, names, art, details and shortcuts
 ├── realtime/       # WebSocket updates for the web page (/ws/library)
 └── views/          # the web page and the operator guide
-forwarder/          # the HOME menu shortcut loader (nx-hbloader with a patch)
 site/               # the GitHub Pages site
 test/unit, test/web # node --test and Playwright
 ```
@@ -447,7 +446,6 @@ MIT です。[LICENSE](./LICENSE) を参照してください。
 
 - タイトル名、説明、アートワークのアドレス: [blawar/titledb](https://github.com/blawar/titledb)。実行時に取得します。
 - イメージに同梱: [nstool](https://github.com/jakcron/nstool) (MIT) と [nsz](https://github.com/nicoboss/nsz) (MIT)。
-- HOME メニューのショートカット: [hacBrewPack](https://github.com/rlaphoenix/hacBrewPack/tree/745b16ecfc9ce055743067d200572204cb2aac6c) (GPL-2.0) と [nx-hbloader](https://github.com/switchbrew/nx-hbloader) (ISC)。
 - [libretro-thumbnails](https://github.com/libretro-thumbnails) のボックスアートと [The Bezel Project](https://github.com/thebezelproject) のベゼル。実行時に取得します。
 - ゲーム情報とスコア: [LaunchBox Games Database](https://gamesdb.launchbox-app.com/)、[IGDB](https://www.igdb.com/)、Steam。実行時に取得します。
 - アーケードの名前: [FinalBurn Neo](https://github.com/finalburnneo/FBNeo) のセット一覧。

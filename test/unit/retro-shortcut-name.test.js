@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { versionLabel, versionLabels } from "../../src/retro/shortcut-name.js";
-import { shortcutName } from "../../src/retro/forwarder.js";
+import { shortcutName } from "../../src/retro/shortcut.js";
 
 test("a version is told by its Korean edition, else its region, else its tag", () => {
   assert.equal(versionLabel({ edition: { korean: true, source: "patch", version: "v2" } }), "한글 v2");

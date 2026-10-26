@@ -14,7 +14,7 @@ const ALLOWED = {
   "src/meta/icon-variant.js": "serves a sized copy of a kept icon",
   "src/meta/image-cache.js": "makes the sized copies served to clients from a kept picture",
   "src/retro/art/sync.js": "measures a cover (the shrinking itself is art-ingest's)",
-  "src/retro/forwarder.js": "draws the icon of a forwarder from a kept picture",
+  "src/meta/homebrew-nro-icon.js": "draws the 256-px JPEG icon put into an app's .nro from a kept picture",
   "src/retro/square-art.js": "draws square art from a kept picture",
 };
 

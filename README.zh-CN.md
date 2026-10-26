@@ -371,12 +371,12 @@ CookingFoil 本身使用明文 HTTP。通过 `http://` 连接时，主机配对�
 | `GET /api/activity` | 已登录用户可查看运行中和最近的任务。只有管理员可以通过管理 API 停止任务。 |
 | `GET /api/title/:id?lang=`, `/api/title/:id/extras` | 单个条目的详情及其附加文件 |
 | `GET /api/library/icon/:id`, `/api/library/banner/:id`, `/api/library/screenshot/:id/:n` | 图片 |
-| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive`, `/forwarder` | 自制程序应用（单个 `.nro` 或整个 `switch/<app>/` 文件夹）及其 HOME 菜单快捷方式。在管理页面上关闭的应用不会列出 |
+| `GET /api/homebrew`, `/api/homebrew/:id/download`, `/file?path=`, `/bundle`, `/archive` | 自制程序应用（单个 `.nro` 或整个 `switch/<app>/` 文件夹）。在管理页面上关闭的应用不会列出 |
 | `GET /api/patches?lang=`, `/api/patches/:id/download` | 补丁 |
 | `GET /api/saves?lang=`, `/api/saves/:id/download` | 存档文件 |
-| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png`, `/forwarder.nsp` | 复古游戏及其图片，在复古文件夹中有 ROM 时可用 |
+| `GET /api/retro/systems`, `/api/retro/games`, `/api/retro/games/:id/rom`, `/bundle`, `/boxart`, `/bezel.png` | 复古游戏及其图片，在复古文件夹中有 ROM 时可用 |
 | `GET /api/retro/base-pack/manifest`, `/api/retro/base-pack/bundle` | 你提供的 RetroArch 基础包 |
-| `GET /api/client/latest`, `/api/client/cookingfoil.nro`, `/api/client/forwarder` | 保存在 `data/client/` 中的 CookingFoil 客户端构建（放进该文件夹，或在管理页面的上传标签页以“客户端”上传）及其 HOME 菜单快捷方式。只有当构建旁边的 `cookingfoil.nro.sig.json` 与该构建的版本、大小和 sha256 一致时，`latest` 才会带上 `signature`（在构建处生成的 Ed25519 签名） |
+| `GET /api/client/latest`, `/api/client/cookingfoil.nro` | 保存在 `data/client/` 中的 CookingFoil 客户端构建（放进该文件夹，或在管理页面的上传标签页以“客户端”上传）。只有当构建旁边的 `cookingfoil.nro.sig.json` 与该构建的版本、大小和 sha256 一致时，`latest` 才会带上 `signature`（在构建处生成的 Ed25519 签名） |
 | `POST /api/pair/request`, `GET /api/pair/status` | 二维码设备配对（仅在开启二维码设备连接时可用）。设备在请求时发送一个随机的 `pairSecret`（64 位十六进制），查询状态时用 `X-Pair-Secret` 发送同一个值；访问密钥只下发给发送该值的一方。批准方式为“已登录的主机立即批准”时，以 Basic 发送的账号和密码会当场批准这台主机。每个 JSON 响应都带有 `passwordOnly: true`，`/api/library/info` 列出功能 `pair-password-only`：密码只用于配对 |
 | `POST /api/pair/enroll` | 主机把下载的客户端中的注册令牌连同 `X-Device-Key` 一起发送，换取自己的访问密钥。以下载它的账号批准，下载后 1 小时内最多可用于 `COOK_ENROLL_PER_HOUR` 台主机（默认 5，手动批准时为 1 台），更多主机请用二维码批准。拒绝：401 并带 `X-CookingFoil-Enroll: limit`（`X-CookingFoil-Auth: enroll-limit`）、`used`、`expired`、`revoked` 或 `invalid`；账户的主机数已满时为 403 并带 `X-CookingFoil-Auth: device-limit` |
 | `GET /api/session` | 用已配对主机的访问密钥换取 12 小时的会话令牌（忽略 Basic 头），之后以同一设备密钥只发送 `Authorization: Bearer cfs_…`。会话不能自行续期；批准该主机的账号修改密码、撤销设备、锁定都会立即使其失效。功能名为 `session-token` |
@@ -426,7 +426,6 @@ src/
 ├── retro/          # retro folder, names, art, details and shortcuts
 ├── realtime/       # WebSocket updates for the web page (/ws/library)
 └── views/          # the web page and the operator guide
-forwarder/          # the HOME menu shortcut loader (nx-hbloader with a patch)
 site/               # the GitHub Pages site
 test/unit, test/web # node --test and Playwright
 ```
@@ -447,7 +446,6 @@ MIT，见 [LICENSE](./LICENSE)。
 
 - [blawar/titledb](https://github.com/blawar/titledb)，提供标题名称、简介和图片地址，运行时获取。
 - [nstool](https://github.com/jakcron/nstool)（MIT）和 [nsz](https://github.com/nicoboss/nsz)（MIT），打包在镜像中。
-- [hacBrewPack](https://github.com/rlaphoenix/hacBrewPack/tree/745b16ecfc9ce055743067d200572204cb2aac6c)（GPL-2.0）和 [nx-hbloader](https://github.com/switchbrew/nx-hbloader)（ISC），用于 HOME 菜单快捷方式。
 - [libretro-thumbnails](https://github.com/libretro-thumbnails) 的封面和 [The Bezel Project](https://github.com/thebezelproject) 的边框，运行时获取。
 - [LaunchBox Games Database](https://gamesdb.launchbox-app.com/)、[IGDB](https://www.igdb.com/) 和 Steam，提供游戏详情和分数，运行时获取。
 - [FinalBurn Neo](https://github.com/finalburnneo/FBNeo) 的套装列表，用于街机名称。
