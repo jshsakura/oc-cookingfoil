@@ -45,7 +45,7 @@ export const PAIR_PAGE_WORDS = {
     "pr.verifyBtn": "Verify",
     "pr.hint": "Only the server administrator can approve a connection.",
     "pr.errGone": "The connection time ran out. Scan the console's new QR.",
-    "pr.errAuth": "The admin authentication is checked.",
+    "pr.errAuth": "Check the admin code and try again.",
     "pr.errDone": "This request was already handled. Check the connection on the console.",
     "pr.errFail": "The connection could not be handled. Try again.",
     "pr.errNet": "Could not reach the server. Try again.",

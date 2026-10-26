@@ -1,5 +1,5 @@
 import { escapeHtml } from "./escape.js";
-import { TOP_WORDS, TOP_I18N_SCRIPT, TOP_LANG_HTML, TOP_LANG_CSS, top, topPh } from "./top-i18n.js";
+import { TOP_WORDS, topScript, TOP_LANG_HTML, TOP_LANG_CSS, top, topPh } from "./top-i18n.js";
 /** `repair`: "repairSame" or "repairOther" when the console is already registered and asks to be paired again. */
 export function pairPage({ code = "", authenticated = false, approved = false, expired = false, repair = null } = {}) {
   const title = expired ? "pr.titleExpired" : approved ? "pr.titleApproved" : "pr.title";
@@ -15,7 +15,7 @@ ${authenticated ? `<form id="approve"><label for="label">${top("pr.deviceLabel")
 ${TOP_LANG_CSS}
 .lang-menu{position:fixed;top:16px;right:16px}</style></head><body>${TOP_LANG_HTML}<main class="card"><div class="brand"><img src="/assets/cookingfoil.svg" alt="" width="40" height="40"><span class="wm">cookingfoil<span class="dot">.</span></span></div><h1>${top(title)}</h1>${content}</main>
 <script>
-${TOP_I18N_SCRIPT}
+${topScript(["pr."])}
 const verify=document.getElementById('verify'),approve=document.getElementById('approve'),error=document.getElementById('error');
 async function submit(form,url,body){const button=form.querySelector('button');button.disabled=true;error.textContent='';try{const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(response.ok){location.reload();return;}error.textContent=response.status===410?topText('pr.errGone'):response.status===401?topText('pr.errAuth'):response.status===409?topText('pr.errDone'):topText('pr.errFail');}catch{error.textContent=topText('pr.errNet');}finally{button.disabled=false;}}
 if(verify)verify.addEventListener('submit',e=>{e.preventDefault();submit(verify,'/admin/verify',{code:document.getElementById('code').value});});

@@ -8,7 +8,7 @@
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { BRAND_MOTION_CSS } from "../../views/brand-motion.js";
 import { escapeHtml } from "./escape.js";
-import { TOP_WORDS, TOP_I18N_SCRIPT, TOP_LANG_HTML, TOP_LANG_CSS, top, topLabel } from "./top-i18n.js";
+import { TOP_WORDS, topScript, TOP_LANG_HTML, TOP_LANG_CSS, top, topLabel } from "./top-i18n.js";
 
 const LEAD = {
   code: "gt.leadCode",
@@ -50,7 +50,7 @@ ${password ? `<label for="pw"${either ? " hidden" : ""}>${top("gt.pw")}</label><
 <button id="go" class="primary" type="button">${top("gt.go")}</button><div class="err" id="err" role="alert"></div>
 <a class="back" href="/">${top("gt.back")}</a></div></div>
 <script>
-${TOP_I18N_SCRIPT}
+${topScript(["gt.", "as.codeDigits"])}
 const MODE=${JSON.stringify(mode)};
 const pw=document.getElementById('pw'),code=document.getElementById('code'),go=document.getElementById('go'),err=document.getElementById('err');
 let use=MODE==='password'?'pw':'code';

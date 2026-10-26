@@ -81,6 +81,7 @@ import { mountTransfersApi } from "./admin/transfers-api.js";
 import * as inboxStore from "../meta/inbox.js";
 import * as googleAccounts from "../security/google-accounts.js";
 import { clientBuildStatus } from "./client-update.js";
+import { TOP_WORDS } from "./admin/top-i18n.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { devicePairing } from "../helpers/envs.js";
 import { authLanes, configWarnings } from "../security/config-health.js";
@@ -127,28 +128,20 @@ function loginMode() {
 }
 
 /** Session check that also leaves a trail when it fails. */
-const BUILD_REASONS = {
-  empty: "파일이 비어 있습니다", "not-nro": "NRO 파일이 아닙니다(0x10 에 NRO0 가 없습니다)", truncated: "파일이 잘렸습니다(헤더가 말하는 크기보다 작습니다)",
-  "trailing-bytes": "헤더가 말하는 크기 뒤에 군더더기가 붙어 있습니다", "no-assets": "ASET 자산이 없습니다", "no-nacp": "NACP 가 없습니다",
-  "bad-version": "NACP 표시 버전이 x.y.z 형식이 아닙니다", downgrade: "지금 내보내는 버전보다 낮습니다", "too-large": "파일이 너무 큽니다",
-};
-
-/** The same warning's words, kept beside the reasons table for the data-literal exemption. */
-const BUILD_WARN = {
-  title: "새 클라이언트 파일을 내보내지 않았습니다",
-  lead: "data/client/cookingfoil.nro 가 검사를 통과하지 못했습니다: {code} ({msg}).",
-  kept: "기기에는 {v} 을 계속 내보냅니다.",
-  none: "아직 내보내는 버전이 없습니다.",
-};
-
-/** A rejected client build, as an overview warning. */
+/**
+ * A rejected client build, as an overview warning. The page words it from the reason, message and
+ * version in its dictionary; title and detail are the English fallback for any other reader.
+ */
 function clientBuildWarnings() {
   const { published, rejected } = clientBuildStatus();
   if (!rejected) return [];
+  const en = TOP_WORDS.en;
+  const fill = (text, vars) => Object.entries(vars).reduce((t, [k, v]) => t.split(`{${k}}`).join(v), text);
   return [{
     code: "client-build-rejected", severity: "warn",
-    title: BUILD_WARN.title,
-    detail: `${BUILD_WARN.lead.split("{code}").join(BUILD_REASONS[rejected.code] ?? rejected.code).split("{msg}").join(rejected.message)} ${published ? BUILD_WARN.kept.split("{v}").join(published.version) : BUILD_WARN.none}`,
+    reason: rejected.code, message: rejected.message, version: published?.version ?? null,
+    title: en["ov.w.buildT"],
+    detail: `${fill(en["ov.w.buildLead"], { code: en[`ov.w.buildR.${rejected.code}`] ?? rejected.code, msg: rejected.message })} ${published ? fill(en["ov.w.buildKept"], { v: published.version }) : en["ov.w.buildNone"]}`,
   }];
 }
 

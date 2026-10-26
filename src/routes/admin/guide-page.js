@@ -4,7 +4,7 @@
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { renderMarkdown } from "../../helpers/mini-markdown.js";
-import { TOP_WORDS, TOP_I18N_SCRIPT, TOP_LANG_HTML, TOP_LANG_CSS, top } from "./top-i18n.js";
+import { TOP_WORDS, topScript, TOP_LANG_HTML, TOP_LANG_CSS, top } from "./top-i18n.js";
 
 const DOC_CSS = `
 body{margin:0;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans KR',system-ui,sans-serif;line-height:1.7}
@@ -28,5 +28,5 @@ export function guidePage(markdown) {
 <a class="back" href="/admin" data-top="gd.back">${top("gd.back")}</a>
 ${renderMarkdown(markdown)}
 </main>
-<script>${TOP_I18N_SCRIPT}</script></body></html>`;
+<script>${topScript(["gd."])}</script></body></html>`;
 }

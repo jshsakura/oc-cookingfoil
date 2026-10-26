@@ -9,7 +9,7 @@
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { escapeHtml } from "./escape.js";
-import { TOP_WORDS, TOP_I18N_SCRIPT, TOP_LANG_HTML, TOP_LANG_CSS, top, topHtml } from "./top-i18n.js";
+import { TOP_WORDS, topScript, TOP_LANG_HTML, TOP_LANG_CSS, top, topHtml } from "./top-i18n.js";
 
 /** Groups the base32 secret into 4-char blocks so it can be typed accurately. */
 function grouped(secret) {
@@ -56,7 +56,7 @@ ${TOP_LANG_CSS}
 <div class="muted" style="margin-top:8px">${topHtml("er.storage")}</div>
 </details></div></div>
 <script>
-${TOP_I18N_SCRIPT}
+${topScript(["er."])}
 const raw=${JSON.stringify(String(secret))};
 document.getElementById('copy').addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(raw);document.getElementById('ok').textContent=topText('er.copied');}

@@ -28,17 +28,5 @@
     "constant": "COMPOUND_JAMO",
     "reason": "Hangul jamo decomposition table for the admin game search: keys compared by how Korean is typed. Never shown.",
     "approved": "Integration of batch 2026-10-22 (featured-search review FEATURED2.ko.md), 2026-10-23"
-  },
-  {
-    "file": "src/routes/admin-page.js",
-    "constant": "BUILD_REASONS",
-    "reason": "Why a client build was rejected, sent as the detail of the client-build-rejected overview warning. The overview maps warning codes to dictionary keys client-side; its rework (in flight) takes this code too, at which point these words move into the dictionary. Until then the server sends them as the fallback detail.",
-    "approved": "team lead 2026-10-26: overview WARNINGS 테이블로 옮길 때 사전 키로 이관한다. 그전까지 서버 경고의 폴백 문구로만 쓴다."
-  },
-  {
-    "file": "src/routes/admin-page.js",
-    "constant": "BUILD_WARN",
-    "reason": "The title and verdict sentences of the client-build-rejected overview warning. Same carrier and same planned move into the dictionary as BUILD_REASONS: the overview rework maps the code, the server words become the untranslated fallback.",
-    "approved": "team lead 2026-10-26: overview WARNINGS 테이블로 옮길 때 사전 키로 이관한다. 그전까지 서버 경고의 폴백 문구로만 쓴다."
   }
 ]
