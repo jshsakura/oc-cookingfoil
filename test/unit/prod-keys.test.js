@@ -3,24 +3,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { p256 } from "@noble/curves/nist.js";
-import { hkdf } from "@noble/hashes/hkdf.js";
-import { sha256 } from "@noble/hashes/sha2.js";
-import { gcm } from "@noble/ciphers/aes.js";
 
-// The server's own prod.keys: parsed, written for the readers, and sealed on the way from a console.
+// The server's own prod.keys: parsed and written for the readers.
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "prod-keys-"));
 process.env.COOK_DATA_DIR = root;
 process.env.COOK_KEYS_DIR = path.join(root, "mounted");
 delete process.env.COOK_PROD_KEYS_PATH;
 
 const keys = await import("../../src/security/prod-keys.js");
-const seal = await import("../../src/security/keys-seal.js");
 const nsp = await import("../../src/meta/extract-providers/nsp.js");
 const edits = await import("../../src/meta/admin-edits.js");
 
 after(() => fs.rmSync(root, { recursive: true, force: true }));
-beforeEach(async () => { await keys.remove({ actor: "test", via: "dashboard" }); seal.reset(); });
+beforeEach(async () => { await keys.remove({ actor: "test", via: "dashboard" }); });
 
 const HEADER = "a".repeat(64);
 const FAKE = [
@@ -109,38 +104,4 @@ test("the NSP extractor sees new keys without a restart", async () => {
   keys.install(FAKE, { actor: "alice", via: "dashboard" });
   assert.equal(await nsp.keysAvailable(), true);
   assert.equal((await nsp.status()).keysPresent, true);
-});
-
-/** The console's half, with the same primitives the RetroAchievements page uses. */
-function sealText(publicKey, nonce, text) {
-  const eph = p256.utils.randomSecretKey();
-  const x = p256.getSharedSecret(eph, Buffer.from(publicKey, "base64url")).slice(1, 33);
-  const key = hkdf(sha256, x, undefined, new TextEncoder().encode(seal.INFO), 32);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = gcm(key, iv, new TextEncoder().encode(nonce)).encrypt(new TextEncoder().encode(text));
-  const b64 = (u8) => Buffer.from(u8).toString("base64url");
-  return { nonce, epk: b64(p256.getPublicKey(eph, false)), iv: b64(iv), ct: b64(ct) };
-}
-
-test("a sealed envelope opens once, for the console that asked, within five minutes", () => {
-  const now = 1_000_000;
-  const box = seal.open("console-a", now);
-  assert.equal(Buffer.from(box.publicKey, "base64url").length, 65);
-  assert.equal(box.expiresAt, now + 5 * 60 * 1000);
-  const env = sealText(box.publicKey, box.nonce, FAKE);
-  assert.deepEqual(seal.unseal("console-b", env, now), { error: "gone" }, "another console's nonce");
-  assert.deepEqual(seal.unseal("console-a", env, now), { text: FAKE });
-  assert.deepEqual(seal.unseal("console-a", env, now), { error: "gone" }, "single use");
-
-  const late = seal.open("console-a", now);
-  assert.deepEqual(seal.unseal("console-a", sealText(late.publicKey, late.nonce, FAKE), late.expiresAt + 1), { error: "gone" }, "expired");
-
-  const other = seal.open("console-a", now);
-  const wrongAad = sealText(other.publicKey, "another-nonce", FAKE);
-  assert.deepEqual(seal.unseal("console-a", { ...wrongAad, nonce: other.nonce }, now), { error: "sealed" }, "the nonce is bound in");
-  const bad = seal.open("console-a", now);
-  assert.deepEqual(seal.unseal("console-a", { nonce: bad.nonce, epk: "x", iv: "y", ct: "z" }, now), { error: "sealed" });
-  const big = seal.open("console-a", now);
-  assert.deepEqual(seal.unseal("console-a", sealText(big.publicKey, big.nonce, "#".repeat(70 * 1024)), now), { error: "too-large" });
-  assert.deepEqual(seal.unseal("console-a", {}, now), { error: "sealed" });
 });

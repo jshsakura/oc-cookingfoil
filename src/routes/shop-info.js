@@ -16,9 +16,8 @@
  * /api/admin/items (routes/admin-items.js). The answer is per console, hence
  * Cache-Control: private.
  *
- * `keys-upload` and `keys: { present }` go to an admin device only, too: it may
- * hand the server prod.keys through /api/admin/keys (routes/admin-keys.js).
- * Nobody else learns whether the server has keys.
+ * Whether the server has prod.keys is never listed: the admin hands them in on
+ * the admin page's settings tab (routes/admin/keys-api.js), not from a console.
  *
  * `nca-rewrap` ("Install ignoring firmware version") is listed whenever the server has prod.keys: a
  * game file asked for with ?rewrap=<the console's firmware, "21.0.1"> is then
@@ -132,8 +131,6 @@ export default async function shopInfoRoute(req, res) {
       ...(homebrewEnabled() ? ["homebrew", "homebrew-folders", "homebrew-titles"] : []),
       // admin-edit: this console is an admin device; /api/admin/items/:kind/:id/fields reads and changes item settings.
       ...(adminDevice ? ["admin-edit"] : []),
-      // keys-upload: this console may hand the server prod.keys, sealed, through /api/admin/keys.
-      ...(adminDevice ? ["keys-upload"] : []),
       // nca-rewrap: ?rewrap=<firmware> on a game file serves it lowered to that firmware; info.rewrapMaxGen says how far.
       ...(rewrap ? ["nca-rewrap"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
@@ -146,6 +143,5 @@ export default async function shopInfoRoute(req, res) {
     files: stats.files,
     contentMeta: contentMeta.progress(),
     ...(rewrapGen !== null ? { rewrapMaxGen: rewrapGen, rewrapMaxFirmware: firmwareOf(rewrapGen) } : {}),
-    ...(adminDevice ? { keys: { present: prodKeys.status().present } } : {}),
   });
 }

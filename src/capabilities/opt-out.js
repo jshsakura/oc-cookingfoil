@@ -138,7 +138,6 @@ export const LEGACY_UNREGISTERED = [
   "GET /admin/vendor/:file",
   "GET /api/activity/",
   "GET /api/admin/items/:kind/:id/fields",
-  "GET /api/admin/keys/",
   "GET /api/admin/status",
   "GET /api/art/:baseTitleId",
   "GET /api/art/:baseTitleId/:kind(icon|banner)/original",
@@ -308,7 +307,6 @@ export const LEGACY_UNREGISTERED = [
   "POST /admin/api/votes/clear",
   "POST /admin/logout",
   "POST /admin/verify",
-  "POST /api/admin/keys/seal",
   "POST /api/admin/unlock",
   "POST /api/art/:baseTitleId/:kind(icon|banner)/crop",
   "POST /api/art/:baseTitleId/:kind(screenshot)/:idx(\\d+)/crop",
@@ -354,6 +352,5 @@ export const LEGACY_UNREGISTERED = [
   "PUT /admin/api/featured",
   "PUT /admin/api/keys",
   "PUT /admin/api/patches/:id/info",
-  "PUT /api/admin/keys/",
   "PUT /api/retro/achievements/account/",
 ];
