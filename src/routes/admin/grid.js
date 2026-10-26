@@ -70,6 +70,9 @@ export const GRID_CSS = /* css */ `
 .ag-cell.tall .gc,.ag-cell.tall .gc>*{white-space:normal;overflow:visible}.ag-cell.tall .gc .xline{flex-wrap:wrap}
 .ag-header-cell-text{font-size:12px;letter-spacing:.02em}
 /* Scrollbars come from the shared admin scope in styles.js (html.adm), so the grid matches every panel. */
+/* Off-screen copy of a cell, drawn only to read its width (gridWidth). */
+.grid-probe{position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none}
+.grid-probe>.gc{display:inline-block;width:max-content;white-space:nowrap;overflow:visible}.grid-probe .gc>*{max-width:none}
 /* The pager's page box is a small number field, not the page's 44px input; on a phone the pager wraps. */
 .ag-paging-number input{height:28px;min-height:0;width:3.2em;padding:0 4px;margin:0;border-radius:8px;font-size:13px;text-align:center;box-sizing:border-box}
 .ag-paging-number .ag-input-field-input{-moz-appearance:textfield}
@@ -120,11 +123,14 @@ let gridCtx=null;
 const gridText=(s,mono)=>{gridCtx??=document.createElement('canvas').getContext('2d');
   gridCtx.font=mono?'12px ui-monospace,SFMono-Regular,Menlo,monospace':'600 13px '+getComputedStyle(document.body).fontFamily;
   return gridCtx.measureText(s).width;};
-const gridButton=(b)=>b.classList.contains('ib')?40:gridText(b.textContent.trim(),false)+(b.querySelector('svg')?52:34);
-const gridSelect=(s)=>Math.max(...[...s.options].map((o)=>gridText(o.textContent.trim(),false)),0)+60;
-function gridControlsWidth(data,i){let w=0;for(const r of data){const n=r._n[i];if(!n)continue;
-  const cs=[...n.querySelectorAll('button,a.btn,select')];if(!cs.length)continue;
-  w=Math.max(w,cs.reduce((s,c)=>s+(c.tagName==='SELECT'?gridSelect(c):gridButton(c)),0)+(cs.length-1)*6+28);}
+// A cell holding pills, buttons or selects is measured as the page draws it, off screen: a guess from
+// its text left out the pills' padding and the buttons' icons and cut the last one off.
+const GRID_MEASURE=200;
+let gridProbe=null;
+function gridWidth(n){gridProbe??=document.body.appendChild(el('div',null,'grid-probe'));
+  const c=n.cloneNode(true);gridProbe.replaceChildren(c);const w=c.getBoundingClientRect().width;gridProbe.replaceChildren();return Math.ceil(w);}
+function gridControlsWidth(data,i){let w=0,k=0;for(const r of data){const n=r._n[i];if(!n?.querySelector('button,a.btn,select'))continue;
+  w=Math.max(w,gridWidth(n)+28);if(++k>=GRID_MEASURE)break;}
   return w;}
 // mount: id of the box the grid goes in. cols: column titles, '' for the actions column.
 // rows: <tr> elements. A row whose only cell spans the table starts a group under that heading.
@@ -140,9 +146,10 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   const items=data.filter((d)=>!d._head);
   const avg=(i)=>{let n=0;for(const r of items)n+=Math.min(60,(r._n[i]?.textContent||'').trim().length);return n/Math.max(1,items.length);};
   // A column of short values (ids, sizes, dates) is never cut: as wide as its widest value.
-  const fit=(i)=>{let w=0;for(const r of items){const n=r._n[i],s=(n?.textContent||'').trim();if(s.length>28)return 0;
-    if(s)w=Math.max(w,gridText(s,n.classList.contains('mono')));}return w?Math.ceil(w)+30:0;};
-  const columnDefs=cols.map((title,i)=>{const act=title===''&&i===cols.length-1,controls=gridControlsWidth(items,i);
+  const fit=(i)=>{let w=0,k=0;for(const r of items){const n=r._n[i],s=(n?.textContent||'').trim();if(s.length>28)return 0;
+    if(!s)continue;if(n.children.length){if(k++<GRID_MEASURE)w=Math.max(w,gridWidth(n));}else w=Math.max(w,gridText(s,n.classList.contains('mono')));}return w?Math.ceil(w)+30:0;};
+  const ctl=cols.map((_,i)=>gridControlsWidth(items,i));
+  const columnDefs=cols.map((title,i)=>{const act=title===''&&i===cols.length-1,controls=ctl[i];
     const base={headerName:title,colId:'c'+i,suppressMovable:true,resizable:!act,sortable:!act,comparator:gridCompare.bind({i}),
       ...(opts.tall?{autoHeight:true,wrapText:true,cellClass:'tall'}:{}),
       valueGetter:(p)=>p.data?._n?.[i]?.textContent.trim()||'',
@@ -154,7 +161,7 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
     const text=Math.max(...items.map((r)=>gridText((r._n[i]?.textContent||'').trim().slice(0,60),false)),0)+30;
     return {...base,flex:Math.min(4,Math.max(1,avg(i)/10)),minWidth:Math.max(140,title.length*14+32,Math.min(text,320))};});
   // The grid always fills its width: with no long-text column, the widest plain one takes the rest.
-  if(!columnDefs.some((c)=>c.flex)){const pick=columnDefs.filter((c,i)=>!(cols[i]===''&&i===cols.length-1)&&!gridControlsWidth(items,i))
+  if(!columnDefs.some((c)=>c.flex)){const pick=columnDefs.filter((c,i)=>!(cols[i]===''&&i===cols.length-1)&&!ctl[i])
     .sort((a,b)=>(b.width||0)-(a.width||0))[0];if(pick){pick.minWidth=pick.width;delete pick.width;pick.flex=1;}}
   const many=!groups&&opts.paging!==false&&items.length>GRID_PAGE;
   const tools=el('div',null,'grid-tools');
@@ -185,9 +192,9 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
     m._grid.setGridOption('rowData',sorted||filtered()?items:data);};
   // The estimate above can fall short (another language, an icon, a font not loaded yet): a column of
   // buttons grows to what its rendered cells really hold, and the grid scrolls sideways when it no longer fits.
-  const ctl=columnDefs.filter((c,i)=>gridControlsWidth(items,i)).map((c)=>c.colId);
-  const fitControls=()=>{if(!m._grid||!ctl.length)return;const grow=[];
-    for(const id of ctl){let w=0;
+  const ctlIds=columnDefs.filter((c,i)=>ctl[i]).map((c)=>c.colId);
+  const fitControls=()=>{if(!m._grid||!ctlIds.length)return;const grow=[];
+    for(const id of ctlIds){let w=0;
       for(const cell of box.querySelectorAll('.ag-cell[col-id="'+id+'"]')){const g=cell.querySelector('.gc');if(!g)continue;
         const cs=[...g.querySelectorAll('button,a.btn,select')];
         const used=cs.reduce((s,c)=>s+c.offsetWidth,0)+Math.max(0,cs.length-1)*6;
