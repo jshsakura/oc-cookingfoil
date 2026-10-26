@@ -96,6 +96,7 @@ import { enrollPage } from "./admin/enroll-page.js";
 import { dashboardPage } from "./admin/dashboard-page.js";
 import { ADMIN_PAGES, ADMIN_PAGE_BY_PATH } from "./admin/admin-pages.js";
 import { splitPageFor } from "./admin/admin-split.js";
+import { mountOverviewApi } from "./admin/overview-api.js";
 import * as adminEdits from "../meta/admin-edits.js";
 import debug from "../debug.js";
 import fs from "fs";
@@ -533,19 +534,25 @@ export default function adminPageRouter() {
     inboxTTL.n = n;
     return n;
   }
-  router.get("/api/counts", async (req, res) => {
-    if (!requireSession(req, res)) return;
-    res.set("Cache-Control", "no-store");
-    const inbox = await countOpenInbox();
+  /** What waits for the admin: the sidebar badges and the overview's to-do list read the same counts. */
+  async function waitingCounts() {
     let pendingAccounts = 0;
     try { pendingAccounts = googleAccounts.list().filter((a) => a.status === "pending").length; } catch { /* none configured */ }
-    res.json({
-      me: withAvatar(adminActor(req)),
-      inbox,
+    return {
+      inbox: await countOpenInbox(),
       pendingAccounts,
       pendingDevices: store.devicesSnapshot().pending.length,
       lockouts: store.snapshot().lockouts.length,
-    });
+    };
+  }
+  router.get("/api/counts", async (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    res.json({ me: withAvatar(adminActor(req)), ...(await waitingCounts()) });
+  });
+  mountOverviewApi(router, requireSession, {
+    warnings: () => [...configWarnings(authLanes()), ...clientBuildWarnings()],
+    counts: waitingCounts,
   });
 
   mountManageApi(router, requireSession);

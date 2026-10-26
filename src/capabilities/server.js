@@ -55,6 +55,23 @@ export const serverCapabilities = [
     handler: async () => (await import("../tasks/activity.js")).list(),
   }),
   defineCapability({
+    id: "server_overview",
+    area: "jobs",
+    title: "Server overview",
+    description: "What needs the admin now (warnings, damaged files, consoles waiting, inbox, failing plugins), how the server stands, and the newest alerts. Start here.",
+    input: { type: "object", properties: {} },
+    output: obj({
+      generatedAt: num("epoch ms"),
+      todo: arr(obj({ code: str("what needs doing, such as damaged, pending-devices, inbox or a config warning code"), n: int("how many, when it is a count") }, { optional: ["n"] })),
+      status: obj({}),
+      recent: arr(obj({ at: num("epoch ms"), event: str(), text: str("the first line of the alert"), status: str("sent, failed, held or off") }), "newest first"),
+    }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/overview" },
+    token: true,
+    handler: async () => (await import("../routes/admin/overview-api.js")).readOverview(),
+  }),
+  defineCapability({
     id: "job_cancel",
     area: "jobs",
     title: "Stop a running job",
