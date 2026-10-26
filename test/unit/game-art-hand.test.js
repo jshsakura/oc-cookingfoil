@@ -13,7 +13,6 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), "cook-game-art-hand-"));
 process.env.COOK_DATA_DIR = data;
 process.env.COOK_EXTRACT_ICONS = "off";
 process.env.COOK_TITLEDB_AUTO_FETCH = "false";
-process.env.COOK_ESHOP_ARTWORK = "false";
 after(() => fs.rmSync(data, { recursive: true, force: true }));
 
 const { default: sharp } = await import("sharp");

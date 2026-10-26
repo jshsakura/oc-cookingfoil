@@ -12,7 +12,6 @@ process.env.COOK_GAMES_DIR = path.join(base, "games");
 process.env.COOK_DATA_DIR = path.join(base, "data");
 process.env.COOK_EXTRACT_ICONS = "off";
 process.env.COOK_TITLEDB_AUTO_FETCH = "false";
-process.env.COOK_ESHOP_ARTWORK = "false";
 after(() => fs.rmSync(base, { recursive: true, force: true }));
 
 const { default: sharp } = await import("sharp");

@@ -62,6 +62,7 @@ const state = {
 // eShop CDN artwork is the practical cross-region join key. The same game
 // released in another country gets a DIFFERENT title id but the eShop serves
 // the SAME asset hash for its icon/banner, so the art URL links the two.
+// The URL is only that key: no picture is ever fetched from it.
 const ART_FIELDS = ["iconUrl", "bannerUrl"];
 
 function isBaseTitleId(id) {
@@ -103,9 +104,6 @@ function keepLocalized(rec, lang, entry) {
   if (name) keep("names", name, rec.name);
   const text = typeof entry.description === "string" ? entry.description.trim() : "";
   if (text) keep("descriptions", text, rec.description);
-  // Box art carries the title in that region's script, so it follows the language too.
-  if (typeof entry.iconUrl === "string" && entry.iconUrl) keep("icons", entry.iconUrl, rec.iconUrl);
-  if (typeof entry.bannerUrl === "string" && entry.bannerUrl) keep("banners", entry.bannerUrl, rec.bannerUrl);
 }
 
 function priIndex(region) {
@@ -425,14 +423,4 @@ export function originalNamesOf(titleId) {
 /** The game's description in each language titledb has it in, or null. */
 export function descriptionsOf(titleId) {
   return localized(titleId, "descriptions");
-}
-
-/** eShop icon URL per language, or null. */
-export function iconsOf(titleId) {
-  return localized(titleId, "icons");
-}
-
-/** eShop banner URL per language, or null. */
-export function bannersOf(titleId) {
-  return localized(titleId, "banners");
 }

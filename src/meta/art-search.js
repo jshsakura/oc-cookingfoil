@@ -1,12 +1,11 @@
 /**
  * Pictures to pick from for one slot of a game, a homebrew app or a patch, the
- * way Plex offers posters: the eShop's own (every region's icon and banner and
- * the screenshots), SteamGridDB (square grids for the icon, heroes for the
+ * way Plex offers posters: SteamGridDB (square grids for the icon, heroes for the
  * banner, box covers for a retro game) and IGDB (cover, artworks, screenshots);
  * a retro game's box art also from libretro-thumbnails (the route passes those in). The admin picks one; the
  * page fetches it through remoteImage() and cuts and uploads it like a file.
  *
- * A candidate: { source: "eshop" | "libretro" | "sgdb" | "igdb", game: { id, name } | null, label, thumb, url }.
+ * A candidate: { source: "libretro" | "sgdb" | "igdb", game: { id, name } | null, label, thumb, url }.
  */
 import * as igdb from "./igdb-client.js";
 import * as titledb from "./titledb-store.js";
@@ -23,7 +22,7 @@ export const SLOTS = ["icon", "banner", "screenshot", "boxart"];
 
 // Hosts a picked picture may come from: the sources' own image servers, https only;
 // GitHub's raw host only for the libretro-thumbnails repositories.
-const HOSTS = [/^cdn\d*\.steamgriddb\.com$/, /^images\.igdb\.com$/, /(^|\.)nintendo\.(net|com)$/];
+const HOSTS = [/^cdn\d*\.steamgriddb\.com$/, /^images\.igdb\.com$/];
 const LIBRETRO = (u) => u.hostname === "raw.githubusercontent.com" && u.pathname.startsWith("/libretro-thumbnails/");
 export function allowedImageUrl(url) {
   try {
@@ -32,28 +31,6 @@ export function allowedImageUrl(url) {
   } catch {
     return false;
   }
-}
-
-/** The eShop's own pictures for a base title id: each language's icon or banner, or the screenshots. Pure over titledb. */
-export function eshopCandidates(slot, baseTitleId) {
-  if (!baseTitleId) return [];
-  const rec = titledb.get(baseTitleId);
-  const name = rec?.name ?? null;
-  const game = name ? { id: baseTitleId, name } : null;
-  const out = [];
-  const add = (url, label) => {
-    if (url && allowedImageUrl(url) && !out.some((c) => c.url === url)) out.push({ source: "eshop", game, label, thumb: url, url });
-  };
-  if (slot === "screenshot") {
-    for (const url of rec?.screenshots ?? []) add(url, "");
-    return out;
-  }
-  const perLang = (slot === "icon" ? titledb.iconsOf(baseTitleId) : titledb.bannersOf(baseTitleId)) ?? {};
-  // Korean first: the Korean release's picture is the one this shop wants most.
-  for (const lang of ["ko", "ja", "en", "zh"]) add(perLang[lang], lang);
-  for (const [lang, url] of Object.entries(perLang)) add(url, lang);
-  add(slot === "icon" ? rec?.iconUrl : rec?.bannerUrl, "");
-  return out;
 }
 
 async function sgdbGet(path, apiKey, fetchImpl) {
@@ -99,9 +76,9 @@ export async function igdbCandidates(slot, q, { fetchImpl = fetch, ready = igdb.
  * Every source's pictures for `slot`. A source that is not set up or fails is
  * left out and named in `errors`, so one bad key never empties the list.
  */
-export async function searchArt({ slot, q, baseTitleId = null, first = [] }, { fetchImpl = fetch, sgdbKey = integrations.get("steamgriddb")?.apiKey ?? "", igdbReady = igdb.configured, igdbQuery = igdb.query } = {}) {
+export async function searchArt({ slot, q, first = [] }, { fetchImpl = fetch, sgdbKey = integrations.get("steamgriddb")?.apiKey ?? "", igdbReady = igdb.configured, igdbQuery = igdb.query } = {}) {
   // `first`: candidates the caller found itself (a retro game's libretro covers), allowed hosts only.
-  const items = [...first.filter((c) => allowedImageUrl(c.url)), ...eshopCandidates(slot, baseTitleId)];
+  const items = first.filter((c) => allowedImageUrl(c.url));
   const errors = [];
   const query = String(q ?? "").trim().slice(0, 100);
   const sources = {

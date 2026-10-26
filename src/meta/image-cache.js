@@ -1,12 +1,13 @@
 /**
- * On-disk image cache + lazy upstream fetcher + on-the-fly WebP variant pipeline.
+ * On-disk image cache + on-the-fly WebP variant pipeline.
  *
- * The originals stay as they came, in data/extracted/:
- *   <titleId>.jpg             ← upstream JPEG (eShop CDN), or the game file's icon
- *   <titleId>.banner.jpg
- *   <titleId>.screen.<n>.jpg
+ * The originals come from the game files only (nacp-extractor.js), in data/icons/:
+ *   <titleId>.jpg             ← the game file's icon
+ *   <titleId>.icon.<lang>.jpg ← its icon for one language, where it differs
+ *   <titleId>.banner.jpg      ← drawn from the icon (icon-banner.js)
+ * Nothing is fetched from a store; a picture not on disk is a 404.
  *
- * What is sent is always WebP, drawn from them into data/thumbs/extracted/ (a
+ * What is sent is always WebP, drawn from them into data/thumbs/icons/ (a
  * cache: never backed up, made again on demand):
  *   <titleId>.sm.q75.webp       ← 160×160 cover (?size=sm, client list cards)
  *   <titleId>.thumb.q75.webp    ← 256×256 cover (?size=md)
@@ -36,7 +37,7 @@ import path from "path";
 import { mkdir, readdir, readFile, rename, rm, writeFile, stat as statAsync } from "fs/promises";
 import sharp from "sharp";
 import debug from "../debug.js";
-import { iconCacheDir, eshopArtwork } from "../helpers/envs.js";
+import { iconCacheDir } from "../helpers/envs.js";
 import { dlcBaseTitleId } from "./filename-parser.js";
 import * as activity from "../tasks/activity.js";
 import { activityText } from "./meta-messages.js";
@@ -66,7 +67,6 @@ const XL_WEBP_OPTIONS = { quality: 50, effort: 6 };
 const FULL_SUFFIX = "full";
 export const IMMUTABLE = "public, max-age=31536000, immutable";
 export const UNVERSIONED = "public, max-age=300";
-const inFlightFetch = new Map();   // upstream-fetch coalescing
 const inFlightVariant = new Map(); // variant-generation coalescing
 // Encodes at once: a burst (a shop opened on several consoles after a deploy) would
 // otherwise fill libuv's thread pool and hold up file reads and downloads behind it.
@@ -94,7 +94,21 @@ async function encodeSlot(fn) {
 // not a supported live mutation.
 const knownExists = new Set();
 
+// What is in data/icons, read once at start: a request asks it for every game's
+// icon, the many not read yet included, and never stats the disk for it. Only
+// this server writes there, and each write goes through forget().
+const readIconDir = () => {
+  try {
+    return fs.readdirSync(iconCacheDir);
+  } catch {
+    return [];
+  }
+};
+const iconIndex = new Set(readIconDir());
+const inIconDir = (p) => typeof p === "string" && path.dirname(p) === iconCacheDir;
+
 function existsCached(p) {
+  if (inIconDir(p)) return iconIndex.has(path.basename(p));
   if (knownExists.has(p)) return true;
   if (fs.existsSync(p)) {
     knownExists.add(p);
@@ -102,6 +116,9 @@ function existsCached(p) {
   }
   return false;
 }
+
+/** Whether a cached original is on disk: from memory for data/icons, else remembered once seen. */
+export const hasCached = (p) => existsCached(p);
 
 export function placeholder(res) {
   // 404, NOT a 200 with a 1×1 transparent PNG. The console client
@@ -123,8 +140,7 @@ export function cachePathFor(titleId, kind, idx) {
   switch (kind) {
     case "icon":       return path.join(iconCacheDir, `${titleId}.jpg`);
     case "banner":     return path.join(iconCacheDir, `${titleId}.banner.jpg`);
-    case "screenshot": return path.join(iconCacheDir, `${titleId}.screen.${idx}.jpg`);
-    // A language's own art (idx is the language): from that region's eShop, or the game file's icon_<Language>.dat
+    // A language's own art (idx is the language): the game file's icon_<Language>.dat
     case "icon-lang":   return path.join(iconCacheDir, `${titleId}.icon.${idx}.jpg`);
     case "banner-lang": return path.join(iconCacheDir, `${titleId}.banner.${idx}.jpg`);
     default:           throw new Error(`unknown image kind: ${kind}`);
@@ -138,7 +154,7 @@ function variantPath(at, suffix, ext) {
   return path.join(dir, `${base}.${suffix}.${ext}`);
 }
 
-/** Where a cached original's variants are named from: data/extracted/X.jpg → data/thumbs/extracted/X.jpg. */
+/** Where a cached original's variants are named from: data/icons/X.jpg → data/thumbs/icons/X.jpg. */
 function thumbBaseOf(source) {
   const dir = path.dirname(source);
   return path.join(path.dirname(dir), "thumbs", path.basename(dir), path.basename(source));
@@ -207,60 +223,12 @@ export function dropVariants(cachePath) {
  *  so the next request re-checks the filesystem instead of trusting a stale
  *  positive from `knownExists`. */
 export function forget(filePath) {
+  if (inIconDir(filePath)) {
+    if (fs.existsSync(filePath)) iconIndex.add(path.basename(filePath));
+    else iconIndex.delete(path.basename(filePath));
+  }
   knownExists.delete(filePath);
-  inFlightFetch.delete(filePath);
   inFlightVariant.delete(filePath);
-}
-
-// Upstream art is a few hundred KB; a URL from titledb gets this long and this much.
-const ARTWORK_TIMEOUT_MS = 30_000;
-const ARTWORK_MAX_BYTES = 16 * 1024 * 1024;
-
-/** One picture from `url`: { buf, contentType }, cut off past `maxBytes` or `timeoutMs`. */
-export async function fetchArtwork(url, { timeoutMs = ARTWORK_TIMEOUT_MS, maxBytes = ARTWORK_MAX_BYTES } = {}) {
-  const upstream = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(timeoutMs) });
-  if (!upstream.ok) throw new Error(`upstream HTTP ${upstream.status}`);
-  const chunks = [];
-  let received = 0;
-  for await (const chunk of upstream.body ?? []) {
-    received += chunk.length;
-    if (received > maxBytes) {
-      await upstream.body.cancel().catch((err) => debug.cache("image cache: cancel failed: %s", err.message));
-      throw new Error(`upstream picture is larger than ${maxBytes} bytes`);
-    }
-    chunks.push(chunk);
-  }
-  return { buf: Buffer.concat(chunks), contentType: upstream.headers.get("content-type") ?? "image/jpeg" };
-}
-
-async function fetchAndStore(url, cachePath) {
-  // COOK_ESHOP_ARTWORK=false: nothing is fetched from the eShop CDN.
-  if (!eshopArtwork) throw new Error("eShop artwork fetching is off");
-  const start = Date.now();
-  const { buf, contentType } = await fetchArtwork(url);
-  await mkdir(path.dirname(cachePath), { recursive: true });
-  const tmp = `${cachePath}.tmp.${process.pid}`;
-  await writeFile(tmp, buf);
-  await rename(tmp, cachePath);
-  knownExists.add(cachePath);
-  // Per-icon I/O is high-frequency during the prewarm pass — log to the
-  // `cache` namespace so the default DEBUG pattern doesn't flood the user.
-  debug.cache(
-    "image cache: stored %s (%d bytes, %dms)",
-    path.basename(cachePath), buf.length, Date.now() - start
-  );
-  return { buf, contentType };
-}
-
-async function ensureOriginal(cachePath, upstreamUrl) {
-  if (existsCached(cachePath)) return;
-  if (!upstreamUrl) throw new Error("no upstream URL and no cache");
-  let pending = inFlightFetch.get(cachePath);
-  if (!pending) {
-    pending = fetchAndStore(upstreamUrl, cachePath).finally(() => inFlightFetch.delete(cachePath));
-    inFlightFetch.set(cachePath, pending);
-  }
-  await pending;
 }
 
 async function ensureVariant(originalPath, variant) {
@@ -307,12 +275,11 @@ function variantSuffix(size, wide) {
  * `overrideGone` is called when the override is no longer there.
  */
 export async function serveImage(req, res, opts) {
-  const { cachePath, upstreamUrl, overridePath, overrideThumbs, overrideGone, wide = false, current = false } = opts;
+  const { cachePath, overridePath, overrideThumbs, overrideGone, wide = false, current = false } = opts;
   const size = Object.hasOwn(SIZES, req.query?.size) ? req.query.size : null;
 
-  // Operator-supplied art wins outright over the titledb CDN proxy / NACP
-  // cache. When present we serve it (and derive thumbs from it) and never
-  // touch the upstream. It sits in a folder the admin may rename or delete by
+  // Operator-supplied art wins outright over the game file's. When present
+  // we serve it (and derive thumbs from it). It sits in a folder the admin may rename or delete by
   // hand, yet it is sent without a look first (a request reads no more of the
   // disk than what it sends): one found gone, at the send or the resize, falls
   // back to the usual art and `overrideGone` has the game read again.
@@ -324,14 +291,7 @@ export async function serveImage(req, res, opts) {
     return serveImage(req, res, { ...opts, overridePath: null });
   };
   const send = (file) => (fromOverride ? sendOr(res, file, gone) : res.sendFile(file));
-  if (!fromOverride) {
-    try {
-      await ensureOriginal(cachePath, upstreamUrl);
-    } catch (err) {
-      debug.cache("image cache: original miss for %s — %s", path.basename(cachePath), err.message);
-      return placeholder(res);
-    }
-  }
+  if (!fromOverride && !existsCached(cachePath)) return placeholder(res);
 
   // `current`: the request's ?v= is the slot's content version
   // (artwork-version.js), so these bytes never change under this URL and may
@@ -407,14 +367,11 @@ export function normalizeTitleId(raw) {
 }
 
 /**
- * Background prefetch of icons for the title IDs the user actually has
- * in their library: the original, and the two WebP card sizes the client
- * app asks for first. Other sizes are drawn on demand.
- *
- * Concurrency capped so we don't hammer the eShop CDN; we also skip any
- * file already on disk so reruns are no-ops.
+ * Draws ahead of time the two WebP card sizes the client app asks for first,
+ * for every icon of the library already on disk. Other sizes are drawn on
+ * demand; icons drawn before are skipped, so reruns are no-ops.
  */
-export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 8 } = {}) {
+export async function prewarmIcons(baseIds, { concurrency = 8 } = {}) {
   const queue = Array.from(new Set(baseIds)).filter((tid) => tid && tid.length === 16);
   if (queue.length === 0) return { done: 0, skipped: 0, failed: 0, thumbs: 0 };
   let done = 0, skipped = 0, failed = 0, thumbs = 0;
@@ -435,27 +392,17 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
         { path: variantPath(at, SUFFIXES.sm, WEBP_EXT), resize: SIZES.sm },
         { path: variantPath(at, SUFFIXES.md, WEBP_EXT), resize: SIZES.md },
       ];
-      const haveOriginal = existsCached(cp);
-      const missing = variants.filter((v) => !existsCached(v.path));
-      if (haveOriginal && !missing.length) { skipped++; continue; }
-
-      const url = getUpstreamForBase(tid);
-      if (!url && !haveOriginal) { skipped++; continue; }
+      const missing = existsCached(cp) ? variants.filter((v) => !existsCached(v.path)) : [];
+      if (!missing.length) { skipped++; continue; }
       job ??= activity.begin("prewarm", { title: activityText("act.prewarm"), total: queue.length });
 
       try {
-        if (!haveOriginal) {
-          await ensureOriginal(cp, url);
-          done++;
-        }
-        // Eagerly transcode the thumbnails too, so the first paint of a
-        // list never waits for sharp.
-        // Sharp's internal threadpool handles CPU parallelism, so the only
-        // backpressure we apply is at the network-fetch level.
+        // So the first paint of a list never waits for sharp.
         for (const v of missing) {
           await ensureVariant(cp, v);
           thumbs++;
         }
+        done++;
       } catch {
         failed++;
       }
@@ -468,7 +415,7 @@ export async function prewarmIcons(getUpstreamForBase, baseIds, { concurrency = 
     job?.fail(err);
     throw err;
   }
-  // Icons whose address is gone fail on every pass: a pass that made nothing new leaves no trace.
+  // A pass that made nothing new leaves no trace.
   if (done + thumbs) job?.done(activityText(failed ? "act.prewarmFailed" : "act.prewarmDone", { n: done, failed }));
   else job?.discard();
   debug.log(

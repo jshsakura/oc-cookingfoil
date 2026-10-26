@@ -18,6 +18,9 @@ const { cachePathFor } = await import("../../src/meta/image-cache.js");
 
 const TITLES_DATA_FORMAT = 0x3215;
 const ICON = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+// What the extractor keeps is recompressed, so the stored icon is a real JPEG.
+const { default: sharp } = await import("sharp");
+const REAL_ICON = await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 200, g: 30, b: 30 } } }).jpeg().toBuffer();
 
 /** A NACP marked compressed whose title block is not DEFLATE data. */
 function corruptCompressedNacp() {
@@ -76,7 +79,7 @@ test("a record whose NACP could not be read keeps its icon and is not read again
     name: "stub",
     async extract(job) {
       calls.push(job);
-      return { name: null, publisher: null, version: null, source: "nacp-nsp", iconBuffer: ICON, iconsByLang: {}, nacpUnreadable: NACP_DECODER_VERSION };
+      return { name: null, publisher: null, version: null, source: "nacp-nsp", iconBuffer: REAL_ICON, iconsByLang: {}, nacpUnreadable: NACP_DECODER_VERSION };
     },
   });
 
@@ -86,7 +89,8 @@ test("a record whose NACP could not be read keeps its icon and is not read again
   const rec = extractedMeta.get(BASE);
   assert.equal(rec.name, null);
   assert.equal(rec.nacpUnreadable, NACP_DECODER_VERSION);
-  assert.deepEqual(await fs.readFile(cachePathFor(BASE, "icon")), ICON);
+  const kept = await sharp(await fs.readFile(cachePathFor(BASE, "icon"))).metadata();
+  assert.deepEqual([kept.format, kept.width], ["jpeg", 64], "the icon is kept");
   assert.equal(extractor.needsReread(rec), false);
   extractor.resetForTests();
   assert.equal(extractor.enqueue({ absPath: "/c.nsp", baseTitleId: BASE, fileName: "c.nsp" }), false, "a rescan leaves it alone");

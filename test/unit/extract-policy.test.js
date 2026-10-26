@@ -109,12 +109,26 @@ test("mode off → skip even for a tiny uncovered file", () => {
   );
 });
 
-// ── NSP/NSZ are sliced, so the size cap does not apply to them ────────────
+// ── NSP/NSZ/XCI are sliced, so the size cap does not apply to them ────────
 
-test("NSP and NSZ extract even above the size cap; XCI still respects it", () => {
+test("NSP, NSZ and XCI extract even above the size cap; XCZ still respects it", () => {
   const base = { sizeBytes: 90 * BYTES_PER_GB, extractMode: "missing", fromDb: NO_DB, maxBytes: CAP_4GB };
   assert.equal(shouldAutoExtract({ ...base, fileName: "Just Dance Legacy [0100EE2188AA8000][v0].nsp" }), true);
   assert.equal(shouldAutoExtract({ ...base, fileName: "game.NSZ" }), true);
-  assert.equal(shouldAutoExtract({ ...base, fileName: "game.xci" }), false);
+  assert.equal(shouldAutoExtract({ ...base, fileName: "game.xci" }), true);
+  assert.equal(shouldAutoExtract({ ...base, fileName: "game.xcz" }), false);
   assert.equal(shouldAutoExtract({ ...base }), false);
+});
+
+test("iconFileOrder: the game, then its update, cheaper containers first, DLC left out", async () => {
+  const { iconFileOrder } = await import("../../src/meta/extract-policy.js");
+  const base = "0100ABCD12340000";
+  const files = [
+    { titleId: "0100ABCD12341001", fileName: "dlc.nsp" },
+    { titleId: "0100ABCD12340800", fileName: "upd.nsz" },
+    { titleId: base, fileName: "game.xcz" },
+    { titleId: base, fileName: "game.nsp" },
+  ];
+  assert.deepEqual(iconFileOrder(files, base).map((f) => f.fileName), ["game.nsp", "game.xcz", "upd.nsz"]);
+  assert.deepEqual(iconFileOrder([files[0]], base), [], "a game owned only as DLC has nothing to read");
 });

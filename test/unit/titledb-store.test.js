@@ -407,7 +407,7 @@ test("load: a region outside the shop's languages names Europe-only games but ne
   assert.deepEqual(store.namesOf("0100BBBB00000000"), { de: "Nur in Europa" });
 });
 
-test("load: every client language keeps its own name, text and art; Hong Kong is traditional, China simplified", async () => {
+test("load: every client language keeps its own name and text; Hong Kong is traditional, China simplified", async () => {
   await resetDir();
   const id = "0100CCCC00000000";
   const files = {
@@ -428,7 +428,4 @@ test("load: every client language keeps its own name, text and art; Hong Kong is
   assert.equal(names.nl, "English", "a name equal to English's is kept");
   assert.equal(store.descriptionsOf(id).nl, "English text");
   assert.equal(store.descriptionsOf(id).ru, "Русский text");
-  assert.equal(store.iconsOf(id).nl, "https://img.example/US.en.jpg");
-  assert.equal(store.iconsOf(id)["zh-Hant"], "https://img.example/HK.zh.jpg");
-  assert.equal(store.bannersOf(id), null);
 });

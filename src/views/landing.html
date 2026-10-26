@@ -6209,7 +6209,7 @@
           const state = Object.assign(document.createElement("p"), { className: "state" });
           const results = document.createElement("div"); results.className = "results";
           panel.append(top, form, state, results);
-          const SOURCE = { eshop: "eShop", libretro: "libretro", sgdb: "SteamGridDB", igdb: "IGDB" };
+          const SOURCE = { libretro: "libretro", sgdb: "SteamGridDB", igdb: "IGDB" };
           let seq = 0;
           async function search() {
             const mine = ++seq;

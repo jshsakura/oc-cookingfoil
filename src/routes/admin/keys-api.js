@@ -1,7 +1,9 @@
 /**
  * prod.keys from the admin page's settings tab (admin session; the router refuses another site's Origin):
  *
- *   PUT    /admin/api/keys  { text }  install the file's text → { ok, keys: S }; 400 { error, reason } as in routes/admin-keys.js
+ *   PUT    /admin/api/keys  { text }  install the file's text → { ok, keys: S }
+ *          400 { error, reason }: "format" (only "name = hex" lines, blanks and #/; comments, with
+ *          key_area_key_application_* or master_key_* entries), "no-header-key", "too-large" (over 64 KB)
  *   DELETE /admin/api/keys            remove the uploaded copy → { ok, removed, keys: S }; a mounted file stays
  *
  * S is security/prod-keys.js status(), also on GET /admin/api/server-settings as `keys`.

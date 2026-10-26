@@ -60,7 +60,7 @@ The web page, first-run setup, sign-in and device approval pages are in English,
 
 - **Library catalog.** A sectioned list for the CookingFoil client and the web page, with featured rows you arrange on the admin page, and a flat file catalog (`/games.json`) for scripts with an automation token.
 - **Names and icons.** Titles, descriptions and artwork come from [blawar/titledb](https://github.com/blawar/titledb), and for files titledb does not know, from the files themselves (with your own `prod.keys`). Name language order and regions are settings.
-- **Artwork and ratings.** Icons, banners and screenshots from the public store artwork service, cached on disk. Optional Steam review scores and IGDB scores. Each source can be turned off. You can upload your own artwork too.
+- **Artwork and ratings.** Icons are read from the game files themselves (with your own `prod.keys`); each game's banner is drawn from its icon. Nothing is fetched from a store. Optional Steam review scores and IGDB scores. Each source can be turned off. You can upload your own artwork too.
 - **Homebrew from GitHub.** Add a repository and its latest release is followed (a `.nro`, or a zip with one inside). Apps can also be placed by hand. Each app is marked as a tool or a port, can be turned off, and can come with a HOME menu shortcut.
 - **Saves and patches.** Keep save files and patches (laid out like the SD card root) on the server, and pick which ones to apply from the client. A patch can be marked as required and can name the game update version it was made for.
 - **Retro games for RetroArch.** ROMs by system, box art from libretro-thumbnails, bezels from The Bezel Project, and game details (description, publisher, developer, release date, players, genres, screenshots) from the LaunchBox Games Database, with IGDB filling the gaps. Versions of one game (arcade parent and clone sets, or the same title in several languages and regions) show as one card, with the others one tap away. The RetroArch base pack you supply can be handed to consoles, and HOME menu shortcuts can be built per game.
@@ -202,7 +202,6 @@ Settings you will usually change on the admin page (Settings tab), all of which 
 | titledb download, regions, source | `COOK_TITLEDB_AUTO_FETCH`, `COOK_TITLEDB_REGIONS`, `COOK_TITLEDB_URL` | on, built-in set, blawar/titledb |
 | Client build source | `COOK_CLIENT_SOURCE`, `COOK_CLIENT_RELEASE_REPO`, `COOK_CLIENT_RELEASE_TAG` | `manual`: only an uploaded build. `github` also follows the latest release of `jshsakura/oc-cookingfoil-client` (or the tag set) |
 | Icons read from files | `COOK_EXTRACT_ICONS` | `missing` |
-| Store artwork | `COOK_ESHOP_ARTWORK` | on |
 | Review scores, retro game details | `COOK_RATING_SYNC`, `COOK_RETRO_META` | on |
 | Ready-made retro system folders | `COOK_RETRO_SCAFFOLD` | on |
 | Connections per download | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |

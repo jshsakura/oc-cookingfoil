@@ -16,6 +16,9 @@ fs.mkdirSync(path.join(root, "titledb"), { recursive: true });
 for (const [file, name] of [["KR.ko.json", "한국어 이름"], ["US.en.json", "English Name"], ["JP.ja.json", "日本語の名前"], ["HK.zh.json", "中文名稱"]]) {
   fs.writeFileSync(path.join(root, "titledb", file), JSON.stringify({ x: { id: TID, name, iconUrl: "https://cdn.example.com/icon.jpg" } }));
 }
+// Its icon, read from the game file before the server starts.
+fs.mkdirSync(path.join(root, "icons"), { recursive: true });
+fs.writeFileSync(path.join(root, "icons", `${TID}.jpg`), "icon");
 fs.mkdirSync(path.join(patches, TID, "Cheats", `atmosphere/contents/${TID}/cheats`), { recursive: true });
 fs.writeFileSync(path.join(patches, TID, "Cheats", `atmosphere/contents/${TID}/cheats/ABCDEF0123456789.txt`), "[x]");
 

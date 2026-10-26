@@ -52,6 +52,9 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
     mkdirSync(path.dirname(path.join(data, "metadata", "games", file)), { recursive: true });
     writeFileSync(path.join(data, "metadata", "games", file), "indexed artwork fixture");
   }
+  // The icon read from the game file; the banner is drawn from it.
+  mkdirSync(path.join(data, "icons"), { recursive: true });
+  writeFileSync(path.join(data, "icons", "0100000000ABC000.jpg"), "icon fixture");
   writeFileSync(
     path.join(data, "titledb", "US.en.json"),
     JSON.stringify({
@@ -83,17 +86,17 @@ test("title-detail: serves rich metadata, 400 on bad id, 404 when unknown", () =
   assert.equal(r.name, "Test Title");
   assert.equal(r.publisher, "OpenCourse");
   assert.ok(r.descLen > 10, "description surfaced");
-  assert.equal(r.shots, 3);
+  assert.equal(r.shots, 1, "only the admin's: titledb's screenshot addresses are never used");
   assert.deepEqual(r.ratingContent, ["Violence", "Drugs"], "rating reasons are trimmed and deduplicated");
   assert.deepEqual(r.videos, [{ type: "youtube", id: "abcdefghijk", title: "" }]);
-  assert.ok(r.screens[2].includes("/4?"), "sparse custom screenshot indices stay intact");
+  assert.ok(r.screens[0].includes("/4?"), "sparse custom screenshot indices stay intact");
   assert.equal(r.artworkOnly.code, 200);
   assert.equal(r.artworkOnly.body.name, null);
   assert.ok(r.artworkOnly.body.bannerUrl.includes("/0100000000DDD000?"));
   assert.ok(r.artworkOnly.body.screenshots[0].includes("/2?"));
   // screenshots/banner point at the proxy endpoints (relative — no origin in mock req)
-  assert.equal(r.shot0, "/api/library/screenshot/0100000000ABC000/0?v=" + r.shot0.split("v=")[1]);
-  assert.ok(r.banner.startsWith("/api/library/banner/0100000000ABC000"), "banner proxied");
+  assert.equal(r.shot0, "/api/library/screenshot/0100000000ABC000/4?v=" + r.shot0.split("v=")[1]);
+  assert.ok(r.banner.startsWith("/api/library/banner/0100000000ABC000"), "a banner drawn from the icon");
   // The console client reads category as text; the array stays under categories
   // (same name the shop sections use) for the web dashboard.
   assert.equal(r.category, "Adventure, Action");
@@ -109,7 +112,6 @@ test("title-detail: a name and description follow ?lang= through its fallbacks, 
   const region = (file, name, description, iconUrl) => writeFileSync(path.join(data, "titledb", file), JSON.stringify({
     "70010000000002": { id: "0100000000ABE000", name, description, releaseDate: 20240101, iconUrl },
   }));
-  // Korean and Hong Kong's box art is the default one; English and simplified Chinese have their own.
   region("KR.ko.json", "한국어 이름", "한국어 설명", "https://img.example/default.jpg");
   region("US.en.json", "English Name", "English text", "https://img.example/en.jpg");
   region("ES.es.json", "Nombre", "Texto", "https://img.example/en.jpg");
@@ -129,8 +131,7 @@ test("title-detail: a name and description follow ?lang= through its fallbacks, 
       r.json = (o) => { r.body = o; return r; };
       r.header = () => r;
       await route({ params: { baseTitleId: "0100000000ABE000" }, query: lang ? { lang } : {}, get: (h) => (h === "accept-language" ? header : undefined), protocol: "http" }, r);
-      const art = new URL(r.body.iconUrl, "http://x").searchParams.get("lang");
-      return [r.body.name, r.body.description, art];
+      return [r.body.name, r.body.description];
     };
     const out = {};
     for (const l of ["es", "de", "sv", "nl", "zh", "zh-Hant", "zh-TW", "ko", ""]) out[l] = await call(l);
@@ -144,16 +145,16 @@ test("title-detail: a name and description follow ?lang= through its fallbacks, 
     encoding: "utf-8",
   });
   const r = JSON.parse(out);
-  assert.deepEqual(r.es, ["Nombre", "Texto", "es"], "the admin's Korean text does not beat titledb's Spanish");
-  assert.deepEqual(r.de, ["Name auf Deutsch", "Deutscher Text", "de"], "Germany's text for a German reader");
-  assert.deepEqual(r.sv, ["English Name", "English text", "en"], "an unknown language is English");
-  assert.deepEqual(r.nl, ["English Name", "English text", "en"], "a language titledb lacks falls back to English, not Korean");
-  assert.deepEqual(r.zh, ["简体名", "简体说明", "zh"]);
-  assert.deepEqual(r["zh-Hant"], ["繁體名", "繁體說明", null], "Hong Kong's text is traditional, and its art the default one, not simplified's");
-  assert.deepEqual(r["zh-TW"], ["繁體名", "繁體說明", null]);
-  assert.deepEqual(r.ko, ["관리자 이름", "관리자 설명", null], "the admin's own Korean for a Korean reader; Korean art is the default");
-  assert.deepEqual(r.headerEs, ["Nombre", "Texto", "es"], "Accept-Language counts as asking");
-  assert.deepEqual(r.headerSv, ["English Name", "English text", "en"]);
+  assert.deepEqual(r.es, ["Nombre", "Texto"], "the admin's Korean text does not beat titledb's Spanish");
+  assert.deepEqual(r.de, ["Name auf Deutsch", "Deutscher Text"], "Germany's text for a German reader");
+  assert.deepEqual(r.sv, ["English Name", "English text"], "an unknown language is English");
+  assert.deepEqual(r.nl, ["English Name", "English text"], "a language titledb lacks falls back to English, not Korean");
+  assert.deepEqual(r.zh, ["简体名", "简体说明"]);
+  assert.deepEqual(r["zh-Hant"], ["繁體名", "繁體說明"], "Hong Kong's text is traditional, not simplified's");
+  assert.deepEqual(r["zh-TW"], ["繁體名", "繁體說明"]);
+  assert.deepEqual(r.ko, ["관리자 이름", "관리자 설명"], "the admin's own Korean for a Korean reader");
+  assert.deepEqual(r.headerEs, ["Nombre", "Texto"], "Accept-Language counts as asking");
+  assert.deepEqual(r.headerSv, ["English Name", "English text"]);
   assert.equal(r[""][0], "관리자 이름", "without a language the server's own order still decides");
 });
 

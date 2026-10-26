@@ -9,7 +9,6 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), "cook-mcp-game-art-"));
 process.env.COOK_DATA_DIR = data;
 process.env.COOK_EXTRACT_ICONS = "off";
 process.env.COOK_TITLEDB_AUTO_FETCH = "false";
-process.env.COOK_ESHOP_ARTWORK = "false";
 after(() => fs.rmSync(data, { recursive: true, force: true }));
 
 const { default: sharp } = await import("sharp");
@@ -17,7 +16,7 @@ const { registry } = await import("../../src/capabilities/registry.js");
 const { ART_ASPECT, fitCrop } = await import("../../src/meta/art-fit.js");
 
 const BASE = "0100000000040000";
-const URL_OK = "https://img-eshop.cdn.nintendo.net/i/picture.png";
+const URL_OK = "https://cdn2.steamgriddb.com/grid/picture.png";
 const wide = await sharp({ create: { width: 400, height: 100, channels: 3, background: "#0a0" } }).png().toBuffer();
 
 const realFetch = globalThis.fetch;
