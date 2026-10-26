@@ -67,6 +67,35 @@ Do network work in a task or a hook.
 `plan`, which runs while a file is sent. `metadata` and `art` results are fetched in the background and
 cached.
 
+## What `metadata` answers
+
+`metadata({ titleId, name, hasFile }, { signal })` returns `null` (nothing known) or
+
+```js
+{
+  fields: {
+    name, publisher, description,        // text, or text per language: { ko: "...", en: "..." }
+    releaseDate,                         // a whole yyyymmdd number
+    size,                                // a whole number of bytes
+    icon,                                // one https address
+    banner,                              // one https address, wide (16:9)
+    screenshots                          // up to 8 https addresses
+  },
+  credit: { text, url? }                 // shown under what the plugin supplied
+}
+```
+
+Every field is optional, and a field that is wrong is dropped alone (a bad address in `screenshots` is
+dropped, the good ones stay). The text fields are merged with titledb's and the game file's in the order
+the operator set. `icon`, `banner` and `screenshots` are different: they are pictures, used only for a slot
+that is still empty after the admin's own upload, the picture read from the game file and titledb's.
+
+The server downloads those addresses itself, once, in the background, and keeps the picture on disk
+(`data/art-fill`); the plugin does not fetch the bytes and its `hosts` list does not apply to them. An
+address that points at a private network is refused, and a picture is cut down to the size the library
+keeps. They are used only while the admin setting "Fill missing pictures from titledb" is on. A banner
+the plugin does not give is drawn from the icon.
+
 ## Download options (variants)
 
 A plugin that provides `variant` adds options to a game file: the same file, sent with some bytes

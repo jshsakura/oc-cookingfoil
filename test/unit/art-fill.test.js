@@ -159,6 +159,14 @@ test("a plugin fills what titledb does not have, and its source is remembered", 
   assert.equal(await status(`/api/library/screenshot/${PLUGIN_ONLY}/0`), 200);
 });
 
+test("the detail credits the plugin whose picture is shown, and only then", async () => {
+  const { agentParts } = await import("../../src/plugins/instance.js");
+  await agentParts().store.put("gamedb", PLUGIN_ONLY, { fields: pluginAnswers[PLUGIN_ONLY], credit: { text: "Game DB" } });
+  assert.deepEqual((await titleDetail(PLUGIN_ONLY, { lang: "en" })).artCredit, { text: "Game DB" });
+  assert.equal((await titleDetail(DB_ONLY, { lang: "en" })).artCredit, undefined, "titledb's pictures need none");
+  assert.equal((await titleDetail(FILE_ART, { lang: "en" })).artCredit, undefined);
+});
+
 test("a banner titledb does not have is drawn from the filled icon", async () => {
   assert.equal(fill.kept(BOTH, "banner"), false);
   const res = await fetch(`${origin}/api/library/banner/${BOTH}`);

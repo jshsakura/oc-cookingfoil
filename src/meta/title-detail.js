@@ -15,7 +15,7 @@ import { normalizeCategories, normalizeGenres, genreLabel } from "./categories.j
 import { fallbacks, parseLang, pick } from "./langs.js";
 import * as scores from "./ratings.js";
 import { versionedArtwork } from "./artwork-version.js";
-import { shotSlots } from "./art-fill.js";
+import { bannerFallback, iconFallback, shotSlots, sourceOf as artSourceOf } from "./art-fill.js";
 import * as titledbVersions from "./titledb-versions.js";
 import * as userPatches from "./user-patches.js";
 import * as gameDescriptions from "./game-descriptions.js";
@@ -119,6 +119,10 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     [LOCAL]: perLanguage ? null : extracted?.description,
     ...agentValues("description", base, { lang }),
   }, { order: agentOrder("description", [TITLEDB, LOCAL], base) });
+  // Who supplied a picture that was filled in from a metadata plugin (not titledb), so the detail view can say so.
+  const pluginArt = [iconFallback(base) && artSourceOf(base, "icon"), bannerFallback(base) && artSourceOf(base, "banner"), !overrides.screens.length && shotSlots(base).length ? artSourceOf(base, "screenshot", shotSlots(base)[0]) : null]
+    .find((src) => typeof src === "string" && src.startsWith("plugin:"));
+  const artCredit = pluginArt ? creditOf(`agent:${pluginArt.slice(7)}`, base) : null;
   const categoryLabels = categories?.map((key) => genreLabel(key, lang));
   const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   return {
@@ -169,6 +173,7 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
       : null,
     screenshots,
     screenshotCount: screenshots.length,
+    ...(artCredit ? { artCredit } : {}),
     videos: titleVideos(fromDb),
     // Published updates, oldest first: [{ version, date }], and the DLC count.
     latestVersion: titledbVersions.latestVersion(base),
