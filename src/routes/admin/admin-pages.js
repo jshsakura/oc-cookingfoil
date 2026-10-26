@@ -135,8 +135,8 @@ body.adm-shell{padding:0}
 /* width:100% keeps every page the same width: a grid item with auto margins otherwise shrinks to its content. */
 .adm-shell>.wrap{width:100%;box-sizing:border-box;max-width:1240px;margin:0 auto;padding:24px 32px 80px;min-width:0}
 @media (max-width:899px){.adm-shell>.wrap{padding:18px 16px 72px}}
-/* One frame: the brand, upload, language and account live in the sidebar, so a page starts at its own title.
-   On a phone the same block is a top bar and the menu opens in the drawer. */
+/* One frame: the brand and the menu are the sidebar; upload, language and account are the header band.
+   On a phone the brand and the band share one top bar and the menu opens in the drawer. */
 .adm-side{position:sticky;top:0;z-index:40;box-sizing:border-box;background:var(--bg)}
 .adm-side>.adm-hdr{margin:0}
 #adm-menu{display:none}
@@ -151,20 +151,20 @@ body.adm-shell{padding:0}
 @media (max-width:479px){.adm-side .brand .wm{display:none}}
 /* The account menu spans the phone's width under the bar, inside the same gutter the page keeps. */
 @media (max-width:640px){.adm-side .activity-account>.pop-list{left:12px;right:12px;width:auto}}
-/* Desktop: the sidebar is its own pane, cut from the page by its colour like the console client.
-   The brand sits on top, the menu fills the middle, upload, language and account stay at the bottom. */
+/* Desktop: the sidebar is its own pane, cut from the page by its colour like the console client. Its brand
+   stays put and only the menu under it scrolls. Upload, language and account sit in a header band over the
+   page, top right, the same place and the same downward menus as on a phone. The band and the brand row
+   share one height and one bottom line. */
 @media (min-width:900px){
-body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
-.adm-side{display:flex;flex-direction:column;align-self:start;height:100vh;padding:0;background:var(--panel);border-right:1px solid var(--line)}
+body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh;--adm-hdr-h:64px}
+.adm-side{display:flex;flex-direction:column;align-self:start;height:100vh;height:100dvh;padding:0;background:var(--panel);border-right:1px solid var(--line)}
 .adm-side>.adm-hdr{display:contents}
-.adm-side .brand{order:0;padding:26px 24px 18px}
-.adm-side .brand a{gap:10px}.adm-side .brand img{width:36px;height:36px}.adm-side .brand .wm{font-size:25px}
-.adm-side>.adm-side-in{order:1;display:grid;align-content:start;gap:6px;flex:1;min-height:0;overflow:auto;padding:4px 14px 20px}
-.adm-side .hdr-right{order:2;position:relative;display:flex;align-items:center;gap:8px;padding:14px 16px 18px;background:var(--sunk)}
-.adm-side .up-entry{flex:1;min-width:0}
-/* The menus open upward and toward the page, never off the sidebar's edges. */
-.adm-side .acct-menu{position:static}
-.adm-side :is(.pop-list,.lang-list){left:12px;right:auto;top:auto;bottom:calc(100% + 6px)}}
+.adm-side .brand{order:0;flex:none;display:flex;align-items:center;height:var(--adm-hdr-h);margin:0;padding:0 22px;box-sizing:border-box;border-bottom:1px solid var(--line)}
+.adm-side .brand a{gap:10px}.adm-side .brand img{width:32px;height:32px}.adm-side .brand .wm{font-size:22px}
+.adm-side>.adm-side-in{order:1;display:grid;align-content:start;gap:6px;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px 14px 24px}
+.adm-side .hdr-right{position:fixed;top:0;left:260px;right:0;z-index:40;height:var(--adm-hdr-h);box-sizing:border-box;
+  display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 24px;background:var(--bg);border-bottom:1px solid var(--line)}
+.adm-shell>.wrap{padding-top:calc(var(--adm-hdr-h) + 24px)}}
 .adm-grp{border:0}
 .adm-grp summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:11px 14px;border-radius:12px;
   color:var(--text);font-weight:700;font-size:14.5px}
