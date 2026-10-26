@@ -18,7 +18,7 @@ const RETRO_VIDEO = "RetroTrlr_2";
 const CONSOLE_TITLE_FIELDS = ["bannerUrl", "categories", "category", "categoryLabels", "description", "descriptionCustom",
   "descriptionLang", "dlcTotal", "iconUrl", "icons", "id", "integrity", "intro", "keyFirmware", "keyGeneration", "latestVersion", "name", "names", "notes",
   "numberOfPlayers", "patches", "publisher", "rating", "ratingContent", "region", "releaseDate", "requiredFirmware",
-  "score", "scoreCount", "scoreLabel", "scoreLabelKey", "scoreSource", "screenshotCount", "screenshots", "size", "updates",
+  "score", "scoreCount", "scoreLabel", "scoreLabelKey", "scoreSource", "screenshotCount", "screenshots", "signed", "size", "updates",
   "verified", "verified_at", "videos"];
 
 async function serve(t) {

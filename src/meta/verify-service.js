@@ -60,6 +60,7 @@ const queue = createVerifyQueue({
 });
 
 fileIntegrity.provide((rel) => queue.findingOf(rel));
+fileIntegrity.provideSigned((rel) => queue.signedOf(rel));
 provideKnown((abs, st) => queue.identityOf(path.relative(env.romsDirPath, abs), st));
 
 let started = false;

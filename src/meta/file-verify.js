@@ -38,6 +38,12 @@
  * several), so a missing NCA is found even without the whole-file hash pass.
  * The same read says what the file is: `identity` in the result
  * (file-identity.js), which needs the keys but not nstool.
+ *
+ * `signed` in the result: { nca, ticket }, each true, false or null (not
+ * known, or nothing to sign: an XCI has no ticket). `nca` follows the header
+ * signatures; `ticket` checks each .tik against the package's .cert
+ * (ticket-sign.js), which needs neither keys nor nstool. A console without
+ * signature patches refuses a file with either one false.
  */
 import { spawn } from "child_process";
 import fsp from "fs/promises";
@@ -52,6 +58,7 @@ import { pickIdentity } from "./file-identity.js";
 import { hashRange } from "./hash-range.js";
 import { resolveBinary, keysFile } from "./extract-providers/nsp.js";
 import { lowPriorityPrefix } from "./nsz-runner.js";
+import { ticketSigned } from "./ticket-sign.js";
 
 export const VERIFY_RE = /\.(nsp|nsz|xci|xcz)$/i;
 const NCA_HEADER_BYTES = 0xC00;
@@ -59,6 +66,8 @@ const NSTOOL_TIMEOUT_MS = 60_000;
 const OUTPUT_CHARS = 16_000;
 const CONTENT_TYPE_DELTA = 6;
 const SIGNATURE_FAIL_RE = /NCA Header Main Signature:\s*FAIL/i;
+const TICKET_MAX = 0x1000;
+const CERT_MAX = 0x2000;
 
 const ncaIdOf = (name) => name.split(".")[0].toLowerCase();
 const CONTENT_TYPES = ["Meta", "Program", "Data", "Control", "HtmlDocument", "LegalInformation", "DeltaFragment"];
@@ -114,6 +123,23 @@ export function decide({ readable = true, truncated = false, signature = "skip",
   if (signature === "fail") return { verdict: "modified", reason: "signature-fail", checks };
   if (signature === "pass") return { verdict: "ok", reason: "ok", checks };
   return { verdict: "unchecked", reason: "no-tool", checks };
+}
+
+const NCA_SIGNED = { pass: true, fail: false };
+
+/** Whether the package's tickets are signed: null without a ticket, false when one fails or its .cert is missing. */
+export async function ticketsSigned(absPath, entries, st) {
+  const fits = (e) => e.offset + e.size <= st.size;
+  const tiks = entries.filter((e) => /\.tik$/i.test(e.name));
+  if (!tiks.length) return null;
+  const cert = entries.find((e) => /\.cert$/i.test(e.name));
+  if (!cert || !fits(cert) || cert.size > CERT_MAX) return false;
+  const certBuf = await readSlice(absPath, cert.offset, cert.size);
+  for (const t of tiks) {
+    if (!fits(t) || t.size > TICKET_MAX) return false;
+    if (!ticketSigned(await readSlice(absPath, t.offset, t.size), certBuf)) return false;
+  }
+  return true;
 }
 
 /** Reads `length` bytes at `position`; fewer when the file ends first. */
@@ -185,12 +211,18 @@ export function createVerifier({
    * NCAs already hashed (matched or not), which are not read again; each new
    * result goes to `onHashed(ncaId, matched)` so a stopped run can resume.
    * When `known` covers every NCA, its results stand in for the hash pass
-   * even without `hash`. Returns { verdict, reason, checks, identity }.
+   * even without `hash`. Returns { verdict, reason, checks, identity, signed }.
    */
-  async function verify(absPath, { hash: wantHash = false, known = {}, onHashed = () => {}, signal } = {}) {
-    const t = await tools();
+  async function verify(absPath, opts = {}) {
     const container = await listContainer(absPath);
     const st = await fsp.stat(absPath);
+    const r = await check(absPath, container, st, opts);
+    const ticket = container ? await ticketsSigned(absPath, container.entries, st).catch(() => null) : null;
+    return { ...r, signed: { nca: NCA_SIGNED[r.checks?.signature] ?? null, ticket } };
+  }
+
+  async function check(absPath, container, st, { hash: wantHash = false, known = {}, onHashed = () => {}, signal } = {}) {
+    const t = await tools();
     const ncas = container?.entries.filter((e) => isNca(e.name)) ?? [];
     if (!container || !ncas.length) return decide({ readable: false });
     const cut = container.entries.filter((e) => e.offset + e.size > st.size);
