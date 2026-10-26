@@ -150,13 +150,6 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     return title && body ? { title, body } : null;
   };
 
-  /**
-   * One option as the client gets it, texts in the reader's language:
-   *   { id, label, note?, confirm?, progress?, failed?, hashesChange?, query }    an option the client can send
-   *   { id, label, blocked: { title, body } }                                   one it shows greyed, with the reason in a window
-   * confirm is { title, body }, or one text (older plugins). progress is shown while the server prepares the file, failed
-   * when it could not; hashesChange (true) says the bytes differ from the original, so a hash check is not expected to match.
-   */
   /** The optional look of an option. A wrong part is left out and the rest stays. */
   const looksOf = (raw) => {
     const color = (v) => (typeof v === "string" && HEX_COLOR_RE.test(v) ? v : null);
@@ -170,6 +163,13 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     return out;
   };
 
+  /**
+   * One option as the client gets it, texts in the reader's language:
+   *   { id, label, note?, confirm?, progress?, failed?, hashesChange?, button?, card?, query }    an option the client can send
+   *   { id, label, blocked: { title, body } }                                   one it shows greyed, with the reason in a window
+   * confirm is { title, body }, or one text (older plugins). progress is shown while the server prepares the file, failed
+   * when it could not; hashesChange (true) says the bytes differ from the original, so a hash check is not expected to match.
+   */
   function optionOf(plugin, raw, lang, keys) {
     if (!raw || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id) return null;
     const label = textsOf(raw.label);
