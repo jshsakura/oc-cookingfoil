@@ -157,11 +157,11 @@ function clientBuildWarnings() {
 // the trash, the one delete nothing brings back. Restoring from the trash and undoing a move
 // stay open. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty|plugins\/(?:rescan|restore|[^/]+\/(?:enabled|trash|cache\/clear)))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty|plugins\/(?:rescan|restore|install(?:\/confirm)?|[^/]+\/(?:enabled|trash|cache\/clear)))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 // Reads a token may not make either: the token list (tokens never handle tokens), the admin
 // login's second step, and where consoles and accounts connected from.
-export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:tokens|2fa|access-history|counts)(?:\/|$)/i;
+export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:(?:tokens|2fa|access-history|counts)(?:\/|$)|plugins\/[^/]+\/download\/?$)/i;
 
 /**
  * Whether an automation token is refused `method path`, with the path decoded and as this router

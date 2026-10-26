@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './admin-sign-in';
+import { signIn, SECRET } from './admin-sign-in';
+import { generate } from 'otplib';
 import fs from 'node:fs';
 import path from 'node:path';
+// @ts-expect-error a plain ES module shared with the unit tests
+import { zip as buildZip } from '../support/zip-builder.js';
 
 // The plugins page against the real server: a plugin put into data/plugins shows up after a rescan, off;
 // the person switches it on and off, deletes it (into the plugins' own trash) and brings it back.
@@ -29,11 +32,21 @@ test('a new plugin is listed off, switches on and off, is deleted into the trash
   await expect(row).toContainText('웹 시험 플러그인');
   await expect(row).toContainText('버전 1.2.3');
 
-  await row.getByRole('button', { name: '켜기' }).click();
+  await expect(row.getByRole('link', { name: '다운로드' })).toHaveAttribute('href', `/admin/api/plugins/${ID}/download`);
+  const toggle = row.getByRole('switch');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await toggle.click();
+  // This server is guarded by an authenticator only, so the dialog lists what the plugin asks for and asks for a code.
+  await expect(page.locator('#ask-text')).toContainText('요구하는 것');
+  await expect(page.locator('#ask-text')).toContainText('6자리 코드');
+  await page.locator('#ask-input').fill(await generate({ secret: SECRET }));
+  await page.locator('#ask-ok').click();
   await expect(page.locator('#toast')).toContainText('켰습니다');
   await expect(row).toContainText('켜짐');
-  await row.getByRole('button', { name: '끄기' }).click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await toggle.click();
   await expect(row).toContainText('꺼짐');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
 
   await row.getByRole('button', { name: '삭제' }).click();
   await expect(page.locator('#ask-text')).toContainText('휴지통으로 옮기므로 되돌릴 수 있습니다');
@@ -49,6 +62,36 @@ test('a new plugin is listed off, switches on and off, is deleted into the trash
   await expect(page.locator('#toast')).toContainText('되돌렸습니다');
   await expect(page.locator('#pl-list .pl-row', { hasText: ID })).toContainText('꺼짐');
   expect(fs.existsSync(path.join(DIR, ID, 'index.js'))).toBe(true);
+});
+
+test('a plugin zip is checked, shown with what it asks for, installed switched off, and then listed as uploaded', async ({ page }) => {
+  const id = 'web-spec-upload';
+  const zip = buildZip([
+    { name: 'plugin.json', data: JSON.stringify({ id, apiVersion: 1, version: '2.0.1', name: { en: 'Uploaded one', ko: '올린 플러그인' }, provides: ['metadata'], needsKeys: true, hosts: ['example.com'] }) },
+    { name: 'index.js', data: 'export default { async metadata() { return {}; } };' },
+  ]);
+  try {
+    await signIn(page);
+    await page.goto('/admin/settings/plugins');
+    await expect(page.locator('#pl-install-btn')).toBeEnabled();
+    await page.locator('#pl-install-file').setInputFiles({ name: 'p.zip', mimeType: 'application/zip', buffer: zip });
+    await expect(page.locator('#ask-text')).toContainText('올린 플러그인 (' + id + ') 2.0.1');
+    await expect(page.locator('#ask-text')).toContainText('prod.keys');
+    await expect(page.locator('#ask-text')).toContainText('example.com');
+    await page.locator('#ask-ok').click();
+    await expect(page.locator('#toast')).toContainText('꺼진 채로');
+    const row = page.locator('#pl-list .pl-row', { hasText: id });
+    await expect(row).toContainText('꺼짐');
+    await expect(row).toContainText('관리 화면에서 설치함');
+    expect(fs.existsSync(path.join(DIR, id, 'index.js'))).toBe(true);
+
+    await page.locator('#pl-install-file').setInputFiles({ name: 'bad.zip', mimeType: 'application/zip', buffer: Buffer.from('not a zip') });
+    await expect(page.locator('#toast')).toContainText('설치하지 못했습니다');
+  } finally {
+    fs.rmSync(path.join(DIR, id), { recursive: true, force: true });
+    fs.rmSync(path.join(process.env.COOK_DATA_DIR!, 'plugin-origin'), { recursive: true, force: true });
+    await page.request.post('/admin/api/plugins/rescan', { data: {} }).catch(() => {});
+  }
 });
 
 test('the plugins page speaks the language the top area is set to', async ({ page }) => {

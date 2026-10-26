@@ -11,13 +11,15 @@ import { createProcessGuards } from "./guard.js";
 import { createRegistry } from "./registry.js";
 import { createVariants } from "./variants.js";
 import { createPluginCache } from "./cache.js";
+import { createInstaller } from "./installer.js";
 
 let shared = null;
 
 /** Tells the operator over Telegram (the "plugin" alert), and the log. */
 export function notifyOperator({ id, event, reason, message, minutes }) {
   debug.log("plugins: %s: %s (%s) %s", id, event, reason, message ?? "");
-  if (event === "cooling") alert("plugin", (t) => t("pluginCooling", { id, minutes }), { subject: `${id}:cooling` });
+  if (event === "installed") alert("plugin", (t) => t("pluginInstalled", { id, version: message }), { subject: `${id}:installed` });
+  else if (event === "cooling") alert("plugin", (t) => t("pluginCooling", { id, minutes }), { subject: `${id}:cooling` });
   else alert("plugin", (t) => t("pluginAutoOff", { id, why: message || reason }), { subject: `${id}:${event}` });
 }
 
@@ -41,6 +43,10 @@ let cacheShared = null;
 /** The bounded cache folders of the plugins (plugins/cache.js). */
 export const pluginCache = () => (cacheShared ??= createPluginCache({ dataDir: env.dataDir, log: (m) => debug.log("plugins: %s", m) }));
 
+let installerShared = null;
+/** Uploads of plugin zips from the admin page (plugins/installer.js) on the shared registry. */
+export const pluginInstaller = () => (installerShared ??= createInstaller({ registry: pluginRegistry(), dataDir: env.dataDir, notify: notifyOperator }));
+
 /** Starts the registry without holding the server back: a slow or failing plugin never delays listening. */
 export function startPlugins() {
   const registry = pluginRegistry();
@@ -51,6 +57,7 @@ export function startPlugins() {
   });
   guards.install();
   pluginCache().startSweeper();
+  pluginInstaller().sweep().catch((err) => debug.error("plugins: clearing old uploads failed: %s", err.message));
   registry.init().then(() => registry.startWatching()).catch((err) => debug.error("plugins: start failed: %s", err.message));
   return registry;
 }

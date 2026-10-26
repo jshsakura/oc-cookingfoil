@@ -10,6 +10,7 @@ process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "cache-api-dat
 const { makeDataDir, manifestOf, newRegistry, writePlugin } = await import("../support/plugin-fixtures.js");
 const { mountPluginsApi } = await import("../../src/routes/admin/plugins-api.js");
 const { createPluginCache } = await import("../../src/plugins/cache.js");
+const { createInstaller } = await import("../../src/plugins/installer.js");
 const { TOKEN_BLOCKED_RE } = await import("../../src/routes/admin-page.js");
 
 let server, base, dataDir, cache;
@@ -22,7 +23,7 @@ before(async () => {
   const app = express();
   const router = express.Router();
   router.use(express.json());
-  mountPluginsApi(router, () => true, env.registry, cache);
+  mountPluginsApi(router, () => true, env.registry, createInstaller({ registry: env.registry, dataDir }), cache);
   app.use(router);
   server = await new Promise((resolve) => { const s = app.listen(0, "127.0.0.1", () => resolve(s)); });
   base = `http://127.0.0.1:${server.address().port}`;

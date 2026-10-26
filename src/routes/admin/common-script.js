@@ -99,7 +99,7 @@ function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const ico
 // and the cancel button starts focused. The message itself may be any language.
 function askDialog(msg,value,opts={}){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input');
   const typing=value!==undefined,danger=opts.danger===true;
-  $('ask-text').textContent=msg;ok.className=danger?'danger-solid':'primary';inp.hidden=!typing;inp.value=typing?value:'';
+  $('ask-text').textContent=msg;ok.className=danger?'danger-solid':'primary';inp.hidden=!typing;inp.value=typing?value:'';inp.type=opts.secret?'password':'text';inp.autocomplete=opts.secret?'current-password':'off';
   return new Promise((resolve)=>{const done=(v)=>{ok.onclick=no.onclick=d.oncancel=inp.onkeydown=null;d.close();resolve(v);};
     const yes=()=>done(typing?inp.value:true),nope=()=>done(typing?null:false);
     ok.onclick=yes;no.onclick=nope;d.oncancel=(e)=>{e.preventDefault();nope();};
