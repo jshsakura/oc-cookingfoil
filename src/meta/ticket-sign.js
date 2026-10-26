@@ -5,7 +5,7 @@
  *
  *   ticketSigned(tik, cert)   true | false. Pure.
  *
- * A console imports a ticket only when its signature holds, unless it runs signature patches. A
+ * A stock console imports a ticket only when its signature holds. A
  * package whose ticket was made up (the usual "fake ticket" of a repacked file) has a signature that
  * does not verify, and that is what this tells. The root certificate is not in the package, so the CA
  * certificate is taken as found: a forged chain would pass here and still fail on the console.
