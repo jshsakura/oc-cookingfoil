@@ -238,6 +238,19 @@ test("a file icon read later wins, and the version follows it", async () => {
   assert.equal(fill.iconFallback(DB_ONLY), null);
 });
 
+test("a DLC or patch whose game is not in the library, seen before the filler started, gets its game's icon once it starts", async () => {
+  const game = "0100000000A1F000", dlc = "0100000000A20001";
+  world.set("https://img.example.com/dlc-game.jpg", await picture(1024, 1024, "#456456"));
+  const db = createArtFiller({ fill, fetchImpl, gapMs: 0, log: () => {}, titledb: (id) => (id === game ? { iconUrl: "https://img.example.com/dlc-game.jpg" } : null), plugins: { list: () => [] } });
+  db.track([dlc]);
+  await db.idle();
+  assert.equal(fill.kept(game, "icon"), false, "nothing is fetched before start");
+  db.start();
+  await db.idle();
+  fill.setWanter(filler.want);
+  assert.equal(fill.kept(game, "icon"), true, "the DLC folded to its game and the game's icon arrived");
+});
+
 test("a failed download is remembered and retried later, not at once", async () => {
   const flaky = "0100000000A09000";
   let now = 1_000_000;

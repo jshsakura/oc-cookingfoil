@@ -205,10 +205,11 @@ export function createArtFiller({
   }
 
   function want(raw) {
-    if (!started || stopped || !fill.enabled()) return;
     const base = baseTitleIdOf(String(raw ?? "").toUpperCase());
     if (!ID_RE.test(base)) return;
+    // Remembered even before start(), so a scan that ran first is looked at once the filler starts.
     known.add(base);
+    if (!started || stopped || !fill.enabled()) return;
     if (queue.has(base) || queue.size >= QUEUE_MAX) return;
     if (!anyNeed(needed(base))) return;
     const rec = fill.recordOf(base);
@@ -222,9 +223,10 @@ export function createArtFiller({
       started = true;
       stopped = false;
       fill.setWanter(want);
+      for (const base of [...known]) want(base);
     },
     want,
-    /** The library's base games after a scan. */
+    /** Titles after a scan: games, their updates and DLC, and the games patches are for (each folds to its game). */
     track(ids) {
       for (const id of ids) want(id);
     },
