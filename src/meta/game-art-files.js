@@ -10,7 +10,7 @@
  */
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
+import { ART, shrink, writeAtomic } from "./art-ingest.js";
 import * as artCrop from "./art-crop.js";
 import debug from "../debug.js";
 import { AHEAD_MS } from "./folder-watch.js";
@@ -18,14 +18,6 @@ import { AHEAD_MS } from "./folder-watch.js";
 export const KINDS = ["icon", "banner", "screenshot"];
 export const MAX_SCREENSHOTS = 8;
 
-// Icons are shown square, banners and screenshots wide. `inside` without
-// enlargement keeps the shape and never blows a small picture up.
-const ENCODE = {
-  icon:       { width: 1024, height: 1024, quality: 88 },
-  banner:     { width: 1280, height: 720,  quality: 85 },
-  screenshot: { width: 1280, height: 720,  quality: 85 },
-};
-const MAX_INPUT_PIXELS = 50e6;
 // Past this a hand-placed file is no picture of a slot's size (50e6 pixels as an uncompressed PNG is 200 MB), and is never read whole.
 const MAX_HAND_BYTES = 256 * 1024 * 1024;
 // <slot>[.orig].<ext>; a hand-placed picture may be named in any case.
@@ -67,21 +59,10 @@ export function classify(name) {
  * metadata left, inside the kind's size. Throws on a picture that cannot be read.
  */
 export function encode(kind, input) {
-  const cfg = ENCODE[kind] ?? ENCODE.icon;
-  return sharp(input, { failOn: "error", limitInputPixels: MAX_INPUT_PIXELS })
-    .rotate()
-    .resize(cfg.width, cfg.height, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: cfg.quality, effort: 4 })
-    .toBuffer();
+  return shrink(input, ART[kind] ?? ART.icon);
 }
 
-export function writeAtomic(file, buf) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  // A dot name, so one left behind by a crash is never taken for a picture.
-  const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
-  fs.writeFileSync(tmp, buf);
-  fs.renameSync(tmp, file);
-}
+export { writeAtomic };
 
 /** Writes a slot's picture and its original; the picture last, so one on disk always has its original beside it. */
 export function writeSlot(artFile, art, original, crop = null) {
