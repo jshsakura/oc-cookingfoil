@@ -9,14 +9,15 @@
  * title. The title may be one the library has no file for: the hook gets { titleId, name, hasFile } and
  * nothing else about the library. An answer is cut down to what the core keeps (agent-answer.js) and
  * stored with the time; a plugin that is cooling, off or failing leaves the title unanswered and it is
- * tried again after retryMs, never in a loop. onChange fires after answers were stored (debounced), so
+ * tried again after retryMs (a day), never in a loop. onChange fires after answers were stored (debounced), so
  * the caller can drop the lists it cached.
  */
 import { parseMetadata } from "./agent-answer.js";
 import { TITLE_ID_RE } from "./agent-cache.js";
 
 export const QUEUE_MAX = 20_000;
-export const RETRY_MS = 10 * 60_000;
+// A title a plugin failed on waits a day: a failure that lasts is not asked about again and again.
+export const RETRY_MS = 24 * 60 * 60_000;
 const CHANGE_DEBOUNCE_MS = 2_000;
 
 export function createAgentRunner({ registry, store, onChange = () => {}, log = () => {}, now = Date.now, retryMs = RETRY_MS, queueMax = QUEUE_MAX }) {

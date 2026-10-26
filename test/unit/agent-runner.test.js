@@ -92,7 +92,7 @@ test("a plugin that fails leaves the title unanswered, is not asked again at onc
   runner.want(A);
   await settle();
   assert.equal(asked("broken").length, before, "a failed title waits before it is asked again");
-  clock.t += 11 * 60_000;
+  clock.t += 25 * 60 * 60_000;
   runner.want(A);
   await settle();
   assert.equal(asked("broken").length, before + 1);
