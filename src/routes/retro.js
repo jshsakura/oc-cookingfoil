@@ -890,7 +890,13 @@ export default function retroRouter() {
     // Only paths the pack lists: a request never becomes a path on disk by itself.
     const fresh = manifest?.off === coreSettings.offKey() ? manifest.sources : null;
     const listed = (fresh ?? new Map((await listPack(packDir(), { off: coreSettings.off() })).map((f) => [f.path, f]))).get(sd);
-    if (!listed || !fs.existsSync(listed.abs)) return res.status(404).json({ error: "not in the base pack" });
+    if (!listed) return res.status(404).json({ error: "not in the base pack" });
+    if (!fs.existsSync(listed.abs)) {
+      // Taken off the disk after the manifest was read: the next manifest must not list it again.
+      if (fresh) manifest = null;
+      rebuildManifest().catch((err) => debug.error("retro: base pack manifest failed: %s", err.message));
+      return res.status(404).json({ error: "not in the base pack" });
+    }
     res.attachment(path.basename(sd));
     sendFile(res, listed.abs);
   }));

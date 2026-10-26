@@ -351,6 +351,16 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     fs.rmSync(extra);
     assert.equal(untar(Buffer.from(await pack.arrayBuffer())).get("switch/retroarch_switch.nro"), "NRO");
     assert.equal((await get("/api/retro/base-pack")).status, 200, "the older path still works");
+    // A listed file taken off the disk: its GET is 404 and the next manifest no longer lists it.
+    const font = path.join(dir, "retroarch/assets/fonts/korean.ttf");
+    fs.rmSync(font);
+    assert.equal((await get(m.files.find((f) => f.path === "retroarch/assets/fonts/korean.ttf").url)).status, 404);
+    let after = await get("/api/retro/base-pack/manifest");
+    for (let i = 0; after.status === 503 && i < 20; i++) {
+      await new Promise((res) => setTimeout(res, 250));
+      after = await get("/api/retro/base-pack/manifest");
+    }
+    assert.ok(!(await after.json()).files.some((f) => f.path === "retroarch/assets/fonts/korean.ttf"), "the gone file is not offered again");
   } finally {
     server.kill("SIGKILL");
   }
