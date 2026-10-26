@@ -83,6 +83,7 @@ export function leanDevices(list) {
   return {
     waiting: list.waiting,
     downloads: list.downloads,
+    sends: list.sends,
     approved: list.approved.map(({ code, label, admin, addedBy, lastSeenAt }) => ({ code, label, admin, addedBy, lastSeenAt })),
   };
 }

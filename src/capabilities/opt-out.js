@@ -23,6 +23,9 @@ export const OPT_OUT_REASONS = {
 export const OPT_OUT = {
   // The console client's strings for a language it shows (meta/client-strings.js).
   "GET /api/client/strings": "console-ui",
+  // The console's own queue of downloads sent to it: read and acked by the paired console only.
+  "GET /api/device/sends/": "console-ui",
+  "POST /api/device/sends/ack": "console-ui",
   // Canonical client protocol: same handlers and token restrictions as the transitional aliases.
   "GET /api/library/banner/:titleId": "token-blocked",
   "GET /api/library/icon/:titleId": "token-blocked",
