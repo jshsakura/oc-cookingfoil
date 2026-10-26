@@ -24,3 +24,19 @@ export function findingOf(rel) {
 
 /** The notice-worthy verdict of the library file at `rel`, or null. */
 export const integrityOf = (rel) => findingOf(rel)?.verdict ?? null;
+
+let signedLookup = () => null;
+
+/** Sets where signature answers come from: (rel) → { nca?, ticket? } | null. */
+export function provideSigned(fn) {
+  signedLookup = typeof fn === "function" ? fn : () => null;
+}
+
+/** Whether the file at `rel` is signed: { nca?, ticket? } with only the known ones, or null when nothing is known. */
+export function signedOf(rel) {
+  try {
+    return signedLookup(rel) ?? null;
+  } catch {
+    return null;
+  }
+}
