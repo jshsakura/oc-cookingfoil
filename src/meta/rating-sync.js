@@ -29,6 +29,7 @@ const STORE_VERSION = 1;
 const MATCH_MIN = 0.9;
 const HIT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MISS_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const FAIL_WAIT_MS = 24 * 60 * 60 * 1000;
 const BATCH = 40;
 const LOOP_MS = 10 * 60 * 1000;
 const FIRST_RUN_MS = 2 * 60 * 1000;
@@ -172,7 +173,14 @@ export async function igdbRating(names, year, { fetchImpl = fetch } = {}) {
   };
 }
 
-const due = (entry, now) => !entry || now - entry.at >= (entry.miss ? MISS_TTL_MS : HIT_TTL_MS);
+// A failed lookup waits a day, then a week, then the two-week miss wait.
+const failWait = (fails) => Math.min(FAIL_WAIT_MS * 7 ** (Math.max(fails, 1) - 1), MISS_TTL_MS);
+
+const due = (entry, now) => {
+  if (!entry) return true;
+  if (entry.failAt && now - entry.failAt < failWait(entry.fails)) return false;
+  return !entry.at || now - entry.at >= (entry.miss ? MISS_TTL_MS : HIT_TTL_MS);
+};
 
 /** Titles that need a lookup now: never looked up first, then the oldest. Pure. */
 export function dueTitles(wantedMap, store, now = Date.now(), { providers = ["steam"], limit = BATCH } = {}) {
@@ -256,11 +264,11 @@ export function providers() {
   return igdb.configured() ? ["steam", "igdb"] : ["steam"];
 }
 
-/** One paced batch. A network error leaves the title due so the next batch retries it. */
+/** One paced batch. A failed lookup keeps any score it had and waits longer before each retry. */
 export async function runBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PAUSE_MS } = {}) {
   if (running) return running;
   running = (async () => {
-    let changed = 0;
+    let changed = 0, failed = 0;
     const due = dueTitles(wanted, titles, now(), { providers: providers() });
     const job = due.length ? activity.begin("ratings", { title: activityText("act.ratings"), total: due.length }) : null;
     for (const [i, { tid, providers: todo }] of due.entries()) {
@@ -274,13 +282,16 @@ export async function runBatch({ fetchImpl = fetch, now = Date.now, pauseMs = PA
           titles[tid] = { ...titles[tid], [p]: { ...result, at: now() } };
           if (before !== JSON.stringify({ ...titles[tid][p], at: 0 })) changed++;
         } catch (err) {
+          const prev = titles[tid]?.[p] ?? {};
+          titles[tid] = { ...titles[tid], [p]: { ...prev, failAt: now(), fails: (prev.fails ?? 0) + 1 } };
+          failed++;
           debug.error("rating sync: %s %s: %s", p, tid, err.message);
         }
         if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
       }
     }
     try {
-      if (changed) save();
+      if (changed || failed) save();
     } catch (err) {
       job?.fail(err);
       throw err;
