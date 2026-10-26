@@ -4,6 +4,7 @@
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { renderMarkdown } from "../../helpers/mini-markdown.js";
+import { TOP_WORDS, TOP_I18N_SCRIPT, TOP_LANG_HTML, TOP_LANG_CSS, top } from "./top-i18n.js";
 
 const DOC_CSS = `
 body{margin:0;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans KR',system-ui,sans-serif;line-height:1.7}
@@ -17,12 +18,15 @@ pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;padd
 .table{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
 table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 th{color:var(--muted);font-size:12px;font-weight:700}tr:last-child td{border-bottom:0}
+${TOP_LANG_CSS}
+.guide-lang{position:fixed;top:16px;right:16px}
 `;
 
 export function guidePage(markdown) {
   return `<!doctype html><html lang="ko" class="adm"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CookingFoil 운영 안내</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${DOC_CSS}</style></head><body><main>
-<a class="back" href="/admin">← 관리 페이지</a>
+<title data-top="gd.docTitle">${TOP_WORDS.ko["gd.docTitle"]}</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${DOC_CSS}</style></head><body><div class="guide-lang">${TOP_LANG_HTML}</div><main>
+<a class="back" href="/admin" data-top="gd.back">${top("gd.back")}</a>
 ${renderMarkdown(markdown)}
-</main></body></html>`;
+</main>
+<script>${TOP_I18N_SCRIPT}</script></body></html>`;
 }
