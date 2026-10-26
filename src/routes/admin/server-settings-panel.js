@@ -84,6 +84,7 @@ const SS_GROUPS=[
   ]],
   ['lookups',[
     ['ratingSync','bool',()=>topText('ss.f.ratingSync'),()=>topText('ss.f.ratingSyncD')],
+    ['fillMissingArt','bool',()=>topText('ss.f.fillMissingArt'),()=>topText('ss.f.fillMissingArtD')],
     ['retroMeta','bool',()=>topText('ss.f.retroMeta'),()=>topText('ss.f.retroMetaD')],
     ['retroAutoCores','bool',()=>topText('ss.autoCores'),()=>topText('ss.autoCoresD')],
     ['retroAutoArt','bool',()=>topText('ss.autoArt'),()=>topText('ss.autoArtD')],
@@ -124,6 +125,7 @@ function ssRender(d){ssLast=d;const list=$('ss-list');list.replaceChildren();con
     for(const [key,kind,label,desc,ph] of rows){const s=d.settings[key];if(!s)continue;const r=el('div',null,'ss-row');r.dataset.key=key;
       const t=el('div');t.append(el('b',ssText(label)),el('p',ssText(desc)));const c=el('div',null,'ss-ctl');c.append(ssControl(key,kind,s,ph));
       if(key==='publicDirectBaseUrl'&&d.directDownload?.configured)t.append(el('p',ssDirectNote(d.directDownload),'muted'));
+      if(key==='fillMissingArt'&&d.artFill)t.append(el('p',topFill('ss.artFillCounts',{t:num(d.artFill.titledb),p:num(d.artFill.plugin),m:num(d.artFill.missing)}),'muted'));
       const src=el('div',null,'ss-src');
       if(s.source==='saved'){src.append(topFill('ss.srcSaved',{v:ssShow(key,s.envValue)}));
         src.append(tbtn('restore','ss.srcRevertBtn',()=>ssSave({[key]:null},topText('ss.srcReverted'))));}

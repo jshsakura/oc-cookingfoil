@@ -306,3 +306,20 @@ test("the filler keeps its records on disk across a restart", async () => {
   assert.ok(fill.recordOf(DB_ONLY)?.got?.icon === "titledb");
   assert.equal(fill.kept(DB_ONLY, "icon"), true);
 });
+
+test("the setting is on by default, saved live, and worded in all twelve admin languages", async () => {
+  assert.ok(settings.SETTINGS.fillMissingArt.check(true) && settings.SETTINGS.fillMissingArt.check(false) && !settings.SETTINGS.fillMissingArt.check("yes"));
+  assert.equal(settings.describe().fillMissingArt.value, true, "on until the admin turns it off");
+  const { TOP_WORDS } = await import("../../src/routes/admin/top-i18n.js");
+  const langs = Object.keys(TOP_WORDS);
+  assert.equal(langs.length, 12);
+  for (const lang of langs) {
+    for (const key of ["ss.f.fillMissingArt", "ss.f.fillMissingArtD", "ss.on.fillMissingArt", "ss.off.fillMissingArt", "ss.artFillCounts"]) {
+      assert.ok(TOP_WORDS[lang][key], `${lang} ${key}`);
+    }
+    const counts = TOP_WORDS[lang]["ss.artFillCounts"];
+    for (const slot of ["{t}", "{p}", "{m}"]) assert.ok(counts.includes(slot), `${lang} counts keep ${slot}`);
+  }
+  const { SERVER_SETTINGS_SCRIPT } = await import("../../src/routes/admin/server-settings-panel.js");
+  assert.match(SERVER_SETTINGS_SCRIPT, /'fillMissingArt','bool'/);
+});
