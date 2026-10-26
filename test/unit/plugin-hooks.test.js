@@ -289,9 +289,13 @@ test("the only hooks the server calls on a request path are the ones listed here
   const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (f.endsWith(".js")) files.push(f); } };
   walk(dir);
   const found = new Set();
-  for (const f of files) for (const m of fs.readFileSync(f, "utf8").matchAll(/callHook\(\s*[^,]+,\s*"(\w+)"/g)) found.add(m[1]);
-  // metadata, art and tasks run in the background and are cached; they are never called while a request waits.
+  const background = new Set();
+  for (const f of files) {
+    for (const m of fs.readFileSync(f, "utf8").matchAll(/callHook\(\s*[^,]+,\s*"(\w+)"/g)) (f.endsWith(`plugins${path.sep}agent-runner.js`) ? background : found).add(m[1]);
+  }
   assert.deepEqual([...found].sort(), ["beforeDownload", "plan", "route", "shopInfo", "variants"]);
+  // metadata runs from the runner's queue (plugins/agent-runner.js) and is cached; no other file calls it, so no request waits for it.
+  assert.deepEqual([...background], ["metadata"]);
 });
 
 test("a header value the socket would refuse is a failed call, not a crash: 409 for a download, 502 for a route, and the server stays up", async () => {

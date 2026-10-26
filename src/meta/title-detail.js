@@ -19,7 +19,8 @@ import * as titledbVersions from "./titledb-versions.js";
 import * as userPatches from "./user-patches.js";
 import * as gameDescriptions from "./game-descriptions.js";
 import * as itemVerified from "./item-verified.js";
-import { valueOf, ADMIN, TITLEDB, LOCAL } from "./field-merge.js";
+import { mergeField, valueOf, ADMIN, TITLEDB, LOCAL } from "./field-merge.js";
+import { agentOrder, agentValues, creditOf } from "../plugins/agent-values.js";
 import * as shopCache from "./shop-cache.js";
 import { titleKeyNeed } from "./key-needs.js";
 import { findingOf, signedOf } from "./file-integrity.js";
@@ -108,6 +109,14 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     const l = asked ? fallbacks(asked).find((x) => source(base, x) || known(base, x)) : null;
     return l && source(base, l) ? l : null;
   };
+  // titledb's text per language when it has them (a reader who asked gets none in another language); otherwise the one text it
+  // or the game file has. A metadata plugin's takes part in the field's order either way.
+  const perLanguage = Boolean(asked && descriptions && Object.keys(descriptions).length);
+  const description = mergeField("description", {
+    [TITLEDB]: perLanguage ? (descriptionLang && descriptions[descriptionLang]) || null : fromDb?.description,
+    [LOCAL]: perLanguage ? null : extracted?.description,
+    ...agentValues("description", base, { lang }),
+  }, { order: agentOrder("description", [TITLEDB, LOCAL], base) });
   const categoryLabels = categories?.map((key) => genreLabel(key, lang));
   const score = scores.ratingOf(base, { siblings: titledbStore.artSiblings(base) });
   return {
@@ -119,14 +128,15 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
       names: () => (nameLang ? names[nameLang] : null),
       [TITLEDB]: fromDb?.name,
       [LOCAL]: extracted?.name,
-    }, { order: [ADMIN, "names", TITLEDB, LOCAL] }),
-    publisher: valueOf("publisher", { [TITLEDB]: fromDb?.publisher, [LOCAL]: extracted?.publisher }),
+      ...agentValues("name", base, { lang }),
+    }, { order: agentOrder("name", [ADMIN, "names", TITLEDB, LOCAL], base) }),
+    publisher: valueOf("publisher", { [TITLEDB]: fromDb?.publisher, [LOCAL]: extracted?.publisher, ...agentValues("publisher", base, { lang }) }, { order: agentOrder("publisher", [TITLEDB, LOCAL], base) }),
     // What the admin wrote wins over every source; descriptionCustom says they did.
     // titledb's text per language when it has them; one kept without languages (a game file's) is shown as it is.
-    description: ownDescription ?? (asked && descriptions && Object.keys(descriptions).length
-      ? (descriptionLang && descriptions[descriptionLang]) || null
-      : valueOf("description", { [TITLEDB]: fromDb?.description, [LOCAL]: extracted?.description }, { order: [TITLEDB, LOCAL] })),
+    description: ownDescription ?? description.value,
     descriptionCustom: Boolean(ownDescription),
+    // Who wrote a description a metadata plugin supplied, so the detail view can say so under it.
+    ...(ownDescription ? {} : { descriptionCredit: creditOf(description.source, base) ?? undefined }),
     // Extra information only the admin writes (what to install with it, space,
     // version); kept apart from the description, which titledb may refresh.
     notes,
@@ -139,13 +149,13 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     category: categoryLabels ? categoryLabels.join(", ") : null,
     categories: categories ?? null,
     categoryLabels: categoryLabels ?? null,
-    releaseDate: valueOf("releaseDate", { [TITLEDB]: fromDb?.releaseDate, [LOCAL]: extracted?.releaseDate }),
+    releaseDate: valueOf("releaseDate", { [TITLEDB]: fromDb?.releaseDate, [LOCAL]: extracted?.releaseDate, ...agentValues("releaseDate", base, { lang }) }, { order: agentOrder("releaseDate", [TITLEDB, LOCAL], base) }),
     region: fromDb?.region ?? null,
     rating: fromDb?.rating ?? null,
     // Why the age rating is what it is, e.g. ["약물"]; a client can show them beside it.
     ratingContent: normalizeCategories(fromDb?.ratingContent, MAX_RATING_REASONS) ?? null,
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
-    size: valueOf("size", { [TITLEDB]: fromDb?.size, [LOCAL]: extracted?.size }),
+    size: valueOf("size", { [TITLEDB]: fromDb?.size, [LOCAL]: extracted?.size, ...agentValues("size", base, { lang }) }, { order: agentOrder("size", [TITLEDB, LOCAL], base) }),
     // With ?lang=, the icon and banner of that language's release when it has its own art.
     // A banner is drawn from the icon, so a game with an icon has one.
     iconUrl: art(`/api/library/icon/${base}`, artIn(iconSource, iconKnown)),

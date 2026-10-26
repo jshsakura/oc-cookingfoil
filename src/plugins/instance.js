@@ -17,6 +17,11 @@ import { createEvents } from "./events.js";
 import { connectPluginEvents } from "./emit.js";
 import { pluginRoutes } from "./routes.js";
 import { signingKey } from "../security/download-token.js";
+import { createAgentCache } from "./agent-cache.js";
+import { createAgentOrder } from "./agent-order.js";
+import { createAgentRunner } from "./agent-runner.js";
+import path from "node:path";
+import * as shopCache from "../meta/shop-cache.js";
 
 let shared = null;
 
@@ -57,6 +62,20 @@ export const pluginRouter = () => pluginRoutes(pluginRegistry(), { log: (m) => d
 let cacheShared = null;
 /** The bounded cache folders of the plugins (plugins/cache.js). */
 export const pluginCache = () => (cacheShared ??= createPluginCache({ dataDir: env.dataDir, log: (m) => debug.log("plugins: %s", m) }));
+
+let agentsShared = null;
+/** What the metadata plugins said (plugins/agent-cache.js), the admin's order for each field, and the background runner that asks. */
+export function agentParts() {
+  if (!agentsShared) {
+    const registry = pluginRegistry();
+    const store = createAgentCache({ cacheDirOf: (id) => pluginCache().dirOf(id) });
+    const order = createAgentOrder({ file: path.join(env.dataDir, "agent-order.json") });
+    // A new answer changes names on screen: drop the lists the shop kept.
+    const runner = createAgentRunner({ registry, store, log: (m) => debug.log("plugins: %s", m), onChange: () => shopCache.invalidate() });
+    agentsShared = { registry, store, order, runner };
+  }
+  return agentsShared;
+}
 
 let installerShared = null;
 /** Uploads of plugin zips from the admin page (plugins/installer.js) on the shared registry. */

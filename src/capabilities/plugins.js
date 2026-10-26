@@ -7,6 +7,10 @@ import { defineCapability } from "./define.js";
 import { arr, bool, int, nullable, num, obj, str } from "./shape.js";
 import { romsDirPath } from "../helpers/envs.js";
 
+const fail = (status, message) => Object.assign(new Error(message), { status });
+const agents = () => import("../plugins/agent-admin.js");
+const FIELDS = ["name", "publisher", "description", "releaseDate", "size"];
+
 const registry = async () => (await import("../plugins/instance.js")).pluginRegistry();
 
 export const pluginsCapabilities = [
@@ -70,6 +74,75 @@ export const pluginsCapabilities = [
       const { parseLang } = await import("../meta/langs.js");
       const facts = parseConsoleHeader(Object.entries({ firmware: input.firmware, region: input.region }).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join("; "));
       return { variants: await variantsOf({ root: romsDirPath, variants: pluginVariants }, (input.files ?? []).slice(0, 200), { lang: parseLang(input.lang ?? "") ?? "en", facts, clientVersion: null }) };
+    },
+  }),
+  defineCapability({
+    id: "agent_list",
+    area: "plugins",
+    title: "Where field values come from",
+    description: "For name, publisher, description, release date and size: the order the sources are read in, the usual order, and what each metadata plugin has asked, answered and kept.",
+    input: { type: "object", properties: {} },
+    output: obj({
+      fields: arr(str(), "the fields that can take a value from a metadata plugin"),
+      order: { type: "object", description: "field to the order the admin set: built-in sources and agent:<plugin id>; fields not listed read in the usual order" },
+      defaults: { type: "object", description: "field to its usual order with the active metadata plugins placed in it; the admin's own text is always first and not listed" },
+      sources: arr(str(), "agent:<plugin id> of each metadata plugin that is on"),
+      plugins: arr(obj({ id: str(), state: str(), asked: int(), answered: int(), empty: int("titles it knew nothing of"), failed: int(), waiting: int(), cached: int("titles with a kept answer"), lastAt: nullable(num("epoch ms")) })),
+    }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/plugins/agents" },
+    handler: async () => (await agents()).agentState(),
+  }),
+  defineCapability({
+    id: "agent_order",
+    area: "plugins",
+    title: "Set where field values come from",
+    description: "Sets the order sources are read in for one or more fields; null puts a field back to the usual order. Saved at once, no restart. The admin's own text always stays first.",
+    input: {
+      type: "object",
+      properties: { order: { type: "object", description: "Field name to a list of sources (built-in or agent:<plugin id>), or null for the usual order; see agent_list" } },
+      required: ["order"],
+    },
+    output: obj({ order: { type: "object", description: "the order saved for each field now" } }),
+    preview: async (_ctx, input) => {
+      const { agentState } = await agents();
+      const now = agentState();
+      const changes = Object.entries(input.order ?? {}).filter(([f]) => FIELDS.includes(f)).map(([field, to]) => ({ field, from: now.order[field] ?? null, to }));
+      return { changes };
+    },
+    previewOutput: obj({ changes: arr(obj({ field: str(), from: nullable(arr(str())), to: nullable(arr(str())) })) }),
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/plugins/agents/order" },
+    handler: async (_ctx, input) => {
+      const { setAgentOrder, OrderError } = await agents();
+      try {
+        return { order: setAgentOrder(input.order) };
+      } catch (err) {
+        if (err instanceof OrderError) throw fail(400, `The order is not valid (${err.code}): fields are ${FIELDS.join(", ")}, each a list of up to 16 different sources`);
+        throw err;
+      }
+    },
+  }),
+  defineCapability({
+    id: "agent_clear",
+    area: "plugins",
+    title: "Delete a metadata plugin's values",
+    description: "Deletes what one metadata plugin said about titles. The plugin is asked again as titles come up; its own cache and the other plugins are not touched.",
+    input: { type: "object", properties: { id: { type: "string", description: "The plugin's id as plugin_list shows it, for example retro-db" } }, required: ["id"] },
+    output: obj({ cleared: bool() }),
+    preview: async (_ctx, input) => {
+      const { agentState } = await agents();
+      const p = agentState().plugins.find((x) => x.id === input.id);
+      if (!p) throw fail(404, "No metadata plugin with that id");
+      return { changes: `Deletes the ${p.cached} kept answers of ${input.id}. It is asked again as titles come up.` };
+    },
+    previewOutput: obj({ changes: str() }),
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/plugins/agents/clear" },
+    handler: async (_ctx, input) => {
+      const { clearAgentValues } = await agents();
+      if (!(await clearAgentValues(String(input.id)))) throw fail(404, "No metadata plugin with that id");
+      return { cleared: true };
     },
   }),
 ];

@@ -19,6 +19,11 @@ export const PLUGINS_HTML = `<section id="tab-settings">
     <input type="file" id="pl-install-file" accept=".zip,application/zip" hidden>
   </div>
   <div class="pl-list" id="pl-list"></div>
+  <div class="pl-agents" id="pl-agents" hidden>
+    <h3>${top("pl.agH")}</h3>
+    <p class="muted">${top("pl.agLead")}</p>
+    <div class="pl-list" id="pl-agents-list"></div>
+  </div>
   <h3 id="pl-trashed-h" hidden>${top("pl.trashedH")}</h3>
   <div class="pl-list" id="pl-trashed"></div>
 </section>`;
@@ -42,13 +47,41 @@ export const PLUGINS_CSS = `
 .pl-sw[aria-checked="true"] .switch::after{transform:translateX(12px)}
 .pl-sw:disabled{opacity:.6;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){.pl-sw .switch,.pl-sw .switch::after{transition:none}}
+.pl-agents{margin:6px 0 14px}
+.pl-ag{display:grid;gap:6px}
+.pl-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pl-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:100px;padding:2px 4px 2px 10px;font-size:13px}
+.pl-chip button{min-width:28px;height:26px;padding:0 6px}
 .pl-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:640px){.pl-row{grid-template-columns:1fr}.pl-act{justify-content:flex-start}}
 `;
 
 export const PLUGINS_SCRIPT = /* js */ `
 const plT=(k,v)=>{let s=topText('pl.'+k);if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
-let plData=null;
+let plData=null;let plAg=null;
+const plSrc=(s)=>s.startsWith('agent:')?s.slice(6):plT('agS.'+s);
+async function plSaveOrder(field,list){
+  try{plAg=await api('/admin/api/plugins/agents/order',{method:'POST',body:{[field]:list}});toast(plT('tAgOrder'));}
+  catch(err){toast(err.message);}plAgRender();}
+function plAgRow(f){
+  const list=(plAg.order[f]||plAg.defaults[f]).filter((x)=>x!=='admin');
+  const row=el('div',null,'pl-row pl-ag');row.append(el('b',plT('agF.'+f)));
+  const chips=el('div',null,'pl-chips');
+  list.forEach((src,i)=>{
+    const c=el('span',null,'pl-chip');c.append(el('span',plSrc(src)));
+    const up=btn('\u2191',()=>{const n=[...list];[n[i-1],n[i]]=[n[i],n[i-1]];plSaveOrder(f,n);});
+    const dn=btn('\u2193',()=>{const n=[...list];[n[i+1],n[i]]=[n[i],n[i+1]];plSaveOrder(f,n);});
+    up.title=plT('agUp');up.setAttribute('aria-label',plT('agUp'));dn.title=plT('agDown');dn.setAttribute('aria-label',plT('agDown'));
+    up.disabled=i===0;dn.disabled=i===list.length-1;c.append(up,dn);chips.append(c);});
+  row.append(chips);
+  if(plAg.order[f])row.append(btn(plT('agUsual'),()=>plSaveOrder(f,null)));
+  return row;}
+function plAgRender(){
+  const box=$('pl-agents');if(!plAg||!plAg.plugins.length){box.hidden=true;return;}
+  box.hidden=false;$('pl-agents-list').replaceChildren(...plAg.fields.map(plAgRow));}
+async function plClearValues(p){if(!await ask(plT('agAsk',{name:plName(p)})))return;
+  try{await api('/admin/api/plugins/agents/clear',{method:'POST',body:{id:p.id}});toast(plT('tAgClear'));}
+  catch(err){toast(err.message);}loadPlugins();}
 const plWhen=(t)=>t?new Date(t).toLocaleString(adminLang==='ko'?'ko-KR':adminLang):'';
 const PL_STATE={on:'s.on',off:'s.off',cooling:'s.cooling',failed:'s.failed','auto-disabled':'s.auto','crash-disabled':'s.crash',broken:'s.broken',incompatible:'s.incompat',missing:'s.missing',starting:'s.starting'};
 const PL_REASON={'start-failed':'r.start',crash:'r.crash','crash-during-start':'r.crash','unhandled-rejection':'r.rej'};
@@ -105,12 +138,15 @@ function plRow(p){
   if(p.disabledReason&&PL_REASON[p.disabledReason]&&!p.enabled)main.append(el('span',plT(PL_REASON[p.disabledReason]),'err'));
   if(p.lastError&&p.state!=='on'&&p.state!=='off')main.append(el('span',plT('lastErr',{when:plWhen(p.lastErrorAt),msg:p.lastError}),'err'));
   if(p.events&&(p.events.handled||p.events.dropped||p.events.failed||p.events.queued))main.append(el('span',plT('evStats',{handled:p.events.handled,dropped:p.events.dropped,failed:p.events.failed})));
+  const ag=plAg&&plAg.plugins.find((x)=>x.id===p.id);
+  if(ag)main.append(el('span',plT('agStats',{asked:ag.asked,answered:ag.answered,empty:ag.empty,failed:ag.failed,waiting:ag.waiting})));
   if(p.state==='cooling')main.append(el('span',plT('retry',{when:plWhen(p.retryAt)})));
   const act=el('div',null,'pl-act');
   const usable=!['broken','incompatible','missing'].includes(p.state);
   if(p.restartNeeded)main.append(el('span',plT('restartNeeded'),'err'));
   act.append(plToggle(p,name,usable&&!p.restartNeeded&&p.state!=='crash-disabled'));
   if(p.cache&&p.cache.bytes>0)act.append(btn(plT('cacheClear'),()=>plClearCache(p)));
+  if(ag&&ag.cached>0)act.append(btn(plT('agClear'),()=>plClearValues(p)));
   if(p.state!=='missing'){const dl=el('a',plT('download'),'btn');dl.href='/admin/api/plugins/'+encodeURIComponent(p.id)+'/download';dl.setAttribute('download','');act.append(dl);}
   if(p.state!=='missing')act.append(btn(plT('del'),()=>plDelete(p,name),'danger'));
   r.append(main,act);return r;}
@@ -125,7 +161,7 @@ function plRender(){if(!plData)return;
   $('pl-list').replaceChildren(...(plData.plugins.length?plData.plugins.map(plRow):[el('p',plT('none'),'muted')]));
   $('pl-trashed-h').hidden=!plData.trashed.length;
   $('pl-trashed').replaceChildren(...plData.trashed.map(plTrashedRow));}
-async function loadPlugins(){try{plData=await api('/admin/api/plugins');plRender();}
+async function loadPlugins(){try{plData=await api('/admin/api/plugins');plAg=await api('/admin/api/plugins/agents').catch(()=>null);plAgRender();plRender();}
   catch(err){if(err.message!=='session')toast(plT('loadFail',{err:err.message}));}}
 async function plSwitch(p,on){
   // Switching on runs the plugin's code in this server: show what it asks for and ask for the password again.

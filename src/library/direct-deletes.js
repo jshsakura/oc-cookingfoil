@@ -43,6 +43,7 @@ export const DIRECT_DELETES = Object.freeze({
   "src/retro/pack-fill.js": { count: 11, why: "files this run placed and verified, and its work folders" },
   "src/retro/rom-patch.js": { count: 4, why: "work files, and the backup once it is back over the ROM" },
   "src/retro/square-art.js": { count: 3, why: "derived square art and temporary files" },
+  "src/plugins/agent-cache.js": { count: 1, why: "what a metadata plugin said about titles, when the admin deletes that plugin's values; the plugin is asked again" },
   "src/plugins/cache.js": { count: 2, why: "the oldest files of a plugin's own cache folder when it is over its cap, and the folder when the admin empties it" },
   "src/plugins/registry.js": { count: 4, why: "a plugin's cache folder when the operator asks to drop it, the source of a cross-disk move after the copy, the note of a restored trash entry, and the install note of a plugin whose data was dropped" },
   "src/plugins/installer.js": { count: 2, why: "an upload waiting to be installed, when it is replaced, expires, or the server starts again" },

@@ -12,6 +12,9 @@
  *   POST /admin/api/plugins/:id/enabled      { on, confirmKeys?, password? }   switching ON asks for the admin's password again;
  *                                            needsKeys plugins want confirmKeys: true
  *   POST /admin/api/plugins/:id/cache/clear  empties the plugin's cache folder (each plugin's cache is capped; see plugins/cache.js)
+ *   GET  /admin/api/plugins/agents           { fields, order, defaults, plugins, sources }: where each field's value is read from first
+ *   POST /admin/api/plugins/agents/order     { <field>: [sources] | null }  saves the order at once; null goes back to the usual
+ *   POST /admin/api/plugins/agents/clear     { id }  deletes what that plugin said about titles (it is asked again)
  *   POST /admin/api/plugins/:id/trash        { dropData? }  moves the folder to the plugins' own trash;
  *                                            dropData also deletes its cache and stored settings
  * Errors answer { error } in the page's language with the registry's status (404, 409, 400).
@@ -21,6 +24,8 @@ import debug from "../../debug.js";
 import { PluginError } from "../../plugins/registry.js";
 import { pluginCache, pluginInstaller, pluginRegistry } from "../../plugins/instance.js";
 import { installAllowed } from "../../plugins/installer.js";
+import { agentState, clearAgentValues, ID_RE as AGENT_ID_RE, OrderError, setAgentOrder } from "../../plugins/agent-admin.js";
+import { agentParts } from "../../plugins/instance.js";
 import { UNPACK_LIMITS } from "../../plugins/unpack.js";
 import { PackError, packPlugin } from "../../plugins/pack.js";
 import path from "node:path";
@@ -121,10 +126,29 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
     res.json({ ok: true, plugin });
   }));
 
+  router.get("/api/plugins/agents", handle(async (req, res) => res.json(agentState())));
+
+  router.post("/api/plugins/agents/order", handle(async (req, res) => {
+    try {
+      setAgentOrder(req.body);
+    } catch (err) {
+      if (err instanceof OrderError) return res.status(400).json({ error: word(requestLang(req), "pl.e.agentOrder"), code: `agent-order-${err.code}` });
+      throw err;
+    }
+    res.json({ ok: true, ...agentState() });
+  }));
+
+  router.post("/api/plugins/agents/clear", handle(async (req, res) => {
+    const id = req.body?.id;
+    if (typeof id !== "string" || !AGENT_ID_RE.test(id) || !(await clearAgentValues(id))) return bad(res, req);
+    res.json({ ok: true, ...agentState() });
+  }));
+
   router.post("/api/plugins/:id/cache/clear", handle(async (req, res) => {
     const { id } = req.params;
     if (!ID_RE.test(id)) return bad(res, req);
     await cache.clear(id);
+    await agentParts().store.forget(id);
     res.json({ ok: true, ...(await snapshot(registry, req, cache, events)) });
   }));
 
@@ -132,6 +156,7 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
     const { id } = req.params;
     if (!ID_RE.test(id)) return bad(res, req);
     const dropData = req.body?.dropData === true;
+    if (dropData) await agentParts().store.forget(id);
     res.json({ ok: true, ...(await registry.trash(id, { dropCache: dropData, dropSettings: dropData })) });
   }));
 }
