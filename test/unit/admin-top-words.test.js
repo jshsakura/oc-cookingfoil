@@ -26,7 +26,7 @@ test("every section keeps its id and every job keeps its page address", () => {
   // The page each of those sections now lives behind (admin-pages.js). The
   // retro and homebrew groups carry their tasks as links, so those two match
   // by their task-address prefix.
-  for (const path of ["/admin", "/admin/games", "/admin/upload", "/admin/convert", "/admin/inbox", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
+  for (const path of ["/admin", "/admin/games", "/admin/upload", "/admin/convert", "/admin/inbox", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/settings/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
     assert.match(html, new RegExp(`href="${path.replace(/\//g, "\\/")}"`), `sidebar link for ${path}`);
   }
   assert.match(html, /href="\/admin\/retro\?view=/, "sidebar link for /admin/retro");

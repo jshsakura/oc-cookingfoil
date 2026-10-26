@@ -6,6 +6,7 @@ import path from "node:path";
 import { createVerifier, decide } from "../../src/meta/file-verify.js";
 import { hashRange, hashRangeHere } from "../../src/meta/hash-range.js";
 import { buildPfs0, buildXci, buildCnmt, fakeNca } from "../support/switch-files.js";
+import { chain, ticket } from "../support/ticket-files.js";
 
 // The file check against fake containers and a stub nstool: header slices whose
 // marker reads "MOD" fail their signature, and each meta NCA reads as the cnmt the test set.
@@ -46,7 +47,7 @@ function setup({ cnmt = null, tools = true } = {}) {
   return { verifier, calls, hashed };
 }
 
-const noId = ({ identity: _i, ...r }) => r;
+const noId = ({ identity: _i, signed: _s, ...r }) => r;
 
 let n = 0;
 function write(ext, buf) {
@@ -239,4 +240,40 @@ test("the check says what the file is, every title a cartridge carries included"
   assert.equal(r.identity.titleId, "0100000000010000");
   assert.equal(r.identity.kind, "base");
   assert.deepEqual(r.identity.titleIds, ["0100000000010000", "0100000000010800"]);
+});
+
+// ── signed ───────────────────────────────────────────────────────────────
+
+const RIGHTS = "0100000000010000" + "0".repeat(15) + "1";
+
+test("a package with a genuine ticket and passing headers is signed on both counts", async () => {
+  const { verifier } = setup({ cnmt: buildCnmt(records()) });
+  const pkg = [...files(), { name: `${RIGHTS}.tik`, data: ticket() }, { name: `${RIGHTS}.cert`, data: chain().certFile }];
+  const r = await verifier.verify(write("nsp", buildPfs0(pkg)));
+  assert.deepEqual(r.signed, { nca: true, ticket: true });
+});
+
+test("a made-up ticket and a failed header signature are both unsigned", async () => {
+  const { verifier } = setup({ cnmt: buildCnmt(records()) });
+  const pkg = [...files(fakeNca("MOD", 0x800)), { name: `${RIGHTS}.tik`, data: ticket({ fake: true }) }, { name: `${RIGHTS}.cert`, data: chain().certFile }];
+  const r = await verifier.verify(write("nsp", buildPfs0(pkg)));
+  assert.equal(r.verdict, "modified");
+  assert.deepEqual(r.signed, { nca: false, ticket: false });
+});
+
+test("a ticket without its .cert is unsigned; no ticket, or no keys to read headers, is not known", async () => {
+  const { verifier } = setup({ cnmt: buildCnmt(records()) });
+  const noCert = await verifier.verify(write("nsp", buildPfs0([...files(), { name: `${RIGHTS}.tik`, data: ticket() }])));
+  assert.deepEqual(noCert.signed, { nca: true, ticket: false });
+  const noTicket = await verifier.verify(write("nsp", buildPfs0(files())));
+  assert.deepEqual(noTicket.signed, { nca: true, ticket: null });
+  const { verifier: keyless } = setup({ tools: false });
+  const unknown = await keyless.verify(write("nsp", buildPfs0([...files(), { name: `${RIGHTS}.tik`, data: ticket() }, { name: `${RIGHTS}.cert`, data: chain().certFile }])));
+  assert.deepEqual(unknown.signed, { nca: null, ticket: true });
+});
+
+test("an unreadable file knows nothing about its signatures", async () => {
+  const { verifier } = setup();
+  const r = await verifier.verify(write("nsp", Buffer.from("not a package")));
+  assert.deepEqual(r.signed, { nca: null, ticket: null });
 });

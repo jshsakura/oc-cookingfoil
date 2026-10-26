@@ -13,6 +13,7 @@
 import { icon } from "../../views/icons.js";
 import { TOP_WORDS } from "./top-i18n.js";
 import { box } from "./boxes.js";
+import { connectHowto } from "./connect-howto.js";
 import { enrollPerHour } from "../../helpers/envs.js";
 
 const ko = (key) => `${TOP_WORDS.ko[key]}`;
@@ -46,6 +47,7 @@ export function devicesHtml() { return /* html */ `<section id="tab-devices" hid
     <button type="button" role="tab" data-sub="approved" aria-selected="false">${icon("device")}<span data-top="pp.tabApproved">${ko("pp.tabApproved")}</span></button>
     <button type="button" role="tab" data-sub="clients" aria-selected="false">${icon("download")}<span data-top="pp.tabClients">${ko("pp.tabClients")}</span></button>
   </div>
+  ${box("connect-howto", `<span data-top="ov.howtoH">${ko("ov.howtoH")}</span>`, `<ul class="howto-list">${connectHowto().map((line) => `<li>${line}</li>`).join("")}</ul>`, { level: "h3", folded: true })}
   <div data-sub-panel="pending">
   <p class="muted" id="devhint"></p>
   <form class="add" id="approve-code">

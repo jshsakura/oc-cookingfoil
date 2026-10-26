@@ -1,7 +1,7 @@
 import { LIBRARY_HTML } from "./library-page.js";
 import { LIST_HELPERS_CSS } from "./list-helpers.js";
 import { HOMEBREW_HTML, HOMEBREW_DIALOG_HTML } from "./homebrew-page.js";
-import { OVERVIEW_HTML } from "./overview-page.js";
+import { OVERVIEW_CSS, OVERVIEW_HTML } from "./overview-page.js";
 import { UPLOAD_HTML } from "./upload-page.js";
 import { GOOGLE_SETTINGS_HTML, ADMIN_SECURITY_HTML } from "./security-pages.js";
 import { FEATURED_HTML } from "./featured-page.js";
@@ -126,7 +126,6 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .up-systems.cands button[data-system]:not(.cand){display:none}
 .up-plan{margin:0;font-size:13px;color:var(--muted)}.up-plan:empty{display:none}
 .up-sum{margin:14px 0 0;font-weight:700;font-size:14px}.up-sum[hidden]{display:none}
-.up-log .note .row-actions{margin-top:8px}
 .up-drop{display:grid;justify-items:center;gap:8px;text-align:center;padding:34px 20px;margin-bottom:14px;border:2px dashed var(--line);border-radius:20px;background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s}
 .up-drop:hover,.up-drop:focus-visible,.up-drop.over{border-color:var(--accent);background:rgba(var(--accent-rgb),.08);outline:none}
 .up-drop svg{width:40px;height:40px;fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -256,7 +255,6 @@ button.ip-more{background:none;border:0;padding:0;min-height:0;color:var(--accen
 .fp-detail{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px}
 .fp-detail label{flex:1 1 200px;min-width:0}
 h2.first{margin-top:0}
-.note .note-go{margin-top:10px}
 .hb-reco{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}
 .hb-reco label{display:flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;cursor:pointer}
 .hb-reco label.added{opacity:.6;cursor:default}
@@ -353,7 +351,7 @@ export function dashboardPage(page = ADMIN_PAGE_BY_PATH.get("/admin"), view = ""
   const current = { path: page.path, view, countId: page.count ?? "" };
   return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${OVERVIEW_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
 ${LIST_HELPERS_CSS}
 tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>

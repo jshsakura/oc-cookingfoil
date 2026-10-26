@@ -73,8 +73,12 @@ input:not([type=checkbox]):not([type=radio]):focus,select:focus{outline:none;bor
 :where(input[type=checkbox]):disabled{opacity:.45;cursor:default}
 button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .empty{color:var(--faint);padding:20px;text-align:center;background:var(--panel);border:1px dashed var(--line2);border-radius:16px;margin-bottom:20px}
+/* A note with a title reads like a box: the title on its own band, so it never sinks into the page. */
 .note{border-radius:16px;padding:16px 18px;margin-bottom:12px;border:1px solid var(--line);background:var(--panel)}
 .note.warn{border-color:rgba(var(--accent-rgb),.7);background:rgba(var(--accent-rgb),.12)}
-.note .t{font-weight:700;margin-bottom:4px}
-.note .d{color:var(--muted);font-size:13px}
+.note:has(>.t){padding:0;overflow:hidden;background:var(--panel)}
+.note>.t{font-weight:700;padding:13px 18px;background:var(--sunk);border-bottom:1px solid var(--line)}
+.note.warn>.t{background:rgba(var(--accent-rgb),.16);border-bottom-color:rgba(var(--accent-rgb),.45)}
+.note>.d{color:var(--muted);font-size:13px;padding:12px 18px 14px}
+.note:has(>.t)>:not(.t):not(.d){margin:0 18px 16px}
 `;

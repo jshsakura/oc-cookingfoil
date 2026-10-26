@@ -28,6 +28,8 @@ const SHOP_INFO_FRESH_MS = 30_000;
 const LIST_PARALLEL = 8;
 // Query keys the core keeps for plugins that came before the plugin system: "rewrap" is in every old client's cached shop info.
 export const LEGACY_KEYS = Object.freeze(["rewrap"]);
+const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
+const CARD_ICONS = ["warning", "info"];
 const OPTION_KEY_RE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
 
 /** { firmware?, region? } from the header's value; anything not of the right shape is left out. Pure. */
@@ -140,20 +142,69 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     return { variant: { tag: variantTag(owner.id, registry.versionOf(owner.id), query, used), patches, vary: registry.consoleWanted(owner.id).length > 0 } };
   }
 
-  /** One option as the client gets it: strings in the reader's language, the query to send back. */
+  /** A dialog as { title, body } of texts maps, or null when it is not one. */
+  const dialogOf = (v) => {
+    if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+    const title = textsOf(v.title, 200);
+    const body = textsOf(v.body, 2000);
+    return title && body ? { title, body } : null;
+  };
+
+  /** The optional look of an option. A wrong part is left out and the rest stays. */
+  const looksOf = (raw) => {
+    const color = (v) => (typeof v === "string" && HEX_COLOR_RE.test(v) ? v : null);
+    const out = {};
+    const b = raw.button;
+    if (b && typeof b === "object" && color(b.color) && color(b.text)) out.button = { color: b.color, stripe: color(b.stripe), text: b.text };
+    const c = raw.card;
+    if (c && typeof c === "object" && color(c.color) && color(c.text)) {
+      out.card = { color: c.color, text: c.text, ...(CARD_ICONS.includes(c.icon) ? { icon: c.icon } : {}) };
+    }
+    return out;
+  };
+
+  /**
+   * One option as the client gets it, texts in the reader's language:
+   *   { id, label, note?, confirm?, progress?, failed?, hashesChange?, button?, card?, query }    an option the client can send
+   *   { id, label, blocked: { title, body } }                                   one it shows greyed, with the reason in a window
+   * confirm is { title, body }, or one text (older plugins). progress is shown while the server prepares the file, failed
+   * when it could not; hashesChange (true) says the bytes differ from the original, so a hash check is not expected to match.
+   */
   function optionOf(plugin, raw, lang, keys) {
     if (!raw || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id) return null;
     const label = textsOf(raw.label);
     if (!label) return null;
+    const text = (map) => pick(map, lang) ?? map.en ?? Object.values(map)[0];
+    const dialog = (d) => ({ title: text(d.title), body: text(d.body) });
+    if (raw.blocked !== undefined) {
+      const blocked = dialogOf(raw.blocked);
+      const extras = ["query", "note", "confirm", "progress", "failed", "hashesChange"];
+      if (!blocked || extras.some((k) => raw[k] !== undefined)) return null;
+      return { id: raw.id, plugin, label: text(label), blocked: dialog(blocked), ...looksOf(raw) };
+    }
     const note = raw.note === undefined ? null : textsOf(raw.note);
-    const confirm = raw.confirm === undefined ? null : textsOf(raw.confirm);
-    if ((raw.note !== undefined && !note) || (raw.confirm !== undefined && !confirm)) return null;
+    const progress = raw.progress === undefined ? null : textsOf(raw.progress);
+    const failed = raw.failed === undefined ? null : textsOf(raw.failed);
+    const confirmText = raw.confirm === undefined ? null : textsOf(raw.confirm);
+    const confirmDialog = raw.confirm === undefined || confirmText ? null : dialogOf(raw.confirm);
+    if ((raw.note !== undefined && !note) || (raw.progress !== undefined && !progress) || (raw.failed !== undefined && !failed)) return null;
+    if (raw.confirm !== undefined && !confirmText && !confirmDialog) return null;
+    if (raw.hashesChange !== undefined && typeof raw.hashesChange !== "boolean") return null;
     const query = raw.query;
     if (!query || typeof query !== "object" || Array.isArray(query)) return null;
     const entries = Object.entries(query);
     if (!entries.length || !entries.every(([k, v]) => OPTION_KEY_RE.test(k) && keys.includes(k) && typeof v === "string" && v.length <= 64)) return null;
-    const text = (map) => pick(map, lang) ?? map.en ?? Object.values(map)[0];
-    return { id: raw.id, plugin, label: text(label), ...(note ? { note: text(note) } : {}), ...(confirm ? { confirm: text(confirm) } : {}), query: Object.fromEntries(entries) };
+    return {
+      id: raw.id, plugin, label: text(label),
+      ...(note ? { note: text(note) } : {}),
+      ...(confirmText ? { confirm: text(confirmText) } : {}),
+      ...(confirmDialog ? { confirm: dialog(confirmDialog) } : {}),
+      ...(progress ? { progress: text(progress) } : {}),
+      ...(failed ? { failed: text(failed) } : {}),
+      ...(raw.hashesChange === true ? { hashesChange: true } : {}),
+      ...looksOf(raw),
+      query: Object.fromEntries(entries),
+    };
   }
 
   /** files: [{ file, abs, st }] -> { [file]: option[] }. A plugin that is slow or broken adds nothing; the rest still answer. */
