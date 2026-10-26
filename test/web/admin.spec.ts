@@ -329,7 +329,7 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
   const row = page.locator('#hb-apps .src-card', { hasText: 'Hand App' });
   await expect(row.getByRole('button', { name: 'GitHub 연결' })).toBeVisible();
   // The apps open first; the GitHub form leads the followed repositories.
-  await expect(page.getByRole('tab', { name: '앱', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('aside.adm-side a.adm-task[href*="tab=apps"]')).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('[data-sub-panel="sources"]')).toBeHidden();
   await row.getByLabel('Hand App 켜기').locator('xpath=..').click();
   await expect(row).toHaveClass(/hb-off/);

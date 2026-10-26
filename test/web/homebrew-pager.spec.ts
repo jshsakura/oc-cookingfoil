@@ -35,7 +35,7 @@ test('homebrew app cards and recommended cards page and search', async ({ page }
   await expect(page.locator('#hb-apps .empty')).toHaveText('찾은 앱이 없습니다.');
 
   // Recommended: its own sub-tab, 12 per page, and a pick survives a page change.
-  await page.getByRole('tab', { name: '추천 홈브류' }).click();
+  await page.locator('aside.adm-side a.adm-task[href*="tab=reco"]').click();
   const cards = page.locator('#hb-reco label');
   await expect(cards).toHaveCount(12);
   await cards.nth(1).locator('input').check();

@@ -61,7 +61,7 @@ test('the admin top area follows the language picked on the web, and its account
   await pickLang(page, 'ja');
   await page.goto('/admin');
   await expect(games).toHaveText('ゲーム');
-  await expect(files).toHaveText('ゲームライブラリ');
+  await expect(files).toHaveText('ライブラリ');
   await expect(page.locator('aside.adm-side .adm-grp[data-grp="ops"] summary [data-top]')).toHaveText('記録と運用');
   await expect(page.locator('h1.brand')).toHaveAttribute('aria-label', 'CookingFoil サーバー管理');
   await expect(page).toHaveTitle('CookingFoil サーバー管理');
