@@ -133,14 +133,22 @@ const BUILD_REASONS = {
   "bad-version": "NACP 표시 버전이 x.y.z 형식이 아닙니다", downgrade: "지금 내보내는 버전보다 낮습니다", "too-large": "파일이 너무 큽니다",
 };
 
+/** The same warning's words, kept beside the reasons table for the data-literal exemption. */
+const BUILD_WARN = {
+  title: "새 클라이언트 파일을 내보내지 않았습니다",
+  lead: "data/client/cookingfoil.nro 가 검사를 통과하지 못했습니다: {code} ({msg}).",
+  kept: "기기에는 {v} 을 계속 내보냅니다.",
+  none: "아직 내보내는 버전이 없습니다.",
+};
+
 /** A rejected client build, as an overview warning. */
 function clientBuildWarnings() {
   const { published, rejected } = clientBuildStatus();
   if (!rejected) return [];
   return [{
     code: "client-build-rejected", severity: "warn",
-    title: "새 클라이언트 파일을 내보내지 않았습니다",
-    detail: `data/client/cookingfoil.nro 가 검사를 통과하지 못했습니다: ${BUILD_REASONS[rejected.code] ?? rejected.code} (${rejected.message}). ${published ? `기기에는 ${published.version} 을 계속 내보냅니다.` : "아직 내보내는 버전이 없습니다."}`,
+    title: BUILD_WARN.title,
+    detail: `${BUILD_WARN.lead.split("{code}").join(BUILD_REASONS[rejected.code] ?? rejected.code).split("{msg}").join(rejected.message)} ${published ? BUILD_WARN.kept.split("{v}").join(published.version) : BUILD_WARN.none}`,
   }];
 }
 
