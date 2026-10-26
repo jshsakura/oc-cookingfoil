@@ -60,7 +60,7 @@ CookingFoil 클라이언트는 GitHub 에 공개하지 않습니다. 서버의 `
 
 - **라이브러리 목록.** CookingFoil 클라이언트와 대시보드가 읽는 섹션 목록을 내려 줍니다. 위쪽 추천 줄은 관리 페이지에서 정합니다. 자동화 토큰을 가진 스크립트에는 평평한 파일 목록(`/games.json`)도 내려 줍니다.
 - **이름과 아이콘.** 제목, 소개, 그림은 [blawar/titledb](https://github.com/blawar/titledb) 에서 가져오고, titledb 에 없는 파일은 파일 자체에서 읽습니다(직접 가진 `prod.keys` 필요). 이름 언어 순서와 지역은 설정에서 고릅니다.
-- **그림과 평점.** 아이콘, 배너, 스크린샷은 공개 스토어 그림 서비스에서 받아 디스크에 캐시합니다. Steam 리뷰 점수, IGDB 점수는 선택입니다. 출처마다 끌 수 있고, 그림을 직접 올릴 수도 있습니다.
+- **그림과 평점.** 아이콘은 게임 파일에서 직접 읽고(직접 넣은 `prod.keys` 사용), 배너는 그 아이콘으로 그립니다. 스토어에서는 그림을 받지 않습니다. Steam 리뷰 점수, IGDB 점수는 선택입니다. 출처마다 끌 수 있고, 그림을 직접 올릴 수도 있습니다.
 - **GitHub 홈브류.** 저장소를 추가하면 최신 릴리스(`.nro`, 또는 그것이 든 zip)를 따라갑니다. 앱을 직접 넣어 둘 수도 있습니다. 앱마다 도구나 포팅으로 나누고, 끌 수 있으며, 홈 메뉴 바로가기를 함께 내려 줄 수 있습니다.
 - **세이브와 패치.** 세이브 파일과 패치(SD 카드 루트와 같은 구조)를 서버에 보관하고, 클라이언트에서 넣을 것을 고릅니다. 패치는 필수로 표시할 수 있고, 맞춰 만든 게임 업데이트 버전을 적어 둘 수 있습니다.
 - **RetroArch 용 레트로 게임.** 시스템별 롬, libretro-thumbnails 의 표지, The Bezel Project 의 베젤, LaunchBox Games Database 의 게임 정보(소개, 배급사, 개발사, 출시일, 인원, 장르, 스크린샷)를 다루고, 빠진 정보는 IGDB 로 채웁니다. 한 게임의 여러 판(아케이드의 원본과 클론 세트, 여러 언어와 지역판)은 카드 하나로 보이고, 나머지 판은 한 번 더 누르면 나옵니다. 직접 준비한 RetroArch 기본 묶음을 기기에 내려 줄 수 있고, 게임마다 홈 메뉴 바로가기를 만들 수 있습니다.
@@ -199,7 +199,6 @@ RetroArch 기본 묶음은 기기가 게임을 하기 전에 한 번 받아야 �
 | titledb 받기, 지역, 출처 | `COOK_TITLEDB_AUTO_FETCH`, `COOK_TITLEDB_REGIONS`, `COOK_TITLEDB_URL` | 켜짐, 내장 목록, blawar/titledb |
 | 클라이언트 빌드 받는 곳 | `COOK_CLIENT_SOURCE`, `COOK_CLIENT_RELEASE_REPO`, `COOK_CLIENT_RELEASE_TAG` | `manual`: 올린 빌드만 씁니다. `github` 는 `jshsakura/oc-cookingfoil-client` 의 최신 릴리스(태그를 넣으면 그 태그)도 따릅니다 |
 | 파일에서 아이콘 읽기 | `COOK_EXTRACT_ICONS` | `missing` |
-| 스토어 그림 | `COOK_ESHOP_ARTWORK` | 켜짐 |
 | 리뷰 점수, 레트로 게임 정보 | `COOK_RATING_SYNC`, `COOK_RETRO_META` | 켜짐 |
 | 레트로 기종 폴더 만들기 | `COOK_RETRO_SCAFFOLD` | 켜짐 |
 | 다운로드당 연결 수 | `COOK_DOWNLOAD_MAX_CONNECTIONS` | `4` |

@@ -1,16 +1,15 @@
 /**
- * GET /api/library/screenshot/:titleId/:idx[?v=&size=sm|md|lg|xl] — one screenshot
- * from titledb, or the admin's upload in that slot.
+ * GET /api/library/screenshot/:titleId/:idx[?v=&size=sm|md|lg|xl] — the admin's
+ * upload in that slot; game files carry no screenshots, so any other is a 404.
  * Bounds the index to a sane upper limit (no infinite range requests).
  * Immutable for the current ?v=, `public, max-age=300` with an ETag otherwise.
  */
-import * as titledbStore from "../meta/titledb-store.js";
 import * as customArt from "../meta/custom-art.js";
 import { isCurrentVersion } from "../meta/artwork-version.js";
 import {
   baseTitleIdOf,
-  cachePathFor,
   normalizeTitleId,
+  placeholder,
   serveImage,
 } from "../meta/image-cache.js";
 
@@ -24,13 +23,12 @@ export default async function screenshotRoute(req, res) {
     return;
   }
   const base = baseTitleIdOf(tid);
-  const entry = titledbStore.get(base);
-  const shots = Array.isArray(entry?.screenshots) ? entry.screenshots : [];
+  const custom = customArt.serveOptions(base, "screenshot", idx);
+  if (!custom.overridePath) return placeholder(res);
   await serveImage(req, res, {
     wide: true,
-    cachePath: cachePathFor(base, "screenshot", idx),
-    upstreamUrl: shots[idx],
-    ...customArt.serveOptions(base, "screenshot", idx),
+    cachePath: null,
+    ...custom,
     current: isCurrentVersion(req, "screenshot", base, { idx }),
   });
 }

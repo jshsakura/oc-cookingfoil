@@ -8,8 +8,7 @@ import { defineCapability } from "./define.js";
 import { arr, int, nullable, num, obj, oneOf, str, titleId } from "./shape.js";
 import * as customArt from "../meta/custom-art.js";
 import * as artSearch from "../meta/art-search.js";
-import * as titledbStore from "../meta/titledb-store.js";
-import * as extractedMeta from "../meta/extracted-meta-store.js";
+import { cachePathFor, hasCached } from "../meta/image-cache.js";
 import { CropError, MIN_CROP_PX, parseCrop, uprightSize } from "../meta/art-crop.js";
 import { ART_ASPECT, fitCrop } from "../meta/art-fit.js";
 import { StuckError } from "../meta/game-art-files.js";
@@ -37,19 +36,20 @@ function cropOf(input) {
   }
 }
 
-/** Which source each slot shows now: the admin's picture, titledb's, the game file's own, or none. */
+const fileIcon = (base) => hasCached(cachePathFor(base, "icon"));
+
+/** Which source each slot shows now: the admin's picture, the game file's own (a banner drawn from the icon), or none. */
 function artState(base) {
   const own = customArt.list(base);
-  const db = titledbStore.get(base);
   return {
-    icon: own.icon ? "custom" : db?.iconUrl ? "titledb" : extractedMeta.get(base)?.iconPath ? "nacp" : null,
-    banner: own.banner ? "custom" : db?.bannerUrl ? "titledb" : null,
-    screenshots: { custom: own.screens, titledb: Array.isArray(db?.screenshots) ? db.screenshots.filter(Boolean).length : 0 },
+    icon: own.icon ? "custom" : fileIcon(base) ? "nacp" : null,
+    banner: own.banner ? "custom" : own.icon || fileIcon(base) ? "icon" : null,
+    screenshots: { custom: own.screens },
   };
 }
 
 async function fetchPicture(url) {
-  if (!artSearch.allowedImageUrl(String(url ?? ""))) throw fail(400, "url must be one game_art_search returned (eShop, SteamGridDB or IGDB image hosts)");
+  if (!artSearch.allowedImageUrl(String(url ?? ""))) throw fail(400, "url must be one game_art_search returned (SteamGridDB or IGDB image hosts)");
   try {
     return (await artSearch.remoteImage(String(url))).body;
   } catch {
@@ -97,8 +97,7 @@ function ownSlot(input) {
 
 /** What each slot shows with the admin's pictures gone. */
 function withoutOwn(base) {
-  const db = titledbStore.get(base);
-  return { icon: db?.iconUrl ? "titledb" : extractedMeta.get(base)?.iconPath ? "nacp" : null, banner: db?.bannerUrl ? "titledb" : null };
+  return { icon: fileIcon(base) ? "nacp" : null, banner: fileIcon(base) ? "icon" : null };
 }
 
 function keptOriginal(base, slot, idx) {
@@ -108,9 +107,9 @@ function keptOriginal(base, slot, idx) {
 }
 
 const SHOWN = obj({
-  icon: nullable(oneOf(["custom", "titledb", "nacp"], "custom: the admin's; titledb: the eShop's; nacp: the game file's own")),
-  banner: nullable(oneOf(["custom", "titledb"])),
-  screenshots: obj({ custom: arr(int(), "the admin's screenshot slots"), titledb: int("eShop screenshots") }),
+  icon: nullable(oneOf(["custom", "nacp"], "custom: the admin's; nacp: the game file's own")),
+  banner: nullable(oneOf(["custom", "icon"], "custom: the admin's; icon: drawn from the icon")),
+  screenshots: obj({ custom: arr(int(), "the admin's screenshot slots") }),
 });
 const CROP = obj({ x: num(), y: num(), w: num(), h: num() }, { description: "area kept, fractions 0..1 of the picture" });
 const SIZE = obj({ width: int(), height: int() });
@@ -158,7 +157,7 @@ export const gameArtCapabilities = [
     },
     output: obj({
       q: str("the title searched"),
-      items: arr(obj({ source: oneOf(["eshop", "sgdb", "igdb"]), game: nullable(obj({ id: { type: ["integer", "string"] }, name: str() })), label: nullable(str()), thumb: str("small preview url"), url: str("full picture, for game_art_set") }, { optional: ["label"] })),
+      items: arr(obj({ source: oneOf(["sgdb", "igdb"]), game: nullable(obj({ id: { type: ["integer", "string"] }, name: str() })), label: nullable(str()), thumb: str("small preview url"), url: str("full picture, for game_art_set") }, { optional: ["label"] })),
       errors: arr(str(), "sources that failed this time"),
       missing: arr(str(), "sources without a key set"),
     }),

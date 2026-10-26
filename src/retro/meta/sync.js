@@ -9,9 +9,8 @@
  *              lead paragraph as their Korean description (meta/kowiki.js),
  *              then a few games' screenshots are downloaded
  *
- * All of it waits for the "레트로 게임 정보" setting (COOK_RETRO_META);
- * screenshots also for "공식 이미지" (COOK_ESHOP_ARTWORK). The loop always runs
- * and checks them each tick, so they can be switched from the admin page
+ * All of it waits for the "레트로 게임 정보" setting (COOK_RETRO_META). The
+ * loop always runs and checks it each tick, so they can be switched from the admin page
  * without a restart.
  */
 import path from "path";
@@ -211,14 +210,14 @@ export async function shotsBatch({ dir, games, systems, fetchImpl = fetch, now =
 
 /**
  * One tick: the weekly LaunchBox match when it is due, else an IGDB batch and
- * a screenshot batch. `settings()` gives { on, art }; nothing runs while `on` is off.
+ * a screenshot batch. `settings()` gives { on }; nothing runs while `on` is off.
  */
 export async function tick({
   dir = env.retroDir, cacheDir = path.join(env.dataDir, "launchbox"), current, fetchImpl = fetch, now = Date.now,
-  settings = () => ({ on: env.retroMeta, art: env.eshopArtwork }), pauseMs = PAUSE_MS,
+  settings = () => ({ on: env.retroMeta }), pauseMs = PAUSE_MS,
 } = {}) {
   if (running) return running;
-  const { on, art } = settings();
+  const { on } = settings();
   if (!on) return null;
   // The job appears with the first source asked: a tick with nothing to do never shows.
   let job = null;
@@ -245,7 +244,7 @@ export async function tick({
     const koNext = store.builtAt() ? koDue(store.all(), now()) : [];
     if (koNext.length) at(retroText(ACTIVITY_LANG, "meta.stepKo"), koNext.map(([key]) => key.split("/")[0]));
     const ko = store.builtAt() ? await koBatch({ fetchImpl, now, pauseMs }) : 0;
-    const shots = art ? await shotsBatch({ dir, games, systems, fetchImpl, now, onStart: (ids) => at(retroText(ACTIVITY_LANG, "meta.stepShots"), ids) }) : 0;
+    const shots = await shotsBatch({ dir, games, systems, fetchImpl, now, onStart: (ids) => at(retroText(ACTIVITY_LANG, "meta.stepShots"), ids) });
     const left = store.builtAt() ? igdbDue(games, store.all(), now(), Infinity).length + koDue(store.all(), now(), Infinity).length : 0;
     return { igdb, ko, shots, left };
   })()

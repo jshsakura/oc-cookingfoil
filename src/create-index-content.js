@@ -60,9 +60,8 @@ import * as nacpExtractor from "./meta/nacp-extractor.js";
 import { integrityOf } from "./meta/file-integrity.js";
 import {
   shouldAutoExtract,
-  isSliceable,
   wantsExtractByMode,
-  isOverSizeCap,
+  iconFileOrder,
   BYTES_PER_GB,
 } from "./meta/extract-policy.js";
 import {
@@ -75,6 +74,7 @@ import {
 } from "./helpers/envs.js";
 import { addUrlEncodedFileInfo as encodeUrlObject } from "./helpers/helpers.js";
 import { versionedArtwork as withVersion } from "./meta/artwork-version.js";
+import { cachePathFor, hasCached } from "./meta/image-cache.js";
 
 // Every proxy artwork URL carries ?v=, a hash of the picture's bytes
 // (meta/artwork-version.js): the console client caches pictures by URL, so a
@@ -286,15 +286,16 @@ function catalogEntry({ version, ...item }) {
  */
 export function composeResponse(filesMap, customs) {
   const files = [];
-  const seen = new Set();
+  const byBase = new Map();
 
   for (const [relPath, item] of filesMap.entries()) {
     files.push(catalogEntry(item));
     const baseId = item.baseTitleId;
-    if (!baseId || seen.has(baseId)) continue;
-    seen.add(baseId);
-    queueExtraction(relPath, item, baseId);
+    if (!baseId) continue;
+    if (!byBase.has(baseId)) byBase.set(baseId, []);
+    byBase.get(baseId).push({ relPath, item, titleId: item.titleId, fileName: relPath });
   }
+  for (const [baseId, owned] of byBase) queueExtraction(baseId, iconFileOrder(owned, baseId));
 
   for (const raw of customs) {
     const entry = { ...raw };
@@ -309,9 +310,9 @@ export function composeResponse(filesMap, customs) {
 }
 
 // Queue one title's file for NACP/icon extraction per the COOK_EXTRACT_ICONS policy:
-//   all     → every title, so the icon comes out of the container and
-//             covers render fully offline (CDN is only a fallback).
-//   missing → only titles titledb can't cover.
+//   all     → every title's name and icon.
+//   missing → every title's icon (game files are the only source of icons),
+//             and the name only for titles titledb can't cover.
 //   off     → never.
 // The worker de-dupes by titleId AND skips containers whose icon is
 // already on disk, so re-enqueueing on every rebuild stays cheap.
@@ -330,27 +331,23 @@ export function composeResponse(filesMap, customs) {
 // decoder) is a repair, not an optional extraction: it is read again in full
 // whatever the mode and whether or not titledb knows the title, still through
 // the paced queue and under the size cap.
-function queueExtraction(relPath, item, baseId) {
+function queueExtraction(baseId, candidates) {
+  if (!candidates.length) return;
   const fromDb = titledbStore.get(baseId);
   const read = extractedMeta.get(baseId);
   const repair = Boolean(read?.garbled);
-  // A record already read is read again only when nacp-extractor.js asks for it (needsReread).
-  if (!fromDb && read && !nacpExtractor.needsReread(read)) return;
-  const sizeBytes = item.size;
-  const extractMode = repair ? "all" : extractIcons;
-  if (shouldAutoExtract({ sizeBytes, extractMode, fromDb, maxBytes: extractMaxBytes, fileName: relPath })) {
-    nacpExtractor.enqueue({
-      absPath: path.join(romsDirPath, relPath),
-      baseTitleId: baseId,
-      fileName: item.name,
-      wantMeta: repair || !fromDb,
-    });
-  } else if (
-    wantsExtractByMode({ extractMode, fromDb }) &&
-    !isSliceable(relPath) &&
-    isOverSizeCap({ sizeBytes, maxBytes: extractMaxBytes })
-  ) {
-    debug.log("[extract] skip %s (%s GB > cap %s GB)", item.name, (sizeBytes / BYTES_PER_GB).toFixed(2), extractMaxGb);
+  const needIcon = !hasCached(cachePathFor(baseId, "icon"));
+  // A record already read is read again only when nacp-extractor.js asks for it (needsReread), or for its icon.
+  if (!fromDb && read && !nacpExtractor.needsReread(read) && !needIcon) return;
+  const extractMode = repair || (needIcon && extractIcons !== "off") ? "all" : extractIcons;
+  const readable = candidates.filter(({ relPath, item }) =>
+    shouldAutoExtract({ sizeBytes: item.size, extractMode, fromDb, maxBytes: extractMaxBytes, fileName: relPath }));
+  if (readable.length) {
+    const [first, ...rest] = readable.map(({ relPath, item }) => ({ absPath: path.join(romsDirPath, relPath), fileName: item.name }));
+    nacpExtractor.enqueue({ ...first, fallbacks: rest, baseTitleId: baseId, wantMeta: repair || !fromDb });
+  } else if (wantsExtractByMode({ extractMode, fromDb })) {
+    const { item } = candidates[0];
+    debug.log("[extract] skip %s (%s GB > cap %s GB)", item.name, (item.size / BYTES_PER_GB).toFixed(2), extractMaxGb);
   }
 }
 

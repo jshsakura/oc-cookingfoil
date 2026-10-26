@@ -25,10 +25,10 @@ function fakeSgdb() {
 }
 
 test("only https addresses on the sources' own image hosts can be picked", () => {
-  for (const ok of ["https://cdn2.steamgriddb.com/grid/a.png", "https://images.igdb.com/igdb/image/upload/t_1080p/x.jpg", "https://img-eshop.cdn.nintendo.net/i/a.jpg"]) {
+  for (const ok of ["https://cdn2.steamgriddb.com/grid/a.png", "https://images.igdb.com/igdb/image/upload/t_1080p/x.jpg"]) {
     assert.equal(search.allowedImageUrl(ok), true, ok);
   }
-  for (const bad of ["http://cdn2.steamgriddb.com/a.png", "https://steamgriddb.com.example.com/a.png", "https://example.com/a.png", "file:///etc/passwd", "not a url"]) {
+  for (const bad of ["https://img-eshop.cdn.nintendo.net/i/a.jpg", "http://cdn2.steamgriddb.com/a.png", "https://steamgriddb.com.example.com/a.png", "https://example.com/a.png", "file:///etc/passwd", "not a url"]) {
     assert.equal(search.allowedImageUrl(bad), false, bad);
   }
 });

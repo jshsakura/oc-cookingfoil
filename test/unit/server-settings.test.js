@@ -143,10 +143,10 @@ test("cores by themselves: on unless compose says otherwise, switched on the adm
 });
 
 test("a saved file is read back on start", () => {
-  settings.save({ ratingSync: false, eshopArtwork: false });
+  settings.save({ ratingSync: false, retroMeta: false });
   settings.load();
   assert.equal(env.ratingSync, false);
-  assert.equal(env.eshopArtwork, false);
+  assert.equal(env.retroMeta, false);
 });
 
 test("the share inbox switch and its two sizes are saved in bytes and apply at once", () => {

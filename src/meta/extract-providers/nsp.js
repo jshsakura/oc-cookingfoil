@@ -285,7 +285,7 @@ export async function extractFromPfs0({ absPath, baseTitleId }, opts = {}) {
 
 export async function extract({ absPath, baseTitleId }, opts = {}) {
   if (!NSP_RE.test(absPath)) return null;
-  if (/\.nsp$/i.test(absPath)) {
+  if (NSP_RE.test(absPath)) {
     const sliced = await extractFromPfs0({ absPath, baseTitleId }, opts);
     if (sliced) return sliced;
   }

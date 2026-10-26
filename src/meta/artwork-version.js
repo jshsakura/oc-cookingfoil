@@ -4,8 +4,8 @@
  * Every URL a list or detail hands out ends in ?v=<12 hex>, a hash of what
  * decides the picture's bytes:
  *   - art the admin gave the game: its file's stamp (size and mtime), from memory (meta/game-meta.js);
- *   - else the image titledb names (the eShop URL, or that language's own);
- *   - else the file on disk (size and mtime): an icon read from the game file.
+ *   - else the file on disk (size and mtime): the icon read from the game file,
+ *     which a banner is drawn from too (with BANNER_STYLE, how it is drawn).
  * plus ART_PIPELINE, the version of the resize/WebP encoding. Bump it when
  * image-cache changes how a variant is drawn, so a cached ?size= variant is
  * never replaced under the same URL. The size (?size=) is not part of v: the
@@ -17,15 +17,15 @@
  * and an ETag, so an older client is never stuck with a replaced picture.
  *
  * Because v is part of the list's JSON, a changed picture also changes the
- * list's ETag, once the shop cache is rebuilt: custom art uploads, titledb
- * reloads and NACP extraction all invalidate it already.
+ * list's ETag, once the shop cache is rebuilt: custom art uploads and NACP
+ * extraction invalidate it already.
  */
 import fs from "fs";
 import crypto from "crypto";
-import * as titledbStore from "./titledb-store.js";
 import * as customArt from "./custom-art.js";
 import { iconSource, bannerSource } from "./localized-art.js";
 import { baseTitleIdOf, cachePathFor } from "./image-cache.js";
+import { BANNER_STYLE } from "./icon-banner.js";
 
 export const ART_PIPELINE = 1;
 const PATH_RE = /\/(icon|banner|screenshot)\/([0-9A-Fa-f]{16})(?:\/(\d+))?$/;
@@ -41,23 +41,19 @@ function fileKey(file) {
 
 /** What decides the bytes of one artwork slot (see the header). */
 function sourceKey(kind, base, { idx = 0, lang = null } = {}) {
-  const entry = titledbStore.get(base);
   if (kind === "icon") {
-    const own = iconSource(base, lang);
-    if (own?.url) return `u:${own.url}`;
-    if (own) return fileKey(cachePathFor(base, "icon-lang", lang));
+    if (iconSource(base, lang)) return fileKey(cachePathFor(base, "icon-lang", lang));
     if (customArt.hasOverride(base, "icon")) return `o:${customArt.stampOf(base, "icon", null)}`;
-    return entry?.iconUrl ? `u:${entry.iconUrl}` : fileKey(cachePathFor(base, "icon"));
+    return fileKey(cachePathFor(base, "icon"));
   }
   if (kind === "banner") {
-    const own = bannerSource(base, lang);
-    if (own) return `u:${own}`;
     if (customArt.hasOverride(base, "banner")) return `o:${customArt.stampOf(base, "banner", null)}`;
-    return entry?.bannerUrl ? `u:${entry.bannerUrl}` : fileKey(cachePathFor(base, "banner"));
+    // Drawn from the icon it shows: the admin's, the language's own, or the game file's.
+    if (customArt.hasOverride(base, "icon")) return `b${BANNER_STYLE}:o:${customArt.stampOf(base, "icon", null)}`;
+    return `b${BANNER_STYLE}:${fileKey(cachePathFor(base, bannerSource(base, lang) ? "icon-lang" : "icon", lang))}`;
   }
   if (customArt.hasOverride(base, "screenshot", idx)) return `o:${customArt.stampOf(base, "screenshot", idx)}`;
-  const shot = Array.isArray(entry?.screenshots) ? entry.screenshots[idx] : null;
-  return shot ? `u:${shot}` : fileKey(cachePathFor(base, "screenshot", idx));
+  return "none";
 }
 
 /** The current v for one slot: 12 hex characters. Updates and DLC share their game's art. */

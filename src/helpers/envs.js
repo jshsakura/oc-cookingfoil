@@ -62,7 +62,8 @@ const unauthorizedMessage =
 
 // Persistent runtime data: extracted icons/metadata + titledb cache.
 const dataDir = layout.dirs.data;
-const iconCacheDir = path.join(dataDir, "extracted");
+// Game icons read from the files (and banners drawn from them); data/extracted held eShop pictures too.
+const iconCacheDir = path.join(dataDir, "icons");
 const titledbCacheDir = path.join(dataDir, "titledb");
 // Operator-supplied artwork (icon/banner/screenshot) that overrides both the
 // titledb CDN proxy and NACP extraction. Kept in its own dir so the prewarm /
@@ -212,10 +213,6 @@ let uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
 let inboxEnabled = envBool("COOK_INBOX_ENABLED", true);
 let inboxMaxBytes = envNumber("COOK_INBOX_MAX_BYTES", 2 * 1024 ** 3, { min: 1, integer: true });
 let inboxQuotaBytes = envNumber("COOK_INBOX_QUOTA_BYTES", 20 * 1024 ** 3, { min: 1, integer: true });
-// Icons, banners and screenshots are fetched from the eShop CDN (the
-// URLs titledb lists) and cached on disk. false serves only what is cached,
-// extracted from the game files, or uploaded on the admin page.
-let eshopArtwork = envBool("COOK_ESHOP_ARTWORK", true);
 // CookingFoil's own rating collector: Steam always (no key), IGDB when a Twitch
 // client id and secret are given. On by default; false turns the loop off.
 let ratingSync = envBool("COOK_RATING_SYNC", true);
@@ -417,7 +414,6 @@ const ENV_SETTINGS = Object.freeze({
   titledbAutoFetch,
   titledbRegions: [...titledbRegions],
   titledbSource,
-  eshopArtwork,
   ratingSync,
   retroMeta,
   retroScaffold,
@@ -473,7 +469,6 @@ function applyServerSettings(saved = {}) {
   titledbAutoFetch = v.titledbAutoFetch;
   titledbRegions = [...v.titledbRegions];
   titledbSource = v.titledbSource;
-  eshopArtwork = v.eshopArtwork;
   ratingSync = v.ratingSync;
   retroMeta = v.retroMeta;
   retroScaffold = v.retroScaffold;
@@ -579,7 +574,6 @@ export {
   telegramButtons,
   telegramLang,
   telegramApprovers,
-  eshopArtwork,
   patchesDir,
   retroDir,
   savesDir,

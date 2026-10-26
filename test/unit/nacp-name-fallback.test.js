@@ -82,12 +82,30 @@ test("a library rebuild reads a garbled record's file again in full, and leaves 
     mkdirSync(path.join(dd, "extracted-meta"), { recursive: true });
     writeFileSync(path.join(dd, "extracted-meta", "0100000000DEF000.json"), JSON.stringify({ name: "�\u0013", iconLangs: [] }));
     writeFileSync(path.join(dd, "extracted-meta", "0100000000ABC000.json"), JSON.stringify({ name: "Cool Homebrew", iconLangs: [], iconMap: 2 }));
+    mkdirSync(path.join(dd, "icons"), { recursive: true });
+    writeFileSync(path.join(dd, "icons", "0100000000ABC000.jpg"), "icon");
     const out = execFileSync(process.execPath, ["--input-type=module", "-e", QUEUE_PROBE], {
       cwd: import.meta.dirname,
       env: { ...process.env, COOK_DATA_DIR: dd, COOK_EXTRACT_ICONS: "missing" },
       encoding: "utf-8",
     });
     assert.deepEqual(JSON.parse(out), [{ id: "0100000000DEF000", iconsOnly: false }]);
+  } finally {
+    rmSync(dd, { recursive: true, force: true });
+  }
+});
+
+test("a finished record whose icon is not in data/icons is read again for its icons only, the record kept", () => {
+  const dd = mkdtempSync(path.join(tmpdir(), "cook-nacp-"));
+  try {
+    mkdirSync(path.join(dd, "extracted-meta"), { recursive: true });
+    writeFileSync(path.join(dd, "extracted-meta", "0100000000ABC000.json"), JSON.stringify({ name: "Cool Homebrew", iconLangs: [], iconMap: 2 }));
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", QUEUE_PROBE.replace('["0100000000DEF000", "0100000000ABC000"]', '["0100000000ABC000"]')], {
+      cwd: import.meta.dirname,
+      env: { ...process.env, COOK_DATA_DIR: dd, COOK_EXTRACT_ICONS: "missing" },
+      encoding: "utf-8",
+    });
+    assert.deepEqual(JSON.parse(out), [{ id: "0100000000ABC000", iconsOnly: true }]);
   } finally {
     rmSync(dd, { recursive: true, force: true });
   }
@@ -148,6 +166,8 @@ test("a garbled record of a title titledb knows is read again in full even in th
     }));
     writeFileSync(path.join(dd, "extracted-meta", "0100000000DEF000.json"), JSON.stringify({ name: "�\u0013", iconLangs: [], iconMap: 2 }));
     writeFileSync(path.join(dd, "extracted-meta", "0100000000ABC000.json"), JSON.stringify({ name: "Cool Homebrew", iconLangs: [], iconMap: 2 }));
+    mkdirSync(path.join(dd, "icons"), { recursive: true });
+    writeFileSync(path.join(dd, "icons", "0100000000ABC000.jpg"), "icon");
     const probe = QUEUE_PROBE.replace(
       "await extractedMeta.load();",
       `await extractedMeta.load();
@@ -172,6 +192,8 @@ test("composeResponse: a game read before with an older icon mapping goes back t
     mkdirSync(path.join(dd, "extracted-meta"), { recursive: true });
     writeFileSync(path.join(dd, "extracted-meta", "0100000000AB1000.json"), JSON.stringify({ name: "Old", iconLangs: ["zh"] }));
     writeFileSync(path.join(dd, "extracted-meta", "0100000000AB2000.json"), JSON.stringify({ name: "Current", iconLangs: [], iconMap: 2 }));
+    mkdirSync(path.join(dd, "icons"), { recursive: true });
+    writeFileSync(path.join(dd, "icons", "0100000000AB2000.jpg"), "icon");
     const probe = `
       import * as extractedMeta from "../../src/meta/extracted-meta-store.js";
       import * as extractor from "../../src/meta/nacp-extractor.js";
