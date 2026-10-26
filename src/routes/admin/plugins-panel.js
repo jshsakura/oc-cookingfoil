@@ -84,6 +84,10 @@ function plToggle(p,name,usable){
     const want=!p.enabled;b.disabled=true;b.setAttribute('aria-checked',String(want));
     try{await plSwitch(p,want);}finally{plRender();}});
   return b;}
+const plBytes=(n)=>n>=1073741824?(n/1073741824).toFixed(1)+' GB':n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
+async function plClearCache(p){if(!await ask(plT('askCache',{name:plName(p)})))return;
+  try{await api('/admin/api/plugins/'+encodeURIComponent(p.id)+'/cache/clear',{method:'POST',body:{}});toast(plT('tCache'));}
+  catch(err){toast(err.message);}loadPlugins();}
 function plRow(p){
   const r=el('div',null,'pl-row');const main=el('div',null,'pl-main');
   const name=plName(p);
@@ -94,6 +98,7 @@ function plRow(p){
   if(p.version)meta.append(el('span',plT('ver',{v:p.version})));
   if(p.provides.length)meta.append(el('span',plT('provides',{list:p.provides.map((k)=>plT('k.'+k)).join(', ')})));
   main.append(meta);
+  if(p.cache&&p.cache.bytes>0)meta.append(el('span',plT('cacheUsed',{used:plBytes(p.cache.bytes),cap:plBytes(p.cache.capBytes)})));
   if(p.origin&&p.origin.source==='upload')main.append(el('span',plT('fromUpload',{sha:p.origin.sha256})));
   if(p.state==='broken'){const codes=[...new Set(p.problems.map(plProblem))];for(const c of codes)main.append(el('span',c,'err'));}
   if(p.state==='incompatible')main.append(el('span',plT('needs',{n:p.needs}),'err'));
@@ -105,6 +110,7 @@ function plRow(p){
   const usable=!['broken','incompatible','missing'].includes(p.state);
   if(p.restartNeeded)main.append(el('span',plT('restartNeeded'),'err'));
   act.append(plToggle(p,name,usable&&!p.restartNeeded&&p.state!=='crash-disabled'));
+  if(p.cache&&p.cache.bytes>0)act.append(btn(plT('cacheClear'),()=>plClearCache(p)));
   if(p.state!=='missing'){const dl=el('a',plT('download'),'btn');dl.href='/admin/api/plugins/'+encodeURIComponent(p.id)+'/download';dl.setAttribute('download','');act.append(dl);}
   if(p.state!=='missing')act.append(btn(plT('del'),()=>plDelete(p,name),'danger'));
   r.append(main,act);return r;}

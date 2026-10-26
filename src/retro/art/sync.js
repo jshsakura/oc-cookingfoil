@@ -22,6 +22,7 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import { coverSpec, shrink } from "../../meta/art-ingest.js";
 import debug from "../../debug.js";
 import { BEZEL_SOURCES, BEZELS, THUMBS, boxartNames, download, enc, firstOf, pool, repoOf } from "./sources.js";
 import { bestMatch, englishTitle, titleKey, titleMatcher } from "./titles.js";
@@ -452,11 +453,7 @@ export async function encodeCover(raw) {
     const m = await sharp(raw, { failOn: "none" }).metadata();
     // EXIF orientations 5-8 turn the picture a quarter, swapping its sides.
     const wide = (m.orientation >= 5 ? m.height : m.width) > (m.orientation >= 5 ? m.width : m.height);
-    return await sharp(raw, { failOn: "none" })
-      .rotate()
-      .resize({ width: wide ? COVER_LONG : COVER_SHORT, height: wide ? COVER_SHORT : COVER_LONG, fit: "inside", withoutEnlargement: true })
-      .png({ palette: true, quality: 90, effort: 10, compressionLevel: 9 })
-      .toBuffer();
+    return await shrink(raw, coverSpec(wide ? COVER_LONG : COVER_SHORT, wide ? COVER_SHORT : COVER_LONG));
   } catch (err) {
     throw CoverImageError.of("art.unreadable", { reason: err.message });
   }

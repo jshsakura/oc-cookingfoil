@@ -11,6 +11,7 @@
  *   POST /admin/api/plugins/install/confirm  { stagedId, overwrite? }  installs it, switched off; 409 exists (+ existing) without overwrite
  *   POST /admin/api/plugins/:id/enabled      { on, confirmKeys?, password? }   switching ON asks for the admin's password again;
  *                                            needsKeys plugins want confirmKeys: true
+ *   POST /admin/api/plugins/:id/cache/clear  empties the plugin's cache folder (each plugin's cache is capped; see plugins/cache.js)
  *   POST /admin/api/plugins/:id/trash        { dropData? }  moves the folder to the plugins' own trash;
  *                                            dropData also deletes its cache and stored settings
  * Errors answer { error } in the page's language with the registry's status (404, 409, 400).
@@ -18,7 +19,7 @@
 import express from "express";
 import debug from "../../debug.js";
 import { PluginError } from "../../plugins/registry.js";
-import { pluginInstaller, pluginRegistry } from "../../plugins/instance.js";
+import { pluginCache, pluginInstaller, pluginRegistry } from "../../plugins/instance.js";
 import { installAllowed } from "../../plugins/installer.js";
 import { UNPACK_LIMITS } from "../../plugins/unpack.js";
 import { PackError, packPlugin } from "../../plugins/pack.js";
@@ -38,12 +39,13 @@ const ERROR_WORD = {
 const REASON_WORD = { wrong: "pl.e.password", unavailable: "pl.e.noPassword", locked: "pl.e.locked" };
 const word = (lang, key) => TOP_WORDS[lang]?.[key] ?? TOP_WORDS.en[key];
 
-async function snapshot(registry, req, events) {
-  const plugins = registry.list().map((p) => (events ? { ...p, events: events.statsOf(p.id) } : p));
+async function snapshot(registry, req, cache, events) {
+  const used = await cache.usage();
+  const plugins = registry.list().map((p) => ({ ...p, cache: used[p.id] ?? { bytes: 0, files: 0, capBytes: cache.capBytes }, ...(events ? { events: events.statsOf(p.id) } : {}) }));
   return { safeMode: registry.safeMode, installAllowed: installAllowed(), reconfirm: reconfirmKind(req), plugins, trashed: await registry.listTrashed() };
 }
 
-export function mountPluginsApi(router, requireSession, registry = pluginRegistry(), installer = pluginInstaller(), events = null) {
+export function mountPluginsApi(router, requireSession, registry = pluginRegistry(), installer = pluginInstaller(), cache = pluginCache(), events = null) {
   const handle = (fn) => async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
@@ -58,7 +60,7 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
   };
   const bad = (res, req, key = "pl.e.failed") => res.status(400).json({ error: word(requestLang(req), key) });
 
-  router.get("/api/plugins", handle(async (req, res) => res.json(await snapshot(registry, req, events))));
+  router.get("/api/plugins", handle(async (req, res) => res.json(await snapshot(registry, req, cache, events))));
 
   // The folder as a zip the install upload takes back. Not gated by the install switch: it only reads.
   router.get("/api/plugins/:id/download", handle(async (req, res) => {
@@ -79,13 +81,13 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
 
   router.post("/api/plugins/rescan", handle(async (req, res) => {
     await registry.rescan();
-    res.json({ ok: true, ...(await snapshot(registry, req, events)) });
+    res.json({ ok: true, ...(await snapshot(registry, req, cache, events)) });
   }));
 
   router.post("/api/plugins/restore", handle(async (req, res) => {
     const name = req.body?.name;
     if (typeof name !== "string" || !NAME_RE.test(name)) return bad(res, req);
-    res.json({ ok: true, plugin: await registry.restore(name), ...(await snapshot(registry, req, events)) });
+    res.json({ ok: true, plugin: await registry.restore(name), ...(await snapshot(registry, req, cache, events)) });
   }));
 
   // The zip arrives as the body. It is read only for a signed-in admin and only up to the unpacker's limit.
@@ -102,7 +104,7 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
     if (typeof stagedId !== "string" || !/^[0-9a-f]{24}$/.test(stagedId)) return bad(res, req);
     const plugin = await installer.confirm(stagedId, { overwrite: req.body.overwrite === true });
     debug.log("admin: plugin %s %s installed from an upload", plugin.id, plugin.version);
-    res.json({ ok: true, plugin, ...(await snapshot(registry, req, events)) });
+    res.json({ ok: true, plugin, ...(await snapshot(registry, req, cache, events)) });
   }));
 
   router.post("/api/plugins/:id/enabled", handle(async (req, res) => {
@@ -117,6 +119,13 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
     }
     const plugin = await registry.setEnabled(id, req.body.on, { confirmKeys: req.body.confirmKeys === true });
     res.json({ ok: true, plugin });
+  }));
+
+  router.post("/api/plugins/:id/cache/clear", handle(async (req, res) => {
+    const { id } = req.params;
+    if (!ID_RE.test(id)) return bad(res, req);
+    await cache.clear(id);
+    res.json({ ok: true, ...(await snapshot(registry, req, cache, events)) });
   }));
 
   router.post("/api/plugins/:id/trash", handle(async (req, res) => {

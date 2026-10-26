@@ -10,6 +10,7 @@ import * as prodKeys from "../security/prod-keys.js";
 import { createProcessGuards } from "./guard.js";
 import { createRegistry } from "./registry.js";
 import { createVariants } from "./variants.js";
+import { createPluginCache } from "./cache.js";
 import { createInstaller } from "./installer.js";
 import { createRequestHooks } from "./request-hooks.js";
 import { createEvents } from "./events.js";
@@ -53,6 +54,9 @@ export const pluginEvents = () => (eventsShared ??= createEvents(pluginRegistry(
 
 /** The router for /api/plugins/<id>/<name> (plugins/routes.js). */
 export const pluginRouter = () => pluginRoutes(pluginRegistry(), { log: (m) => debug.log("plugins: %s", m) });
+let cacheShared = null;
+/** The bounded cache folders of the plugins (plugins/cache.js). */
+export const pluginCache = () => (cacheShared ??= createPluginCache({ dataDir: env.dataDir, log: (m) => debug.log("plugins: %s", m) }));
 
 let installerShared = null;
 /** Uploads of plugin zips from the admin page (plugins/installer.js) on the shared registry. */
@@ -68,6 +72,7 @@ export function startPlugins() {
   });
   guards.install();
   connectPluginEvents((kind, facts, who) => pluginEvents().emit(kind, facts, who));
+  pluginCache().startSweeper();
   pluginInstaller().sweep().catch((err) => debug.error("plugins: clearing old uploads failed: %s", err.message));
   registry.init().then(() => registry.startWatching()).catch((err) => debug.error("plugins: start failed: %s", err.message));
   return registry;

@@ -14,6 +14,7 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 import { discard } from "../library/trash-service.js";
+import { shrink } from "./art-ingest.js";
 
 export const ORIG_MAX = 2048;
 const ORIG_QUALITY = 85;
@@ -91,11 +92,7 @@ export async function cropOf(input, crop, { failOn = "error" } = {}) {
 /** The upload, upright and no longer than ORIG_MAX on a side, as the WebP kept for later. */
 export async function shrinkOriginal(input, { failOn = "error" } = {}) {
   try {
-    return await sharp(input, { failOn, limitInputPixels: MAX_INPUT_PIXELS })
-      .rotate()
-      .resize(ORIG_MAX, ORIG_MAX, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: ORIG_QUALITY, effort: 4 })
-      .toBuffer();
+    return await shrink(input, { format: "webp", width: ORIG_MAX, height: ORIG_MAX, quality: ORIG_QUALITY, effort: 4, failOn });
   } catch (err) {
     throw new CropError(`이미지를 읽지 못했습니다: ${err.message}`);
   }

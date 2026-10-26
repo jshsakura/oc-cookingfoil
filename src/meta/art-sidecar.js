@@ -19,7 +19,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
+import { shrink, sidecarSpec, writeAtomic } from "./art-ingest.js";
 import debug from "../debug.js";
 import { discard } from "../library/trash-service.js";
 
@@ -117,13 +117,6 @@ export const shotsVersion = (shots) =>
 
 const tempOf = (file) => path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
 
-function writeAtomic(file, buf) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = tempOf(file);
-  fs.writeFileSync(tmp, buf);
-  fs.renameSync(tmp, file);
-}
-
 /** Pictures a slot no longer shows go to the trash, never away: a person may have put them there. */
 export async function toTrash(files, action) {
   if (files.length) await discard(files, { kind: "item-art", action, name: path.basename(files[0]) });
@@ -147,12 +140,8 @@ export async function write(dir, slot, webp) {
 export const remove = (dir, slot) => clearSlot(dir, slot, null, "art-remove");
 
 /** Picture bytes as a .webp no larger than w × h, upright, without metadata. */
-export async function toWebp(raw, w, h) {
-  return sharp(raw, { failOn: "none", limitInputPixels: 50e6 })
-    .rotate()
-    .resize({ width: w, height: h, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 80, effort: 5 })
-    .toBuffer();
+export function toWebp(raw, w, h) {
+  return shrink(raw, sidecarSpec(w, h));
 }
 
 /**

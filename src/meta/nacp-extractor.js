@@ -16,7 +16,7 @@
  */
 import path from "path";
 import fs from "fs/promises";
-import sharp from "sharp";
+import { NACP_ICON, shrink } from "./art-ingest.js";
 import * as extractedMeta from "./extracted-meta-store.js";
 import { cachePathFor, dropVariants, hasCached } from "./image-cache.js";
 import * as autoProvider from "./extract-providers/auto.js";
@@ -25,8 +25,6 @@ import debug from "../debug.js";
 import { envNumber } from "../helpers/env-read.js";
 import { NACP_DECODER_VERSION } from "./nacp-decode.js";
 
-const ICON_MAX_PX = 256;
-const ICON_QUALITY = 85;
 const CONCURRENCY = envNumber("COOK_EXTRACT_CONCURRENCY", 2, { min: 1, integer: true });
 
 // Inter-job pacing: a small gap between jobs so the one-time background pass
@@ -157,11 +155,8 @@ async function persistLangIcons(baseTitleId, byLang, defaultIcon) {
  * made at) and recompressed, about a fifth of the bytes the file stores. The
  * file's own bytes are never kept, so one sharp cannot read is not saved.
  */
-async function compactIcon(buf) {
-  return sharp(buf, { failOn: "none" })
-    .resize(ICON_MAX_PX, ICON_MAX_PX, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: ICON_QUALITY, mozjpeg: true })
-    .toBuffer();
+function compactIcon(buf) {
+  return shrink(buf, NACP_ICON);
 }
 
 /** Saves the game file's default icon as data/icons/<id>.jpg; returns its path, or null. */
