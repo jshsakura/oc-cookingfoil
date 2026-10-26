@@ -1,7 +1,8 @@
 /**
  * GET /api/library/icon/:titleId[?v=&size=sm|md|lg|xl&lang=ko|en|ja|zh]
  *
- * Serves the admin's icon, else the one read from the game file (data/icons).
+ * Serves the admin's icon, else the one read from the game file (data/icons), else the one
+ * filled in from titledb or a plugin (data/art-fill, meta/art-fill.js).
  * Answers 404 (no-store) while there is none yet, so listings never break and
  * the icon shows once the extractor has read it (no-omission invariant, FINDINGS §7).
  *
@@ -18,6 +19,7 @@ import {
   normalizeTitleId,
   serveImage,
 } from "../meta/image-cache.js";
+import { iconFallback } from "../meta/art-fill.js";
 
 export default async function iconRoute(req, res) {
   const tid = normalizeTitleId(req.params.titleId);
@@ -35,7 +37,8 @@ export default async function iconRoute(req, res) {
     return;
   }
   await serveImage(req, res, {
-    cachePath: cachePathFor(base, "icon"),
+    // The game file's icon; for a game whose files carry none, the one filled in from outside (meta/art-fill.js).
+    cachePath: iconFallback(base) ?? cachePathFor(base, "icon"),
     ...customArt.serveOptions(base, "icon", null),
     current,
   });

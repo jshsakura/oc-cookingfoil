@@ -64,6 +64,9 @@ const unauthorizedMessage =
 const dataDir = layout.dirs.data;
 // Game icons read from the files (and banners drawn from them); data/extracted held eShop pictures too.
 const iconCacheDir = path.join(dataDir, "icons");
+// Pictures fetched from outside for games whose files carry none (titledb, then a metadata plugin), kept apart from
+// the icons so a picture read from a game file later wins without anything to delete (meta/art-fill.js).
+const artFillDir = path.join(dataDir, "art-fill");
 const titledbCacheDir = path.join(dataDir, "titledb");
 // Operator-supplied artwork (icon/banner/screenshot) that overrides both the
 // titledb CDN proxy and NACP extraction. Kept in its own dir so the prewarm /
@@ -231,6 +234,8 @@ let retroPackUrl = envString("COOK_RETRO_PACK_URL", "").trim();
 let retroAutoCores = envBool("COOK_RETRO_AUTO_CORES", true);
 // Box art fetched by itself for ROMs a scan finds without any (retro/art/auto.js), as the admin's "fetch all missing" does.
 let retroAutoArt = envBool("COOK_RETRO_AUTO_ART", true);
+// Pictures missing from a game's files (icon, banner, screenshots) are fetched once from titledb, else from a metadata plugin (meta/art-fill.js).
+let fillMissingArt = envBool("COOK_FILL_MISSING_ART", true);
 // Dropbox save sync for the client app: this server relays the Dropbox
 // sign-in (PKCE, so only the app key, no secret). Empty turns it off.
 const dropboxAppKey = envString("COOK_DROPBOX_APP_KEY", "").trim();
@@ -420,6 +425,7 @@ const ENV_SETTINGS = Object.freeze({
   retroPackUrl,
   retroAutoCores,
   retroAutoArt,
+  fillMissingArt,
   clientSource,
   clientReleaseRepo,
   clientReleaseTag,
@@ -475,6 +481,7 @@ function applyServerSettings(saved = {}) {
   retroPackUrl = v.retroPackUrl;
   retroAutoCores = v.retroAutoCores;
   retroAutoArt = v.retroAutoArt;
+  fillMissingArt = v.fillMissingArt;
   clientSource = v.clientSource;
   clientReleaseRepo = v.clientReleaseRepo;
   clientReleaseTag = v.clientReleaseTag;
@@ -547,6 +554,7 @@ export {
   unauthorizedMessage,
   dataDir,
   iconCacheDir,
+  artFillDir,
   titledbCacheDir,
   customArtDir,
   keysDir,
@@ -587,6 +595,7 @@ export {
   retroPackUrl,
   retroAutoCores,
   retroAutoArt,
+  fillMissingArt,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,

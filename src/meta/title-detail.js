@@ -15,6 +15,7 @@ import { normalizeCategories, normalizeGenres, genreLabel } from "./categories.j
 import { fallbacks, parseLang, pick } from "./langs.js";
 import * as scores from "./ratings.js";
 import { versionedArtwork } from "./artwork-version.js";
+import { shotSlots } from "./art-fill.js";
 import * as titledbVersions from "./titledb-versions.js";
 import * as userPatches from "./user-patches.js";
 import * as gameDescriptions from "./game-descriptions.js";
@@ -85,8 +86,9 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     return origin ? origin + url : url;
   };
 
-  // Game files carry no screenshots: only the admin's.
+  // Game files carry no screenshots: the admin's, else the ones filled in from titledb or a plugin.
   const slots = new Set(overrides.screens.filter((i) => Number.isInteger(i) && i >= 0 && i <= 30));
+  if (!slots.size) for (const i of shotSlots(base)) slots.add(i);
   const screenshots = [...slots].sort((a, b) => a - b).map((i) => art(`/api/library/screenshot/${base}/${i}`));
 
   const categories = normalizeGenres(fromDb?.category);

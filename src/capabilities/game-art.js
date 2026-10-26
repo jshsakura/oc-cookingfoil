@@ -9,6 +9,7 @@ import { arr, int, nullable, num, obj, oneOf, str, titleId } from "./shape.js";
 import * as customArt from "../meta/custom-art.js";
 import * as artSearch from "../meta/art-search.js";
 import { cachePathFor, hasCached } from "../meta/image-cache.js";
+import * as artFill from "../meta/art-fill.js";
 import { CropError, MIN_CROP_PX, parseCrop, uprightSize } from "../meta/art-crop.js";
 import { ART_ASPECT, fitCrop } from "../meta/art-fit.js";
 import { StuckError } from "../meta/game-art-files.js";
@@ -37,14 +38,20 @@ function cropOf(input) {
 }
 
 const fileIcon = (base) => hasCached(cachePathFor(base, "icon"));
+// A source that filled a picture in: "titledb" or a plugin ("plugin"); null when nothing was.
+const filledFrom = (base, kind) => {
+  const src = artFill.sourceOf(base, kind);
+  return src ? (src.startsWith("plugin:") ? "plugin" : src) : null;
+};
+const fillShown = (base, kind) => (artFill.filled(base, kind) ? filledFrom(base, kind) ?? "titledb" : null);
 
 /** Which source each slot shows now: the admin's picture, the game file's own (a banner drawn from the icon), or none. */
 function artState(base) {
   const own = customArt.list(base);
   return {
-    icon: own.icon ? "custom" : fileIcon(base) ? "nacp" : null,
-    banner: own.banner ? "custom" : own.icon || fileIcon(base) ? "icon" : null,
-    screenshots: { custom: own.screens },
+    icon: own.icon ? "custom" : fileIcon(base) ? "nacp" : fillShown(base, "icon"),
+    banner: own.banner ? "custom" : own.icon || fileIcon(base) ? "icon" : artFill.bannerFallback(base) ? fillShown(base, "banner") : artFill.iconFallback(base) ? "icon" : null,
+    screenshots: { custom: own.screens, filled: own.screens.length ? 0 : artFill.shotSlots(base).length },
   };
 }
 
@@ -97,7 +104,10 @@ function ownSlot(input) {
 
 /** What each slot shows with the admin's pictures gone. */
 function withoutOwn(base) {
-  return { icon: fileIcon(base) ? "nacp" : null, banner: fileIcon(base) ? "icon" : null };
+  return {
+    icon: fileIcon(base) ? "nacp" : fillShown(base, "icon"),
+    banner: fileIcon(base) ? "icon" : artFill.bannerFallback(base) ? fillShown(base, "banner") : artFill.iconFallback(base) ? "icon" : null,
+  };
 }
 
 function keptOriginal(base, slot, idx) {
@@ -107,9 +117,9 @@ function keptOriginal(base, slot, idx) {
 }
 
 const SHOWN = obj({
-  icon: nullable(oneOf(["custom", "nacp"], "custom: the admin's; nacp: the game file's own")),
-  banner: nullable(oneOf(["custom", "icon"], "custom: the admin's; icon: drawn from the icon")),
-  screenshots: obj({ custom: arr(int(), "the admin's screenshot slots") }),
+  icon: nullable(oneOf(["custom", "nacp", "titledb", "plugin"], "custom: the admin's; nacp: the game file's own; titledb or plugin: filled in from outside when the file has none")),
+  banner: nullable(oneOf(["custom", "icon", "titledb", "plugin"], "custom: the admin's; icon: drawn from the icon; titledb or plugin: the source's own banner")),
+  screenshots: obj({ custom: arr(int(), "the admin's screenshot slots"), filled: int("screenshots filled in from outside, shown while the admin has none") }),
 });
 const CROP = obj({ x: num(), y: num(), w: num(), h: num() }, { description: "area kept, fractions 0..1 of the picture" });
 const SIZE = obj({ width: int(), height: int() });

@@ -14,6 +14,7 @@ import * as libraryCache from "./library-cache.js";
 import { versionedArtwork } from "./artwork-version.js";
 import * as customArt from "./custom-art.js";
 import { baseTitleIdOf, cachePathFor, hasCached } from "./image-cache.js";
+import { iconFallback, want } from "./art-fill.js";
 
 /** The name the library shows for a base title (titledb, the file's own, or its file name), or null. */
 function libraryName(titleId) {
@@ -41,6 +42,9 @@ export function gameOf(titleId, origin = "") {
   if (!name) return null;
   const game = { name, names };
   // Absolute, like the library's artwork URLs, so curl-style clients can fetch it with the library's auth.
-  if (hasCached(cachePathFor(baseTitleIdOf(titleId), "icon")) || customArt.hasOverride(baseTitleIdOf(titleId), "icon")) game.icon = `${origin}${versionedArtwork(`/api/library/icon/${titleId}`)}`;
+  // A game whose files carry no icon (or that is not on the server at all) shows the one filled in from outside, when it has arrived.
+  const base = baseTitleIdOf(titleId);
+  if (!hasCached(cachePathFor(base, "icon")) && !customArt.hasOverride(base, "icon") && !iconFallback(base)) want(base);
+  if (hasCached(cachePathFor(base, "icon")) || customArt.hasOverride(base, "icon") || iconFallback(base)) game.icon = `${origin}${versionedArtwork(`/api/library/icon/${titleId}`)}`;
   return game;
 }

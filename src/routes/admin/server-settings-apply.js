@@ -6,6 +6,7 @@
 import fs from "fs";
 import * as serverSettings from "../../security/server-settings.js";
 import * as libraryCache from "../../meta/library-cache.js";
+import { artFiller } from "../../meta/art-filler.js";
 import nszQueue from "../../meta/nsz-service.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import { refresh as refreshTitledb } from "../../meta/titledb-bootstrap.js";
@@ -17,7 +18,7 @@ import * as envs from "../../helpers/envs.js";
 import * as retroCatalog from "../../retro/catalog.js";
 
 // Settings baked into the list the server hands out: rebuild it after a change.
-const REBUILD = new Set(["publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl"]);
+const REBUILD = new Set(["publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl", "fillMissingArt"]);
 // Addresses the server fetches itself: refused when they point at a private network.
 const OUTBOUND = ["titledbSource", "publicDirectBaseUrl", "retroPackUrl"];
 // Settings that change the names themselves: reload titledb and read every file again.
@@ -79,6 +80,8 @@ export async function applyServerSettings(body) {
   } else if (changed.some((k) => REBUILD.has(k))) {
     libraryCache.invalidate();
   }
+  // On: everything the library knows is looked at again for missing pictures. Off: the queue empties and what was kept stops being shown.
+  if (changed.includes("fillMissingArt")) artFiller().settingChanged();
   // The file check waiting for its hours looks again at once.
   if (changed.includes("verifyHours")) import("../../meta/verify-service.js").then((m) => m.default.pump()).catch(() => {});
   // The conversion queue stops when turned off and looks again after any of its settings.

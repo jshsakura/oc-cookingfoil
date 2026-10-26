@@ -86,6 +86,7 @@ import * as userPatches from "./meta/user-patches.js";
 import nszQueue, { start as startNszQueue } from "./meta/nsz-service.js";
 import verifyQueue, { start as startVerifyQueue } from "./meta/verify-service.js";
 import * as ratingSync from "./meta/rating-sync.js";
+import { artFiller } from "./meta/art-filler.js";
 import * as securityStore from "./security/store.js";
 import * as users from "./security/users.js";
 import * as googleAccounts from "./security/google-accounts.js";
@@ -481,6 +482,8 @@ directHealth
 securityWatch.start();
 // Review scores from Steam (and IGDB with keys), collected in paced batches; new ones recompose the list.
 ratingSync.start({ onChange: () => libraryCache.invalidate() });
+// Pictures a game's files lack are fetched in the background from titledb, else a metadata plugin (meta/art-filler.js).
+artFiller().start();
 
 // The retro folder's old .trash entries move into the shared trash (a rename in the same folder), and what a stop left behind is cleaned up.
 trashService.tidy().catch((err) => debug.error("trash: start tidy failed: %s", err.message));
