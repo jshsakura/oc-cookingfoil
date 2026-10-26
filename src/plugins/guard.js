@@ -11,7 +11,14 @@
  *   unhandledRejection from a plugin  -> onPluginRejection(id, err), the server goes on
  *   uncaughtException from a plugin   -> writeCrash(id, err), then the process exits as it would
  *                                        have (the next start keeps that plugin off)
- *   anything else                     -> logged and the process exits, as Node does without a handler
+ *   anything else                     -> logged and the process exits, as Node does without a handler;
+ *                                        the boot mark is cleared first, so the next start does not blame
+ *                                        a plugin that was merely starting when the core fell over
+ *
+ * Attribution is by where the work started, not by whose bug it is: AsyncLocalStorage also tags a core
+ * promise that rejects inside a plugin's context (the core's own function the plugin called, awaited
+ * from plugin code). Such a rejection switches that plugin off. That is the price of not being able to
+ * tell the two apart, and the safe side of it: the server goes on and the operator sees which plugin.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 
@@ -53,8 +60,11 @@ export function firstLine(err) {
   return text.split("\n").find((l) => l.trim())?.trim().slice(0, 300) ?? "";
 }
 
-export function createProcessGuards({ onPluginRejection, writeCrash, log = (m) => process.stderr.write(`${m}\n`), exit = (code) => process.exit(code) }) {
-  const fatal = (err) => {
+export function createProcessGuards({ onPluginRejection, writeCrash, clearBooting = () => {}, log = (m) => process.stderr.write(`${m}\n`), exit = (code) => process.exit(code) }) {
+  const fatal = (err, { blamed = false } = {}) => {
+    if (!blamed) {
+      try { clearBooting(); } catch { /* the exit goes on */ }
+    }
     log(err instanceof Error ? (err.stack || err.message) : String(err));
     exit(1);
   };
@@ -67,6 +77,7 @@ export function createProcessGuards({ onPluginRejection, writeCrash, log = (m) =
     const id = currentPluginId();
     if (id) {
       try { writeCrash(id, err); } catch (e) { log(`plugin guard: crash mark failed: ${e.message}`); }
+      return fatal(err, { blamed: true });
     }
     fatal(err);
   };

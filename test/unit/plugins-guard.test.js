@@ -97,3 +97,22 @@ test("a rejection from the core itself still ends the process, with the stack on
   assert.ok(!r.out.includes("still alive"));
   assert.match(r.err, /core bug/);
 });
+
+test("a fatal error from the core clears the boot mark; one from a plugin keeps it for the crash record", async () => {
+  let cleared = 0;
+  const g = createProcessGuards({ onPluginRejection() {}, writeCrash() {}, clearBooting: () => { cleared++; }, log() {}, exit() {} });
+  g.handleException(new Error("core"));
+  g.handleRejection(new Error("core"));
+  assert.equal(cleared, 2, "an innocent plugin that was only starting is not blamed next time");
+  await runInPlugin("p1", async () => { g.handleException(new Error("plugin")); }, { timeoutMs: 100 });
+  assert.equal(cleared, 2);
+});
+
+test("a core promise rejecting inside a plugin's context is attributed to that plugin", async () => {
+  const rejected = [];
+  const g = createProcessGuards({ onPluginRejection: (id) => rejected.push(id), writeCrash() {}, log() {}, exit() {} });
+  const coreFn = async () => { throw new Error("core promise"); };
+  await runInPlugin("caller", async () => { void coreFn().catch((e) => g.handleRejection(e)); }, { timeoutMs: 100 });
+  await new Promise((r) => setTimeout(r, 10));
+  assert.deepEqual(rejected, ["caller"]);
+});

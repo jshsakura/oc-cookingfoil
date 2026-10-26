@@ -75,7 +75,8 @@ export function createMarkers(dataDir) {
       if (c) {
         try {
           const j = JSON.parse(c);
-          if (typeof j.id === "string" && j.id) out.push({ id: j.id, why: "crash", message: j.message ?? "" });
+          // Both marks naming one plugin are one event: the crash mark says more, so it replaces the boot mark.
+          if (typeof j.id === "string" && j.id) out.splice(0, out.length, ...out.filter((o) => o.id !== j.id), { id: j.id, why: "crash", message: j.message ?? "" });
         } catch { /* an unreadable marker names no one */ }
       }
       drop(booting);

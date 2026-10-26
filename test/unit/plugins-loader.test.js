@@ -20,7 +20,7 @@ test("a manifest with a bad id, version, name, provides or host lists why", () =
   for (const [patch, code] of [
     [{ id: "Bad_ID" }, "bad-id"], [{ version: "one" }, "bad-version"], [{ name: { ko: "x" } }, "bad-name"],
     [{ provides: [] }, "bad-provides"], [{ provides: ["root"] }, "bad-provides"], [{ hosts: ["203.0.113.5"] }, "bad-hosts"],
-    [{ hosts: ["*.example.com"] }, "bad-hosts"], [{ needsKeys: "yes" }, "bad-needs-keys"],
+    [{ hosts: ["*.example.com"] }, "bad-hosts"], [{ hosts: ["203.0.113.5:8443"] }, "bad-hosts"], [{ console: ["language"] }, "bad-console"], [{ console: ["clientVersion"] }, "bad-console"], [{ needsKeys: "yes" }, "bad-needs-keys"],
     [{ variantKeys: ["rewrap"] }, "variant-keys-without-variant"],
     [{ provides: ["variant"], console: ["serial"] }, "bad-console"], [{ provides: ["variant"], console: ["firmware", "firmware"] }, "bad-console"],
     [{ console: ["firmware"] }, "console-without-variant"],
@@ -78,8 +78,8 @@ test("links that leave the folder are refused: folder, manifest and index.js", a
 });
 
 test("a manifest names the console facts it wants, from the allowed four", () => {
-  const ok = parseManifest(manifestOf("p", { provides: ["variant"], console: ["firmware", "language", "region", "clientVersion"] }), "p");
+  const ok = parseManifest(manifestOf("p", { provides: ["variant"], console: ["firmware", "region"] }), "p");
   assert.equal(ok.ok, true);
-  assert.deepEqual(ok.manifest.console, ["firmware", "language", "region", "clientVersion"]);
+  assert.deepEqual(ok.manifest.console, ["firmware", "region"]);
   assert.deepEqual(parseManifest(manifestOf("p"), "p").manifest.console, []);
 });

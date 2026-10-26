@@ -335,9 +335,9 @@ test("a hook is handed only the console facts its manifest asked for, and the la
   const { registry } = newRegistry(d);
   await registry.init();
   for (const id of ["wrap", "blind"]) await registry.setEnabled(id, true);
-  const facts = { firmware: "21.0.1", language: "ko", region: "KR", clientVersion: "2.3.4" };
-  const asked = (await registry.callHook("wrap", "variants", { id: "t" }, { lang: "ko", console: facts })).value[0].got;
-  assert.deepEqual({ lang: asked.lang, console: asked.console }, { lang: "ko", console: { firmware: "21.0.1" } });
+  const facts = { firmware: "21.0.1", language: "ko", region: "kor", clientVersion: "2.3.4" };
+  const asked = (await registry.callHook("wrap", "variants", { id: "t" }, { lang: "ko", clientVersion: "2.3.4", console: facts })).value[0].got;
+  assert.deepEqual({ lang: asked.lang, clientVersion: asked.clientVersion, console: asked.console }, { lang: "ko", clientVersion: "2.3.4", console: { firmware: "21.0.1" } });
   assert.ok(asked.signal instanceof AbortSignal);
   const none = (await registry.callHook("blind", "variants", { id: "t" }, { console: facts })).value[0].got;
   assert.deepEqual(none.console, {}, "nothing asked, nothing given");
@@ -352,4 +352,115 @@ test("start() sees which console facts the plugin wants, not their values", asyn
   await registry.init();
   await registry.setEnabled("wrap", true);
   assert.deepEqual((await registry.callHook("wrap", "variants", {})).value[0].w, { wants: ["region"] });
+});
+
+test("failures of calls already running when a pause begins do not deepen it", async () => {
+  const { registry, clock } = await boot("bad", { badBody: BODIES.throwsInHook });
+  await Promise.all(Array.from({ length: 10 }, () => registry.callHook("bad", "metadata", {})));
+  const p = registry.list().find((x) => x.id === "bad");
+  assert.equal(p.state, "cooling");
+  assert.equal(Math.round((p.retryAt - clock.t) / 60_000), 10, "ten at once is still the first pause");
+  clock.t += 11 * 60_000;
+  await registry.callHook("bad", "metadata", {});
+  assert.equal(Math.round((registry.list().find((x) => x.id === "bad").retryAt - clock.t) / 60_000), 20, "the next pause is the second step");
+});
+
+test("a rejection that arrives while the plugin is starting keeps it off once the start ends", async () => {
+  const d = makeDataDir();
+  const body = "export default { start() { return new Promise((r) => setTimeout(r, 25)); }, async metadata() {} };";
+  writePlugin(d, "slow", { body });
+  const { registry } = newRegistry(d);
+  await registry.init();
+  const on = registry.setEnabled("slow", true);
+  await new Promise((r) => setTimeout(r, 5));
+  await Promise.all([on, registry.pluginRejected("slow", new Error("late floating"))]);
+  const p = registry.list().find((x) => x.id === "slow");
+  assert.equal(p.enabled, false);
+  assert.equal(p.state, "crash-disabled", "an unhandled rejection reads as a crash on the page");
+  assert.equal(registry._instance("slow"), null);
+});
+
+test("a start that ends after its time limit is stopped, and what it registered is ignored", async () => {
+  const d = makeDataDir();
+  globalThis.__lateStops = 0;
+  const body = `export default {
+    async start(ctx) { await new Promise((r) => setTimeout(r, 120)); ctx.defineCapability({ id: "plugin_late_tool", area: "plugins" }); },
+    async stop() { globalThis.__lateStops++; },
+    async metadata() {},
+  };`;
+  writePlugin(d, "late", { body });
+  const { registry } = newRegistry(d);
+  await registry.init();
+  await registry.setEnabled("late", true);
+  assert.equal(stateOf(registry, "late"), "failed");
+  await registry.setEnabled("late", true);
+  await new Promise((r) => setTimeout(r, 250));
+  assert.equal(globalThis.__lateStops, 2, "both abandoned instances were stopped");
+  assert.deepEqual(registry.capabilities(), []);
+  assert.equal(registry._instance("late"), null);
+  delete globalThis.__lateStops;
+});
+
+test("a plugin that stops offers no tools", async () => {
+  const d = makeDataDir();
+  const body = "export default { start(ctx) { ctx.defineCapability({ id: 'plugin_tool_a', area: 'plugins' }); }, async metadata() {} };";
+  writePlugin(d, "tool", { body });
+  const { registry } = newRegistry(d);
+  await registry.init();
+  await registry.setEnabled("tool", true);
+  assert.equal(registry.capabilities().length, 1);
+  await registry.setEnabled("tool", false);
+  assert.deepEqual(registry.capabilities(), []);
+  await registry.setEnabled("tool", true);
+  await registry.trash("tool");
+  assert.deepEqual(registry.capabilities(), []);
+});
+
+test("both marks naming one plugin switch it off once and tell the operator once", async () => {
+  const d = makeDataDir();
+  writePlugin(d, "twice");
+  const first = newRegistry(d);
+  await first.registry.init();
+  await first.registry.setEnabled("twice", true);
+  fs.writeFileSync(path.join(d, "plugins-booting"), "twice\n");
+  fs.writeFileSync(path.join(d, "plugins-crash"), JSON.stringify({ id: "twice", at: 1, message: "boom" }));
+  const again = newRegistry(d, { db: first.db });
+  await again.registry.init();
+  assert.equal(again.notes.length, 1);
+  assert.equal(again.registry.list()[0].disabledReason, "crash");
+});
+
+test("ctx.fetch keeps a Request's method, headers and body, follows 303 and POST 301/302 as GET, and allows port 443 only unless the manifest names the port", async () => {
+  const { limitedFetch } = await import("../../src/plugins/context.js");
+  const seen = [];
+  const base = async (url, o) => {
+    seen.push({ url: String(url), method: o.method, body: o.body === undefined ? undefined : Buffer.from(o.body).toString(), type: new Headers(o.headers).get("content-type"), auth: new Headers(o.headers).get("authorization") });
+    const u = String(url);
+    if (u.endsWith("/see-other")) return { status: 303, headers: new Headers({ location: "https://api.example.com/landed" }) };
+    if (u.endsWith("/moved")) return { status: 301, headers: new Headers({ location: "https://api.example.com/landed" }) };
+    if (u.endsWith("/temp")) return { status: 307, headers: new Headers({ location: "https://api.example.com/landed" }) };
+    if (u.endsWith("/other-host")) return { status: 302, headers: new Headers({ location: "https://cdn.example.com/f" }) };
+    return { status: 200, headers: new Headers() };
+  };
+  const f = limitedFetch(["api.example.com", "cdn.example.com", "api.example.com:8443"], base);
+  const post = (path) => new Request(`https://api.example.com${path}`, { method: "POST", headers: { "content-type": "text/plain", authorization: "Bearer x" }, body: "payload" });
+
+  await f(post("/plain"));
+  assert.deepEqual(seen.at(-1), { url: "https://api.example.com/plain", method: "POST", body: "payload", type: "text/plain", auth: "Bearer x" });
+  seen.length = 0;
+  await f(post("/see-other"));
+  assert.deepEqual([seen[1].method, seen[1].body, seen[1].type], ["GET", undefined, null]);
+  seen.length = 0;
+  await f(post("/moved"));
+  assert.equal(seen[1].method, "GET");
+  seen.length = 0;
+  await f(post("/temp"));
+  assert.deepEqual([seen[1].method, seen[1].body], ["POST", "payload"], "307 keeps the request as it was");
+  seen.length = 0;
+  await f(post("/other-host"));
+  assert.equal(seen[1].auth, null, "credentials do not follow a redirect to another host");
+
+  await f("https://api.example.com:8443/ok");
+  await assert.rejects(f("https://api.example.com:9999/"), { code: "PLUGIN_HOST_NOT_ALLOWED" });
+  await assert.rejects(f("https://cdn.example.com:8443/"), { code: "PLUGIN_HOST_NOT_ALLOWED" });
 });

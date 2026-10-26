@@ -23,11 +23,11 @@ data/plugins/<id>/index.js        ES module, default export is the plugin
   "name": { "en": "Example" },           // other languages optional; en is required
   "description": { "en": "..." },        // optional
   "provides": ["metadata"],              // one or more of metadata, art, variant, task
-  "hosts": ["api.example.com"],          // the only hosts ctx.fetch may reach (https only)
+  "hosts": ["api.example.com"],          // the only hosts ctx.fetch may reach (https, port 443; write "host:port" for another port)
   "needsKeys": false,                    // true: the operator confirms when switching it on
   "variantKeys": ["rewrap"],             // optional, with "variant": the query keys its download options use
   "console": ["firmware"]                // optional, with "variant": which facts about the asking console it wants
-                                         // (firmware, language, region, clientVersion); it gets only these
+                                         // (firmware, region); it gets only these
 }
 ```
 

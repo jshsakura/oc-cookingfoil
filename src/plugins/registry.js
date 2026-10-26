@@ -9,7 +9,7 @@
  *                                           so the caller does not await it before listening)
  *   registry.list()                         every plugin as the admin page shows it (see view())
  *   registry.setEnabled(id, on, { confirmKeys })
- *   registry.callHook(id, kind, args, { lang, console })   never throws: { value } | { skipped } | { error }
+ *   registry.callHook(id, kind, args, { lang, clientVersion, console })   never throws: { value } | { skipped } | { error }
  *   registry.rescan() / startWatching()     folders appearing and disappearing, without a restart
  *   registry.trash(id, opts) / listTrashed() / restore(name)
  *   registry.recordVariantKeys(id, keys) / variantKeyStatus(key)
@@ -99,9 +99,15 @@ export function createRegistry({
     notify({ id, event: reason === "start-failed" ? "auto-disabled" : "crash-disabled", reason, message: message ?? "" });
   };
 
+  /** A plugin that is not running offers no tools. */
+  function dropCapabilities(id) {
+    for (const [capId, def] of capabilities) if (def.plugin === id) capabilities.delete(capId);
+  }
+
   async function stopInstance(id) {
     const rt = running.get(id);
     running.delete(id);
+    dropCapabilities(id);
     if (!rt?.instance || typeof rt.instance.stop !== "function") return;
     const r = await runInPlugin(id, () => rt.instance.stop(), { timeoutMs: lim.stopMs });
     if (!r.ok) log("warn", `${id}: stop failed: ${firstLine(r.error)}`);
@@ -119,6 +125,9 @@ export function createRegistry({
     if (entry?.status !== "ok") return;
     running.set(id, { state: "starting", instance: null });
     markers.markBooting(id);
+    // A start that outlives its time limit is abandoned: if it ends later, its instance is stopped and
+    // what it registered is ignored, so a second switch-on never leaves two live instances.
+    const attempt = { dead: false };
     const r = await runInPlugin(id, async () => {
       const url = `${pathToFileURL(path.join(entry.dir, ENTRY_FILE)).href}?v=${++importCount}`;
       const mod = await importPlugin(url);
@@ -128,16 +137,28 @@ export function createRegistry({
       if (bad) throw new Error(bad);
       const ctx = makeCtx(entry.manifest, {
         dataDir, settingsOf, keysReader, fetchImpl, debug,
-        onCapability: (pid, def) => capabilities.set(def.id, { ...def, plugin: pid }),
+        onCapability: (pid, def) => { if (!attempt.dead) capabilities.set(def.id, { ...def, plugin: pid }); },
       });
       if (typeof instance.start === "function") await instance.start(ctx);
+      if (attempt.dead) {
+        try { await instance.stop?.(); } catch { /* it was abandoned already */ }
+        throw new Error("start-abandoned");
+      }
       return instance;
     }, { timeoutMs: lim.startMs });
     markers.clearBooting();
 
-    if (r.ok) {
+    if (r.ok && store.get(id)?.enabled) {
       running.set(id, { state: "on", instance: r.value });
       store.update(id, { failStreak: 0 });
+      return;
+    }
+    attempt.dead = true;
+    dropCapabilities(id);
+    if (r.ok) {
+      // Switched off while it was starting (a rejection it left, say): it does not come up.
+      running.delete(id);
+      try { await r.value.stop?.(); } catch { /* nothing to keep */ }
       return;
     }
     const message = r.timedOut ? "start-timeout" : firstLine(r.error);
@@ -196,7 +217,7 @@ export function createRegistry({
     if (entry?.status === "broken") return "broken";
     if (entry?.status === "incompatible") return "incompatible";
     if (missing.has(id) || !entry) return "missing";
-    if (row?.disabledReason === "crash" || row?.disabledReason === "crash-during-start") return "crash-disabled";
+    if (["crash", "crash-during-start", "unhandled-rejection"].includes(row?.disabledReason)) return "crash-disabled";
     if (row?.disabledReason === "start-failed" && !row.enabled) return "auto-disabled";
     const rt = running.get(id);
     if (rt?.state === "starting") return "starting";
@@ -261,6 +282,11 @@ export function createRegistry({
   function recordHookFailure(id, error, timedOut) {
     const row = store.get(id);
     const message = timedOut ? "hook-timeout" : firstLine(error);
+    // Calls that were already running when the pause began fail inside it: they do not deepen it.
+    if (row.cooldownUntil && now() < row.cooldownUntil) {
+      store.update(id, { lastError: message, lastErrorAt: now() });
+      return message;
+    }
     const streak = row.hookStreak + 1;
     const threshold = row.cooldownStep > 0 ? 1 : lim.hookFailLimit;
     if (streak < threshold) {
@@ -284,8 +310,9 @@ export function createRegistry({
   }
 
   /**
-   * call: { lang?, console? } the caller knows (the request's language, what the console told it). The hook
-   * gets (args, { signal, lang, console }) with console cut down to the manifest's `console` list.
+   * call: { lang?, clientVersion?, console? } the caller knows (the Accept-Language and Version headers, and what
+   * the console told it). The hook gets (args, { signal, lang, clientVersion, console }) with console cut
+   * down to the manifest's `console` list; language and version are never part of it.
    */
   async function callHook(id, kind, args, call = {}) {
     const rt = running.get(id);
@@ -295,7 +322,7 @@ export function createRegistry({
     const row = store.get(id);
     if (row?.cooldownUntil && now() < row.cooldownUntil) return { skipped: "cooling", retryAt: row.cooldownUntil };
 
-    const r = await runInPlugin(id, (signal) => fn.call(rt.instance, args, { signal, lang: call.lang ?? "en", console: consoleFor(id, call.console) }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
+    const r = await runInPlugin(id, (signal) => fn.call(rt.instance, args, { signal, lang: call.lang ?? "en", clientVersion: call.clientVersion ?? null, console: consoleFor(id, call.console) }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
     if (r.ok) {
       if (row.hookStreak || row.cooldownStep || row.cooldownUntil) store.update(id, { hookStreak: 0, cooldownStep: 0, cooldownUntil: null });
       return { value: r.value };
@@ -310,13 +337,16 @@ export function createRegistry({
   }
 
   // ── process-level errors the guard attributes to a plugin ──
-  async function pluginRejected(id, err) {
+  // Behind the same lock as start and stop: a rejection that arrives while the plugin is starting is
+  // handled once the start has settled, so the start cannot switch it back on afterwards.
+  const pluginRejected = (id, err) => locked(async () => {
     const message = firstLine(err);
     log("error", `${id}: unhandled rejection: ${message}`);
+    if (!store.get(id)) return;
     store.update(id, { enabled: false, disabledReason: "unhandled-rejection", disabledAt: now(), lastError: message, lastErrorAt: now() });
     notify({ id, event: "crash-disabled", reason: "unhandled-rejection", message });
     await stopInstance(id);
-  }
+  });
   const writeCrash = (id, err) => markers.writeCrash(id, firstLine(err));
 
   // ── folders coming and going ──
@@ -419,6 +449,7 @@ export function createRegistry({
   return {
     API_VERSION, init, list, view, setEnabled, callHook, rescan, startWatching, trash, listTrashed, restore,
     recordVariantKeys, variantKeyStatus, stopAll, pluginRejected, writeCrash,
+    clearBooting: markers.clearBooting,
     capabilities: () => [...capabilities.values()],
     safeMode,
     paths: { root, trashRoot },

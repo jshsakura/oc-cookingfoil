@@ -15,15 +15,19 @@
 
 export const API_VERSION = 1;
 export const PROVIDES = Object.freeze(["metadata", "art", "variant", "task"]);
-/** What a console may tell a plugin about itself, and only when the manifest asks for it by name. */
-export const CONSOLE_ITEMS = Object.freeze(["firmware", "language", "region", "clientVersion"]);
+/**
+ * What a console may tell a plugin about itself, and only when the manifest asks for it by name. The
+ * language and the client version are not here: the core reads them from the Accept-Language and Version
+ * headers and hands every hook `lang` and `clientVersion`.
+ */
+export const CONSOLE_ITEMS = Object.freeze(["firmware", "region"]);
 export const MAX_MANIFEST_BYTES = 64 * 1024;
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const VERSION_RE = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 // A DNS name with at least one dot; an IP literal is not a host a plugin may name.
-const HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
-const IP_LIKE_RE = /^[0-9.]+$/;
+const HOST_RE = /^(?=[^:]{1,253}(?::\d{1,5})?$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?::\d{1,5})?$/;
+const IP_LIKE_RE = /^[0-9.]+(?::\d+)?$/;
 const QUERY_KEY_RE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
 const LANG_RE = /^[a-z]{2}(?:-[A-Za-z]{2,4})?$/;
 

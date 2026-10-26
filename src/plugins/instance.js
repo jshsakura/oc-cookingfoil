@@ -35,6 +35,7 @@ export function startPlugins() {
   const guards = createProcessGuards({
     onPluginRejection: (id, err) => registry.pluginRejected(id, err).catch((e) => debug.error("plugins: %s", e.message)),
     writeCrash: registry.writeCrash,
+    clearBooting: registry.clearBooting,
   });
   guards.install();
   registry.init().then(() => registry.startWatching()).catch((err) => debug.error("plugins: start failed: %s", err.message));
