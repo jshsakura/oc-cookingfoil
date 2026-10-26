@@ -10,6 +10,7 @@ import * as prodKeys from "../security/prod-keys.js";
 import { createProcessGuards } from "./guard.js";
 import { createRegistry } from "./registry.js";
 import { createVariants } from "./variants.js";
+import { createPluginCache } from "./cache.js";
 import { createInstaller } from "./installer.js";
 
 let shared = null;
@@ -38,6 +39,10 @@ let variantsShared = null;
 /** The generic variant path (plugins/variants.js) on the shared registry. */
 export const pluginVariants = () => (variantsShared ??= createVariants(pluginRegistry(), { log: (m) => debug.log("plugins: %s", m) }));
 
+let cacheShared = null;
+/** The bounded cache folders of the plugins (plugins/cache.js). */
+export const pluginCache = () => (cacheShared ??= createPluginCache({ dataDir: env.dataDir, log: (m) => debug.log("plugins: %s", m) }));
+
 let installerShared = null;
 /** Uploads of plugin zips from the admin page (plugins/installer.js) on the shared registry. */
 export const pluginInstaller = () => (installerShared ??= createInstaller({ registry: pluginRegistry(), dataDir: env.dataDir, notify: notifyOperator }));
@@ -51,6 +56,7 @@ export function startPlugins() {
     clearBooting: registry.clearBooting,
   });
   guards.install();
+  pluginCache().startSweeper();
   pluginInstaller().sweep().catch((err) => debug.error("plugins: clearing old uploads failed: %s", err.message));
   registry.init().then(() => registry.startWatching()).catch((err) => debug.error("plugins: start failed: %s", err.message));
   return registry;
