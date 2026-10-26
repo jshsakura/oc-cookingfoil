@@ -63,6 +63,7 @@ const FEATURES = [
   "item-version-name",    // update item.version_name ("1.4.1")
   "item-install-size",    // item.install_size, the unpacked size (NSP/NSZ only)
   "item-integrity",       // item.integrity "modified" | "damaged" from the file check; absent when it passed or was not checked. Informational only
+  "item-integrity-detail", // item.integrity_detail { reason, certain, present? }; detail.integrity[] adds label and help { title, body } in the reader's language
   "item-required-firmware", // item.required_firmware ("16.0.0") and DLC item.required_app_version
   "item-key-generation",  // item.key_generation (master key generation, 0-based) and item.key_firmware ("21.0.0"); detail.keyGeneration, detail.keyFirmware
   "item-latest-version",  // base item.latest_version and item.dlc_total, from the eShop

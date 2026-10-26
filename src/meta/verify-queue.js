@@ -41,8 +41,12 @@
  *
  * Records live in the index database (catalog "file-verdicts"), keyed by the
  * games-folder relative path:
- *   { path, size, mtimeMs, verdict?, reason?, checks?, at?, wantHash, hashDone,
- *     ncaHashes?, stale?, identity?, misnamed? }   stale: the mtime changed, the signatures run again
+ *   { path, size, mtimeMs, verdict?, reason?, checks?, detail?, at?, wantHash, hashDone,
+ *     ncaHashes?, stale?, identity?, misnamed?, alerted? }   stale: the mtime changed, the signatures run again
+ *
+ * A file newly found damaged is told to the admin once (`onDamaged`, one call
+ * per run with every such file): `alerted` marks it, and it is told again only
+ * after a check that found it not damaged.
  */
 import fsp from "fs/promises";
 import path from "path";
@@ -64,8 +68,9 @@ const FLAGGED_MAX = 200;
 
 export const NOTICE = new Set(["modified", "damaged"]);
 const notice = (row) => (row && NOTICE.has(row.verdict) ? row.verdict : null);
-// A record from before checks kept the identity is read again once, signatures only.
-const needsWork = (row) => !row.verdict || row.stale || (row.wantHash && !row.hashDone) || !("identity" in row);
+// A record from before checks kept the identity, or a damaged one from before they said why in detail, is read again once, signatures only.
+const needsWork = (row) => !row.verdict || row.stale || (row.wantHash && !row.hashDone) || !("identity" in row)
+  || (row.verdict === "damaged" && !("detail" in row));
 const sizeChanged = (st, row) => row.mtimeMs != null && st.size !== row.size;
 const mtimeChanged = (st, row) => row.mtimeMs != null && Math.round(st.mtimeMs) !== Math.round(row.mtimeMs);
 const fresh = (rel, st, wantHash) => ({ path: rel, size: st.size, mtimeMs: st.mtimeMs, wantHash, hashDone: false });
@@ -113,6 +118,7 @@ export function createVerifyQueue({
   downloads = () => ({ active: 0, lastEndedAt: 0 }),
   fileInUse = () => false,
   onVerdict = () => {},
+  onDamaged = () => {},
   track = () => null,
   // How long until a check may read the library (the admin's hours); a file the admin asked for goes at once.
   msUntilAllowed = () => 0,
@@ -144,6 +150,7 @@ export function createVerifyQueue({
   let autoTimer = null;
   let syncing = null;
   let batch = null; // { job, done }
+  let found = []; // files found damaged this run, not told yet: [{ path, reason, detail }]
   let resumeTimer = null;
   let resumeAt = null;
   let stopped = false; // the admin stopped the check: nothing starts until the next library update or request
@@ -354,7 +361,16 @@ export function createVerifyQueue({
     batch = { job: track({ title: activityText("act.verify"), total: pending.size, cancel: stop }), done: 0 };
   }
 
+  /** Tells the admin about the files found damaged since the last time, in one call. */
+  function tellDamaged() {
+    if (!found.length) return;
+    const list = found;
+    found = [];
+    try { onDamaged(list); } catch (err) { debug.error("verify: damaged notice failed: %s", err.message); }
+  }
+
   function endBatch() {
+    tellDamaged();
     if (!batch) return;
     const { job, done } = batch;
     batch = null;
@@ -396,7 +412,9 @@ export function createVerifyQueue({
       fails = 0;
       const { stale: _s, ...done } = base;
       const identity = r.identity ?? null;
-      put({ ...done, ncaHashes, verdict: r.verdict, reason: r.reason, checks: r.checks, at: now(), hashDone: base.hashDone || hash, identity, misnamed: nameDisagrees(rel, identity) });
+      const damaged = r.verdict === "damaged";
+      put({ ...done, ncaHashes, verdict: r.verdict, reason: r.reason, checks: r.checks, detail: r.detail ?? null, at: now(), hashDone: base.hashDone || hash, identity, misnamed: nameDisagrees(rel, identity), alerted: damaged });
+      if (damaged && !base.alerted) found.push({ path: rel, reason: r.reason, detail: r.detail ?? null });
       batch.done++;
       if (NOTICE.has(r.verdict)) debug.log("verify: %s is %s (%s)", rel, r.verdict, r.reason);
     } catch (err) {
@@ -410,6 +428,7 @@ export function createVerifyQueue({
         debug.log("verify: stopped after %d failures in a row; trying again in %d min", MAX_FAILS, Math.round(resumeMs / 60_000));
         batch?.job?.fail(activityText("act.verifyStopped", { n: MAX_FAILS, why: err.message }));
         batch = null;
+        tellDamaged();
         resumeAt = now() + resumeMs;
         resumeTimer = setTimeout(() => {
           debug.log("verify: trying again after the stop for failures");
@@ -470,7 +489,7 @@ export function createVerifyQueue({
     load();
     const row = rows.get(rel);
     if (!row) return false;
-    const { verdict: _v, reason: _r, checks: _c, at: _a, ncaHashes: _n, stale: _s, ...rest } = row;
+    const { verdict: _v, reason: _r, checks: _c, detail: _d, at: _a, ncaHashes: _n, stale: _s, ...rest } = row;
     put({ ...rest, wantHash: true, hashDone: false });
     later.delete(rel);
     urgent.add(rel);
@@ -492,6 +511,12 @@ export function createVerifyQueue({
     return notice(rows.get(rel));
   }
 
+  /** The notice-worthy finding with its reason and detail: { verdict, reason, detail }, or null. */
+  function findingOf(rel) {
+    const row = rows.get(rel);
+    return notice(row) ? { verdict: row.verdict, reason: row.reason ?? null, detail: row.detail ?? null } : null;
+  }
+
   /** What the check found the file to be, while its size and mtime still hold; else null. */
   function identityOf(rel, { size, mtimeMs }) {
     const row = rows.get(rel);
@@ -507,7 +532,7 @@ export function createVerifyQueue({
       const v = row.verdict && row.verdict !== "unchecked" ? row.verdict : "unchecked";
       counts[v] = (counts[v] ?? 0) + 1;
       if (row.wantHash && !row.hashDone) hashPending++;
-      if (notice(row)) flagged.push({ path: row.path, verdict: row.verdict, reason: row.reason ?? null, checks: row.checks ?? null, at: row.at ?? null, size: row.size ?? null });
+      if (notice(row)) flagged.push({ path: row.path, verdict: row.verdict, reason: row.reason ?? null, checks: row.checks ?? null, detail: row.detail ?? null, at: row.at ?? null, size: row.size ?? null });
       if (row.misnamed) {
         counts.misnamed++;
         flagged.push({ path: row.path, verdict: "misnamed", reason: "name-mismatch", contentId: row.identity?.titleId ?? null, at: row.at ?? null, size: row.size ?? null });
@@ -530,7 +555,7 @@ export function createVerifyQueue({
   }
 
   return {
-    init, sync, onLibraryUpdate, hashAll, recheck, stop, shutdown, integrityOf, identityOf, view, pump,
+    init, sync, onLibraryUpdate, hashAll, recheck, stop, shutdown, integrityOf, findingOf, identityOf, view, pump,
     get: (rel) => rows.get(rel) ?? null,
     /** Test-only: resolves once nothing runs or is being started. */
     async idle() {

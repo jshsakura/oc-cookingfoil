@@ -22,9 +22,11 @@ import { nestedDirs } from "../../meta/library-browse.js";
 import { inside } from "./homebrew-apps-api.js";
 import debug from "../../debug.js";
 import verifyQueue from "../../meta/verify-service.js";
+import { explain as explainIntegrity } from "../../meta/integrity-help.js";
 import * as trashService from "../../library/trash-service.js";
 import { trashGameFiles } from "../../library/game-files.js";
 import { apiWord } from "./api-words.js";
+import { requestLang } from "../../meta/langs.js";
 
 const LIMIT = 100;
 
@@ -78,7 +80,13 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     res.json({ ok: true, trash: out.id });
   }));
 
-  router.get("/api/library/verify", handle((req, res) => res.json(verify.view())));
+  // Each modified or damaged file carries its label and help in the admin's language.
+  router.get("/api/library/verify", handle((req, res) => {
+    const view = verify.view();
+    const lang = requestLang(req);
+    const flagged = (view.flagged ?? []).map((f) => (f.verdict === "modified" || f.verdict === "damaged" ? { ...f, ...explainIntegrity(f, lang) } : f));
+    res.json({ ...view, flagged });
+  }));
 
   router.post("/api/library/verify/hash-all", handle((req, res) => res.json({ ok: true, queued: verify.hashAll() })));
 

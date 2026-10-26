@@ -445,3 +445,44 @@ test("a record kept from before identities were read is checked once more, witho
   await settle(q);
   assert.deepEqual(calls, [], "read once");
 });
+
+test("files found damaged in one run are told once, together, and again only after they were found fine", async () => {
+  for (const rel of ["cut-a.nsp", "cut-b.nsp", "fine.nsp"]) addFile(rel);
+  const cut = { verdict: "damaged", reason: "truncated", checks: {}, detail: { present: 0.73, ncas: [{ id: "a".repeat(32), type: "Program" }] } };
+  hooks["cut-a.nsp"] = () => cut;
+  hooks["cut-b.nsp"] = () => cut;
+  const told = [];
+  const store = memoryStore();
+  const q = makeQueue(store, { onDamaged: (list) => told.push(list.map((f) => f.path).sort()) });
+  await settle(q);
+  assert.deepEqual(told, [["cut-a.nsp", "cut-b.nsp"]], "one notice for the run");
+  assert.deepEqual(q.view().flagged.find((f) => f.path === "cut-a.nsp").detail, cut.detail, "the admin list shows why");
+
+  assert.ok(q.recheck("cut-a.nsp"));
+  await settle(q);
+  assert.equal(told.length, 1, "still damaged: not told again");
+
+  hooks["cut-a.nsp"] = () => ({ verdict: "ok", reason: "ok", checks: {} });
+  q.recheck("cut-a.nsp");
+  await settle(q);
+  hooks["cut-a.nsp"] = () => cut;
+  q.recheck("cut-a.nsp");
+  await settle(q);
+  assert.deepEqual(told.at(-1), ["cut-a.nsp"], "damaged again after a fine check");
+});
+
+test("a damaged record from before detail was kept is read once more and told once", async () => {
+  const rel = addFile("old-cut.nsp");
+  const st = fs.statSync(path.join(games, rel));
+  const store = memoryStore([{ path: rel, size: st.size, mtimeMs: st.mtimeMs, verdict: "damaged", reason: "unreadable", checks: {}, at: 1, wantHash: false, hashDone: false, identity: null }]);
+  hooks[rel] = () => ({ verdict: "damaged", reason: "truncated", checks: {}, detail: { present: 0.72, ncas: [] } });
+  const told = [];
+  const q = makeQueue(store, { onDamaged: (list) => told.push(list.map((f) => f.reason)) });
+  await settle(q);
+  assert.deepEqual(calls, [{ rel, hash: false }]);
+  assert.equal(store.rows()[rel].reason, "truncated");
+  assert.deepEqual(told, [["truncated"]]);
+  calls = [];
+  await settle(q);
+  assert.deepEqual(calls, [], "read once");
+});
