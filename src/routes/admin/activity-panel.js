@@ -59,7 +59,7 @@ export const ACTIVITY_CSS = /* css */ `
   border:1px solid rgba(var(--bad-rgb),.55);background:rgba(var(--bad-rgb),.1);color:var(--bad);font-family:inherit;font-size:var(--fs-xs);font-weight:var(--fw-bold);line-height:1;cursor:pointer}
 .act-row .act-stop .ico{width:12px;height:12px}
 .act-row .act-stop:hover{background:var(--bad);border-color:var(--bad);color:var(--white)}
-.act-row .act-stop:focus-visible{outline:2px solid var(--bad);outline-offset:2px}
+.act-row .act-stop:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .act-empty{margin:0;padding:6px 10px 10px;color:var(--muted);font-size:var(--fs-sm)}
 .act-empty[hidden]{display:none}
 @keyframes act-spin{to{transform:rotate(360deg)}}

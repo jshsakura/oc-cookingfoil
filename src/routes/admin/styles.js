@@ -15,10 +15,10 @@ export const ADMIN_HEAD = /* html */ `<link rel="icon" href="/assets/cookingfoil
 
 const DARK = `--bg:#16161a;--panel:#1f1f24;--sunk:#26262c;--line:#303037;--line2:#41414a;
 --text:#f2f1ee;--muted:#a9a8a3;--faint:#75747c;--warn:#e3a43a;--bad:#ef6b5f;--good:#3fbf83;--accent:#ffc23d;--accent-ink:#16161a;
---warn-rgb:227,164,58;--bad-rgb:239,107,95;--good-rgb:63,191,131;--accent-rgb:255,194,61;--shadow:rgba(0,0,0,.4);color-scheme:dark`;
+--warn-rgb:227,164,58;--bad-rgb:239,107,95;--good-rgb:63,191,131;--accent-rgb:255,194,61;--shadow:rgba(0,0,0,.4);--warn-card:#3a2424;color-scheme:dark`;
 export const LIGHT = `--bg:#f2f1ee;--panel:#ffffff;--sunk:#ebe9e4;--line:#e2e0da;--line2:#d3d0c8;
 --text:#16161a;--muted:#55555e;--faint:#8d8c93;--warn:#c47c00;--bad:#cc3e34;--good:#1e8e5a;--accent:#ffc23d;--accent-ink:#16161a;
---warn-rgb:196,124,0;--bad-rgb:204,62,52;--good-rgb:30,142,90;--accent-rgb:255,194,61;--shadow:rgba(22,22,26,.14);color-scheme:light`;
+--warn-rgb:196,124,0;--bad-rgb:204,62,52;--good-rgb:30,142,90;--accent-rgb:255,194,61;--shadow:rgba(22,22,26,.14);--warn-card:#fde2e2;color-scheme:light`;
 
 // The client's scale (~/app/cookingfoil-ops/design/client-design-tokens.md) at web size: radii
 // badge 5, chip 7, row 10-12, button 14, group card 18, dialog 20 on a 1280x720 screen read from
@@ -64,23 +64,26 @@ tr:last-child td{border-bottom:none}
 button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:1px solid var(--line);
 border-radius:var(--r-lg);cursor:pointer;background:var(--panel);color:var(--text);font:inherit;font-size:var(--fs-sm);font-weight:var(--fw-bold);text-decoration:none}
 button:hover,.btn:hover{border-color:var(--text)}
-button:disabled{opacity:.5;cursor:default}
+/* The client's pressed look: the same shape darkened by a 14% black wash. Disabled is a Line fill with
+   secondary text, not a faded button. */
+button:not(:disabled):active,.btn:active{background-image:linear-gradient(rgba(0,0,0,.14),rgba(0,0,0,.14))}
+button:disabled,button.primary:disabled{background:var(--line);border-color:transparent;color:var(--muted);filter:none;cursor:default}
 button.primary{border-color:transparent;background:var(--accent);color:var(--accent-ink);font-weight:700}
 button.primary:hover{filter:brightness(1.04);border-color:transparent}
-button.danger{color:var(--bad);border-color:rgba(var(--bad-rgb),.4)}
 input:not([type=checkbox]):not([type=radio]),select{padding:10px 14px;border-radius:var(--r-lg);border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:var(--fs-md)}
 /* Our own arrow with room on the right, instead of the browser's pressed against the edge. */
 select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238b909a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:12px 8px;text-overflow:ellipsis}
-input:not([type=checkbox]):not([type=radio]):focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.3)}
+input:not([type=checkbox]):not([type=radio]):focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.45)}
 /* One checkbox everywhere: a quiet box that fills with the accent and a check when on. */
 :where(input[type=checkbox]){appearance:none;-webkit-appearance:none;flex:none;width:18px;height:18px;margin:0;padding:0;border-radius:var(--r-xs);border:1.5px solid var(--line2,var(--line));background:var(--panel);cursor:pointer;display:inline-grid;place-content:center;vertical-align:middle;transition:background .12s,border-color .12s}
 :where(input[type=checkbox])::after{content:"";width:10px;height:6px;border:2px solid var(--bg);border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg) scale(0);transition:transform .12s}
 :where(input[type=checkbox]):checked{background:var(--accent);border-color:var(--accent)}
 :where(input[type=checkbox]):checked::after{transform:translateY(-1px) rotate(-45deg) scale(1)}
 :where(input[type=checkbox]):hover:not(:disabled){border-color:var(--accent)}
-:where(input[type=checkbox]):focus-visible{outline:none;box-shadow:0 0 0 3px rgba(var(--accent-rgb),.3)}
+:where(input[type=checkbox]):focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 :where(input[type=checkbox]):disabled{opacity:.45;cursor:default}
-button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+/* One focus ring, the client's: butter outside, a strip of the page between it and the control. */
+button:focus-visible,.btn:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 /* The client's toggle (52x30 pill, a white knob, green when on) at web size. Two markups share it: a
    button[role=switch or menuitemcheckbox][aria-checked] holding span.switch, and label.ss-switch holding
    a checkbox and a span. */
