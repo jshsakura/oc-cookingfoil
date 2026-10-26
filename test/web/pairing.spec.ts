@@ -14,7 +14,7 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
   await expect(page.locator('#approve')).toHaveCount(0);
   await page.locator('#code').fill('000000');
   await page.getByRole('button', { name:'인증합니다', exact:true }).click();
-  await expect(page.locator('#error')).toHaveText('관리자 인증을 확인합니다.');
+  await expect(page.locator('#error')).toHaveText('관리자 코드를 확인한 뒤 다시 시도합니다.');
   fs.mkdirSync('out/web', { recursive:true });
   await page.locator('#code').fill('');
   await page.screenshot({ path:'out/web/pairing-login-mobile.png' });
