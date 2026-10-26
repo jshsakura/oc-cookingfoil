@@ -44,7 +44,8 @@ export default {
   async art(args, { signal }) {},        // provides: art
   variants(item, { lang, clientVersion, console, signal }) {},   // provides: variant (with plan); console holds
                                          // only the facts the manifest's "console" list names. Returns
-                                         // [{ id, label, note?, confirm?, query }], text as { lang: text }
+                                         // [{ id, label, note?, confirm?, progress?, failed?, hashesChange?, query }]
+                                         // or { id, label, blocked }, text as { lang: text }
   async plan(args, { lang, clientVersion, console, signal }) {},  // provides: variant; see Download options
   shopInfo({ lang }) {},                 // optional: { features: [...], info: { ... } } added to shop info
   tasks() {},                            // provides: task
@@ -72,9 +73,22 @@ A plugin that provides `variant` adds options to a game file: the same file, sen
 replaced. The server does everything except the part only the plugin knows.
 
 - `variants(item, ...)`, `item = { file, abs, size, mtimeMs }`, returns the options of that file, or `[]`.
-  Each is `{ id, label, note?, confirm?, query }`. The texts are `{ lang: text }` maps (or one string,
-  taken as English) and the server picks the reader's language. `query` holds only keys listed in
-  the manifest's `variantKeys`, with string values; the client appends it to the file's URL.
+  Each is one of
+  - `{ id, label, note?, confirm?, progress?, failed?, hashesChange?, button?, card?, query }`, an option the client can send.
+    `confirm` is `{ title, body }` (the window shown before sending; one text is taken as the body of an
+    older plugin), `progress` is shown while the server prepares the file, `failed` when it could not,
+    and `hashesChange: true` says the bytes differ from the original so a hash check is not expected to match.
+    `query` holds only keys listed in the manifest's `variantKeys`, with string values; the client appends it to the file's URL.
+  - `{ id, label, blocked: { title, body } }`, an option that cannot be used here: the client shows it greyed
+    and opens a window with `title` and `body` when it is pressed. It has no `query` and none of the other fields,
+    except `button` and `card`.
+  - `button: { color, stripe, text }` colors the option's button; each is `#RRGGBB`, and `stripe` may be `null` for no pattern.
+  - `card: { color, text, icon }` shows the option's note as a colored card; `icon` is `"warning"` or `"info"` and may be left out.
+    A wrong value is left out on its own (a bad `stripe` means no pattern, an unknown `icon` means none) and the rest of the option still passes;
+    a button or card without valid colors is dropped, never the option.
+
+  The texts are `{ lang: text }` maps (or one string, taken as English) and the server picks the reader's
+  language, so the client receives plain strings.
 - `plan({ file, size, mtimeMs, query }, ...)` runs when such a URL is requested (30 s). A plugin that
   said `needsKeys` also gets `keys` (the server's parsed prod.keys) in the arguments of `variants`, `plan`
   and `shopInfo`, for that call only. It returns
