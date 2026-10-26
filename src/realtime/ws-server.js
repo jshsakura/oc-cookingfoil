@@ -38,7 +38,7 @@ import { webUser } from "../security/user-session.js";
 import { sameHost } from "../security/same-origin.js";
 import { trustedHere } from "../security/net.js";
 import { clientAddress } from "../helpers/trust-proxy.js";
-import pkg from "../package.js";
+import pkg from "../app-info.js";
 import debug from "../debug.js";
 import drainer from "../security/drain.js";
 import { hasValidSession } from "../security/admin-session.js";

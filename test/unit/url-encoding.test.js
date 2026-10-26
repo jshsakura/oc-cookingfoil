@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { addUrlEncodedFileInfo } from "../../src/helpers/helpers.js";
+import { withEncodedUrl as addUrlEncodedFileInfo } from "../../src/helpers/file-url.js";
 
 // 상대 경로 하나를 와이어 URL 로 인코딩한다.
 const enc = (relPath) => addUrlEncodedFileInfo({ url: relPath }).url;

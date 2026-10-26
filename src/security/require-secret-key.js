@@ -3,11 +3,11 @@
  * secret on disk can run (security/secret-box.js), so the server stops here
  * with the reason instead of failing later in some request.
  */
-import dotenv from "dotenv";
+import { loadEnvFile } from "../helpers/load-env-file.js";
 import { assertKey } from "./secret-box.js";
 
 // This runs before helpers/envs.js loads .env, so a key kept there would be missed.
-dotenv.config({ path: "./.env", quiet: true });
+loadEnvFile("./.env");
 
 try {
   assertKey();

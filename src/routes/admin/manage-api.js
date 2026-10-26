@@ -19,7 +19,7 @@ import { resolveOrigin } from "../../helpers/origin.js";
 import {
   publicBaseUrl, devicePairing, uploadsEnabled, extractIcons, langPriority,
 } from "../../helpers/envs.js";
-import pkg from "../../package.js";
+import pkg from "../../app-info.js";
 import debug from "../../debug.js";
 import { isSelf } from "../../security/admin-actor.js";
 import * as envs from "../../helpers/envs.js";

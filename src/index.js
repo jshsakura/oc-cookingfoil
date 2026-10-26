@@ -108,7 +108,7 @@ import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import * as trashService from "./library/trash-service.js";
 import { pluginRegistry, pluginRouter, pluginVariants, startPlugins } from "./plugins/instance.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
-import { afterStartFunction } from "./afterStartFunction.js";
+import { onListening } from "./after-start.js";
 import { alert } from "./helpers/alerts.js";
 import * as securityWatch from "./security/security-watch.js";
 import * as telegramUpdates from "./security/telegram-updates.js";
@@ -412,7 +412,7 @@ expressApp.use((err, req, res, next) => {
 });
 
 // ── lifecycle ───────────────────────────────────────────────────────────
-const server = expressApp.listen(appPort, afterStartFunction(appPort));
+const server = expressApp.listen(appPort, onListening(appPort));
 // Presses on the approval alerts' buttons, while Telegram is set up and buttons are on.
 telegramUpdates.watch();
 

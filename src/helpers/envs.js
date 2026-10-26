@@ -1,5 +1,5 @@
-import dotenv from "dotenv";
-dotenv.config({ path: "./.env" });
+import { loadEnvFile } from "./load-env-file.js";
+loadEnvFile("./.env");
 
 import path from "path";
 import { envString, envNumber, envBool } from "./env-read.js";

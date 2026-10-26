@@ -2,11 +2,6 @@
 
 CookingFoil is MIT-licensed (see [LICENSE](./LICENSE)) and builds on the work below.
 
-## Origin
-
-- **tinfoil-hat** by Vinicios Clarindo, MIT. CookingFoil started as a fork; the
-  original copyright line is kept in `LICENSE`.
-
 ## Bundled in the Docker image
 
 The image keeps every license text below in `/usr/share/licenses/cookingfoil/`. The same
@@ -21,8 +16,7 @@ files are in [`licenses/`](./licenses) in this repository.
 
 | Package | License |
 |---|---|
-| chokidar, debug, express, express-basic-auth, fast-glob, json5, local-ip-address, multer, otplib, serve-index, uqr, urlencode, ws | MIT |
-| dotenv | BSD-2-Clause |
+| chokidar, debug, express, express-basic-auth, fast-glob, json5, multer, otplib, serve-index, uqr, ws | MIT |
 | sharp | Apache-2.0 |
 | jsqr (served to the browser as `/pair/qr.js`) | Apache-2.0 |
 | tabulator-tables (served to the admin page as `/admin/vendor/tabulator.min.*`) | MIT |

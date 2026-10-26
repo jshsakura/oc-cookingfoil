@@ -76,7 +76,7 @@ import {
   extractMaxBytes,
   langPriority,
 } from "./helpers/envs.js";
-import { addUrlEncodedFileInfo as encodeUrlObject } from "./helpers/helpers.js";
+import { withEncodedUrl as encodeUrlObject } from "./helpers/file-url.js";
 import { versionedArtwork as withVersion } from "./meta/artwork-version.js";
 import { cachePathFor, hasCached } from "./meta/image-cache.js";
 

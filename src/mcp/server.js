@@ -9,7 +9,7 @@
  * confirm only after the user agrees. Each carried-out write is journaled.
  */
 import { createMcpHandler, fromJsonSchema, McpServer } from "@modelcontextprotocol/server";
-import pkg from "../package.js";
+import pkg from "../app-info.js";
 import { errorResult, okResult } from "./envelope.js";
 import { reference } from "./spec.js";
 import { areaDescription, areaInput, areaTools, gated, servedTools, STANDALONE } from "./tools.js";

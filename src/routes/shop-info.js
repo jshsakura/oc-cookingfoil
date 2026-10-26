@@ -28,7 +28,7 @@
  * sees two addresses of one server as one.
  */
 import fs from "fs";
-import pkg from "../package.js";
+import pkg from "../app-info.js";
 import { CLIENT_NRO, clientBuildStatus } from "./client-update.js";
 import * as shopCache from "../meta/shop-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
