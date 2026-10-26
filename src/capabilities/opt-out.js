@@ -69,6 +69,7 @@ export const OPT_OUT = {
   "POST /admin/api/plugins/restore": "token-blocked",
   "POST /admin/api/plugins/:id/enabled": "token-blocked",
   "POST /admin/api/plugins/:id/trash": "token-blocked",
+  "POST /admin/api/plugins/:id/cache/clear": "token-blocked",
   // Move a user's RetroArch core to the trash (the nightly build takes its place) and back.
   "POST /admin/api/retro-cores/official": "token-blocked",
   "POST /admin/api/retro-cores/user-version": "token-blocked",

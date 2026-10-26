@@ -41,6 +41,10 @@ function plProblem(code){
   if(code==='no-index')return plT('p.noIndex');
   if(/symlink|outside/.test(code))return plT('p.link');
   return plT('p.manifest');}
+const plBytes=(n)=>n>=1073741824?(n/1073741824).toFixed(1)+' GB':n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
+async function plClearCache(p){if(!await ask(plT('askCache',{name:(p.name&&(p.name[adminLang]||p.name.en))||p.id})))return;
+  try{await api('/admin/api/plugins/'+encodeURIComponent(p.id)+'/cache/clear',{method:'POST',body:{}});toast(plT('tCache'));}
+  catch(err){toast(err.message);}loadPlugins();}
 function plRow(p){
   const r=el('div',null,'pl-row');const main=el('div',null,'pl-main');
   const name=(p.name&&(p.name[adminLang]||p.name.en))||p.id;
@@ -51,6 +55,7 @@ function plRow(p){
   if(p.version)meta.append(el('span',plT('ver',{v:p.version})));
   if(p.provides.length)meta.append(el('span',plT('provides',{list:p.provides.map((k)=>plT('k.'+k)).join(', ')})));
   main.append(meta);
+  if(p.cache&&p.cache.bytes>0)meta.append(el('span',plT('cacheUsed',{used:plBytes(p.cache.bytes),cap:plBytes(p.cache.capBytes)})));
   if(p.state==='broken'){const codes=[...new Set(p.problems.map(plProblem))];for(const c of codes)main.append(el('span',c,'err'));}
   if(p.state==='incompatible')main.append(el('span',plT('needs',{n:p.needs}),'err'));
   if(p.disabledReason&&PL_REASON[p.disabledReason]&&!p.enabled)main.append(el('span',plT(PL_REASON[p.disabledReason]),'err'));
@@ -59,6 +64,7 @@ function plRow(p){
   const act=el('div',null,'pl-act');
   const usable=!['broken','incompatible','missing'].includes(p.state);
   if(usable)act.append(p.enabled?btn(plT('turnOff'),()=>plSwitch(p,false)):btn(plT('turnOn'),()=>plSwitch(p,true)));
+  if(p.cache&&p.cache.bytes>0)act.append(btn(plT('cacheClear'),()=>plClearCache(p)));
   if(p.state!=='missing')act.append(btn(plT('del'),()=>plDelete(p,name),'danger'));
   r.append(main,act);return r;}
 function plTrashedRow(t){

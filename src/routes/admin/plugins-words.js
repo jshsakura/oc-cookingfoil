@@ -60,6 +60,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "그림",
     "pl.k.variant": "받기 옵션",
     "pl.k.task": "작업",
+    "pl.cacheUsed": "캐시 {used} / 상한 {cap}",
+    "pl.cacheClear": "캐시 비우기",
+    "pl.askCache": "{name} 의 캐시를 비울까요? 플러그인이 필요하면 다시 받아 둡니다.",
+    "pl.tCache": "캐시를 비웠습니다."
   },
   "en": {
     "m.setPlugins": "Plugins",
@@ -117,6 +121,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "images",
     "pl.k.variant": "download options",
     "pl.k.task": "tasks",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
   "ja": {
     "m.setPlugins": "プラグイン",
@@ -174,6 +182,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "画像",
     "pl.k.variant": "ダウンロードオプション",
     "pl.k.task": "タスク",
+    "pl.cacheUsed": "キャッシュ {used} / 上限 {cap}",
+    "pl.cacheClear": "キャッシュを空にする",
+    "pl.askCache": "{name} のキャッシュを空にしますか。必要なものはプラグインが再取得します。",
+    "pl.tCache": "キャッシュを空にしました。"
   },
   "zh": {
     "m.setPlugins": "插件",
@@ -231,6 +243,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "图片",
     "pl.k.variant": "下载选项",
     "pl.k.task": "任务",
+    "pl.cacheUsed": "缓存 {used} / 上限 {cap}",
+    "pl.cacheClear": "清空缓存",
+    "pl.askCache": "要清空 {name} 的缓存吗？插件会按需重新获取。",
+    "pl.tCache": "缓存已清空。"
   },
   "zh-Hant": {
     "m.setPlugins": "外掛",
@@ -288,6 +304,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "圖片",
     "pl.k.variant": "下載選項",
     "pl.k.task": "工作",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
   "es": {
     "m.setPlugins": "Complementos",
@@ -345,6 +365,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "imágenes",
     "pl.k.variant": "opciones de descarga",
     "pl.k.task": "tareas",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
   "fr": {
     "m.setPlugins": "Modules",
@@ -402,6 +426,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "images",
     "pl.k.variant": "options de téléchargement",
     "pl.k.task": "tâches",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
   "de": {
     "m.setPlugins": "Plugins",
@@ -459,6 +487,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "Bilder",
     "pl.k.variant": "Download-Optionen",
     "pl.k.task": "Aufgaben",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
   "it": {
     "m.setPlugins": "Plugin",
@@ -516,6 +548,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "immagini",
     "pl.k.variant": "opzioni di download",
     "pl.k.task": "attività",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
   "pt": {
     "m.setPlugins": "Plugins",
@@ -573,6 +609,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "imagens",
     "pl.k.variant": "opções de download",
     "pl.k.task": "tarefas",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
   "nl": {
     "m.setPlugins": "Plug-ins",
@@ -630,6 +670,10 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "afbeeldingen",
     "pl.k.variant": "downloadopties",
     "pl.k.task": "taken",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
   "ru": {
     "m.setPlugins": "Плагины",
@@ -687,5 +731,9 @@ export const PLUGINS_WORDS = {
     "pl.k.art": "изображения",
     "pl.k.variant": "варианты загрузки",
     "pl.k.task": "задачи",
+    "pl.cacheUsed": "Cache {used} of {cap}",
+    "pl.cacheClear": "Empty cache",
+    "pl.askCache": "Empty the cache of {name}? The plugin fetches again what it needs.",
+    "pl.tCache": "Cache emptied."
   },
 };
