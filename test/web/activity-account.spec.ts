@@ -103,7 +103,7 @@ test('a failed admin capability check leaves the public status visible without s
   await expect(page.locator('#act-running .act-stop')).toHaveCount(0);
 });
 
-test('the signed-in address is a plain label that a phone cannot turn into a mail link', async ({ page }) => {
+test('the account menu is menu items only: the signed-in address is not shown', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('cookingfoil:lang', 'ko'));
   await page.route('**/auth/me', route => route.fulfill({ json: { user: 'player@example.com', kind: 'google', admin: false } }));
   await page.route('**/api/inbox', route => route.fulfill({ json: { enabled: false } }));
@@ -113,15 +113,9 @@ test('the signed-in address is a plain label that a phone cannot turn into a mai
   await page.goto('/');
   await expect(page.locator('meta[name="format-detection"]')).toHaveAttribute('content', /email=no/);
   await page.locator('#acct-btn').click();
-  const who = page.locator('#acct-who');
-  await expect(who).toHaveText('player@example.com');
-  await expect(who.locator('a')).toHaveCount(0);
-  expect(await who.evaluate(el => {
-    const s = getComputedStyle(el);
-    return [s.pointerEvents, s.userSelect, s.whiteSpace, s.borderRadius];
-  })).toEqual(['none', 'none', 'nowrap', '100px']);
-  fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#acct-list').screenshot({ path: 'out/web/web-account-label.png' });
+  await expect(page.locator('#acct-list')).toBeVisible();
+  await expect(page.locator('#acct-list')).not.toContainText('player@example.com');
+  await expect(page.locator('#acct-list a[href^="mailto:"]')).toHaveCount(0);
 });
 
 test('the account menu rules run edge to edge', async ({ page }) => {

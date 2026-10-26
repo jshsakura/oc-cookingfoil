@@ -6,7 +6,8 @@ import path from "node:path";
 
 // "admin", "auto" and "telegram" are what the server writes for approvals no
 // account made. No account may take those names, and an account that has one
-// from before still never owns, revokes or re-enrolls those consoles.
+// from before still never owns or revokes those consoles. Such a console has
+// no account holding it, so any download gives it a new key.
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-reserved-"));
 process.env.COOK_AUTH_USERS = "";
 process.env.COOK_DEVICE_PAIRING = "true";
@@ -33,11 +34,11 @@ test("an account named like a system approver owns none of those consoles", () =
   assert.equal(ownsApproval({}, "admin", "admin"), true, "the admin's own session still owns its approvals");
 });
 
-test("a download's enrollment token never takes a console the server approved", () => {
+test("a console the server approved takes a new key from any download; an account's console stays its own", () => {
   const key = (c) => c.repeat(64);
   store.approveDevice(key("A"), { addedBy: "admin", accessKeyHash: "h" });
   store.approveDevice(key("B"), { addedBy: "alice", accessKeyHash: "h" });
-  assert.equal(mayEnroll(key("A"), "admin"), false, "an admin-approved console is not re-enrolled by a download");
+  assert.equal(mayEnroll(key("A"), "alice"), true, "an admin-approved console re-enrolls with an account's download");
   assert.equal(mayEnroll(key("B"), "alice"), true, "the same account enrolls its own console again");
   assert.equal(mayEnroll(key("B"), "owner"), false, "another account's console stays theirs");
   assert.equal(mayEnroll(key("C"), "alice"), true, "a free console enrolls");

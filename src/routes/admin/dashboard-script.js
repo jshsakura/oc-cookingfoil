@@ -93,8 +93,8 @@ for(const b of document.querySelectorAll('#set-subtabs [data-ssub]'))b.addEventL
 ${OVERVIEW_SCRIPT}
 async function loadStats(){
   const d=await api('/admin/api/stats');
-  me=d.me||null;const a=d.lanes.admin;
-  $('who').textContent=me?(me.name||me.email):(a.email||a.owner||'admin');acctAvatar(me?.avatar);
+  me=d.me||null;
+  acctAvatar(me?.avatar);
   $('ts').textContent=topFill('overview.asOf',{at:fmt(d.generatedAt)});
   renderWarnings(d.warnings||[]);renderLanes(d.lanes);renderCards(d);renderUsers(d.users||[]);renderSecurity(d);loadHealth();}
 

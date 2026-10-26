@@ -15,12 +15,6 @@ const { generate } = await import("otplib");
 const google = { webUser: { kind: "google", sub: "sub-1", email: "admin@example.com" } };
 const nobody = {};
 
-test("a Google admin on a server with no accounts and no admin password cannot switch a plugin on, and is told why", async () => {
-  assert.equal(reconfirmKind(google), "unavailable");
-  assert.deepEqual(await reconfirm(google, { password: "anything at all" }), { ok: false, reason: "unavailable" });
-  assert.deepEqual(await reconfirm(google, {}), { ok: false, reason: "unavailable" });
-});
-
 test("with only an authenticator set up, a code from it is asked for; a wrong or missing one is refused", async () => {
   markEnrolled();
   resetReconfirm();
@@ -29,5 +23,14 @@ test("with only an authenticator set up, a code from it is asked for; a wrong or
   assert.equal((await reconfirm(nobody, { code: "000000" })).reason, "wrong");
   const code = await generate({ secret: process.env.COOK_ADMIN_TOTP_SECRET });
   assert.deepEqual(await reconfirm(nobody, { code }), { ok: true });
+  resetReconfirm();
+});
+
+test("a Google admin with an authenticator set up switches a plugin on with a code from it, not an admin password", async () => {
+  resetReconfirm();
+  assert.equal(reconfirmKind(google), "totp");
+  assert.equal((await reconfirm(google, { password: "anything at all" })).reason, "wrong");
+  const code = await generate({ secret: process.env.COOK_ADMIN_TOTP_SECRET });
+  assert.deepEqual(await reconfirm(google, { code }), { ok: true });
   resetReconfirm();
 });

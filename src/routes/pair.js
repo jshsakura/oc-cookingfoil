@@ -66,7 +66,7 @@
  *          whose it is
  *        → 403 { error } + X-CookingFoil-Enroll: limit, X-CookingFoil-Auth: device-limit
  *          the account holds all the consoles it may (security/device-limit.js)
- *        → 409 { error }   the console is another account's, or the account may no longer sign in
+ *        → 409 { error }   the console is another account's (one the admin, the automatic approval or Telegram let in is no account's: any download re-enrolls it), or the account may no longer sign in
  *          (X-CookingFoil-Auth: enroll-other-account); the console then asks /api/pair/status with
  *          its pairSecret for a re-pair QR
  *
@@ -192,8 +192,15 @@ const ENROLL_REFUSED = {
 export function mayEnroll(deviceKey, owner) {
   if (!ownerAllowed(owner)) return false;
   if (!store.isDeviceApproved(deviceKey)) return true;
+  // The admin, the automatic approval or Telegram let it in, so no account holds it: any download gives it a new key.
+  if (systemApproved(deviceKey)) return true;
   return store.deviceAddedBy(deviceKey) === owner && !SYSTEM_APPROVERS.has(owner);
 }
+
+const systemApproved = (deviceKey) => {
+  const by = store.deviceAddedBy(deviceKey);
+  return by === null || SYSTEM_APPROVERS.has(by);
+};
 
 function pendingResponse(req, deviceKey, limit) {
   const link = issuePairLink(deviceKey);
@@ -333,7 +340,9 @@ export default function pairRouter() {
     const out = { status: "approved", passwordOnly: true };
     // Only to the caller holding the pairSecret the console asked with (or any caller, for a legacy console).
     const accessKey = deliverAccessKey(deviceKey, typeof secret === "string" ? secret : null);
-    const repairSecret = accessKey ? null : normalizePairSecret(secret);
+    // A console that still holds a working key is approved as it is; only one without it gets a re-pair QR.
+    const holdsKey = verifyAccessKey(req.get("X-Access-Key"), store.getDeviceAccessKeyHash(deviceKey));
+    const repairSecret = accessKey || holdsKey ? null : normalizePairSecret(secret);
     if (repairSecret) return repairResponse(req, res, deviceKey, hashPairSecret(repairSecret));
     if (accessKey) {
       out.accessKey = accessKey;
@@ -382,7 +391,9 @@ export default function pairRouter() {
     }
     const accessKey = generateAccessKey();
     const fresh = !store.isDeviceApproved(deviceKey);
-    store.approveDevice(deviceKey, { label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : undefined, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
+    // A console the system let in keeps that approval; it only takes the new key.
+    const addedBy = !fresh && systemApproved(deviceKey) ? undefined : spent.owner;
+    store.approveDevice(deviceKey, { label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : undefined, addedBy, accessKeyHash: hashAccessKey(accessKey) });
     store.clearPairSecret(deviceKey);
     dropRepair(deviceKey);
     if (again) debug.log("pair: %s… re-enrolled with its own download %s", deviceKey.slice(0, 12), spent.id);

@@ -329,7 +329,7 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
   const row = page.locator('#hb-apps .src-card', { hasText: 'Hand App' });
   await expect(row.getByRole('button', { name: 'GitHub 연결' })).toBeVisible();
   // The apps open first; the GitHub form leads the followed repositories.
-  await expect(page.getByRole('tab', { name: '앱', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('aside.adm-side a.adm-task[href*="tab=apps"]')).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('[data-sub-panel="sources"]')).toBeHidden();
   await row.getByLabel('Hand App 켜기').locator('xpath=..').click();
   await expect(row).toHaveClass(/hb-off/);
@@ -503,7 +503,6 @@ test('the header has one account circle that opens the account, the web page, th
   await signIn(page);
   await expect(page.locator('#acct-list')).toBeHidden();
   await page.locator('#acct-btn').click();
-  await expect(page.locator('#who')).not.toHaveText('불러오고 있습니다');
   await expect(page.locator('#acct-list').getByRole('menuitem', { name: '운영 안내' })).toHaveAttribute('href', '/admin/guide');
   await expect(page.locator('#acct-list').getByRole('menuitem', { name: '로그아웃' })).toBeVisible();
   await page.keyboard.press('Escape');

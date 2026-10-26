@@ -60,7 +60,6 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .tfa-qr{width:180px;height:180px;background:#fff;border-radius:12px;padding:6px}.tfa-qr svg{width:100%;height:100%;display:block}
 .tfa-key{font-family:ui-monospace,monospace;font-size:15px;letter-spacing:1px;word-break:break-all;background:var(--sunk);border-radius:10px;padding:10px 12px}
 @media(max-width:640px){.tfa-setup{grid-template-columns:1fr}}
-.who{color:var(--muted);font-size:13px}
 .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .seg{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:100px;background:var(--panel)}
 .seg button{border:none;border-radius:100px;padding:6px 10px;color:var(--muted)}
@@ -92,7 +91,6 @@ form.add label.toggle input{flex:none;min-width:0;width:18px;height:18px}
 .pop-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:210px;padding:6px;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 36px var(--shadow)}
 .pop-list[hidden]{display:none}
 /* The signed-in account as a plain label: phones must not turn an email address into a mail link. */
-.pop-list p.who{display:block;box-sizing:border-box;width:fit-content;max-width:calc(100% - 8px);margin:4px 6px 10px;padding:5px 11px;border:0;border-radius:100px;background:var(--sunk);font-size:12.5px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;pointer-events:none;color:var(--muted)}
 .pop-list a,.pop-list button{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;padding:9px 12px;border:0;border-radius:9px;background:none;text-decoration:none;color:var(--text);font:600 14px inherit;text-align:left;cursor:pointer}
 .pop-list a:hover,.pop-list button:hover{background:var(--sunk)}.pop-list #logout{color:var(--bad)}
 /* theme: one row with a switch; on means dark */
@@ -334,7 +332,6 @@ export const ADMIN_HEADER_HTML = /* html */ `<header class="adm-hdr">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
     <div class="pop-list" id="acct-list" role="dialog" aria-label="계정 메뉴 및 서버 활동" hidden>
       <div class="account-links" role="menu">
-      <p class="who" id="who">불러오고 있습니다</p>
       <a role="menuitem" href="/">${icon("home")}${top("web")}</a>
       <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}${top("guide")}</a>
       <div class="menu-sep" role="separator"></div>
