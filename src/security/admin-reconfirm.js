@@ -22,6 +22,14 @@ const keyOf = (req) => {
   return a ? `${a.kind}:${a.name ?? a.sub}` : "anonymous";
 };
 
+/** What switching a plugin on will ask of this admin: "password", "unavailable" (nothing to give) or "none" (no gate to repeat). */
+export function reconfirmKind(req) {
+  const actor = adminActor(req);
+  if (actor?.kind === "password" && users.hasUsers()) return "password";
+  if (adminPasswordMode()) return "password";
+  return users.hasUsers() ? "unavailable" : "none";
+}
+
 export function resetReconfirm() { fails.clear(); }
 
 export async function reconfirm(req, password, now = Date.now()) {

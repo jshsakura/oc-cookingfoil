@@ -21,7 +21,7 @@ import { PluginError } from "../../plugins/registry.js";
 import { pluginInstaller, pluginRegistry } from "../../plugins/instance.js";
 import { installAllowed } from "../../plugins/installer.js";
 import { UNPACK_LIMITS } from "../../plugins/unpack.js";
-import { reconfirm } from "../../security/admin-reconfirm.js";
+import { reconfirm, reconfirmKind } from "../../security/admin-reconfirm.js";
 import { requestLang } from "../../meta/langs.js";
 import { TOP_WORDS } from "./top-i18n.js";
 
@@ -35,8 +35,8 @@ const ERROR_WORD = {
 const REASON_WORD = { wrong: "pl.e.password", unavailable: "pl.e.noPassword", locked: "pl.e.locked" };
 const word = (lang, key) => TOP_WORDS[lang]?.[key] ?? TOP_WORDS.en[key];
 
-async function snapshot(registry) {
-  return { safeMode: registry.safeMode, installAllowed: installAllowed(), plugins: registry.list(), trashed: await registry.listTrashed() };
+async function snapshot(registry, req) {
+  return { safeMode: registry.safeMode, installAllowed: installAllowed(), reconfirm: reconfirmKind(req), plugins: registry.list(), trashed: await registry.listTrashed() };
 }
 
 export function mountPluginsApi(router, requireSession, registry = pluginRegistry(), installer = pluginInstaller()) {
@@ -54,17 +54,17 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
   };
   const bad = (res, req, key = "pl.e.failed") => res.status(400).json({ error: word(requestLang(req), key) });
 
-  router.get("/api/plugins", handle(async (req, res) => res.json(await snapshot(registry))));
+  router.get("/api/plugins", handle(async (req, res) => res.json(await snapshot(registry, req))));
 
   router.post("/api/plugins/rescan", handle(async (req, res) => {
     await registry.rescan();
-    res.json({ ok: true, ...(await snapshot(registry)) });
+    res.json({ ok: true, ...(await snapshot(registry, req)) });
   }));
 
   router.post("/api/plugins/restore", handle(async (req, res) => {
     const name = req.body?.name;
     if (typeof name !== "string" || !NAME_RE.test(name)) return bad(res, req);
-    res.json({ ok: true, plugin: await registry.restore(name), ...(await snapshot(registry)) });
+    res.json({ ok: true, plugin: await registry.restore(name), ...(await snapshot(registry, req)) });
   }));
 
   // The zip arrives as the body. It is read only for a signed-in admin and only up to the unpacker's limit.
@@ -79,7 +79,7 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
     if (typeof stagedId !== "string" || !/^[0-9a-f]{24}$/.test(stagedId)) return bad(res, req);
     const plugin = await installer.confirm(stagedId, { overwrite: req.body.overwrite === true });
     debug.log("admin: plugin %s %s installed from an upload", plugin.id, plugin.version);
-    res.json({ ok: true, plugin, ...(await snapshot(registry)) });
+    res.json({ ok: true, plugin, ...(await snapshot(registry, req)) });
   }));
 
   router.post("/api/plugins/:id/enabled", handle(async (req, res) => {

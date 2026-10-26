@@ -40,7 +40,9 @@ after(() => { server?.close(); fs.rmSync(dataDir, { recursive: true, force: true
 
 test("without COOK_PLUGIN_INSTALL=1 nothing can be uploaded or confirmed, and the page is told", async () => {
   delete process.env.COOK_PLUGIN_INSTALL;
-  assert.equal((await json(await fetch(`${base}/api/plugins`))).installAllowed, false);
+  const snap = await json(await fetch(`${base}/api/plugins`));
+  assert.equal(snap.installAllowed, false);
+  assert.equal(snap.reconfirm, "password", "the page is told it will be asked for the admin password");
   const r = await upload(zip(good()));
   assert.equal(r.status, 403);
   assert.equal((await r.json()).code, "install-off");
