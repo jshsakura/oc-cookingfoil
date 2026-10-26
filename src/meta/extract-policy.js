@@ -55,3 +55,26 @@ export function shouldAutoExtract({ sizeBytes, extractMode, fromDb, maxBytes, fi
   if (!isSliceable(fileName) && isOverSizeCap({ sizeBytes, maxBytes })) return false;
   return true;
 }
+
+const CONTAINER_RANK = { nsp: 0, nsz: 1, xci: 2, xcz: 3 };
+
+/**
+ * The files of one game in the order they are read for its icon and name:
+ * the game itself, then its updates (both carry the control NCA), the cheaper
+ * container first, then files whose own id is unknown. DLC carries no control NCA and is left out, so a game
+ * owned only as DLC gets none.
+ * @param {{titleId?:string, fileName:string}[]} files
+ * @param {string} baseTitleId
+ */
+export function iconFileOrder(files, baseTitleId) {
+  const base = String(baseTitleId).toUpperCase();
+  const updateId = `${base.slice(0, 13)}800`;
+  // A file whose own id is unknown may still be the game: read last, not left out.
+  const kindOf = (tid) => (tid === base ? 0 : tid === updateId ? 1 : tid ? null : 2);
+  const rankOf = (name) => CONTAINER_RANK[String(name).split(".").pop().toLowerCase()] ?? 9;
+  return files
+    .map((f) => ({ f, kind: kindOf(String(f.titleId || "").toUpperCase()) }))
+    .filter((x) => x.kind !== null)
+    .sort((a, b) => a.kind - b.kind || rankOf(a.f.fileName) - rankOf(b.f.fileName))
+    .map((x) => x.f);
+}

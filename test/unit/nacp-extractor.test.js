@@ -175,3 +175,47 @@ test("a second pass that cannot read the file leaves the record as it was", asyn
   assert.deepEqual(extractedMeta.get(BASE).iconLangs, ["en"]);
   assert.equal(extractor.needsLangIcons(extractedMeta.get(BASE)), true, "tried again on a later start");
 });
+
+test("an icon is kept at most 256px and recompressed, its language icons compared with the file's own bytes", async () => {
+  const { default: sharp } = await import("sharp");
+  const noise = Buffer.alloc(1024 * 1024 * 3).map(() => Math.floor(Math.random() * 256));
+  const big = await sharp(noise, { raw: { width: 1024, height: 1024, channels: 3 } }).jpeg({ quality: 100 }).toBuffer();
+  const id = "0100000000070000";
+  extractor.setProvider(stubProvider({ name: "Big", iconBuffer: big, iconsByLang: { ko: big } }, []));
+
+  extractor.enqueue({ absPath: "/games/big.nsp", baseTitleId: id, wantMeta: true });
+  await extractor.whenDrained();
+
+  const kept = await fs.readFile(cachePathFor(id, "icon"));
+  const meta = await sharp(kept).metadata();
+  assert.deepEqual([meta.width, meta.height], [256, 256]);
+  assert.ok(kept.length < big.length / 4, "far fewer bytes than the file stores");
+  assert.deepEqual(extractedMeta.get(id).iconLangs, [], "the same picture under ko is not saved twice");
+});
+
+test("a file that gives no icon leaves the next one to try; the first record still gives the name", async () => {
+  const id = "0100000000080000";
+  const calls = [];
+  extractor.setProvider({
+    name: "stub-test",
+    async extract(job) {
+      calls.push(job.absPath);
+      if (job.absPath.endsWith("broken.nsp")) throw new Error("bad NCA");
+      if (job.absPath.endsWith("game.nsz")) return { name: "From Base" };
+      return { name: "From Update", iconBuffer: Buffer.from("update-icon") };
+    },
+  });
+
+  extractor.enqueue({ absPath: "/games/broken.nsp", baseTitleId: id, wantMeta: true,
+    fallbacks: [{ absPath: "/games/game.nsz" }, { absPath: "/games/upd.nsp" }, { absPath: "/games/never.nsp" }] });
+  await extractor.whenDrained();
+
+  assert.deepEqual(calls, ["/games/broken.nsp", "/games/game.nsz", "/games/upd.nsp"], "stops at the first icon");
+  assert.equal((await fs.readFile(cachePathFor(id, "icon"))).toString(), "update-icon");
+
+  const nameOnly = "0100000000090000";
+  extractor.setProvider(stubProvider({ name: "Only Name" }, []));
+  extractor.enqueue({ absPath: "/games/a.nsp", baseTitleId: nameOnly, wantMeta: true, fallbacks: [{ absPath: "/games/b.nsp" }] });
+  await extractor.whenDrained();
+  assert.equal(extractedMeta.get(nameOnly).name, "Only Name");
+});

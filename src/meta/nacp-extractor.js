@@ -16,6 +16,7 @@
  */
 import path from "path";
 import fs from "fs/promises";
+import sharp from "sharp";
 import * as extractedMeta from "./extracted-meta-store.js";
 import { cachePathFor, dropVariants, hasCached } from "./image-cache.js";
 import * as autoProvider from "./extract-providers/auto.js";
@@ -24,6 +25,8 @@ import debug from "../debug.js";
 import { envNumber } from "../helpers/env-read.js";
 import { NACP_DECODER_VERSION } from "./nacp-decode.js";
 
+const ICON_MAX_PX = 256;
+const ICON_QUALITY = 85;
 const CONCURRENCY = envNumber("COOK_EXTRACT_CONCURRENCY", 2, { min: 1, integer: true });
 
 // Inter-job pacing: a small gap between jobs so the one-time background pass
@@ -90,7 +93,11 @@ function fullReread(record) {
   return record?.nacpUnreadable != null && record.nacpUnreadable !== NACP_DECODER_VERSION;
 }
 
-export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
+/**
+ * Queues a game for reading. `fallbacks` are its other files in the order to
+ * try when `absPath` yields no icon (create-index-content.js orders them).
+ */
+export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true, fallbacks = [] }) {
   if (!baseTitleId) return false;
   if (tried.has(baseTitleId)) return false;
   if (inFlight.has(baseTitleId)) return false;
@@ -104,7 +111,7 @@ export function enqueue({ absPath, baseTitleId, fileName, wantMeta = true }) {
     tried.add(baseTitleId);
     return false;
   }
-  queue.push({ absPath, baseTitleId, fileName, wantMeta, langIconsOnly: Boolean(existing) && !fullReread(existing) });
+  queue.push({ absPath, baseTitleId, fileName, wantMeta, fallbacks, langIconsOnly: Boolean(existing) && !fullReread(existing) });
   inFlight.add(baseTitleId);
   if (drainedResolver === null) {
     drained = new Promise((resolve) => { drainedResolver = resolve; });
@@ -126,15 +133,15 @@ async function iconCached(baseTitleId) {
  * Saves the game file's icon for each client language whose art differs from
  * the default icon, as `<id>.icon.<lang>.jpg`; returns the languages saved.
  */
-async function persistLangIcons(baseTitleId, byLang, defaultIconPath) {
+async function persistLangIcons(baseTitleId, byLang, defaultIcon) {
   if (!byLang || typeof byLang !== "object") return [];
-  const fallback = defaultIconPath ? await fs.readFile(defaultIconPath).catch(() => null) : null;
+  const fallback = Buffer.isBuffer(defaultIcon) ? defaultIcon : null;
   const saved = [];
   for (const [lang, buf] of Object.entries(byLang)) {
     if (!Buffer.isBuffer(buf) || (fallback && buf.equals(fallback))) continue;
     try {
       const file = cachePathFor(baseTitleId, "icon-lang", lang);
-      await fs.writeFile(`${file}.tmp.${process.pid}`, buf);
+      await fs.writeFile(`${file}.tmp.${process.pid}`, await compactIcon(buf));
       await fs.rename(`${file}.tmp.${process.pid}`, file);
       dropVariants(file);
       saved.push(lang);
@@ -145,6 +152,18 @@ async function persistLangIcons(baseTitleId, byLang, defaultIconPath) {
   return saved;
 }
 
+/**
+ * The game file's icon as kept on disk: at most 256px (the size NACP icons are
+ * made at) and recompressed, about a fifth of the bytes the file stores. The
+ * file's own bytes are never kept, so one sharp cannot read is not saved.
+ */
+async function compactIcon(buf) {
+  return sharp(buf, { failOn: "none" })
+    .resize(ICON_MAX_PX, ICON_MAX_PX, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: ICON_QUALITY, mozjpeg: true })
+    .toBuffer();
+}
+
 /** Saves the game file's default icon as data/icons/<id>.jpg; returns its path, or null. */
 async function persistIcon(baseTitleId, buf) {
   if (!Buffer.isBuffer(buf)) return null;
@@ -152,7 +171,7 @@ async function persistIcon(baseTitleId, buf) {
     await fs.mkdir(iconCacheDir, { recursive: true });
     const iconPath = cachePathFor(baseTitleId, "icon");
     const tmp = `${iconPath}.tmp.${process.pid}`;
-    await fs.writeFile(tmp, buf);
+    await fs.writeFile(tmp, await compactIcon(buf));
     await fs.rename(tmp, iconPath);
     // Its WebP copies were drawn from the icon this one replaces.
     dropVariants(iconPath);
@@ -172,7 +191,7 @@ async function addLangIcons(job, record) {
   // A file that could not be read this time keeps what it had, and is tried again on a later start.
   if (!existing || !record || typeof record !== "object") return;
   const iconPath = await persistIcon(job.baseTitleId, record.iconBuffer);
-  const iconLangs = await persistLangIcons(job.baseTitleId, record.iconsByLang, cachePathFor(job.baseTitleId, "icon"));
+  const iconLangs = await persistLangIcons(job.baseTitleId, record.iconsByLang, record.iconBuffer);
   // An icon the older mapping saved under a language this one gives none (zh's traditional icon) goes.
   for (const lang of (Array.isArray(existing.iconLangs) ? existing.iconLangs : []).filter((l) => !iconLangs.includes(l))) {
     const file = cachePathFor(job.baseTitleId, "icon-lang", lang);
@@ -186,6 +205,28 @@ async function addLangIcons(job, record) {
   }
 }
 
+/**
+ * Reads the game's files in turn until one gives an icon: a broken base file
+ * or one whose container cannot be opened leaves the update to try. Without an
+ * icon anywhere, the first record read still gives the name.
+ */
+async function readFirstWithIcon(job) {
+  let first = null;
+  for (const file of [{ absPath: job.absPath, fileName: job.fileName }, ...(job.fallbacks || [])]) {
+    let record = null;
+    try {
+      record = await provider.extract({ ...job, ...file });
+    } catch (err) {
+      debug.error("nacp-extractor: provider threw for %s (%s): %s", job.baseTitleId, file.fileName, err.message);
+    }
+    if (record && typeof record === "object") {
+      if (Buffer.isBuffer(record.iconBuffer)) return record;
+      first ??= record;
+    }
+  }
+  return first;
+}
+
 async function workOne(job) {
   // titledb-covered titles (wantMeta === false) only need an icon. If one is
   // already on disk from a prior extract, skip the container read entirely. This keeps COOK_EXTRACT_ICONS=all a
@@ -195,7 +236,7 @@ async function workOne(job) {
   }
   let record = null;
   try {
-    record = await provider.extract(job);
+    record = await readFirstWithIcon(job);
     if (job.langIconsOnly) return await addLangIcons(job, record);
   } catch (err) {
     debug.error(
@@ -208,8 +249,8 @@ async function workOne(job) {
     // already serves from, so the icon route picks it up naturally.
     const iconPath = await persistIcon(job.baseTitleId, record.iconBuffer);
     if (iconPath) record.iconPath = iconPath;
+    record.iconLangs = await persistLangIcons(job.baseTitleId, record.iconsByLang, record.iconBuffer);
     delete record.iconBuffer;
-    record.iconLangs = await persistLangIcons(job.baseTitleId, record.iconsByLang, record.iconPath);
     record.iconMap = ICON_MAP;
     delete record.iconsByLang;
     // titledb already owns the name/publisher/version for wantMeta === false

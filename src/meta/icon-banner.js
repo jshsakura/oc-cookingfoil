@@ -52,7 +52,7 @@ export async function drawBanner(iconBytes) {
     .modulate({ brightness: DIM })
     .toBuffer();
   const front = await sharp(iconBytes, { failOn: "none" }).resize(ICON_PX, ICON_PX, { fit: "cover" }).toBuffer();
-  return sharp(back).composite([{ input: front, gravity: "center" }]).jpeg({ quality: 85 }).toBuffer();
+  return sharp(back).composite([{ input: front, gravity: "center" }]).jpeg({ quality: 80, mozjpeg: true }).toBuffer();
 }
 
 /** Path of the game's banner for `lang` (drawn now if missing or older than its icon), or null without an icon. */
