@@ -2,11 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
+import { SLOTS, webTestPort } from './test/web/ports.mjs';
 
 // Each checkout gets its own port and folders: two worktrees running the suite at
 // once would otherwise test against each other's server and files.
-const slot = parseInt(crypto.createHash('sha1').update(process.cwd()).digest('hex').slice(0, 6), 16) % 1000;
-const port = process.env.COOK_WEB_TEST_PORT ?? String(3188 + slot);
+const slot = parseInt(crypto.createHash('sha1').update(process.cwd()).digest('hex').slice(0, 6), 16) % SLOTS;
+const port = process.env.COOK_WEB_TEST_PORT ?? String(webTestPort(slot));
 const root = path.join(os.tmpdir(), `cookingfoil-web-test-${slot}`);
 process.env.COOK_WEB_TEST_PORT = port;
 for (const [role, dir] of Object.entries({ DATA: 'data', GAMES: 'games', PATCHES: 'patches', SAVES: 'saves', HOMEBREW: 'homebrew', RETRO: 'retro' })) {

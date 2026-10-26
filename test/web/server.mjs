@@ -1,7 +1,11 @@
 import fs from 'node:fs';
-// Every run starts from an empty data folder; a run that stopped halfway leaves state behind.
-// Only the suite's own folder (playwright.web.config.ts), never one named by hand.
-if (/cookingfoil-web-test-\d+[\/]data$/.test(process.env.COOK_DATA_DIR)) fs.rmSync(process.env.COOK_DATA_DIR, { recursive: true, force: true });
+// Every run starts from empty folders; a run that stopped halfway leaves state behind (a game a spec
+// was about to delete, say, which the next run's counts then include). The others are emptied below.
+// Only the suite's own folders (playwright.web.config.ts), never one named by hand.
+for (const name of ['DATA', 'GAMES']) {
+  const dir = process.env[`COOK_${name}_DIR`];
+  if (new RegExp(`cookingfoil-web-test-\\d+[\\/]${name.toLowerCase()}$`).test(dir ?? '')) fs.rmSync(dir, { recursive: true, force: true });
+}
 fs.mkdirSync(process.env.COOK_GAMES_DIR, { recursive: true });
 // Accounts left behind by an interrupted admin spec would put every later run behind a password.
 fs.rmSync(`${process.env.COOK_DATA_DIR}/security/users.json`, { force: true });
