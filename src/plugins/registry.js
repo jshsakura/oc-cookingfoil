@@ -20,6 +20,7 @@
  * background and are cached (stage 2). A variant plan runs while a file is sent, so its failure is a
  * plain { error } the sender turns into the original refusal, never a thrown error.
  */
+import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -77,12 +78,27 @@ const TRASH_NAME_RE = /^([a-z0-9][a-z0-9-]{0,39})\.(\d{10,16})$/;
 const TRASH_META_BY = "plugin-registry";
 
 export class PluginError extends Error {
-  constructor(code, status = 409) {
+  /** extra: fields the admin answer carries along with the code (e.g. the version already installed). */
+  constructor(code, status = 409, extra = {}) {
     super(code);
     this.name = "PluginError";
     this.code = code;
     this.status = status;
+    this.extra = extra;
   }
+}
+
+// Where an uploaded plugin came from, kept beside the data (not in the plugin's own folder, which an upload replaces).
+const originFile = (dataDir, id) => path.join(dataDir, "plugin-origin", `${id}.json`);
+function readOrigin(dataDir, id) {
+  try { return JSON.parse(fs.readFileSync(originFile(dataDir, id), "utf8")); } catch { return null; }
+}
+function writeOrigin(dataDir, id, origin) {
+  fs.mkdirSync(path.dirname(originFile(dataDir, id)), { recursive: true });
+  fs.writeFileSync(originFile(dataDir, id), JSON.stringify(origin));
+}
+function removeOrigin(dataDir, id) {
+  fs.rmSync(originFile(dataDir, id), { force: true });
 }
 
 /** Rename, falling back to copy and remove across disks. */
@@ -108,6 +124,10 @@ export function createRegistry({
   const entries = new Map(); // id -> scan entry
   const running = new Map(); // id -> { state: "starting" | "on" | "failed", instance }
   const missing = new Set();
+  // Node keeps every file a plugin imported for as long as the process runs. A plugin that was imported and then
+  // replaced by another version would run the new index.js on the old files it imports, so it waits for a restart.
+  const imported = new Set();
+  const restartNeeded = new Set();
   const capabilities = new Map();
   let queue = Promise.resolve();
   let watcher = null;
@@ -155,6 +175,7 @@ export function createRegistry({
     // what it registered is ignored, so a second switch-on never leaves two live instances.
     const attempt = { dead: false };
     const r = await runInPlugin(id, async () => {
+      imported.add(id);
       const url = `${pathToFileURL(path.join(entry.dir, ENTRY_FILE)).href}?v=${++importCount}`;
       const mod = await importPlugin(url);
       const instance = mod?.default;
@@ -264,6 +285,11 @@ export function createRegistry({
       provides: entry?.manifest?.provides ?? [],
       needsKeys: entry?.manifest?.needsKeys === true,
       hosts: entry?.manifest?.hosts ?? [],
+      console: entry?.manifest?.console ?? [],
+      libraries: entry?.manifest?.libraries ?? [],
+      // A note that belongs to another version than the folder holds (replaced by hand) is not shown.
+      origin: ((o) => (o && o.version === entry?.manifest?.version ? o : null))(readOrigin(dataDir, id)),
+      restartNeeded: restartNeeded.has(id),
       state,
       enabled: row.enabled === true,
       safeMode,
@@ -295,6 +321,7 @@ export function createRegistry({
         return view(id);
       }
       if (safeMode) throw new PluginError("safe-mode");
+      if (restartNeeded.has(id)) throw new PluginError("restart-needed");
       if (entry.status !== "ok") throw new PluginError(entry.status === "incompatible" ? "incompatible" : "broken");
       if (entry.manifest.needsKeys && confirmKeys !== true) throw new PluginError("keys-confirm-required", 400);
       store.update(id, { enabled: true, failStreak: 0, hookStreak: 0, cooldownStep: 0, cooldownUntil: null, disabledReason: null, disabledAt: null });
@@ -409,28 +436,58 @@ export function createRegistry({
   // ── the plugins' own trash ──
   // Not the shared trash: a restore from there could put code into plugins/. Only entries this registry
   // wrote (a sibling .json with by === TRASH_META_BY) come back, and only into plugins/<id>.
-  async function trash(id, { dropCache = false, dropSettings = false } = {}) {
+  async function trashNow(id, { dropCache = false, dropSettings = false } = {}) {
+    const entry = entries.get(id);
+    if (!entry) throw new PluginError("not-found", 404);
+    await stopInstance(id);
+    store.update(id, { enabled: false });
+    await fsp.mkdir(trashRoot, { recursive: true });
+    // Two in the same millisecond (an overwrite right after a delete) must not meet in one folder.
+    let stamp = now();
+    while (await fsp.lstat(path.join(trashRoot, `${id}.${stamp}`)).then(() => true, () => false)) stamp++;
+    const name = `${id}.${stamp}`;
+    const dest = path.join(trashRoot, name);
+    await moveDir(entry.dir, dest);
+    await fsp.writeFile(`${dest}.json`, JSON.stringify({ by: TRASH_META_BY, id, version: entry.manifest?.version ?? null, trashedAt: now() }));
+    if (dropCache) await fsp.rm(path.join(dataDir, "plugin-cache", id), { recursive: true, force: true });
+    removeOrigin(dataDir, id);
+    if (dropSettings) {
+      clearSettings?.(id);
+      store.remove(id);
+    } else {
+      // A trashed plugin's keys are forgotten: nothing is left behind to answer for them.
+      store.update(id, { disabledReason: "trashed", variantKeys: [] });
+    }
+    await applyScan(await scanPluginDir(root));
+    missing.delete(id);
+    return { name };
+  }
+
+  const trash = (id, opts) => locked(() => trashNow(id, opts));
+
+  /**
+   * Puts an unpacked plugin folder (already checked by the caller) into plugins/<id>, switched off.
+   * A plugin of that id already there is an error unless `overwrite`; then it goes to the plugins' own
+   * trash (so it can come back) and its settings stay. `origin` is written beside it for the admin page.
+   */
+  async function installFrom(stageDir, id, { overwrite = false, origin = null } = {}) {
     return locked(async () => {
-      const entry = entries.get(id);
-      if (!entry) throw new PluginError("not-found", 404);
-      await stopInstance(id);
-      store.update(id, { enabled: false });
-      await fsp.mkdir(trashRoot, { recursive: true });
-      const name = `${id}.${now()}`;
-      const dest = path.join(trashRoot, name);
-      await moveDir(entry.dir, dest);
-      await fsp.writeFile(`${dest}.json`, JSON.stringify({ by: TRASH_META_BY, id, version: entry.manifest?.version ?? null, trashedAt: now() }));
-      if (dropCache) await fsp.rm(path.join(dataDir, "plugin-cache", id), { recursive: true, force: true });
-      if (dropSettings) {
-        clearSettings?.(id);
-        store.remove(id);
-      } else {
-        // A trashed plugin's keys are forgotten: nothing is left behind to answer for them.
-        store.update(id, { disabledReason: "trashed", variantKeys: [] });
+      const target = path.join(root, id);
+      if (entries.has(id) || await fsp.lstat(target).then(() => true, () => false)) {
+        if (!overwrite) throw new PluginError("exists");
+        // A folder the registry does not know is not ours to replace.
+        if (!entries.has(id)) throw new PluginError("exists");
+        await trashNow(id);
       }
+      // Whatever was loaded under this id in this process (even before a delete) may still be in memory.
+      if (imported.has(id)) restartNeeded.add(id);
+      await fsp.mkdir(root, { recursive: true });
+      await moveDir(stageDir, target);
+      store.ensure(id);
+      store.update(id, { enabled: false, failStreak: 0, hookStreak: 0, cooldownStep: 0, cooldownUntil: null, disabledReason: null, disabledAt: null });
+      if (origin) writeOrigin(dataDir, id, origin);
       await applyScan(await scanPluginDir(root));
-      missing.delete(id);
-      return { name };
+      return view(id);
     });
   }
 
@@ -461,6 +518,7 @@ export function createRegistry({
       await moveDir(path.join(trashRoot, name), target);
       await fsp.rm(path.join(trashRoot, `${name}.json`), { force: true });
       if (store.get(item.id)) store.update(item.id, { enabled: false, disabledReason: null, disabledAt: null });
+      if (imported.has(item.id)) restartNeeded.add(item.id);
       await applyScan(await scanPluginDir(root));
       return view(item.id);
     });
@@ -512,7 +570,7 @@ export function createRegistry({
   }
 
   return {
-    API_VERSION, init, list, view, setEnabled, callHook, rescan, startWatching, trash, listTrashed, restore,
+    API_VERSION, init, list, view, setEnabled, callHook, rescan, startWatching, trash, installFrom, listTrashed, restore,
     recordVariantKeys, variantKeyStatus, variantKeys, keysOf, consoleWanted, keysStamp, activeProviding, wantedConsole, consoleFor, stopAll, pluginRejected, writeCrash,
     clearBooting: markers.clearBooting,
     capabilities: () => [...capabilities.values()],

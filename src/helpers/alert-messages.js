@@ -99,6 +99,12 @@ const M = {
     ja: ({ id, why }) => `🧩 プラグイン ${id} を自動的にオフにしました: ${why}。管理画面のプラグインページで原因を確認し、再度オンにできます。`,
     zh: ({ id, why }) => `🧩 插件 ${id} 已被自动关闭：${why}。可在管理页面的插件页查看原因并重新开启。`,
   },
+  pluginInstalled: {
+    ko: ({ id, version }) => `🧩 플러그인 ${id} ${version} 을 관리 화면에서 설치했습니다. 꺼진 채로 들어와 있으니 직접 켜야 동작합니다.`,
+    en: ({ id, version }) => `🧩 The plugin ${id} ${version} was installed from the admin page. It arrived switched off and does nothing until someone switches it on.`,
+    ja: ({ id, version }) => `🧩 プラグイン ${id} ${version} を管理画面からインストールしました。オフの状態で入っており、手動でオンにするまで動きません。`,
+    zh: ({ id, version }) => `🧩 已从管理页面安装插件 ${id} ${version}。它处于关闭状态，需要手动开启后才会运行。`,
+  },
   pluginCooling: {
     ko: ({ id, minutes }) => `🧩 플러그인 ${id} 의 호출이 연달아 실패해 ${minutes}분 동안 쉽니다. 그동안은 다음 출처로 넘어갑니다.`,
     en: ({ id, minutes }) => `🧩 Calls to the plugin ${id} keep failing, so it is paused for ${minutes} minutes. Other sources are used meanwhile.`,
