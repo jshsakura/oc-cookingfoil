@@ -56,6 +56,8 @@ import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as gameDescriptions from "./meta/game-descriptions.js";
 import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
 import { valueOf, LOCAL_PREFERRED, TITLEDB, LOCAL, FILENAME } from "./meta/field-merge.js";
+import { agentOrder, agentValues } from "./plugins/agent-values.js";
+import { agentParts } from "./plugins/instance.js";
 import { parseLang } from "./meta/langs.js";
 import * as nacpExtractor from "./meta/nacp-extractor.js";
 import { findingOf, signedOf } from "./meta/file-integrity.js";
@@ -181,7 +183,7 @@ function baseDisplayName(parsed, fromDb) {
   const nacpEnglish = baseId ? contentMeta.get(baseId, 0)?.englishName : null;
   // A Korean or English title in the file beats titledb's when titledb has only later languages (a Japan-only release).
   const fromFile = baseId && !sibling ? pickFileName(titledbStore.namesOf(baseId), fileTitles(baseId, nacpEnglish), langPriority) : null;
-  const rawName = valueOf("name", { [LOCAL_PREFERRED]: fromFile, [TITLEDB]: source?.name, [LOCAL]: extracted?.name, [FILENAME]: parsed.name }, { skipEmpty: true });
+  const rawName = valueOf("name", { [LOCAL_PREFERRED]: fromFile, [TITLEDB]: source?.name, [LOCAL]: extracted?.name, [FILENAME]: parsed.name, ...agentValues("name", baseId, {}) }, { skipEmpty: true, order: agentOrder("name", [LOCAL_PREFERRED, TITLEDB, LOCAL, FILENAME], baseId) });
   return decorateNameWithAlias(rawName, source ?? fromDb, nacpEnglish);
 }
 
@@ -393,7 +395,7 @@ function buildSectionItem(relPath, wireItem) {
     // Lightweight rich fields — inlined only when known (titledb, else NACP
     // fallback). Kept to a few small fields so the sections payload stays lean;
     // full detail (description/screenshots) is the on-demand /api/title/:id.
-    const publisher = valueOf("publisher", { [TITLEDB]: fromDb?.publisher, [LOCAL]: extracted?.publisher });
+    const publisher = valueOf("publisher", { [TITLEDB]: fromDb?.publisher, [LOCAL]: extracted?.publisher, ...agentValues("publisher", baseId, {}) }, { order: agentOrder("publisher", [TITLEDB, LOCAL], baseId) });
     if (publisher) item.publisher = publisher;
     if (fromDb?.region) item.region = fromDb.region;
     if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
@@ -541,6 +543,8 @@ export function composeSections(filesMap, customs) {
     names: englishNamesOf(i.title_id, titledbStore.get(i.title_id)),
     year: i.release_date ? Math.floor(i.release_date / 10000) : null,
   })));
+  // The library's base games to the metadata plugins; they are asked in the background and the answers are read from the cache.
+  agentParts().runner.track(items.filter((i) => i.app_type === "base" && i.title_id).map((i) => ({ titleId: i.title_id, name: i.name ?? null, hasFile: true })));
   const body = { sections: [{ id: "all", title: "All", items }] };
   // Item categories are English keys; this maps each to its label per language.
   body.genres = GENRE_LABELS;

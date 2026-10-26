@@ -41,7 +41,7 @@ const json = { "Content-Type": "application/json" };
 const login = (body) => fetch(`${BASE}/admin/verify`, { method: "POST", headers: json, body: JSON.stringify(body) });
 const cookieOf = (r) => r.headers.get("set-cookie").split(";")[0];
 
-test("enroll an authenticator from the admin page, then either the password or a code opens it, and it can be turned off", async () => {
+test("enroll an authenticator from the admin page, then either the password or a code opens it, a code replaces a forgotten password, and it can be turned off", async () => {
   const server = boot();
   try {
     await ready();
@@ -66,6 +66,11 @@ test("enroll an authenticator from the admin page, then either the password or a
     const code = await generate({ secret: start.secret });
     status = await (await fetch(`${BASE}/admin/api/2fa/confirm`, { method: "POST", body: JSON.stringify({ code }), ...as() })).json();
     assert.equal(status.authenticator, true);
+
+    const setPassword = (current) => fetch(`${BASE}/admin/api/admin-password`, { method: "POST", body: JSON.stringify({ current, password: "a-new-saved-password" }), ...as() });
+    assert.equal((await setPassword("wrong-password-xx")).status, 403);
+    assert.equal((await setPassword("000000")).status, 403, "a wrong code does not stand in for the password");
+    assert.equal((await setPassword(await generate({ secret: start.secret }))).status, 200, "a code from the authenticator replaces a forgotten password");
 
     assert.equal((await login({ password: PASSWORD })).status, 200, "the password still opens it");
     const used = await generate({ secret: start.secret });
