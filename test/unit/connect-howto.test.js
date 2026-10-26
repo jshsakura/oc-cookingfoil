@@ -25,10 +25,12 @@ test("manual approval and pairing switched off show up in the line", () => {
 });
 
 test("the lines follow the house style: no em dashes, polite endings", () => {
+  // The lines are swappable spans now, so the wording checks read the text with the markup stripped.
   for (const s of [base, { ...base, deviceApproval: "all" }, { ...base, devicePairing: false }]) {
     for (const line of connectHowto(s)) {
-      assert.ok(!/[—–]/.test(line), line);
-      assert.match(line, /니다\.$/);
+      const text = line.replace(/<[^>]+>/g, "");
+      assert.ok(!/[—–]/.test(text), text);
+      assert.match(text, /니다\.$/);
     }
   }
 });
