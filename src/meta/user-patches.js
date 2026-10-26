@@ -45,6 +45,7 @@ import * as patchInfo from "./patch-info.js";
 import { isMetadata } from "./art-sidecar.js";
 import { isReadme } from "../helpers/readme-name.js";
 import { isTrashName } from "../library/trash.js";
+import { artFiller } from "./art-filler.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const META_FILE = "patch.json";
@@ -417,6 +418,8 @@ export function scan(options = {}) {
       const first = !scannedAt;
       patches = next;
       scannedAt = Date.now();
+      // A patch's game may not be in the library; its icon still comes from titledb or a plugin.
+      artFiller().track(next.map((p) => p.title_id).filter(Boolean));
       forgetOld();
       // Information of a folder this scan did not find is kept a while, then forgotten.
       patchInfo.sweep(next.map((p) => patchInfo.keyOf(p.dir, p.folder)));

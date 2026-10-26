@@ -546,8 +546,9 @@ export function composeSections(filesMap, customs) {
   })));
   // The library's base games to the metadata plugins; they are asked in the background and the answers are read from the cache.
   agentParts().runner.track(items.filter((i) => i.app_type === "base" && i.title_id).map((i) => ({ titleId: i.title_id, name: i.name ?? null, hasFile: true })));
-  // The same games to the picture filler: one lacking an icon gets titledb's, else a plugin's, fetched in the background (meta/art-fill.js).
-  artFiller().track(items.filter((i) => i.app_type === "base" && i.title_id).map((i) => i.title_id));
+  // Every title to the picture filler, so an update or DLC whose game isn't here still gets that game's icon: one lacking
+  // an icon gets titledb's, else a plugin's, fetched in the background (meta/art-fill.js).
+  artFiller().track(items.filter((i) => i.title_id).map((i) => i.title_id));
   const body = { sections: [{ id: "all", title: "All", items }] };
   // Item categories are English keys; this maps each to its label per language.
   body.genres = GENRE_LABELS;
