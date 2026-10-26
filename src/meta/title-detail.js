@@ -46,7 +46,7 @@ export function integrityFor(base, lang = "en", files = shopCache.files()) {
 /**
  * Whether this title's files are signed, for every file the check knows about: [{ file, kind, titleId,
  * nca, ticket, help? }], nca and ticket true, false or null, help { title, body } in `lang` when one is
- * false. A console without signature patches cannot install a file with a false.
+ * false. A stock console refuses a file with a false.
  */
 export function signedFor(base, lang = "en", files = shopCache.files()) {
   const out = [];

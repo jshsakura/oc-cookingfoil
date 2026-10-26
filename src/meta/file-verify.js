@@ -42,8 +42,8 @@
  * `signed` in the result: { nca, ticket }, each true, false or null (not
  * known, or nothing to sign: an XCI has no ticket). `nca` follows the header
  * signatures; `ticket` checks each .tik against the package's .cert
- * (ticket-sign.js), which needs neither keys nor nstool. A console without
- * signature patches refuses a file with either one false.
+ * (ticket-sign.js), which needs neither keys nor nstool. A stock console
+ * refuses a file with either one false.
  */
 import { spawn } from "child_process";
 import fsp from "fs/promises";
