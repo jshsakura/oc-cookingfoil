@@ -60,15 +60,14 @@ test("the server answers with bad plugins in the folder; they start off, a crash
     let list = (await api("GET", "/admin/api/plugins")).body;
     assert.deepEqual(list.plugins.map((p) => [p.id, p.state]), [["brokenjson", "broken"], ["good", "off"], ["killer", "off"], ["thrower", "off"]], "nothing starts by itself");
 
-    assert.equal((await api("POST", "/admin/api/plugins/good/enabled", { on: true })).status, 403, "switching on asks for the signed-in account's password again");
-    assert.equal((await api("POST", "/admin/api/plugins/good/enabled", { on: true, password: "owner-password-1" })).body.plugin.state, "on");
-    assert.equal((await api("POST", "/admin/api/plugins/thrower/enabled", { on: true, password: "owner-password-1" })).body.plugin.state, "failed");
-    assert.equal((await api("POST", "/admin/api/plugins/brokenjson/enabled", { on: true, password: "owner-password-1" })).status, 409);
+    assert.equal((await api("POST", "/admin/api/plugins/good/enabled", { on: true })).body.plugin.state, "on");
+    assert.equal((await api("POST", "/admin/api/plugins/thrower/enabled", { on: true })).body.plugin.state, "failed");
+    assert.equal((await api("POST", "/admin/api/plugins/brokenjson/enabled", { on: true })).status, 409);
     assert.equal((await fetch(`${BASE}/healthz`)).ok, true, "a failing start does not touch the server");
 
     // A throw in a timer the plugin left behind takes the process down, as an uncaught error does.
     const gone = once(child, "exit");
-    await api("POST", "/admin/api/plugins/killer/enabled", { on: true, password: "owner-password-1" }).catch(() => {});
+    await api("POST", "/admin/api/plugins/killer/enabled", { on: true }).catch(() => {});
     await gone;
     assert.ok(existsSync(path.join(data, "plugins-crash")), "the crash names the plugin");
 
@@ -87,7 +86,7 @@ test("the server answers with bad plugins in the folder; they start off, a crash
     list = (await api("GET", "/admin/api/plugins")).body;
     assert.equal(list.safeMode, true);
     assert.equal(stateOf(list, "good"), "off");
-    assert.equal((await api("POST", "/admin/api/plugins/good/enabled", { on: true, password: "owner-password-1" })).status, 409);
+    assert.equal((await api("POST", "/admin/api/plugins/good/enabled", { on: true })).status, 409);
   } finally {
     await stop(child);
   }

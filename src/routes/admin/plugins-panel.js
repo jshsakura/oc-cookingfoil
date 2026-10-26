@@ -159,15 +159,9 @@ function plRender(){if(!plData)return;
 async function loadPlugins(){try{plData=await api('/admin/api/plugins');plAg=await api('/admin/api/plugins/agents').catch(()=>null);plAgRender();plRender();}
   catch(err){if(err.message!=='session')toast(plT('loadFail',{err:err.message}));}}
 async function plSwitch(p,on){
-  // Switching on runs the plugin's code in this server: show what it asks for and ask for the password again.
-  let password,code;
-  if(on){const text=plT('askEnable',{name:plName(p),perms:plPerms(p)});
-    const kind=plData?plData.reconfirm:'password';
-    if(kind==='unavailable'){toast(plT('e.noPassword'));return;}
-    if(kind==='none'){if(!await ask(plT('askEnableNoPw',{name:plName(p),perms:plPerms(p)})))return;}
-    else if(kind==='totp'){code=await askText(plT('askEnableTotp',{name:plName(p),perms:plPerms(p)}),'');if(!code)return;}
-    else{password=await askText(text,'',{secret:true});if(!password)return;}}
-  try{await api('/admin/api/plugins/'+encodeURIComponent(p.id)+'/enabled',{method:'POST',body:{on,confirmKeys:on&&p.needsKeys,password,code}});toast(plT(on?'tOn':'tOff'));}
+  // Switching on runs the plugin's code in this server: show what it asks for before it is on.
+  if(on&&!await ask(plT('askEnableNoPw',{name:plName(p),perms:plPerms(p)})))return;
+  try{await api('/admin/api/plugins/'+encodeURIComponent(p.id)+'/enabled',{method:'POST',body:{on,confirmKeys:on&&p.needsKeys}});toast(plT(on?'tOn':'tOff'));}
   catch(err){toast(err.message);}loadPlugins();}
 async function plDelete(p,name){if(!await ask(plT('askDel',{name})))return;
   const dropData=await ask(plT('askDrop'));
