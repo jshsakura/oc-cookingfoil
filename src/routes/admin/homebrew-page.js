@@ -153,7 +153,7 @@ function hbAppCard(a,extras){const name=a.name||a.app;const card=el('article',nu
   const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',topFill('hb.enableAria',{name}));
   b.addEventListener('change',()=>setHbEnabled(a.id,b.checked,name));w.append(b,el('span'));
   head.append(icon,title,w);
-  // Tried on a console: the shop and the client show a 검수됨 badge on it.
+  // Tried on a console: the library and the client show a 검수됨 badge on it.
   const tags=el('div',null,'hb-tags');tags.append(hbVerify(a),hbKind(a.id,a.kind));
   if(a.install_type!=='title')tags.append(hbCores(a.id,a.cores,name));
   card.append(media,head,tags);

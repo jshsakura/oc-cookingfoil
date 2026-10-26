@@ -5,7 +5,7 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import * as shopCache from "../meta/shop-cache.js";
+import * as libraryCache from "../meta/library-cache.js";
 import { romsDirPath } from "../helpers/envs.js";
 import * as trashService from "./trash-service.js";
 
@@ -22,7 +22,7 @@ export async function trashGameFiles(abss, { kind, action, by, name }) {
       if (!(await fsp.rmdir(dir).then(() => true, () => false))) break;
     }
   }
-  shopCache.invalidate({ rescan: true });
+  libraryCache.invalidate({ rescan: true });
   return out;
 }
 
@@ -31,9 +31,9 @@ export async function trashGameFiles(abss, { kind, action, by, name }) {
  * against the disk: a file moved since the last rebuild (it waits a moment) is not counted.
  */
 export async function listedFiles(rels) {
-  await shopCache.get();
+  await libraryCache.get();
   const onDisk = (f) => fs.existsSync(path.join(romsDirPath, f.rel));
-  const listed = new Map(shopCache.files().map((f) => [f.rel, f]));
+  const listed = new Map(libraryCache.files().map((f) => [f.rel, f]));
   const files = rels.map((r) => listed.get(r)).filter((f) => f && onDisk(f));
   const bases = new Set(files.map(baseOf));
   return {

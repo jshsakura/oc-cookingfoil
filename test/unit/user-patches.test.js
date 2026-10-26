@@ -296,7 +296,7 @@ test("a renamed folder keeps its hashes, and a missing file's hash is kept for a
 
 test("a patch for a title nobody knows carries no game block", async () => {
   const { gameOf } = await import("../../src/routes/patches.js");
-  assert.equal(gameOf("0100FFFFFFFF0000", "https://shop.example"), null);
+  assert.equal(gameOf("0100FFFFFFFF0000", "https://library.example"), null);
 });
 
 test("a patch's metadata folder is not part of it: it is listed, shipped and hashed without it", async () => {

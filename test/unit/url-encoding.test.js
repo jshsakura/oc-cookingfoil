@@ -9,7 +9,7 @@ const enc = (relPath) => addUrlEncodedFileInfo({ url: relPath }).url;
 // ── 회귀: 목록에는 보이는데 받으면 깨지던 파일들 ──────────────────────────
 //
 // 예전 구현은 `url.parse(p).path` 뒤에 손으로 만든 치환표를 돌렸다. 그 표에
-// `?` 와 `#` 이 없어서 그런 이름을 가진 파일이 shop.json 에는 정상으로 실리고
+// `?` 와 `#` 이 없어서 그런 이름을 가진 파일이 games.json 에는 정상으로 실리고
 // 실제 요청에서만 404 가 났다. 실측 라이브러리에서 11건.
 
 test("물음표를 %3F 로 인코딩한다 (예전엔 리터럴로 남아 404)", () => {
@@ -21,7 +21,7 @@ test("물음표를 %3F 로 인코딩한다 (예전엔 리터럴로 남아 404)",
   assert.ok(!got.includes("?"), "리터럴 ? 가 남으면 쿼리스트링으로 잘린다");
 });
 
-test("샵 이름 그대로 요청해도 원본 경로로 복원된다", () => {
+test("라이브러리 이름 그대로 요청해도 원본 경로로 복원된다", () => {
   const names = [
     "Is This Potato?/Is This Potato? [0100A51026A8C000][v0].nsp",
     "Is What Youre Looking For Summer?/x [0100000000000000][v0].nsp",
@@ -30,7 +30,7 @@ test("샵 이름 그대로 요청해도 원본 경로로 복원된다", () => {
   for (const n of names) assert.equal(decodeURIComponent(enc(n)), n);
 });
 
-test("샵 이름에 # 이 있어도 뒷부분이 잘리지 않는다", () => {
+test("라이브러리 이름에 # 이 있어도 뒷부분이 잘리지 않는다", () => {
   // url.parse 는 # 을 프래그먼트 구분자로 보고 뒤를 통째로 버렸다:
   //   "Test #Hash/Test #Hash [x].nsp" → "Test%20"
   const got = enc("Test #Hash/Test #Hash [0100000000000000][v0].nsp");

@@ -14,7 +14,7 @@ import { CONTENT_EDITOR_SCRIPT } from "./content-editor.js";
 import { top, topPh } from "./top-i18n.js";
 
 export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
-  <p class="muted">패치는 타이틀 ID 로 게임에 엮입니다. 필수를 누르면 이 패치 없이는 게임이 실행되지 않는다고 표시하고, 한 번 더 누르면 선택으로 돌아갑니다. 기기는 필수 패치를 게임 상세에서 함께 설치할 것으로 보여 줍니다. 편집에서 이름과 설명을 고치고, 다른 게임으로 옮기거나 삭제합니다. 패치 정보는 서버에 저장합니다. 폴더에 patch.json 이 있으면 처음 볼 때 한 번만 가져오고, 그 뒤로 파일을 고쳐도 반영하지 않으니 여기서 고칩니다. 기기에서 돌려 봤으면 검수 전을 눌러 상점에 검수됨 배지를 붙입니다.</p>
+  <p class="muted" data-top="pt.intro">${top("pt.intro")}</p>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 패치 이름" aria-label="패치 찾기">
     <button type="button" id="pt-only" aria-pressed="false">필수만 보기</button>
@@ -23,7 +23,7 @@ export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
   <div id="lib-patches" data-skel></div>`;
 
 export const SAVES_HTML = `  <h2 class="first">게임 세이브</h2>
-  <p class="muted">기기가 게임 상세에서 받아 넣는 세이브입니다. 편집에서 이름, 설명, 세이브 종류, 출처를 고치고, 다른 게임으로 옮기거나 삭제합니다. 기기에서 넣어 봤으면 검수 전을 눌러 상점에 검수됨 배지를 붙입니다.</p>
+  <p class="muted" data-top="sv.intro">${top("sv.intro")}</p>
   <div id="lib-saves" data-skel></div>`;
 
 export const GAME_PATCHES_HTML = `<h3>이 게임의 패치와 세이브</h3>
@@ -93,7 +93,7 @@ function ptRow(p){const r=el('div',null,'pt-row');const n=el('span',null,'pt-nam
   if(p.ko&&p.ko.name&&p.ko.name!==p.name)n.append(el('small',p.ko.name));
   if(p.update_version)n.append(p.update_in_library?el('small',ptUpdate(p)+' 용 패치입니다'):el('small',ptUpdate(p)+' 용 패치인데, 그 업데이트가 라이브러리에 없습니다','pt-miss'));
   r.append(n,el('span',mb(p.size),'pt-size'));
-  // The words the shop and the console show: 필수 when the game needs it, 비필수 otherwise.
+  // The words the library and the console show: 필수 when the game needs it, 비필수 otherwise.
   const b=el('button',p.required?'필수':'비필수','pt-req');b.type='button';b.setAttribute('role','switch');b.setAttribute('aria-checked',String(p.required));
   b.append(el('span',null,'switch'));b.setAttribute('aria-label',p.name+' 필수');
   b.title=p.required?'게임에 필수 패치로 나옵니다. 누르면 끕니다':'누르면 게임에 필수 패치로 나옵니다';
@@ -104,7 +104,7 @@ function svRow(s){const r=el('div',null,'pt-row');const n=el('span',null,'pt-nam
   const sub=[s.ko&&s.ko.name&&s.ko.name!==s.name?s.ko.name:'',SAVE_TYPE_LABEL[s.saveType]||''].filter(Boolean).join(' · ');if(sub)n.append(el('small',sub));
   const e=btn('편집',()=>ctOpen('save',s,loadPatches),'pt-edit');e.setAttribute('aria-label',s.name+' 편집');
   r.append(n,el('span',mb(s.size),'pt-size'),ctVerify('save',s),e);return r;}
-// The 검수됨 pill, as on the homebrew tab: one press puts the shop's badge on or takes it off.
+// The 검수됨 pill, as on the homebrew tab: one press puts the library's badge on or takes it off.
 function ctVerify(kind,x){return verifyPill(x.name,x.verified,async(next)=>{
   try{await api('/admin/api/content/'+kind+'/verified',{method:'POST',body:{id:x.id,verified:next}});
     const mark=(list)=>list.map((y)=>y.id===x.id?{...y,verified:next}:y);

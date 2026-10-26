@@ -1,7 +1,7 @@
 /**
  * What a client shows for a title it doesn't list itself (a patch's or a
  * save's game): the name from titledb, else from the game's own file, the
- * names per shop language, and an icon URL the shop serves.
+ * names per library language, and an icon URL the library serves.
  */
 import * as titledbStore from "./titledb-store.js";
 import * as extractedMeta from "./extracted-meta-store.js";
@@ -10,14 +10,14 @@ import { langPriority } from "../helpers/envs.js";
 import { fileNamesOver, pickFileName } from "./name-pick.js";
 import { valueOf, LOCAL_PREFERRED, TITLEDB, LOCAL } from "./field-merge.js";
 import { agentOrder, agentValues } from "../plugins/agent-values.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import { versionedArtwork } from "./artwork-version.js";
 import * as customArt from "./custom-art.js";
 import { baseTitleIdOf, cachePathFor, hasCached } from "./image-cache.js";
 
 /** The name the library shows for a base title (titledb, the file's own, or its file name), or null. */
 function libraryName(titleId) {
-  const f = shopCache.files().find((x) => x.titleId === titleId && x.kind === "base");
+  const f = libraryCache.files().find((x) => x.titleId === titleId && x.kind === "base");
   return f?.name || null;
 }
 
@@ -40,7 +40,7 @@ export function gameOf(titleId, origin = "") {
   }, { order: agentOrder("name", [LOCAL_PREFERRED, TITLEDB, LOCAL, "names", "library"], titleId), skipEmpty: true });
   if (!name) return null;
   const game = { name, names };
-  // Absolute, like the shop's artwork URLs, so curl-style clients can fetch it with the shop's auth.
+  // Absolute, like the library's artwork URLs, so curl-style clients can fetch it with the library's auth.
   if (hasCached(cachePathFor(baseTitleIdOf(titleId), "icon")) || customArt.hasOverride(baseTitleIdOf(titleId), "icon")) game.icon = `${origin}${versionedArtwork(`/api/library/icon/${titleId}`)}`;
   return game;
 }

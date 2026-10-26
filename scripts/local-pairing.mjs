@@ -193,7 +193,7 @@ async function main() {
     const dk = devices[0].deviceKey;
     console.log(dim(`  # knock (auto-registers as pending)`));
     console.log(`  curl "${BASE}/api/pair/status?deviceKey=${dk}"`);
-    console.log(dim(`  # pull shop with the printed accessKey`));
+    console.log(dim(`  # pull library with the printed accessKey`));
     console.log(`  curl ${BASE}/api/library/sections -H "X-Device-Key: ${dk}" -H "X-Access-Key: <KEY>"`);
   }
   console.log();

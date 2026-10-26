@@ -12,7 +12,7 @@ import { cachePathFor, hasCached } from "../meta/image-cache.js";
 import { CropError, MIN_CROP_PX, parseCrop, uprightSize } from "../meta/art-crop.js";
 import { ART_ASPECT, fitCrop } from "../meta/art-fit.js";
 import { StuckError } from "../meta/game-art-files.js";
-import { invalidate } from "../meta/shop-cache.js";
+import { invalidate } from "../meta/library-cache.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const fail = (status, message) => Object.assign(new Error(message), { status });

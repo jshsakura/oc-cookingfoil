@@ -141,7 +141,7 @@ test("the catalog lists games, folds disc tracks into their .cue, and finds art"
 
 const PORT = 14900 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// An approved console: the shop takes its keys, never a password.
+// An approved console: the library takes its keys, never a password.
 const AUTH = CONSOLE;
 
 async function boot(retroDir, extraEnv = {}) {
@@ -172,7 +172,7 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
   const dir = fixture();
   const server = await boot(dir);
   try {
-    assert.equal((await fetch(`${BASE}/api/retro/systems`)).status, 401, "behind the shop's sign-in");
+    assert.equal((await fetch(`${BASE}/api/retro/systems`)).status, 401, "behind the library's sign-in");
     assert.ok((await (await get("/api/library/info")).json()).features.includes("retro"));
     const { systems, retroarch } = await (await get("/api/retro/systems")).json();
     const snes = systems.find((s) => s.id === "snes");
@@ -362,7 +362,7 @@ test("the retro index pages every version of every listed game by id, trimmed, a
   for (let i = 0; i < 30; i++) put(dir, `roms/gb/Filler ${i} (USA).gb`, `GB${i}`);
   const server = await boot(dir);
   try {
-    assert.equal((await fetch(`${BASE}/api/retro/index`)).status, 401, "behind the shop's sign-in");
+    assert.equal((await fetch(`${BASE}/api/retro/index`)).status, 401, "behind the library's sign-in");
     assert.ok((await (await get("/api/library/info")).json()).features.includes("retro-index"));
     const res = await get("/api/retro/index");
     assert.equal(res.status, 200);

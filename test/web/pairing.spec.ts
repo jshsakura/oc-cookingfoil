@@ -40,7 +40,7 @@ test('a configuration file can be downloaded without exposing authentication sec
   const configuration = await response.json();
   expect(configuration.servers).toHaveLength(1);
   expect(configuration.servers[0].url).toBe(`http://127.0.0.1:${process.env.COOK_WEB_TEST_PORT}`);
-  // named after the shop's host, in the downloader's language
+  // named after the library's host, in the downloader's language
   expect(configuration.servers[0].title).toBe('127.0.0.1');
   expect(configuration.servers[0].password).toBe('');
   expect(configuration.servers[0].cfClientSecret).toBe('');

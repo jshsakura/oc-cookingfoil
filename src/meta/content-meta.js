@@ -17,7 +17,7 @@
  * "<TITLE_ID>@<numeric version>" so a replaced file gets read again. Reading
  * costs one small NCA copy per file, plus the control NCA for base games and updates (see
  * pfs0.js), done one file at a time in the background; every batch of results
- * triggers a shop rebuild.
+ * triggers a library rebuild.
  */
 import fs from "fs/promises";
 import os from "os";

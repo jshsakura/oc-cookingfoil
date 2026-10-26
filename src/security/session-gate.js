@@ -5,7 +5,7 @@
  *
  * A good token signs the request in as the identity it was made for, exactly
  * as the access key would have: a paired console sets req.pairedDevice, and a
- * token made for a shop account sets req.auth.
+ * token made for a library account sets req.auth.
  *
  * Anything else carrying a session token is answered here with 401 and
  * X-CookingFoil-Session saying what the console should do:

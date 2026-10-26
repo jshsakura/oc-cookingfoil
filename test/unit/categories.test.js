@@ -26,8 +26,8 @@ test("normalizeGenres drops tags that are not genres before capping the list", (
   assert.equal(normalizeGenres(["Multiplayer"]), undefined);
 });
 test("normalizeGenres leaves out a name that is no known genre", () => {
-  assert.deepEqual(normalizeGenres(["Roguelike", "액션", "Shop"]), ["Action"]);
-  assert.equal(normalizeGenres(["Shop"]), undefined);
+  assert.deepEqual(normalizeGenres(["Roguelike", "액션", "Library"]), ["Action"]);
+  assert.equal(normalizeGenres(["Library"]), undefined);
 });
 test("normalizeGenres folds simplified Chinese and store-specific names", () => {
   assert.deepEqual(normalizeGenres(["体育", "训练", "家庭", "生活方式"]), ["Sports", "Training", "Party", "Utility"]);

@@ -1,6 +1,6 @@
 /**
  * What the file check (verify-queue.js) said about one library file, for the
- * shop list and the title detail: "modified", "damaged", or null for a file
+ * library list and the title detail: "modified", "damaged", or null for a file
  * that passed or was not checked yet. A leaf module, so the list builder can
  * ask without importing the queue; the service registers the lookup.
  */

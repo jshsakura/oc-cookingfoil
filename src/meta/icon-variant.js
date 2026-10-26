@@ -3,7 +3,7 @@
  * .nro) at the size a client shows it: ?size=sm 160 px or md 256 px (the
  * default), never enlarged, as WebP for every client.
  *
- * WebP is quality 75 at the slowest effort, the same as the shop's icon
+ * WebP is quality 75 at the slowest effort, the same as the library's icon
  * variants (image-cache.js). Results are memoized by the caller's key (which
  * names the build), so one icon is drawn once per size.
  */

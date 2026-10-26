@@ -9,7 +9,7 @@
 [![Image](https://img.shields.io/badge/ghcr.io-oc--cookingfoil-FFC23D?style=for-the-badge)](https://github.com/jshsakura/oc-cookingfoil/pkgs/container/oc-cookingfoil)
 [![License](https://img.shields.io/badge/license-MIT-16161A?style=for-the-badge)](./LICENSE)
 
-A personal, self-hosted library server for Switch games, retro games and homebrew. Keep your files on a machine at home, manage everything from one admin page, and install them on your console with the CookingFoil client.
+A personal, self-hosted manager for your game library: Switch games, retro games and homebrew. Keep your files on a machine at home and manage everything from one admin page. Retro games connect to RetroArch and get HOME menu shortcuts, and Switch games are installed from the library with the CookingFoil client.
 
 <p align="center">
   <a href="https://jshsakura.github.io/oc-cookingfoil/?lang=en"><img src="brand/buttons/website-en.svg" alt="Website" width="160" height="44" /></a>
@@ -41,7 +41,7 @@ Actual English UI with sample data and native missing-icon tiles.
 
 ## Overview
 
-CookingFoil runs in Docker on your own server. It looks up names and icons for the files you put in it and serves the list to clients on your console.
+CookingFoil runs in Docker on your own server. It manages the files you put in it as a library: it looks up names and icons for them and serves the list to the client on your console, which installs from it.
 
 - **One admin page for everything.** Settings, accounts, devices, uploads, homebrew, patches, saves and names are changed in the browser. Changes apply at once, with no restart and no files to edit by hand.
 - **Nothing included.** It ships with no games, no keys, no firmware, no BIOS files and no RetroArch. Those folders start empty, and the features that use them stay off until you add files you legally own.
@@ -61,9 +61,10 @@ The web page, first-run setup, sign-in and device approval pages are in English,
 - **Library catalog.** A sectioned list for the CookingFoil client and the web page, with featured rows you arrange on the admin page, and a flat file catalog (`/games.json`) for scripts with an automation token.
 - **Names and icons.** Titles, descriptions and artwork come from [blawar/titledb](https://github.com/blawar/titledb), and for files titledb does not know, from the files themselves (with your own `prod.keys`). Name language order and regions are settings.
 - **Artwork and ratings.** Icons are read from the game files themselves (with your own `prod.keys`); each game's banner is drawn from its icon. Nothing is fetched from a store. Optional Steam review scores and IGDB scores. Each source can be turned off. You can upload your own artwork too.
+- **Retro games.** ROMs by system, box art from libretro-thumbnails, bezels from The Bezel Project, and game details (description, publisher, developer, release date, players, genres, screenshots) from the LaunchBox Games Database, with IGDB filling the gaps. Versions of one game (arcade parent and clone sets, or the same title in several languages and regions) show as one card, with the others one tap away.
+- **RetroArch integration and HOME shortcuts.** The RetroArch base pack you supply can be handed to consoles, and HOME menu shortcuts can be built per game.
 - **Homebrew from GitHub.** Add a repository and its latest release is followed (a `.nro`, or a zip with one inside). Apps can also be placed by hand. Each app is marked as a tool or a port, can be turned off, and can come with a HOME menu shortcut.
 - **Saves and patches.** Keep save files and patches (laid out like the SD card root) on the server, and pick which ones to apply from the client. A patch can be marked as required and can name the game update version it was made for.
-- **Retro games for RetroArch.** ROMs by system, box art from libretro-thumbnails, bezels from The Bezel Project, and game details (description, publisher, developer, release date, players, genres, screenshots) from the LaunchBox Games Database, with IGDB filling the gaps. Versions of one game (arcade parent and clone sets, or the same title in several languages and regions) show as one card, with the others one tap away. The RetroArch base pack you supply can be handed to consoles, and HOME menu shortcuts can be built per game.
 - **Consoles connect with their own key.** The CookingFoil client shows a QR code to approve from your phone, or comes ready to connect when it is downloaded from the web page. Either way the console gets its own access key, and no password is stored on it.
 - **Accounts and Google sign-in.** ID and password accounts with admin and user roles, and optional Google sign-in where new Google accounts wait for approval.
 - **Admin page with a second factor.** The admin page asks again for an authenticator (TOTP) code or a separate admin password. Automation tokens let a script use the same API.
@@ -220,7 +221,7 @@ Open `/admin`. After signing in, it asks once more for the authenticator code or
 | Overview | Server health, configuration warnings, and where game names come from |
 | Users | Accounts and roles; Google accounts waiting for approval |
 | Devices | Approve or reject consoles, rename or disconnect them, and make a login for one console |
-| Settings | Server behaviour (device approval, uploads, public address, welcome message, names and regions, store data, ratings, downloads, safe restart), outside-service keys, Google sign-in, the admin password, the authenticator and automation tokens |
+| Settings | Server behaviour (device approval, uploads, public address, welcome message, names and regions, title data, ratings, downloads, safe restart), outside-service keys, Google sign-in, the admin password, the authenticator and automation tokens |
 | Alerts | Telegram alerts and which events they cover |
 | Logs | Locked addresses, refused requests with their reasons, and client error reports |
 | Featured | The rows at the top of the client's home screen |

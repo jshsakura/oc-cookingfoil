@@ -1,5 +1,5 @@
 // What the server knows about a game file's master key generation, and what the keys can reach: the facts
-// the shop lists (item key generation, the library count), independent of any plugin. Synthetic files and
+// the library lists (item key generation, the library count), independent of any plugin. Synthetic files and
 // random keys only.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

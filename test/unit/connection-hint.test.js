@@ -16,7 +16,7 @@ after(() => { for (const s of servers) { s.closeAllConnections?.(); s.close(); }
 test("a request a later guard refuses never learns how many consoles are downloading", async () => {
   const app = express();
   app.use(connectionHint());
-  // Stands in for deviceContentGuard on a pairing-only shop.
+  // Stands in for deviceContentGuard on a pairing-only library.
   app.use((req, res, next) => (req.get("x-device-key") === "approved" ? next() : res.status(403).send("Device not approved.")));
   app.get("/games.json", (_req, res) => res.json({ files: [] }));
   const server = app.listen(0, "127.0.0.1");

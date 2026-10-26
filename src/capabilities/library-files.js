@@ -55,12 +55,12 @@ export const libraryFilesCapabilities = [
       return {
         files: files.map(({ rel, name, size, kind, titleId: id, version }) => ({ rel, name, size: size ?? 0, kind, titleId: id, version })),
         count: files.length, bytes, games,
-        changes: `Moves ${files.length} file(s), ${bytes} bytes, to the games trash; consoles stop seeing them. ${games.filter((g) => g.left === 0).length} game(s) leave the shop entirely. Nothing is deleted: trash_restore with the returned id puts them back.`,
+        changes: `Moves ${files.length} file(s), ${bytes} bytes, to the games trash; consoles stop seeing them. ${games.filter((g) => g.left === 0).length} game(s) leave the library entirely. Nothing is deleted: trash_restore with the returned id puts them back.`,
       };
     },
     previewOutput: obj({
       files: arr(FILE), count: int(), bytes: int(),
-      games: arr(obj({ titleId: titleId("base game"), left: int("its files that stay; 0 means it leaves the shop") })),
+      games: arr(obj({ titleId: titleId("base game"), left: int("its files that stay; 0 means it leaves the library") })),
       changes: str(),
     }),
     safety: "write",

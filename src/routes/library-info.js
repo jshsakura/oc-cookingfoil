@@ -20,7 +20,7 @@
  * the admin page's settings tab (routes/admin/keys-api.js), not from a console.
  *
  * Plugins add to this (withPlugins below): download options (file-variants, variants.keys, console.wants)
- * and whatever a plugin's shopInfo hook names. A plugin that needs the server's keys and says how far they
+ * and whatever a plugin's libraryInfo hook names. A plugin that needs the server's keys and says how far they
  * reach tells any signed-in client that the server has keys and how new they are, never a key.
  *
  * `server_id` is this installation's UUID (security/server-id.js): the same on
@@ -30,7 +30,7 @@
 import fs from "fs";
 import pkg from "../app-info.js";
 import { CLIENT_NRO, clientBuildStatus } from "./client-update.js";
-import * as shopCache from "../meta/shop-cache.js";
+import * as libraryCache from "../meta/library-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
 import { devicePairing, downloadMaxConnections, enrollPerHour, retroDir } from "../helpers/envs.js";
 import * as integrations from "../security/integrations.js";
@@ -80,7 +80,7 @@ const FEATURES = [
 // Every feature name the core can announce, on or off: a plugin may not announce one.
 const CORE_FEATURES = new Set([
   ...FEATURES, "session-token", "pair-password-only", "device-pairing", "device-rebind", "enroll", "dropbox-sync",
-  "retro", "retro-index", "shop-saves", "saves-by-game", "user-patches", "homebrew", "homebrew-folders", "homebrew-titles",
+  "retro", "retro-index", "library-saves", "shop-saves", "saves-by-game", "user-patches", "homebrew", "homebrew-folders", "homebrew-titles",
   "admin-edit", "client-update", "file-variants", "console-facts",
 ]);
 
@@ -95,22 +95,22 @@ async function hasRetroGames() {
 }
 
 /**
- * What the plugins that are on add to shop info, laid over `info` in place:
+ * What the plugins that are on add to library info, laid over `info` in place:
  *   features "file-variants"     some plugin offers download options (POST /api/library/variants)
  *   variants { keys }            the query keys of every plugin's options, on or off: a client takes them off a URL to tell two of one file apart
  *   features "console-facts", console { wants }   the items a console is asked to send in X-CookingFoil-Console
- *   plugin features and info keys (the shopInfo hook): a name core or an earlier plugin already has is dropped, with a log line
- * Plugins failing or being absent add nothing: shop info is the same as without them.
+ *   plugin features and info keys (the libraryInfo hook): a name core or an earlier plugin already has is dropped, with a log line
+ * Plugins failing or being absent add nothing: library info is the same as without them.
  */
 export async function withPlugins(info, lang, variantsOf = async () => (await import("../plugins/instance.js")).pluginVariants()) {
   let facts;
   let extras = { features: [], info: {} };
   try {
     const variants = await variantsOf();
-    facts = variants.shopInfoFacts();
-    extras = await variants.shopInfoExtras(lang);
+    facts = variants.libraryInfoFacts();
+    extras = await variants.libraryInfoExtras(lang);
   } catch (err) {
-    debug.error("shop info: plugins skipped: %s", err.message);
+    debug.error("library info: plugins skipped: %s", err.message);
     return;
   }
   const add = (feature) => { if (!info.features.includes(feature)) info.features.push(feature); };
@@ -121,21 +121,21 @@ export async function withPlugins(info, lang, variantsOf = async () => (await im
     info.console = { wants: facts.wants };
   }
   for (const feature of extras.features) {
-    if (CORE_FEATURES.has(feature)) debug.log("shop info: a plugin tried to announce %s, which is the core's; dropped", feature);
+    if (CORE_FEATURES.has(feature)) debug.log("library info: a plugin tried to announce %s, which is the core's; dropped", feature);
     else add(feature);
   }
   for (const [key, value] of Object.entries(extras.info)) {
-    if (key in info) debug.log("shop info: a plugin tried to set %s, which is already taken; dropped", key);
+    if (key in info) debug.log("library info: a plugin tried to set %s, which is already taken; dropped", key);
     else info[key] = value;
   }
 }
 
-export default async function shopInfoRoute(req, res) {
+export default async function libraryInfoRoute(req, res) {
   const retro = await hasRetroGames();
   // Saves and patches show on the console only once there is one to hand out; an empty folder is not a feature.
   const saves = savesEnabled() && (await savesCatalog().list().catch(() => [])).length > 0;
   const patches = (await userPatches.list()).length > 0;
-  const stats = shopCache.stats();
+  const stats = libraryCache.stats();
   const adminDevice = Boolean(adminDeviceOf(req));
   res.header("Cache-Control", "private, max-age=60");
   const info = {
@@ -158,8 +158,9 @@ export default async function shopInfoRoute(req, res) {
       // retro: /api/retro serves retro games, bezels and the RetroArch base pack; only while it holds a ROM.
       // retro-index: GET /api/retro/index lists every game unsorted and light, for a client merging servers.
       ...(retro ? ["retro", "retro-index"] : []),
-      // shop-saves: /api/saves hands out save files to restore on the console.
-      ...(saves ? ["shop-saves"] : []),
+      // library-saves: /api/saves hands out save files to restore on the console.
+      // shop-saves is the same feature under its old name, kept for a client release that checks for it.
+      ...(saves ? ["library-saves", "shop-saves"] : []),
       // saves-by-game: /api/saves?view=games lists games with counts; ?game=<key> one game's saves.
       ...(saves ? ["saves-by-game"] : []),
       // user-patches: /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches; while one is listed.

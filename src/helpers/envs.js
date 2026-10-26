@@ -77,9 +77,9 @@ const uploadsDir = path.join(dataDir, "uploads");
 // homebrew titles end up here.
 const extractedMetaDir = path.join(dataDir, "extracted-meta");
 
-// Public base URL override for the ABSOLUTE artwork URLs in the shop
+// Public base URL override for the ABSOLUTE artwork URLs in the library
 // response. The console client fetches icons by curling the per-item URL
-// verbatim, so the shop must hand out absolute URLs. Normally the origin is
+// verbatim, so the library must hand out absolute URLs. Normally the origin is
 // derived per-request from the Host header; pin this when running behind a
 // proxy that rewrites Host, or to force a canonical address. Trailing slash
 // trimmed. Unset = derive from each request.
@@ -113,7 +113,7 @@ let publicBaseUrl = normalizeBaseUrl(rawPublicBaseUrl);
 const adminTotpSecret = pickEnv("COOK_ADMIN_TOTP_SECRET") ?? null;
 const adminSessionHours = envNumber("COOK_ADMIN_SESSION_HOURS", 8, { min: 1 });
 // For an operator without an authenticator app: when set, /admin asks for this
-// password instead of a TOTP code. Keep it apart from the shop accounts, which
+// password instead of a TOTP code. Keep it apart from the library accounts, which
 // are shared with every player; shorter than 12 characters is refused.
 const ADMIN_PASSWORD_MIN = 12;
 const adminPassword = (() => {
@@ -185,12 +185,12 @@ const extractMaxBytes = extractMaxGb > 0 ? extractMaxGb * 1024 ** 3 : 0;
 
 // Inter-job pacing (ms) for the background extraction worker. A small delay
 // between jobs keeps the one-time pass from saturating disk/CPU while the
-// server is answering shop requests — "run gently, not a thundering pass".
+// server is answering library requests — "run gently, not a thundering pass".
 // Concurrency (COOK_EXTRACT_CONCURRENCY) is unchanged; this only spaces jobs
 // out. 0 disables the delay. Default 250 ms.
 const extractPaceMs = envNumber("COOK_EXTRACT_PACE_MS", 250, { min: 0 });
 
-// User-supplied custom shop entries (default lives alongside the games folder).
+// User-supplied custom library entries (default lives alongside the games folder).
 const customEntriesPath = envString(
   "COOK_CUSTOM_ENTRIES",
   path.join(romsDirPath, "custom_entries.jsonc")
@@ -256,7 +256,7 @@ const raApiKey = envString("COOK_RA_API_KEY", "").trim();
 // User patches (mods, cheats) to hand to clients: <dir>/<base title id>/<patch>/.
 // Missing folder means no patches.
 const patchesDir = layout.dirs.patches;
-// Save files the shop hands out (a save with everything unlocked, …). Off until this folder exists.
+// Save files the library hands out (a save with everything unlocked, …). Off until this folder exists.
 const savesDir = layout.dirs.saves;
 // Retro games, bezels and the RetroArch base pack. The feature is off until this folder exists.
 const retroDir = layout.dirs.retro;

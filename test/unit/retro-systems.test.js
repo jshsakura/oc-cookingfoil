@@ -89,7 +89,7 @@ test("BIOS notices only name consoles that have games, and an any-of group is me
 
 const PORT = 15400 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// An approved console: the shop takes its keys, never a password.
+// An approved console: the library takes its keys, never a password.
 const AUTH = CONSOLE;
 const get = (url) => fetch(BASE + url, { headers: AUTH });
 

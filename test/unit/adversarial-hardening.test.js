@@ -6,8 +6,8 @@ import adminOnly, { consoleLane } from "../../src/security/admin-only.js";
 
 const raw = (headers, remoteAddress = "203.0.113.5") => ({ headers, socket: { remoteAddress }, protocol: "http" });
 
-test("a Host that is not a host name never reaches a URL or the shop's JSON", () => {
-  assert.equal(resolveOrigin(raw({ host: "shop.example.org:8443" }), ""), "http://shop.example.org:8443");
+test("a Host that is not a host name never reaches a URL or the library's JSON", () => {
+  assert.equal(resolveOrigin(raw({ host: "library.example.org:8443" }), ""), "http://library.example.org:8443");
   assert.equal(resolveOrigin(raw({ host: "10.0.0.5" }), ""), "http://10.0.0.5");
   assert.equal(resolveOrigin(raw({ host: "[::1]:80" }), ""), "http://[::1]:80");
   for (const bad of ['evil.example"},{"url":"x', "a b", "host\r\nX: y", "x/../y", "a@b"]) {
@@ -36,7 +36,7 @@ test("only admin accounts change artwork or see uploads; consoles never do", () 
   };
   const writes = adminOnly();
   const all = adminOnly({ reads: true });
-  // No accounts on the server: nobody to check (the shop is open by choice).
+  // No accounts on the server: nobody to check (the library is open by choice).
   assert.equal(run(writes, { method: "POST" }), "next");
   assert.equal(run(writes, { method: "GET", pairedDevice: "AB" }), "next", "reads stay open for art");
   for (const lane of [{ pairedDevice: "AB" }, { sessionLane: true }]) {
@@ -46,7 +46,7 @@ test("only admin accounts change artwork or see uploads; consoles never do", () 
   }
 });
 
-test("a user-role account reads the shop but cannot change artwork or see uploads", async () => {
+test("a user-role account reads the library but cannot change artwork or see uploads", async () => {
   const { spawn } = await import("node:child_process");
   const { mkdtempSync, mkdirSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
@@ -79,7 +79,7 @@ test("a user-role account reads the shop but cannot change artwork or see upload
     const { webSession } = await import("../support/web-session.js");
     const bob = await webSession(base, "bob", "bob-password-1");
     const alice = await webSession(base, "alice", "alice-password");
-    assert.equal((await fetch(`${base}/api/library/sections`, { headers: bob })).status, 200, "bob reads the shop");
+    assert.equal((await fetch(`${base}/api/library/sections`, { headers: bob })).status, 200, "bob reads the library");
     assert.equal((await fetch(`${base}/api/uploads`, { headers: bob })).status, 403);
     const write = (headers) => fetch(`${base}/api/art/0100000000010000/description`, { method: "POST", headers: { ...headers, "Content-Type": "application/json", Origin: base }, body: JSON.stringify({ description: "x" }) });
     assert.equal((await write(bob)).status, 403, "bob cannot rewrite a description");

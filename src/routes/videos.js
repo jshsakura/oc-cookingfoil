@@ -2,7 +2,7 @@
  * Game trailers collected from IGDB (meta/igdb-videos.js), for the web's game
  * detail as an admin sees it. Web-only: index.js mounts this behind
  * adminOnly({ reads: true }), so consoles and user accounts are refused, and
- * nothing a console reads (/api/title, the shop sections, /api/retro/*) carries them.
+ * nothing a console reads (/api/title, the library sections, /api/retro/*) carries them.
  *
  *   GET /api/videos/title/<16 hex>   { videos: [{ id, name }] }   a Switch game; a Korean
  *                                    release borrows its sibling's, as the scores do

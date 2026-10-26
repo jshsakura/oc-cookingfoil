@@ -10,7 +10,7 @@ import path from "node:path";
 //
 // The regression this pins down (shipped in v0.8.2): auth-guard.js called
 // isLoopbackIp() without importing it from net.js. Under ESM that is a runtime
-// ReferenceError, and because authGuard sits on EVERY request path the shop
+// ReferenceError, and because authGuard sits on EVERY request path the library
 // answered 500 to everything.
 //
 // Nothing caught it, and the reason matters for these cases: authGuard's first

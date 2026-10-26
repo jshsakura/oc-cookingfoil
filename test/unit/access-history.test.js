@@ -153,9 +153,9 @@ test("the admin sees each console's IPs by day and each account's sign-ins, and 
     await waitReady();
     let call = await asAdmin();
 
-    const shop = (ip) => fetch(`${BASE}/api/library/sections`, { headers: { ...CONSOLE, "X-Forwarded-For": ip } });
+    const library = (ip) => fetch(`${BASE}/api/library/sections`, { headers: { ...CONSOLE, "X-Forwarded-For": ip } });
     for (const ip of ["192.0.2.10", "192.0.2.10", "198.51.100.7", ...Array.from({ length: 8 }, (_, i) => `203.0.113.${i + 1}`)]) {
-      assert.equal((await shop(ip)).status, 200);
+      assert.equal((await library(ip)).status, 200);
     }
     let { days } = await ipHistory(call, `device=${CONSOLE_KEY}`);
     assert.deepEqual(days.map((d) => d.day), [dayKey(Date.now()), yesterday], "newest day first");

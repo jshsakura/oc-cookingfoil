@@ -79,7 +79,7 @@ test("/api/session issues the token by the keys and ignores Basic", async () => 
   assert.equal((await get("/api/session", { Authorization: ALICE })).status, 401);
 });
 
-test("Basic alone on the shop is the same as nothing: 401, no challenge, and the console waits for approval", async () => {
+test("Basic alone on the library is the same as nothing: 401, no challenge, and the console waits for approval", async () => {
   const nothing = await get("/api/library/sections");
   const r = await get("/api/library/sections", { Authorization: ALICE });
   assert.equal(r.status, 401);

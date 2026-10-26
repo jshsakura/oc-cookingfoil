@@ -10,7 +10,7 @@ const patch = (tid: string | null, name: string, homebrew?: string) => ({
 async function setup(page: Page) {
   await page.addInitScript(() => localStorage.setItem('cookingfoil:lang', 'ko'));
   await page.route('**/api/library/info*', route => route.fulfill({ json: {
-    features: ['user-patches', 'shop-saves', 'homebrew'],
+    features: ['user-patches', 'library-saves', 'homebrew'],
   } }));
   await page.route('**/api/library/sections', route => route.fulfill({ json: { sections: [{
     id: 'all', items: [

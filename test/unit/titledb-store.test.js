@@ -392,7 +392,7 @@ test("load: keeps each language's own name and description for base games", asyn
 
 // ── extra regions only fill gaps ─────────────────────────────────────────
 
-test("load: a region outside the shop's languages names Europe-only games but never replaces a name", async () => {
+test("load: a region outside the library's languages names Europe-only games but never replaces a name", async () => {
   await resetDir();
   await writeRegion("US.en.json", { 1: { id: "0100AAAA00000000", name: "Shared Game" } });
   await writeRegion("DE.de.json", {

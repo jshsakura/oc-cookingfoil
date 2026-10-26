@@ -1,8 +1,8 @@
 /**
- * Load user-supplied custom shop entries from a JSON5/JSONC file.
+ * Load user-supplied custom library entries from a JSON5/JSONC file.
  *
  * Each entry must have `url` and `name`. Everything else is optional.
- * Malformed entries are skipped individually — never block the whole shop.
+ * Malformed entries are skipped individually — never block the whole library.
  * See FINDINGS §6 (custom entries) and §7 (no-omission invariant).
  */
 import { readFile } from "fs/promises";

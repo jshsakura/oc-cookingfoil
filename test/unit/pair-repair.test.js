@@ -79,7 +79,7 @@ async function poll(deviceKey, pairSecret) {
   return { code: r.status, auth: r.headers.get("x-cookingfoil-auth"), body: await r.json() };
 }
 
-const shop = async (deviceKey, accessKey) =>
+const library = async (deviceKey, accessKey) =>
   (await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": deviceKey, "X-Access-Key": accessKey } })).status;
 
 const sessions = {};
@@ -140,7 +140,7 @@ test("a console that lost its key gets a re-pair QR; approving it hands a new ke
   const console1 = key("1");
   const oldKey = await pairAs("alice", console1, secret("a"));
   await pairAs("alice", key("2"), secret("b"));
-  assert.equal(await shop(console1, oldKey), 200);
+  assert.equal(await library(console1, oldKey), 200);
 
   // The console was formatted: a new secret, no key.
   const lost = secret("c");
@@ -160,7 +160,7 @@ test("a console that lost its key gets a re-pair QR; approving it hands a new ke
   assert.equal(other.code, 409);
   assert.equal(other.auth, "pair-secret-mismatch");
 
-  assert.equal(await shop(console1, oldKey), 200, "asking changes nothing");
+  assert.equal(await library(console1, oldKey), 200, "asking changes nothing");
   assert.match(await pageText("alice", qr.body.pairUrl), /This console is already registered\. Approving reconnects it with a new key/);
   assert.match(await pageText("bob", qr.body.pairUrl), /already registered to another account/);
 
@@ -170,10 +170,11 @@ test("a console that lost its key gets a re-pair QR; approving it hands a new ke
   const handed = await poll(console1, lost);
   assert.ok(handed.body.accessKey);
   assert.equal(handed.body.status, "approved");
+  assert.equal(handed.body.libraryUrl, BASE);
   assert.equal(handed.body.shopUrl, BASE);
   assert.equal((await poll(console1, lost)).body.accessKey, undefined, "once");
-  assert.equal(await shop(console1, oldKey), 401, "the old key stops");
-  assert.equal(await shop(console1, handed.body.accessKey), 200);
+  assert.equal(await library(console1, oldKey), 401, "the old key stops");
+  assert.equal(await library(console1, handed.body.accessKey), 200);
   assert.deepEqual((await mine("alice")).sort(), [console1, key("2")]);
 }));
 
@@ -191,7 +192,7 @@ test("without a pairSecret, or knowing only the device key, nobody changes an ap
   const stranger = await poll(target, secret("e"));
   assert.equal(stranger.body.repair, true);
   assert.equal((await poll(target, secret("e"))).body.accessKey, undefined);
-  assert.equal(await shop(target, accessKey), 200, "the console's key still works");
+  assert.equal(await library(target, accessKey), 200, "the console's key still works");
   assert.deepEqual(await mine("alice"), [target]);
 }));
 
@@ -216,7 +217,7 @@ test("a console another account holds: enroll 409, then the re-pair QR moves it 
   const full = await approveQr("bob", qr.body.pairCode);
   assert.equal(full.code, 409);
   assert.equal(full.body.code, "device-limit");
-  assert.equal(await shop(moved, alicesKey), 200);
+  assert.equal(await library(moved, alicesKey), 200);
   assert.deepEqual(await mine("alice"), [moved]);
 
   // Room again: the console becomes bob's, with a new key at bob's console's secret.
@@ -227,8 +228,8 @@ test("a console another account holds: enroll 409, then the re-pair QR moves it 
   assert.equal((await approveQr("bob", qr.body.pairCode)).code, 200);
   const handed = await poll(moved, bobs);
   assert.ok(handed.body.accessKey);
-  assert.equal(await shop(moved, alicesKey), 401);
-  assert.equal(await shop(moved, handed.body.accessKey), 200);
+  assert.equal(await library(moved, alicesKey), 401);
+  assert.equal(await library(moved, handed.body.accessKey), 200);
   assert.deepEqual(await mine("alice"), []);
   assert.deepEqual((await mine("bob")).sort(), [moved, key("7")]);
 }));
@@ -320,8 +321,8 @@ test("a console the admin let in takes a new key from any account's download and
   const r = await enroll(target, await downloadToken(data, "alice"));
   assert.equal(r.status, 200);
   const fresh = (await r.json()).accessKey;
-  assert.equal(await shop(target, fresh), 200);
-  assert.equal(await shop(target, old), 401);
+  assert.equal(await library(target, fresh), 200);
+  assert.equal(await library(target, old), 401);
 }));
 
 test("a console that still holds its key is told it is approved, never shown a re-pair QR", () => withServer(async () => {
@@ -332,7 +333,7 @@ test("a console that still holds its key is told it is approved, never shown a r
   const body = await r.json();
   assert.equal(body.status, "approved");
   assert.equal(body.repair, undefined);
-  assert.equal(await shop(target, held), 200);
+  assert.equal(await library(target, held), 200);
   // Without the key the same question still gets the re-pair QR.
   assert.equal((await poll(target, secret("e"))).body.repair, true);
 }));

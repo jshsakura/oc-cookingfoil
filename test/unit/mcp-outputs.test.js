@@ -106,9 +106,9 @@ test("game_get and games_search over a game with titledb data, an update, a DLC 
   put("games", "Third Game/update/Third Game [0100000000030800][v65536].nsp");
   put("games", "Third Game/DLC/Third Game DLC [0100000000031001][v0].nsp");
   put("patches", `${base}/한글패치/atmosphere/contents/${base}/romfs/a.bin`);
-  const shopCache = await import("../../src/meta/shop-cache.js");
-  shopCache.invalidate({ rescan: true });
-  await shopCache.get();
+  const libraryCache = await import("../../src/meta/library-cache.js");
+  libraryCache.invalidate({ rescan: true });
+  await libraryCache.get();
   await (await import("../../src/meta/user-patches.js")).scan();
 
   const game = await check("game_get", { titleId: base });
@@ -154,7 +154,7 @@ test("retro tools answer an unknown system or id as BAD_INPUT or NOT_FOUND", asy
   await assert.rejects(registry.byId("retro_game_get").handler({}, { id: "../etc" }), (err) => err.status === 400);
 });
 
-test("game_get reads lang as the shop does and keeps a renamed Korean patch Korean", async () => {
+test("game_get reads lang as the library does and keeps a renamed Korean patch Korean", async () => {
   const base = "0100000000030000";
   const descriptions = await import("../../src/meta/game-descriptions.js");
   descriptions.set(base, "description", { ko: "한국어 설명", en: "English text" });
@@ -211,9 +211,9 @@ test("library_files_remove previews, moves the files into one trash entry, and t
   const rels = [`Fifth Game/Fifth Game [${base}][v0].nsp`, "Fifth Game/update/Fifth Game [0100000000050800][v65536].nsp"];
   for (const rel of rels) put("games", rel);
   put("games", "Fifth Game/DLC/Fifth Game DLC [0100000000051001][v0].nsp");
-  const shopCache = await import("../../src/meta/shop-cache.js");
-  const rebuilt = new Promise((resolve) => { const off = shopCache.onUpdate(() => { off(); resolve(); }); });
-  shopCache.invalidate({ rescan: true });
+  const libraryCache = await import("../../src/meta/library-cache.js");
+  const rebuilt = new Promise((resolve) => { const off = libraryCache.onUpdate(() => { off(); resolve(); }); });
+  libraryCache.invalidate({ rescan: true });
   await rebuilt;
 
   const preview = await checkPreview("library_files_remove", { rels });

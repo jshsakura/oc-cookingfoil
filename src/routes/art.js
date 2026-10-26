@@ -20,7 +20,7 @@
  *   POST   /api/art/:baseTitleId/icon|banner/crop            → { crop } cut again from it
  *   POST   /api/art/:baseTitleId/screenshot/:idx/crop
  *   GET /api/art/:baseTitleId carries originals: { icon, banner, screens: { <idx>: crop } }
- *   and urls: { icon, banner }, the shop addresses with their current ?v=
+ *   and urls: { icon, banner }, the library addresses with their current ?v=
  * and the same for homebrew apps and patches (screenshots counted from 1):
  *   GET    /api/art/:kind/:id/icon|banner/original, /api/art/:kind/:id/screenshot/:n/original
  *   POST   /api/art/:kind/:id/icon|banner/crop,     /api/art/:kind/:id/screenshot/:n/crop
@@ -74,7 +74,7 @@ import * as gameMeta from "../meta/game-meta.js";
 import { StuckError } from "../meta/game-art-files.js";
 import { actorOf } from "../library/trash-service.js";
 import debug from "../debug.js";
-import { invalidate } from "../meta/shop-cache.js";
+import { invalidate } from "../meta/library-cache.js";
 import * as homebrewMedia from "../meta/homebrew-media.js";
 import patchMedia from "../meta/patch-media.js";
 import { MediaImageError } from "../meta/item-media.js";
@@ -364,7 +364,7 @@ export default function artRouter() {
   }));
 
   // What a game has: its slots, and the area each kept original was cut to.
-  // urls: the shop addresses with their new ?v=, so the page shows a changed picture at once.
+  // urls: the library addresses with their new ?v=, so the page shows a changed picture at once.
   // folder: the game's folder under metadata/games, where pictures may also be put by hand (null before it has one).
   const gameArt = (base) => ({ ...customArt.list(base), originals: customArt.originals(base), folder: gameMeta.entry(base)?.folder ?? null,
     urls: { icon: versionedArtwork(`/api/library/icon/${base}`), banner: versionedArtwork(`/api/library/banner/${base}`) } });

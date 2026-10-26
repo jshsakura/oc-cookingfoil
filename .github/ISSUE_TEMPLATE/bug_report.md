@@ -25,7 +25,7 @@ Security issues: use https://github.com/jshsakura/oc-cookingfoil/security/adviso
 
 ### Environment / 환경 / 環境 / 环境
 
-- Server version (`/api/shop/info` or the admin page):
+- Server version (`/api/library/info` or the admin page):
 - Install (Docker image tag, or from source with Node version):
 - CookingFoil client version (or the browser, for the web page):
 - Proxy or tunnel in front (none, nginx, Caddy, Cloudflare Tunnel, ...):

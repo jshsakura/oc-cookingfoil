@@ -5,14 +5,14 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { localize, readMeta, readSave, saveId } from "../../src/meta/shop-saves.js";
+import { localize, readMeta, readSave, saveId } from "../../src/meta/library-saves.js";
 import { openDatabase } from "../../src/db/database.js";
 import { CONSOLE, seedConsole } from "../support/console.js";
 
 const MK = "0100152000022000";
 const PORT = 15400 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// An approved console: the shop takes its keys, never a password.
+// An approved console: the library takes its keys, never a password.
 const AUTH = CONSOLE;
 
 function put(root, rel, body = "x") {
@@ -85,7 +85,7 @@ test("a save reads in Korean for ko and in English for every other language", ()
   assert.deepEqual(readMeta({ source: { name: "x", url: "javascript:alert(1)" } }).source, { name: "x" }, "only web links");
 });
 
-test("the shop lists save files and sends one as a tar rooted at the save folder", async () => {
+test("the library lists save files and sends one as a tar rooted at the save folder", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "saves-"));
   put(dir, `${MK}/All Unlocked/meta.json`, JSON.stringify({ name: "All karts", description: "Every kart and track", gameVersion: "3.0.1", saveType: "device", ko: { name: "전 차종 언락", description: "모든 카트와 트랙" } }));
   put(dir, `${MK}/All Unlocked/save.dat`, "SAVE");
@@ -97,7 +97,7 @@ test("the shop lists save files and sends one as a tar rooted at the save folder
   const server = await boot(dir);
   try {
     assert.equal((await fetch(`${BASE}/api/saves`)).status, 401);
-    assert.ok((await (await get("/api/library/info")).json()).features.includes("shop-saves"));
+    assert.ok((await (await get("/api/library/info")).json()).features.includes("library-saves") && (await (await get("/api/library/info")).json()).features.includes("shop-saves"));
     const res = await get("/api/saves?lang=ko");
     const { saves } = await res.json();
     assert.equal(saves.length, 1, "empty, non-base and symlinked saves are left out");
@@ -145,7 +145,7 @@ test("an empty saves folder is not offered to consoles", async () => {
   const server = await boot(fs.mkdtempSync(path.join(os.tmpdir(), "saves-empty-")));
   try {
     const { features } = await (await get("/api/library/info")).json();
-    assert.ok(!features.includes("shop-saves"));
+    assert.ok(!features.includes("shop-saves") && !features.includes("library-saves"));
     assert.ok(!features.includes("user-patches"), "no patch to hand out either");
     assert.deepEqual((await (await get("/api/saves")).json()).saves, [], "the API answers, with nothing in it");
   } finally {
@@ -173,7 +173,7 @@ test("a homebrew app's save with a name the card can't create is left out; a gam
 });
 
 test("a stale listing comes back at once and is refreshed behind it; a change made here is waited for", async () => {
-  const { createCatalog } = await import("../../src/meta/shop-saves.js");
+  const { createCatalog } = await import("../../src/meta/library-saves.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-stale-"));
   const put = (folder) => {
     fs.mkdirSync(path.join(root, "0100000000010000", folder), { recursive: true });
@@ -199,7 +199,7 @@ test("a stale listing comes back at once and is refreshed behind it; a change ma
 });
 
 test("the last listing is kept on disk and served at once after a restart, then rescanned behind it", async () => {
-  const { createCatalog } = await import("../../src/meta/shop-saves.js");
+  const { createCatalog } = await import("../../src/meta/library-saves.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-kept-"));
   const db = openDatabase(path.join(root, "index.db"));
   const put = (folder) => {
@@ -226,7 +226,7 @@ test("the last listing is kept on disk and served at once after a restart, then 
 });
 
 test("a change made while a scan runs is in the listing that follows", async () => {
-  const { createCatalog } = await import("../../src/meta/shop-saves.js");
+  const { createCatalog } = await import("../../src/meta/library-saves.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-race-"));
   const put = (folder) => {
     fs.mkdirSync(path.join(root, "0100000000010000", folder), { recursive: true });
@@ -244,7 +244,7 @@ test("a change made while a scan runs is in the listing that follows", async () 
 });
 
 test("one save read again by itself: added, changed and removed without a full scan", async () => {
-  const { createCatalog } = await import("../../src/meta/shop-saves.js");
+  const { createCatalog } = await import("../../src/meta/library-saves.js");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-saves-item-"));
   const put = (folder, body = "x") => {
     fs.mkdirSync(path.join(root, "0100000000010000", folder), { recursive: true });

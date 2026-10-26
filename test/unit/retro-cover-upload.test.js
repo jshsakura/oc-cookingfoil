@@ -12,7 +12,7 @@ import { adminSession } from "../support/web-session.js";
 // or not; it is stored shrunk, and only behind the admin session.
 const PORT = 16100 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// The shop is read by an approved console; changes go through the admin page.
+// The library is read by an approved console; changes go through the admin page.
 const ALICE = CONSOLE;
 
 async function boot(dirs) {

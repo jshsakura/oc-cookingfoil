@@ -1,5 +1,5 @@
 /**
- * The web sign-in and the phone's device approval. Mounted outside the shop's
+ * The web sign-in and the phone's device approval. Mounted outside the library's
  * sign-in wall: these are the pages a browser lands on before it has a session.
  *
  *   GET  /login?next=               ID and password form (plus a Google button when Google sign-in is on)

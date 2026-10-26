@@ -5,7 +5,7 @@
  * read; a file whose generation is not known yet is counted as unknown.
  */
 import * as contentMeta from "./content-meta.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import { firmwareOf } from "./generations.js";
 
 const GAME_KINDS = new Set(["base", "update"]);
@@ -14,7 +14,7 @@ const GAME_KINDS = new Set(["base", "update"]);
 const storedGeneration = (file) => contentMeta.get(file.titleId, file.version ?? 0)?.keyGeneration;
 
 /** { keyGeneration, keyFirmware } a title's base game and updates in the library need; nulls while unknown. */
-export function titleKeyNeed(baseTitleId, files = shopCache.files(), generationOf = storedGeneration) {
+export function titleKeyNeed(baseTitleId, files = libraryCache.files(), generationOf = storedGeneration) {
   const gens = files
     .filter((f) => f.baseTitleId === baseTitleId && GAME_KINDS.has(f.kind))
     .map(generationOf)
@@ -31,7 +31,7 @@ export function titleKeyNeed(baseTitleId, files = shopCache.files(), generationO
  * is above), and how many game files have a known generation and how many not
  * yet. `have` null (no keys) counts every known game as above.
  */
-export function libraryAbove(have, files = shopCache.files(), generationOf = storedGeneration) {
+export function libraryAbove(have, files = libraryCache.files(), generationOf = storedGeneration) {
   const above = new Set();
   let known = 0;
   let unknown = 0;

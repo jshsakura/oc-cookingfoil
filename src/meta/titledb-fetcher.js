@@ -14,11 +14,11 @@ import { atomicWrite, slimFromJson, slimPathFor } from "./titledb-slim.js";
 
 export const DEFAULT_SOURCE = "https://raw.githubusercontent.com/blawar/titledb/master";
 
-// The shop's four languages first, then every other region that still adds
+// The library's four languages first, then every other region that still adds
 // games of its own (measured 2026-10: 112 base titles, Europe-only releases
 // mostly). Regions merge in language-priority order and a field keeps its
 // first value, so the extra regions only fill gaps; they never replace a name
-// the shop's languages already have. titledb names its European English file
+// the library's languages already have. titledb names its European English file
 // GB.en; EU.en does not exist upstream.
 export const DEFAULT_REGIONS = [
   "KR.ko", "US.en", "JP.ja", "GB.en", "HK.zh", "CN.zh",

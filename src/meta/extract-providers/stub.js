@@ -23,7 +23,7 @@
  *   }
  *
  *   Returning null means "nothing extractable" — the file stays in the
- *   shop response with its filename-derived metadata only. The caller
+ *   library response with its filename-derived metadata only. The caller
  *   never fails the whole pipeline over a single extraction miss.
  */
 export async function extract(_args) {

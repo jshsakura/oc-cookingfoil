@@ -21,7 +21,7 @@ import { createAgentCache } from "./agent-cache.js";
 import { createAgentOrder } from "./agent-order.js";
 import { createAgentRunner } from "./agent-runner.js";
 import path from "node:path";
-import * as shopCache from "../meta/shop-cache.js";
+import * as libraryCache from "../meta/library-cache.js";
 
 let shared = null;
 
@@ -70,8 +70,8 @@ export function agentParts() {
     const registry = pluginRegistry();
     const store = createAgentCache({ cacheDirOf: (id) => pluginCache().dirOf(id) });
     const order = createAgentOrder({ file: path.join(env.dataDir, "agent-order.json") });
-    // A new answer changes names on screen: drop the lists the shop kept.
-    const runner = createAgentRunner({ registry, store, log: (m) => debug.log("plugins: %s", m), onChange: () => shopCache.invalidate() });
+    // A new answer changes names on screen: drop the lists the library kept.
+    const runner = createAgentRunner({ registry, store, log: (m) => debug.log("plugins: %s", m), onChange: () => libraryCache.invalidate() });
     agentsShared = { registry, store, order, runner };
   }
   return agentsShared;

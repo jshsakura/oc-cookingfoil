@@ -41,18 +41,18 @@ test("sections: recent timestamps and actual supported languages survive scan, c
       import { get as httpGet } from "node:http";
       import { gunzipSync, brotliDecompressSync } from "node:zlib";
       import * as store from "../../src/meta/titledb-store.js";
-      import * as cache from "../../src/meta/shop-cache.js";
+      import * as cache from "../../src/meta/library-cache.js";
       import { composeSections } from "../../src/create-index-content.js";
       import sectionsRoute from "../../src/routes/sections.js";
       await store.load();
       const results = [];
       for (const enc of [[], ["gzip"], ["br"]]) {
-        const p = await cache.getSectionsEncodedForOrigin(enc, "https://shop.example.com");
+        const p = await cache.getSectionsEncodedForOrigin(enc, "https://library.example.com");
         const buf = p.contentEncoding === "gzip" ? gunzipSync(p.body)
           : p.contentEncoding === "br" ? brotliDecompressSync(p.body) : p.body;
         results.push({ encoding: p.contentEncoding ?? null, etag: p.etag, body: JSON.parse(buf) });
       }
-      const same = await cache.getSectionsEncodedForOrigin([], "https://shop.example.com");
+      const same = await cache.getSectionsEncodedForOrigin([], "https://library.example.com");
       assert.equal(same.etag, results[0].etag);
       const app = express();
       app.get("/api/library/sections", sectionsRoute);
@@ -115,7 +115,7 @@ test("sections: recent timestamps and actual supported languages survive scan, c
       const items = body.sections[0].items;
       assert.equal(items.length, 5);
       assert.ok(items.every((item) => item.added_at === stamp));
-      assert.ok(items.every((item) => item.url.startsWith("https://shop.example.com/")));
+      assert.ok(items.every((item) => item.url.startsWith("https://library.example.com/")));
       for (const type of ["base", "update", "dlc"]) {
         const item = items.find((i) => i.base_title_id === base && i.app_type === type);
         assert.deepEqual(item.languages, ["ko", "en"]);

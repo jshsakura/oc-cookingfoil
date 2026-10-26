@@ -1,7 +1,7 @@
 /**
- * The shared account and activity menu on the shop and admin pages: what the server is doing right now
+ * The shared account and activity menu on the library and admin pages: what the server is doing right now
  * (tasks/activity.js), with a progress bar each, and what ended in the last
- * ten minutes. The shop uses /ws/library; the admin page listens on /admin/ws.
+ * ten minutes. The library uses /ws/library; the admin page listens on /admin/ws.
  * While the admin socket is down it reads
  * /admin/api/activity every 15 seconds and tries the socket again with a backoff.
  *

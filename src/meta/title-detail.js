@@ -21,7 +21,7 @@ import * as gameDescriptions from "./game-descriptions.js";
 import * as itemVerified from "./item-verified.js";
 import { mergeField, valueOf, ADMIN, TITLEDB, LOCAL } from "./field-merge.js";
 import { agentOrder, agentValues, creditOf } from "../plugins/agent-values.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import { titleKeyNeed } from "./key-needs.js";
 import { findingOf, signedOf } from "./file-integrity.js";
 import { signedHelp } from "./signed-help.js";
@@ -35,7 +35,7 @@ import path from "path";
  * "base" | "update" | "dlc", "modified" | "damaged", and the label and help
  * in `lang` (integrity-help.js). Informational; every file is offered all the same.
  */
-export function integrityFor(base, lang = "en", files = shopCache.files()) {
+export function integrityFor(base, lang = "en", files = libraryCache.files()) {
   const out = [];
   for (const f of files) {
     if (f.baseTitleId !== base) continue;
@@ -50,7 +50,7 @@ export function integrityFor(base, lang = "en", files = shopCache.files()) {
  * nca, ticket, help? }], nca and ticket true, false or null, help { title, body } in `lang` when one is
  * false. A stock console refuses a file with a false.
  */
-export function signedFor(base, lang = "en", files = shopCache.files()) {
+export function signedFor(base, lang = "en", files = libraryCache.files()) {
   const out = [];
   for (const f of files) {
     if (f.baseTitleId !== base) continue;

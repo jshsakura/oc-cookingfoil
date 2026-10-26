@@ -6,7 +6,8 @@
  * Wire protocol (text frames, JSON):
  *   server → client
  *     { type: "hello",        version, etag, files, customs, restarting }
- *     { type: "shop-updated", etag, files, customs, mode, buildMs }
+ *     { type: "library-updated", etag, files, customs, mode, buildMs }
+ *     { type: "shop-updated", ... }   // deprecated copy of the line above for an older client; remove with the /api/shop aliases
  *     { type: "restarting", restart_id, retry_after, back_by, message }   // safe restart began
  *     { type: "activity", running: [...], recent: [...] }   // read-only task status
  *     { type: "ping" }                                    // hb keepalive
@@ -20,7 +21,7 @@
  *   Only this site's own page (an Origin is required), signed in as an admin
  *   account and past the admin's second step. No Basic: scripts poll the API.
  *
- * The page typically just listens for `shop-updated` and re-fetches
+ * The page typically just listens for `library-updated` and re-fetches
  * /api/library/sections (the etag short-circuits to 304 when the body hasn't
  * really changed, so this stays cheap). We never push the body itself.
  *
@@ -31,7 +32,7 @@
  * dropped before the upgrade completes, with no separate token surface to manage.
  */
 import { WebSocketServer } from "ws";
-import * as shopCache from "../meta/shop-cache.js";
+import * as libraryCache from "../meta/library-cache.js";
 import * as securityStore from "../security/store.js";
 import * as users from "../security/users.js";
 import { webUser } from "../security/user-session.js";
@@ -176,7 +177,7 @@ export function attach(server) {
 
     // Snapshot greeting so the client can fast-path re-render without
     // waiting for the next debounced rebuild.
-    const stats = shopCache.stats();
+    const stats = libraryCache.stats();
     send(ws, {
       type: "hello",
       version: pkg.version,
@@ -187,7 +188,7 @@ export function attach(server) {
       // reconnects mid-drain keeps its notice, one that reconnects after drops it.
       restarting: drainer.notice(),
     });
-    // Read-only activity shares the shop's existing browser channel.
+    // Read-only activity shares the library's existing browser channel.
     send(ws, { type: "activity", ...activity.list() });
     const offActivity = activity.subscribe((snap) => send(ws, { type: "activity", ...snap }));
     ws.on("close", offActivity);
@@ -220,14 +221,15 @@ export function attach(server) {
   }, HEARTBEAT_MS);
   if (hbTimer.unref) hbTimer.unref();
 
-  // Fan shop-cache updates out to every connected client. Cheap — payload
+  // Fan library-cache updates out to every connected client. Cheap — payload
   // is a small JSON, and we already do the heavy work (build, encode) in
-  // shop-cache itself.
-  const unsubscribe = shopCache.onUpdate((payload) => {
-    const msg = JSON.stringify({ type: "shop-updated", ...payload });
+  // library-cache itself.
+  const unsubscribe = libraryCache.onUpdate((payload) => {
+    const msg = JSON.stringify({ type: "library-updated", ...payload });
+    const legacyMsg = JSON.stringify({ type: "shop-updated", ...payload });
     for (const ws of wss.clients) {
       if (ws.readyState !== 1) continue;
-      try { ws.send(msg); } catch (err) {
+      try { ws.send(msg); ws.send(legacyMsg); } catch (err) {
         debug.error("ws: broadcast failed: %s", err.message);
       }
     }

@@ -132,19 +132,19 @@ export function directUrl(url, link) {
 }
 
 /**
- * Puts the file entries of a serialized shop list ("../…", variants included)
+ * Puts the file entries of a serialized library list ("../…", variants included)
  * on the direct address. Runs before helpers/origin.js anchors the remaining
  * "../" URLs at the origin, so with a link there are none left.
  */
-export function withShopDirect(json, link) {
+export function withLibraryDirect(json, link) {
   return link ? json.replaceAll('"../', `"${link.base}/`) : json;
 }
 
 // The lists and info a token rides on; never artwork or file downloads, whose
 // responses may be cached. Matched on the path as the app sees it.
 const TOKEN_PATHS = [
-  /^\/(games\.json|shop\.json)?$/i,
-  /^\/api\/(library|shop)\/(sections|info)$/,
+  /^\/(games\.json|library\.json)?$/i,
+  /^\/api\/(library|library)\/(sections|info)$/,
   /^\/api\/title\/[^/]+(\/extras)?$/,
   /^\/api\/(homebrew|patches|saves)\/?$/,
   /^\/api\/client\/latest$/,

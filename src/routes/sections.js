@@ -7,13 +7,13 @@
  * anything back out of a file name.
  *
  * The body is built, compressed (br/gzip) and per-origin-memoized inside
- * shop-cache (getSectionsEncodedForOrigin) — one serialize per rebuild, reused
+ * library-cache (getSectionsEncodedForOrigin) — one serialize per rebuild, reused
  * across requests with ETag/304, exactly like /games.json. URLs are
  * made absolute against the request origin there too, so on-device curl (which
  * resolves neither a host-relative `/api/library/icon/...` nor a `../foo`
  * download) receives absolute URLs.
  */
-import * as shopCache from "../meta/shop-cache.js";
+import * as libraryCache from "../meta/library-cache.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import * as downloadLinks from "../security/download-links.js";
@@ -23,7 +23,7 @@ export default async function sectionsRoute(req, res) {
   let payload;
   try {
     const origin = resolveOrigin(req, publicBaseUrl);
-    payload = await shopCache.getSectionsEncodedForOrigin(
+    payload = await libraryCache.getSectionsEncodedForOrigin(
       req.acceptsEncodings(),
       origin,
       downloadLinks.forRequest(req)

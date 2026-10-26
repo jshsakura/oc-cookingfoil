@@ -13,7 +13,7 @@ import { adminSession } from "../support/web-session.js";
 // them, the server only names their title ID and a key that moves when the shortcut should change.
 const PORT = 19300 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// The shop is read by an approved console; changes go through the admin page.
+// The library is read by an approved console; changes go through the admin page.
 const ALICE = CONSOLE;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "cf-shortcuts-"));
 

@@ -1,8 +1,8 @@
 /**
- * Device approval for signed-in shop users (/pair), mounted inside the shop's
+ * Device approval for signed-in library users (/pair), mounted inside the library's
  * sign-in. The console's QR points at /pair/<token>; the same page can scan
  * that QR with the phone's camera or take the 8-character device code, and the
- * console is approved under the account that is signed in. A pairing-only shop
+ * console is approved under the account that is signed in. A pairing-only library
  * (no accounts) falls back to the admin session.
  *
  *   GET  /pair             scanner + device-code field
@@ -44,7 +44,7 @@ import fs from "node:fs";
 const JSQR_PATH = createRequire(import.meta.url).resolve("jsqr/dist/jsQR.js");
 const TOKEN_RE = /^[a-f0-9]{32}$/;
 
-/** Who approves: the signed-in shop account, else the admin. A console's own key never does. */
+/** Who approves: the signed-in library account, else the admin. A console's own key never does. */
 export function approverOf(req) {
   if (req.auth?.user) return req.auth.user;
   if (req.pairedDevice) return null;
@@ -52,7 +52,7 @@ export function approverOf(req) {
 }
 
 /**
- * Whether a console approved by `addedBy` is this approver's own. A shop account
+ * Whether a console approved by `addedBy` is this approver's own. A library account
  * never owns the markers the server writes for other approvals ("admin",
  * "auto", "telegram"), whatever it is called; only the admin's own session owns "admin".
  */
@@ -164,7 +164,7 @@ function pageHeaders(res) {
 export default function devicePairRouter() {
   const router = express.Router();
 
-  // QR approval needs COOK_DEVICE_PAIRING; device logins need shop accounts.
+  // QR approval needs COOK_DEVICE_PAIRING; device logins need library accounts.
   const qrOnly = (req, res, next) => (devicePairing ? next() : res.status(404).type("text/plain").send("not found"));
   router.use((req, res, next) => {
     if (!devicePairing && !users.hasUsers()) return res.status(404).type("text/plain").send("not found");

@@ -78,7 +78,7 @@ test('the page shares a large image card whose image is an absolute URL on this 
   expect(res.headers()['content-type']).toBe('image/png');
 });
 
-test('landing names the shop, shows its status and links to the admin page', async ({ page }) => {
+test('landing names the library, shows its status and links to the admin page', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'CookingFoil', exact: true })).toBeVisible();
   await expect(page.locator('#status-text')).not.toHaveClass(/sk/);
@@ -497,7 +497,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await page.route('**/api/library/info*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
-    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'shop-saves', 'homebrew'] } });
+    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'library-saves', 'homebrew'] } });
   });
   const patch = { id: '0100000000010000-aaaaaaaaaaaa', title_id: '0100000000010000', name: '성능 패치', kinds: ['exefs_patches'], size: 4096, files: 3,
     hash: 'h', description: '프레임을 올립니다.', required: true, version: '1.2', game_version: '1.0.32.0', update_version: 2097152,
@@ -644,7 +644,7 @@ test('patches and homebrew open newest update first, and the order picked is kep
   await page.route('**/api/library/info*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
-    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'shop-saves', 'homebrew'] } });
+    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'user-patches', 'library-saves', 'homebrew'] } });
   });
   const patch = (id: string, tid: string, game: string, name: string, at: string, size: number) => ({
     id, title_id: tid, name, kinds: ['romfs'], size, files: 1, hash: 'h', description: '', updated_at: at, game: { name: game } });
@@ -690,7 +690,7 @@ test('saves page by game, so a game with many saves stays on one page and loads 
   await page.route('**/api/library/info*', async (route) => {
     const res = await route.fetch();
     const body = res.ok() ? await res.json() : {};
-    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'shop-saves'] } });
+    await route.fulfill({ json: { ...body, features: [...(body.features ?? []), 'library-saves'] } });
   });
   const save = (tid: string, game: string, n: number) => ({ id: `${tid}-${String(n).padStart(12, '0')}`, titleId: tid, name: `${game} save ${n}`,
     description: '', size: 1024, files: 1, hash: 'h', updatedAt: 1_790_000_000 - n, game: { name: game }, url: '/x' });

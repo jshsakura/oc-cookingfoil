@@ -15,9 +15,9 @@ const game = [
 test('a game is deleted from its edit page: every file of it, after asking, and the list drops it', async ({ page }) => {
   await admin(page);
   let items = [...game];
-  let shopReads = 0;
+  let libraryReads = 0;
   const removed: string[] = [];
-  await page.route('**/api/library/sections', (route) => { shopReads++; route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }); });
+  await page.route('**/api/library/sections', (route) => { libraryReads++; route.fulfill({ json: { sections: [{ id: 'all', title: 'All', items }], genres: {} } }); });
   await page.route('**/api/art/0100000000010000', (route) => route.fulfill({ json: { icon: false, banner: false, screens: [], originals: {} } }));
   await page.route('**/api/art/0100000000010000/meta', (route) => route.fulfill({ json: { name: {}, description: {}, notes: {}, original: {} } }));
   await page.route('**/admin/api/library/files/remove', (route) => { removed.push(route.request().postDataJSON().rel); route.fulfill({ json: { ok: true } }); });
@@ -47,14 +47,14 @@ test('a game is deleted from its edit page: every file of it, after asking, and 
   await expect(page.locator('#modal')).toHaveClass(/open/);
   expect(removed).toEqual([]);
 
-  // Delete: both files go, the window closes, the shop is read again without the game.
+  // Delete: both files go, the window closes, the library is read again without the game.
   items = [];
-  const before = shopReads;
+  const before = libraryReads;
   await del.click();
   await page.locator('#confirm-yes').click();
   await expect.poll(() => removed).toEqual(['A/Game [0100000000010000][v0].nsp', 'A/Game [0100000000010800][v65536].nsp']);
   await expect(page.locator('#modal')).not.toHaveClass(/open/);
-  await expect.poll(() => shopReads).toBeGreaterThan(before);
+  await expect.poll(() => libraryReads).toBeGreaterThan(before);
   await expect(page.locator('#games .game')).toHaveCount(0);
 });
 

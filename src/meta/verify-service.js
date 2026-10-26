@@ -9,7 +9,7 @@ import { createVerifier } from "./file-verify.js";
 import * as fileIntegrity from "./file-integrity.js";
 import { provideKnown } from "./file-identity.js";
 import * as env from "../helpers/envs.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import drainer from "../security/drain.js";
 import * as activity from "../tasks/activity.js";
 import { appDb } from "../db/database.js";
@@ -48,12 +48,12 @@ const queue = createVerifyQueue({
   store: lazyStore("file-verdicts"),
   goneStore: lazyStore("file-verdicts-gone"),
   verifier: createVerifier(),
-  catalog: () => shopCache.files(),
+  catalog: () => libraryCache.files(),
   downloads: () => drainer.downloads(),
   // Games are served at their path under the games folder, on both download lanes.
   fileInUse: (rel) => drainer.pathInUse(`/${rel.split(path.sep).join("/")}`),
-  // A notice appeared or went away: the shop list and the sections carry it.
-  onVerdict: () => shopCache.invalidate({ background: true }),
+  // A notice appeared or went away: the library list and the sections carry it.
+  onVerdict: () => libraryCache.invalidate({ background: true }),
   onDamaged: tellDamaged,
   track: (opts) => activity.begin("verify", opts),
   msUntilAllowed: () => msUntilHours(env.verifyHours),
@@ -69,7 +69,7 @@ export function start() {
   if (started) return;
   started = true;
   queue.init().catch(() => {});
-  shopCache.onUpdate(() => queue.onLibraryUpdate());
+  libraryCache.onUpdate(() => queue.onLibraryUpdate());
   // The first rebuild may have happened before this subscribed.
   queue.onLibraryUpdate();
 }

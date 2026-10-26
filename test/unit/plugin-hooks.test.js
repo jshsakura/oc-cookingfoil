@@ -293,7 +293,7 @@ test("the only hooks the server calls on a request path are the ones listed here
   for (const f of files) {
     for (const m of fs.readFileSync(f, "utf8").matchAll(/callHook\(\s*[^,]+,\s*"(\w+)"/g)) (f.endsWith(`plugins${path.sep}agent-runner.js`) ? background : found).add(m[1]);
   }
-  assert.deepEqual([...found].sort(), ["beforeDownload", "plan", "route", "shopInfo", "variants"]);
+  assert.deepEqual([...found].sort(), ["beforeDownload", "libraryInfo", "plan", "route", "variants"]);
   // metadata runs from the runner's queue (plugins/agent-runner.js) and is cached; no other file calls it, so no request waits for it.
   assert.deepEqual([...background], ["metadata"]);
 });

@@ -49,7 +49,7 @@ async function pairAs(auth, key) {
   return (await knock(key)).accessKey;
 }
 
-const shop = async (key, accessKey) =>
+const library = async (key, accessKey) =>
   (await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": key, "X-Access-Key": accessKey } })).status;
 
 test("removing, disabling or re-passwording an account revokes the consoles it approved", async () => {
@@ -61,7 +61,7 @@ test("removing, disabling or re-passwording an account revokes the consoles it a
       const key = deviceKey("ABCD"[i]);
       const auth = await webSession(BASE, name, name === "owner" ? "owner-password-1" : PEOPLE[name]);
       consoles[name] = { key, accessKey: await pairAs(auth, key) };
-      assert.equal(await shop(key, consoles[name].accessKey), 200, `${name}'s console opens the shop`);
+      assert.equal(await library(key, consoles[name].accessKey), 200, `${name}'s console opens the library`);
     }
 
     const admin = { ...(await adminSession(BASE, "owner", "owner-password-1", "admin-password-123")), "Content-Type": "application/json" };
@@ -72,14 +72,14 @@ test("removing, disabling or re-passwording an account revokes the consoles it a
     assert.equal((await call("POST", "/admin/api/users/carol/password", {})).status, 200);
 
     for (const name of Object.keys(PEOPLE)) {
-      assert.equal(await shop(consoles[name].key, consoles[name].accessKey), 401, `${name}'s console is revoked`);
+      assert.equal(await library(consoles[name].key, consoles[name].accessKey), 401, `${name}'s console is revoked`);
     }
     const refused = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": consoles.bob.key, "X-Access-Key": consoles.bob.accessKey } });
     assert.equal(refused.headers.get("x-cookingfoil-session"), "revoked", "a revoked console's access key is told to pair again");
     const wrongKey = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": consoles.owner.key, "X-Access-Key": "f".repeat(64) } });
     assert.equal(wrongKey.status, 401);
     assert.equal(wrongKey.headers.get("x-cookingfoil-session"), null, "a wrong key for an approved console says nothing more");
-    assert.equal(await shop(consoles.owner.key, consoles.owner.accessKey), 200, "consoles of other accounts stay");
+    assert.equal(await library(consoles.owner.key, consoles.owner.accessKey), 200, "consoles of other accounts stay");
     const devices = await (await call("GET", "/admin/api/devices")).json();
     assert.deepEqual(devices.approved.map((d) => d.addedBy), ["owner"]);
   } finally {

@@ -55,7 +55,7 @@ export const pluginsCapabilities = [
     input: {
       type: "object",
       properties: {
-        files: { type: "array", items: { type: "string" }, description: "Game file paths as the shop lists them, for example /Game/game.nsp; at most 200." },
+        files: { type: "array", items: { type: "string" }, description: "Game file paths as the library lists them, for example /Game/game.nsp; at most 200." },
         firmware: { type: "string", description: "The console's firmware, for example 21.0.1, if the options depend on it. Optional." },
         region: { type: "string", description: "The console's region: jpn, usa, eur, aus, htk, chn, kor or twn. Optional." },
         lang: { type: "string", description: "Language code for the option texts, for example ko. Optional, English by default." },

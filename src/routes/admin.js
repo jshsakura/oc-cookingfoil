@@ -1,6 +1,6 @@
 /**
  * Admin endpoints — gated by a SEPARATE bearer token (COOK_ADMIN_TOKEN),
- * not the shop's accounts. Disabled entirely when the token isn't
+ * not the library's accounts. Disabled entirely when the token isn't
  * set, so out-of-the-box there's no admin surface to attack.
  *
  *   GET  /api/admin/status        → counts + last 100 audit events

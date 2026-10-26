@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// Which homebrew apps the admin tried on a console: kept with when, and given to the shop.
+// Which homebrew apps the admin tried on a console: kept with when, and given to the library.
 process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "cf-hb-verified-"));
 const verified = await import("../../src/meta/homebrew-verified.js");
 
@@ -26,7 +26,7 @@ test("an id that is not an app's is refused", () => {
   assert.equal(verified.set("gh-zz", true), false);
 });
 
-test("the shop fields: verified and verified_at, null when not", () => {
+test("the library fields: verified and verified_at, null when not", () => {
   verified.set("gh-aaaaaaaaaaaa", true, 1_800_000_000_000);
   assert.deepEqual(verified.fields("gh-aaaaaaaaaaaa"), { verified: true, verified_at: "2027-01-15T08:00:00.000Z" });
   assert.deepEqual(verified.fields("gh-bbbbbbbbbbbb"), { verified: false, verified_at: null });

@@ -13,7 +13,7 @@ import { failureKind } from "../../src/routes/admin/upload-flow.js";
 const PORT = 16400 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
 const MK = "0100152000022000";
-// The shop is read by an approved console; changes go through the admin page.
+// The library is read by an approved console; changes go through the admin page.
 const ALICE = CONSOLE;
 
 test("upload names and paths can't leave their folder", () => {
@@ -141,7 +141,7 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal((await setRequired(data.id, false)).status, 200);
     assert.deepEqual(store()[`${MK}/게임 데이터`].info, { name: "게임 데이터" }, "the other fields stay");
     const pub = (await (await fetch(`${BASE}/api/patches`, { headers: ALICE })).json()).patches;
-    assert.equal(pub.find((p) => p.id === data.id).required, false, "the shop listing carries the same value");
+    assert.equal(pub.find((p) => p.id === data.id).required, false, "the library listing carries the same value");
     assert.equal((await setRequired(data.id, true)).status, 200);
     assert.equal((await (await fetch(`${BASE}/api/patches`, { headers: ALICE })).json()).patches.find((p) => p.id === data.id).required, true);
 

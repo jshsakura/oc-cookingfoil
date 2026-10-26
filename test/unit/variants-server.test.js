@@ -13,7 +13,7 @@ process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "variants-data
 const { largeFiles, GAME_FILE_RE } = await import("../../src/helpers/file-send.js");
 const { createVariants, parseConsoleHeader, checkPatches, refusalBody } = await import("../../src/plugins/variants.js");
 const { default: libraryVariants } = await import("../../src/routes/library-variants.js");
-const { withPlugins } = await import("../../src/routes/shop-info.js");
+const { withPlugins } = await import("../../src/routes/library-info.js");
 const { LANGS } = await import("../../src/meta/langs.js");
 
 const BODY = `
@@ -32,7 +32,7 @@ export default {
     if (q === "keys") return { patches: [{ offset: 0, bytes: Buffer.from(a.keys ? "K" : "-") }] };
     return { patches: [{ offset: 2, bytes: Buffer.from("XY") }] };
   },
-  shopInfo() { return { features: ["tweak-demo", "file-variants"], info: { tweakLevel: 3, name: "taken" } }; },
+  libraryInfo() { return { features: ["tweak-demo", "file-variants"], info: { tweakLevel: 3, name: "taken" } }; },
 };`;
 
 let env, variants, server, base;
@@ -148,7 +148,7 @@ test("a plugin that is off refuses its key instead of serving the original; a ke
   assert.equal(await text(await get("/g.nsp?tweak=1")), "ABXYEFGHIJ");
 });
 
-test("shop info carries the keys (on or off), what consoles are asked for, and what plugins add without overwriting core's names", async () => {
+test("library info carries the keys (on or off), what consoles are asked for, and what plugins add without overwriting core's names", async () => {
   const info = { features: ["x"], name: "CookingFoil" };
   await withPlugins(info, "en", async () => variants);
   assert.deepEqual(info.variants, { keys: ["tweak"] });

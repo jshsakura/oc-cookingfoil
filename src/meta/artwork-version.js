@@ -1,5 +1,5 @@
 /**
- * Content versions for shop artwork URLs (/api/library/icon|banner|screenshot).
+ * Content versions for library artwork URLs (/api/library/icon|banner|screenshot).
  *
  * Every URL a list or detail hands out ends in ?v=<12 hex>, a hash of what
  * decides the picture's bytes:
@@ -17,7 +17,7 @@
  * and an ETag, so an older client is never stuck with a replaced picture.
  *
  * Because v is part of the list's JSON, a changed picture also changes the
- * list's ETag, once the shop cache is rebuilt: custom art uploads and NACP
+ * list's ETag, once the library cache is rebuilt: custom art uploads and NACP
  * extraction invalidate it already.
  */
 import fs from "fs";

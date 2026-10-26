@@ -1,5 +1,5 @@
 # Download-only address for CookingFoil. Only GET and HEAD requests carrying a
-# download token are passed on; the shop checks the token and the path, and
+# download token are passed on; the library checks the token and the path, and
 # refuses everything else on this address.
 {
 	admin off

@@ -222,7 +222,7 @@ test("the trash bytes the pause counts are the ones on the games folder's own di
   assert.equal(await service.bytesOnDisk(games, [g, inc], devOf), 3 * MIB, "the drop box's trash counts, the other disk's does not");
 });
 
-test("an orphan kept folder goes to the trash under its real hidden path, and a restore puts it back there, out of the shop", async () => {
+test("an orphan kept folder goes to the trash under its real hidden path, and a restore puts it back there, out of the library", async () => {
   S.keepHours = 1;
   const dir = path.join(games, KEEP_DIR_NAME, "lost-id");
   fs.mkdirSync(dir, { recursive: true });

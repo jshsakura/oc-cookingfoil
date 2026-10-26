@@ -11,7 +11,7 @@
 import * as users from "../../security/users.js";
 import * as store from "../../security/store.js";
 import { revokeOwnedBy } from "../../security/account-access.js";
-import * as shopCache from "../../meta/shop-cache.js";
+import * as libraryCache from "../../meta/library-cache.js";
 import * as titledbStore from "../../meta/titledb-store.js";
 import * as featured from "../../meta/featured.js";
 import { libraryGames, findLibraryGames } from "../../meta/library-games.js";
@@ -122,7 +122,7 @@ export function mountManageApi(router, guard) {
 
   router.get("/api/library", (req, res) => {
     if (!guard(req, res)) return;
-    const cache = shopCache.stats();
+    const cache = libraryCache.stats();
     res.set("Cache-Control", "no-store");
     res.json({
       version: pkg.version,
@@ -170,9 +170,9 @@ export function mountManageApi(router, guard) {
 
   router.post("/api/library/rescan", change((req, res) => {
     // Pressed again while one waits or runs: that read already covers it.
-    const { scan } = shopCache.stats();
+    const { scan } = libraryCache.stats();
     const already = scan.fullPending;
-    if (!already) shopCache.invalidate({ rescan: true });
+    if (!already) libraryCache.invalidate({ rescan: true });
     debug.log("admin: library rescan requested%s", already ? " (one already pending)" : "");
     res.json({ ok: true, already, requestedAt: Date.now() });
   }));

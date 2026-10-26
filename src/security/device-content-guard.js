@@ -1,5 +1,5 @@
 /**
- * deviceContentGuard locks the shop CONTENT surface (lists + downloads) to
+ * deviceContentGuard locks the library CONTENT surface (lists + downloads) to
  * approved devices when pairing is the SOLE lane.
  *
  * It enforces ONLY when COOK_DEVICE_PAIRING is on AND no accounts exist
@@ -12,7 +12,7 @@
  * (req.pairedDevice), loopback callers, and the admin dashboard (valid session
  * cookie) preview traffic.
  *
- * Mounted immediately before the shop builder + static file serving, so it
+ * Mounted immediately before the library builder + static file serving, so it
  * never touches /admin, /api/*, or the landing page.
  */
 import * as store from "./store.js";

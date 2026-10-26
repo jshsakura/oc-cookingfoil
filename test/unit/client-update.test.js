@@ -9,7 +9,7 @@ import { CONSOLE, CONSOLE_KEY, seedConsole } from "../support/console.js";
 
 const PORT = 16900 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
-// An approved console: the shop takes its keys, never a password.
+// An approved console: the library takes its keys, never a password.
 const AUTH = CONSOLE;
 
 /** A minimal NRO: header, then an ASET block whose NACP carries `version`. */
@@ -231,7 +231,7 @@ test("a failing GitHub release leaves the server serving what it has, or no buil
   try {
     const r = await fetch(`${BASE}/api/client/latest`, { headers: AUTH });
     assert.equal(r.status, 404);
-    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: AUTH })).status, 200, "the shop is unaffected");
+    assert.equal((await fetch(`${BASE}/api/library/sections`, { headers: AUTH })).status, 200, "the library is unaffected");
     assert.equal((await fetch(`${BASE}/healthz`)).status, 200);
     // A build dropped in afterwards is offered at once.
     fs.mkdirSync(path.join(data, "client"), { recursive: true });

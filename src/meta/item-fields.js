@@ -23,7 +23,7 @@ import * as kinds from "./homebrew-kinds.js";
 import * as cores from "./homebrew-cores.js";
 import * as itemVerified from "./item-verified.js";
 import * as edits from "./admin-edits.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import * as retroCatalog from "../retro/catalog.js";
 import * as userPatches from "./user-patches.js";
 import { githubTracker, manualApps, refreshHomebrewIcon } from "../routes/homebrew.js";
@@ -81,8 +81,8 @@ async function findRetro(id) {
 async function findGame(raw) {
   const id = raw.toUpperCase();
   if (!/^[0-9A-F]{16}$/.test(id)) return null;
-  await shopCache.get();
-  return shopCache.relPathsForBase(id).length ? { id } : null;
+  await libraryCache.get();
+  return libraryCache.relPathsForBase(id).length ? { id } : null;
 }
 
 async function findPatch(id) {

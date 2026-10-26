@@ -9,7 +9,7 @@ const bridge = await import("../../src/routes/dropbox-bridge.js");
 
 const app = express();
 app.get(`${bridge.BRIDGE_PATH}/oauth/dropbox/callback`, bridge.dropboxCallback);
-// Stands in for the shop's sign-in: X-Test-User names the account.
+// Stands in for the library's sign-in: X-Test-User names the account.
 app.use((req, _res, next) => {
   if (req.get("x-test-user")) req.auth = { user: req.get("x-test-user") };
   next();

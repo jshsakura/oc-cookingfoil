@@ -6,7 +6,7 @@
  * Why a queue: extraction in real providers spawns subprocesses against
  * potentially multi-GB NSP files. Doing that on the request path would
  * stall the event loop and starve other handlers. The queue uses bounded
- * concurrency and de-duplicates work — the shop-cache builder enqueues
+ * concurrency and de-duplicates work — the library-cache builder enqueues
  * the same baseTitleId every time it sees the file; the worker only
  * extracts once.
  *
@@ -48,7 +48,7 @@ export function setProvider(p) {
 }
 
 // Subscribers fired AFTER a record is persisted to extracted-meta. The
-// shop-cache layer hooks this so the next /games.json reflects the new
+// library-cache layer hooks this so the next /games.json reflects the new
 // metadata without the user having to wait for the next chokidar event.
 const subscribers = new Set();
 export function onExtracted(fn) {

@@ -13,13 +13,13 @@
 import * as nsp from "./extract-providers/nsp.js";
 import * as nacpExtractor from "./nacp-extractor.js";
 import * as contentMeta from "./content-meta.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import debug from "../debug.js";
 
 export function keysChanged() {
   nsp.recheck();
   nacpExtractor.forgetTried();
   const retried = contentMeta.retryFailed();
-  shopCache.invalidate({ rename: true });
+  libraryCache.invalidate({ rename: true });
   debug.log("prod.keys changed: reading the library again (%d files to retry)", retried);
 }

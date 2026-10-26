@@ -3,7 +3,7 @@
  *
  *   id          English key and short slug (nes, snes, ps1, arcade, …); also the
  *               console's folder on the SD card: roms/<id>/
- *   names       labels in the four shop languages
+ *   names       labels in the four library languages
  *   extensions  ROM files listed for the system (lower case, with the dot)
  *   core        the Switch core file, retroarch/cores/<core>_libretro_libnx.nro
  *   coreName    the core's own name, which RetroArch uses for per-game

@@ -2,7 +2,7 @@
  * Titledb lifecycle: synchronous load from disk on boot, background fetch
  * when the cache is cold, and a periodic auto-refresh on a configurable
  * interval (default 24 h). The server never blocks on any of this — until
- * a fetch lands, the shop just uses filename-derived metadata, which
+ * a fetch lands, the library just uses filename-derived metadata, which
  * satisfies the no-omission invariant.
  *
  * Re-scheduling is mtime-driven: on each call to `bootstrap()` we look at
@@ -16,7 +16,7 @@ import debug from "../debug.js";
 import { titledbCacheDir } from "../helpers/envs.js";
 import * as store from "./titledb-store.js";
 import * as titledbVersions from "./titledb-versions.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import { fetchAll, getRegionsFromEnv } from "./titledb-fetcher.js";
 import { envNumber } from "../helpers/env-read.js";
 import { titledbAutoFetch } from "../helpers/envs.js";
@@ -52,14 +52,14 @@ async function doFetch(regions) {
       const versionsOk = await titledbVersions.refresh();
       const okCount = results.filter((r) => r.ok).length;
       debug.log("titledb fetch: ok=%d/%d", okCount, results.length);
-      if (okCount === 0 && versionsOk) shopCache.invalidate({ rename: true });
+      if (okCount === 0 && versionsOk) libraryCache.invalidate({ rename: true });
       if (okCount > 0) {
         await store.load();
         debug.log("titledb store reloaded (%d titles)", store.size());
-        // Fresh titledb → stale shop cache. rename:true because each
+        // Fresh titledb → stale library cache. rename:true because each
         // filesMap entry baked its display name at scan time; without it
         // the rebuild goes incremental (+0/-0) and re-serves those names.
-        shopCache.invalidate({ rename: true });
+        libraryCache.invalidate({ rename: true });
       }
       job.done(activityText("act.regions", { ok: okCount, total: results.length }));
       return results;
@@ -154,12 +154,12 @@ export async function bootstrap() {
 
   await store.load();
   await titledbVersions.load();
-  // The shop-cache init runs concurrently and might have already built a
+  // The library-cache init runs concurrently and might have already built a
   // response while titledb-store was still loading from disk (race on cold
   // start). rename:true so the per-file items are rebuilt against the store
   // we just loaded — a plain invalidate finds +0/-0 files changed and
   // re-composes the same filename-derived names.
-  shopCache.invalidate({ rename: true });
+  libraryCache.invalidate({ rename: true });
   const autoFetch = titledbAutoFetch;
   const haveCache = store.size() > 0;
   // A partial cache is the common real-world state: an early boot (or a once-
@@ -179,7 +179,7 @@ export async function bootstrap() {
   if (autoFetch && haveCache && !(await titledbVersions.hasIndex())) {
     // Upgrade from a release without the update/DLC index: fetch just that.
     titledbVersions.refresh()
-      .then((ok) => ok && shopCache.invalidate({ rename: true }))
+      .then((ok) => ok && libraryCache.invalidate({ rename: true }))
       .catch(onFetchFail("versions index"));
   }
 

@@ -12,7 +12,7 @@
  * Read only. The item shape and the parameters are in meta/library-browse.js.
  * `rel` is relative to the kind's own folder (games, patches, saves, homebrew).
  */
-import * as shopCache from "../../meta/shop-cache.js";
+import * as libraryCache from "../../meta/library-cache.js";
 import * as userPatches from "../../meta/user-patches.js";
 import * as titledb from "../../meta/titledb-store.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
@@ -46,7 +46,7 @@ export function gameNameOf(titleId, libraryNames = new Map()) {
   return null;
 }
 
-const libraryNames = () => new Map(shopCache.files().filter((f) => f.titleId && f.kind !== "update" && f.kind !== "dlc").map((f) => [String(f.titleId).toUpperCase(), f.name]));
+const libraryNames = () => new Map(libraryCache.files().filter((f) => f.titleId && f.kind !== "update" && f.kind !== "dlc").map((f) => [String(f.titleId).toUpperCase(), f.name]));
 
 /** The server's own listings, each in the browser's item shape. */
 export function defaultSources({ verify = verifyQueue } = {}) {
@@ -56,8 +56,8 @@ export function defaultSources({ verify = verifyQueue } = {}) {
   };
   return {
     async games() {
-      await shopCache.get();
-      return shopCache.files().map((f) => gameItem(f, verdictOf));
+      await libraryCache.get();
+      return libraryCache.files().map((f) => gameItem(f, verdictOf));
     },
     async patches() {
       const names = libraryNames();
@@ -102,7 +102,7 @@ export function defaultSources({ verify = verifyQueue } = {}) {
 export function mountLibraryBrowseApi(router, requireSession, {
   sources = defaultSources(),
   other = createOtherScanner({ root: romsDirPath, ignore: [...new Set([...nestedDirs(romsDirPath, [patchesDir, savesDir, homebrewDir, retroDir, dataDir, incomingDir]), ...(incomingInGames ? [incomingInGames] : [])])], ttlMs: OTHER_TTL_MS }),
-  onLibraryUpdate = shopCache.onUpdate,
+  onLibraryUpdate = libraryCache.onUpdate,
 } = {}) {
   // A rescan of the library also looks again for stray files.
   onLibraryUpdate?.(() => other.invalidate());

@@ -8,7 +8,7 @@ import path from "node:path";
 
 function probe(env, before = "", req = "{}") {
   const out = execFileSync(process.execPath, ["--input-type=module", "-e", `
-    import route from "../../src/routes/shop-info.js";
+    import route from "../../src/routes/library-info.js";
     ${before}
     const res = { headers: {} };
     res.header = (k, v) => { res.headers[k] = v; return res; };
@@ -23,7 +23,7 @@ function probe(env, before = "", req = "{}") {
   return JSON.parse(out);
 }
 
-test("shop info lists the optional fields a client may rely on", () => {
+test("library info lists the optional fields a client may rely on", () => {
   const info = probe({ COOK_DEVICE_PAIRING: "false" });
   assert.equal(info.name, "CookingFoil");
   assert.equal(info.apiVersion, 1);
@@ -37,7 +37,7 @@ test("shop info lists the optional fields a client may rely on", () => {
   assert.ok(info.features.includes("server-id"));
 });
 
-test("shop info lists admin-edit only to a console the admin flagged", () => {
+test("library info lists admin-edit only to a console the admin flagged", () => {
   const KEY = "AB".repeat(32);
   const setup = `
     const store = await import("../../src/security/store.js");
@@ -51,12 +51,12 @@ test("shop info lists admin-edit only to a console the admin flagged", () => {
   assert.ok(!probe(env, setup, `{ auth: { user: "alice" } }`).features.includes("admin-edit"), "a browser");
 });
 
-test("shop info lists device pairing when the server offers it", () => {
+test("library info lists device pairing when the server offers it", () => {
   assert.ok(probe({ COOK_DEVICE_PAIRING: "true" }).features.includes("device-pairing"));
   assert.ok(probe({ COOK_DEVICE_PAIRING: "true" }).features.includes("device-rebind"));
 });
 
-test("shop info lists homebrew only while at least one app is listed", () => {
+test("library info lists homebrew only while at least one app is listed", () => {
   const nothing = path.join(tmpdir(), "cf-no-homebrew-here");
   const refresh = `await (await import("../../src/routes/homebrew.js")).refreshManual();`;
   assert.ok(!probe({ COOK_HOMEBREW_DIR: nothing, COOK_HOMEBREW_REPOS: "" }, refresh).features.includes("homebrew"));
@@ -98,7 +98,7 @@ function fakeNro(name, version) {
   return Buffer.concat([head, aset, nacp]);
 }
 
-test("shop info says nothing of download options or console facts while no plugin provides them", () => {
+test("library info says nothing of download options or console facts while no plugin provides them", () => {
   const info = probe({ COOK_PROD_KEYS_PATH: path.join(tmpdir(), "cf-no-keys-here", "prod.keys") });
   assert.ok(info.features.includes("item-key-generation"), "the item fields are listed either way");
   assert.ok(info.features.includes("item-signed"), "signed files are announced");

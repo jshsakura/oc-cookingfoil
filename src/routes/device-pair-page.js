@@ -4,7 +4,7 @@
  *   confirm  /pair/<token>: the console's QR opened here directly
  *   done     the console behind the link is already approved
  *   expired  the link is gone
- *   signin   nobody to approve as (a pairing-only shop without an admin session)
+ *   signin   nobody to approve as (a pairing-only library without an admin session)
  */
 import { escapeHtml } from "./admin/escape.js";
 import { PAIR_TEXT } from "./device-pair-text.js";

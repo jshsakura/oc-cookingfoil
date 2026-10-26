@@ -1,7 +1,7 @@
-# The shop at https://shop.example.org. Caddy sets X-Forwarded-For,
-# X-Forwarded-Proto and X-Forwarded-Host itself; the shop trusts them because
+# The library at https://library.example.org. Caddy sets X-Forwarded-For,
+# X-Forwarded-Proto and X-Forwarded-Host itself; the library trusts them because
 # .env has COOK_TRUST_PROXY=uniquelocal (Caddy's address on the stack network).
-shop.example.org {
+library.example.org {
 	encode zstd gzip
 	reverse_proxy cookingfoil:80 {
 		# Downloads stream as they are read; nothing is buffered.

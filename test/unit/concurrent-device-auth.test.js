@@ -8,7 +8,7 @@ import { adminSession, webSession } from "../support/web-session.js";
 
 // Several consoles signing in at the same moment: each must end up with its own
 // access key and session token, and none may turn another away. Drives a real
-// server the way the client does (refresh: enroll, pair status, shop info,
+// server the way the client does (refresh: enroll, pair status, library info,
 // session, then the lists), all consoles at once.
 const PORT = 20100 + (process.pid % 300);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -80,8 +80,8 @@ async function useShop(i, accessKey) {
   assert.equal(s.status, 200, `console ${i}: /api/session`);
   const { token } = await s.json();
   const bearer = { "X-Device-Key": KEYS[i], Authorization: `Bearer ${token}` };
-  const [sections, shop] = await Promise.all([get("/api/library/sections", bearer), get("/api/homebrew", bearer)]);
-  return { info: info.status, sections: sections.status, shop: shop.status, session: sections.headers.get("x-cookingfoil-session"), bearer };
+  const [sections, library] = await Promise.all([get("/api/library/sections", bearer), get("/api/homebrew", bearer)]);
+  return { info: info.status, sections: sections.status, library: library.status, session: sections.headers.get("x-cookingfoil-session"), bearer };
 }
 
 const consoles = (n) => [...Array(n).keys()];
@@ -99,7 +99,7 @@ for (const [name, owners] of [
         assert.ok(p.accessKey, `console ${i} got its key`);
       }
       const used = await Promise.all(consoles(4).map((i) => useShop(i, paired[i].accessKey)));
-      for (const [i, u] of used.entries()) assert.deepEqual([u.info, u.sections, u.shop], [200, 200, 200], `console ${i}`);
+      for (const [i, u] of used.entries()) assert.deepEqual([u.info, u.sections, u.library], [200, 200, 200], `console ${i}`);
       // Signing in again (the next refresh, with the password still saved) ends nobody's session.
       await Promise.all(consoles(4).map((i) => pairStatus(i, owners[i])));
       const again = await Promise.all(used.map((u) => get("/api/library/sections", u.bearer)));
@@ -122,7 +122,7 @@ test("manual approve: four consoles wait at once, the admin approves them all, a
     const paired = await Promise.all(consoles(4).map((i) => pairStatus(i, null)));
     for (const [i, p] of paired.entries()) assert.ok(p.accessKey, `console ${i} got its key`);
     const used = await Promise.all(consoles(4).map((i) => useShop(i, paired[i].accessKey)));
-    for (const [i, u] of used.entries()) assert.deepEqual([u.sections, u.shop], [200, 200], `console ${i}`);
+    for (const [i, u] of used.entries()) assert.deepEqual([u.sections, u.library], [200, 200], `console ${i}`);
   } finally {
     stop(server);
   }

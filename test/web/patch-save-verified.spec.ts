@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
 // The 검수됨 mark on game patches and saves: the admin's pill on the library tab,
-// the shop's edit panel for a patch, and the green badge the shop shows for both.
+// the library's edit panel for a patch, and the green badge the library shows for both.
 const listed = async (page: Page, kind: 'patches' | 'saves', name: string) =>
   ((await (await page.request.get(`/api/${kind}`)).json())[kind] as { name: string; verified: boolean }[]).find((x) => x.name === name)?.verified;
 const idOf = async (page: Page, kind: 'patches' | 'saves', name: string) =>
@@ -10,7 +10,7 @@ const idOf = async (page: Page, kind: 'patches' | 'saves', name: string) =>
 // Back off, so other specs see the items as they left them.
 const unmark = async (page: Page, kind: 'patch' | 'save', id: string) =>
   page.request.post(`/admin/api/content/${kind}/verified`, { data: { id, verified: false }, headers: { Origin: new URL(page.url()).origin } });
-/** The shop's list of `view` with the game's card open. */
+/** The library's list of `view` with the game's card open. */
 async function openGame(page: Page, view: 'patches' | 'saves') {
   await page.goto(`/#${view}`);
   const head = page.locator(`#${view}-list .xhead`, { hasText: 'Test Game' });
@@ -18,7 +18,7 @@ async function openGame(page: Page, view: 'patches' | 'saves') {
   if ((await head.getAttribute('aria-expanded')) !== 'true') await head.click();
 }
 
-test('the 검수 pill on a patch row and a save row marks them for the shop and takes it off again', async ({ page }) => {
+test('the 검수 pill on a patch row and a save row marks them for the library and takes it off again', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#library/patches');
   const pill = page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' }).getByRole('button', { name: '게임 데이터 검수됨', exact: true });
@@ -39,7 +39,7 @@ test('the 검수 pill on a patch row and a save row marks them for the shop and 
   await expect.poll(() => listed(page, 'saves', 'All unlocked')).toBe(true);
   await expect(save).toHaveAttribute('aria-pressed', 'true');
 
-  // The shop shows it beside the save's name and first among its detail's pills.
+  // The library shows it beside the save's name and first among its detail's pills.
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await openGame(page, 'saves');
   // Its Korean name, when the admin spec gave it one.
@@ -50,7 +50,7 @@ test('the 검수 pill on a patch row and a save row marks them for the shop and 
   await unmark(page, 'save', await idOf(page, 'saves', 'All unlocked'));
 });
 
-test("a patch's edit panel in the shop turns 검수됨 on, and the list shows the badge without a reload", async ({ page }) => {
+test("a patch's edit panel in the library turns 검수됨 on, and the list shows the badge without a reload", async ({ page }) => {
   await signIn(page);
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await openGame(page, 'patches');

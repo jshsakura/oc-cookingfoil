@@ -5,7 +5,7 @@ const ko = (key) => `${TOP_WORDS.ko[key]}`;
 
 export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
   <h2 class="first" data-top="ov.h">${ko("ov.h")}</h2>
-  <div class="copy-row"><code id="shop-url">—</code><button type="button" id="shop-url-copy" data-top="ov.copy">${ko("ov.copy")}</button></div>
+  <div class="copy-row"><code id="library-url">—</code><button type="button" id="library-url-copy" data-top="ov.copy">${ko("ov.copy")}</button></div>
   <h3 class="ov-h" data-top="ov.todoH">${ko("ov.todoH")}</h3>
   <div id="warnings"></div>
   <h3 class="ov-h" data-top="ov.addedH">${ko("ov.addedH")}</h3>
@@ -131,9 +131,9 @@ function renderAdded(a){
 function renderOverview(d){
   $('ts').textContent=topFill('overview.asOf',{at:fmt(d.generatedAt)});
   renderWarnings(d.todo||[]);if(d.lanes)renderLanes(d.lanes);renderAdded(d.added);renderStatus(d.status);renderRecent(d.recent||[]);}
-function showShopUrl(){$('shop-url').textContent=location.origin.replace(/[/]$/,'');}
-$('shop-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('shop-url').textContent);toast(topText('ov.copied'));}catch{toast(topText('ov.copyFail'));}});
-showShopUrl();
+function showLibraryUrl(){$('library-url').textContent=location.origin.replace(/[/]$/,'');}
+$('library-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('library-url').textContent);toast(topText('ov.copied'));}catch{toast(topText('ov.copyFail'));}});
+showLibraryUrl();
 
 async function loadOverview(){
   try{const d=await api('/admin/api/overview');ovData=d;renderOverview(d);await loadHealth();

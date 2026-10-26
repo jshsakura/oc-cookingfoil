@@ -21,10 +21,10 @@ const { createOtherScanner } = await import("../../src/meta/library-browse.js");
 const { scanManual } = await import("../../src/meta/homebrew.js");
 const { isReadme } = await import("../../src/helpers/readme-name.js");
 const { leftOutOfFolder } = await import("../../src/meta/homebrew-layout.js");
-const shopCache = await import("../../src/meta/shop-cache.js");
+const libraryCache = await import("../../src/meta/library-cache.js");
 const { default: extrasRoute } = await import("../../src/routes/extras.js");
 const patches = await import("../../src/meta/user-patches.js");
-const saves = await import("../../src/meta/shop-saves.js");
+const saves = await import("../../src/meta/library-saves.js");
 const backup = await import("../../src/db/backup.js");
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
@@ -120,7 +120,7 @@ test("homebrew folder install: a README.md at any depth stays on the server", ()
   for (const rel of ["README.md", "data/readme.MD", "a/b/ReadMe.md"]) assert.ok(leftOutOfFolder(rel), rel);
 });
 
-test("shop scan: a README.md is not a game", async () => {
+test("library scan: a README.md is not a game", async () => {
   put(process.env.COOK_GAMES_DIR, { "README.md": NOTES, [`Game/Game [${TID}][v0].nsp`]: "x", "Game/README.md": NOTES });
   const { filesMap } = await scanLibrary();
   assert.deepEqual([...filesMap.keys()], [`Game/Game [${TID}][v0].nsp`]);
@@ -152,7 +152,7 @@ test("backups copy the data folder's .json files, so a README.md stays out", () 
 
 test("game detail: a README.md beside a game is not listed among its other files", async () => {
   put(process.env.COOK_GAMES_DIR, { [`Detail/Detail [${BASE}][v0].nsp`]: "x", "Detail/ReadMe.md": NOTES, "Detail/manual.txt": "m" });
-  await shopCache.get();
+  await libraryCache.get();
   let body = null;
   const res = { status() { return this; }, type() { return this; }, json(b) { body = b; }, send(b) { body = JSON.parse(b); } };
   await extrasRoute({ params: { baseTitleId: BASE }, query: {}, headers: {}, get: () => undefined }, res);

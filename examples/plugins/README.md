@@ -47,7 +47,7 @@ export default {
                                          // [{ id, label, note?, confirm?, progress?, failed?, hashesChange?, query }]
                                          // or { id, label, blocked }, text as { lang: text }
   async plan(args, { lang, clientVersion, console, signal }) {},  // provides: variant; see Download options
-  shopInfo({ lang }) {},                 // optional: { features: [...], info: { ... } } added to shop info
+  libraryInfo({ lang }) {},                 // optional: { features: [...], info: { ... } } added to library info
   tasks() {},                            // provides: task
 };
 ```
@@ -63,7 +63,7 @@ fires at their time limit.
 good. A slow network call in `start()` can fail for a reason that has nothing to do with the plugin.
 Do network work in a task or a hook.
 
-**Hooks are not called on the request path** of the shop listing or a file download, except a variant's
+**Hooks are not called on the request path** of the library listing or a file download, except a variant's
 `plan`, which runs while a file is sent. `metadata` and `art` results are fetched in the background and
 cached.
 
@@ -91,7 +91,7 @@ replaced. The server does everything except the part only the plugin knows.
   language, so the client receives plain strings.
 - `plan({ file, size, mtimeMs, query }, ...)` runs when such a URL is requested (30 s). A plugin that
   said `needsKeys` also gets `keys` (the server's parsed prod.keys) in the arguments of `variants`, `plan`
-  and `shopInfo`, for that call only. It returns
+  and `libraryInfo`, for that call only. It returns
   `{ patches: [{ offset, bytes }] }` (inside the file, not overlapping; the size does not change) or
   `{ refuse: { code, text } }` with `text` as above. The server answers a refusal with a 409.
 - Anything else a plugin does wrong (throws, hangs, answers a patch outside the file) is answered
@@ -102,11 +102,11 @@ replaced. The server does everything except the part only the plugin knows.
 - The ETag is made by the server from the file's, the plugin's id and version, the query, and the
   console facts the manifest asked for. A plugin does not set one.
 - A console says about itself in one header, `X-CookingFoil-Console: firmware=21.0.1; region=kor`.
-  Shop info tells it what to send (`console.wants`). A plugin gets only the items its manifest names,
+  Library info tells it what to send (`console.wants`). A plugin gets only the items its manifest names,
   in memory, for that call; the server does not log or keep them. `lang` and `clientVersion` come
   from the `Accept-Language` and `Version` headers.
 - `POST /api/library/variants { files: [...] }` (200 files at most) lists the options of several files.
-- `shopInfo({ lang })` adds feature names and keys to shop info. A name core or another plugin already
+- `libraryInfo({ lang })` (named `shopInfo` in earlier versions, which still works) adds feature names and keys to library info. A name core or another plugin already
   uses is dropped. Its answer is kept for 30 seconds.
 
 ## Before and after a download, your own addresses, and events

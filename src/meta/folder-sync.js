@@ -10,7 +10,7 @@
  */
 import debug from "../debug.js";
 import * as env from "../helpers/envs.js";
-import * as shopCache from "./shop-cache.js";
+import * as libraryCache from "./library-cache.js";
 import * as userPatches from "./user-patches.js";
 import * as gameMeta from "./game-meta.js";
 import * as retroCatalog from "../retro/catalog.js";
@@ -25,7 +25,7 @@ const CHECK_MS = 5 * 60_000;
 /** What one sync reads, in order. Each part resolves once its folder is read. */
 const PARTS = [
   // The game library rebuilds behind its own debounce; it is only asked to read every file again.
-  ["games", async () => shopCache.invalidate({ rescan: true })],
+  ["games", async () => libraryCache.invalidate({ rescan: true })],
   ["homebrew", () => refreshManual()],
   ["saves", async () => {
     const saves = savesCatalog();
@@ -33,7 +33,7 @@ const PARTS = [
     await saves.list();
   }],
   // Patches are read every minute and retro on its own changes: only this full read shows up as a job.
-  ["patches", () => activity.track("scan:patches", { title: activityText("act.scanPatches") }, () => userPatches.scan({ onChange: () => shopCache.invalidate() }))],
+  ["patches", () => activity.track("scan:patches", { title: activityText("act.scanPatches") }, () => userPatches.scan({ onChange: () => libraryCache.invalidate() }))],
   ["retro", () => activity.track("scan:retro", { title: activityText("act.scanRetro") }, () => retroCatalog.rescan(env.retroDir))],
   // The game folders are read again one by one as the watch sees them change; this reads every one in full.
   ["gameMeta", () => activity.track("scan:game-meta", { title: activityText("act.scanGameMeta") }, () => gameMeta.scan({ force: true }))],

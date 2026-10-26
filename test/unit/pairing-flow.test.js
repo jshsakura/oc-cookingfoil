@@ -183,7 +183,7 @@ test("QR approval authenticates the admin and delivers the key only to the devic
     assert.match(pending.pairCode, /^[A-F0-9]{8}$/);
     const token = pending.pairUrl.split("/").pop();
     const endpoint = `${BASE}/admin/api/pair/${token}/approve`;
-    // No accounts on this shop, so the QR page hands over to the admin's own sign-in.
+    // No accounts on this library, so the QR page hands over to the admin's own sign-in.
     const page = await fetch(pending.pairUrl);
     assert.ok(page.url.endsWith(`/admin/pair/${token}`));
     assert.equal(page.headers.get("cache-control"), "no-store");
@@ -222,7 +222,7 @@ test("QR approval authenticates the admin and delivers the key only to the devic
   }
 });
 
-test("a console pairs by QR on a shop with accounts, and never carries a password", async () => {
+test("a console pairs by QR on a library with accounts, and never carries a password", async () => {
   const server = bootServer({ COOK_AUTH_USERS: "operator:test-password" });
   try {
     await waitReady();

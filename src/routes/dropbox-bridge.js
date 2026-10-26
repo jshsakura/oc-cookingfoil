@@ -12,8 +12,8 @@
  * secret). The tokens never pass through this server and no save data ever
  * does. Sessions live in memory for 15 minutes.
  *
- * The session endpoints sit behind the shop's own sign-in (accounts or a
- * paired device), so only people allowed into the shop can use the operator's
+ * The session endpoints sit behind the library's own sign-in (accounts or a
+ * paired device), so only people allowed into the library can use the operator's
  * Dropbox app. The callback is public: it is opened by the phone's browser.
  * At most MAX_SESSIONS_PER_ACCOUNT sign-ins per account are in progress at
  * once, and MAX_SESSIONS in all.
@@ -77,7 +77,7 @@ export function redirectUriFor(req) {
   return `${origin}${BRIDGE_PATH}/oauth/dropbox/callback`;
 }
 
-/** The session endpoints (behind the shop's sign-in). 404 until COOK_DROPBOX_APP_KEY is set. */
+/** The session endpoints (behind the library's sign-in). 404 until COOK_DROPBOX_APP_KEY is set. */
 export function dropboxSessionsRouter() {
   const router = express.Router();
   router.use(express.json({ limit: "4kb" }));

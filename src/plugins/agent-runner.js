@@ -1,6 +1,6 @@
 /**
  * Asks the metadata plugins about titles in the background and keeps the answers (agent-cache.js).
- * Nothing here runs on the path of a shop listing or a download: track() and want() only queue, and the
+ * Nothing here runs on the path of a library listing or a download: track() and want() only queue, and the
  * hook is called from the queue, one title at a time per plugin.
  *
  *   createAgentRunner({ registry, store, onChange?, log?, now?, retryMs?, queueMax? }) -> { track, want, pending, stats, stop }

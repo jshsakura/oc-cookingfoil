@@ -1,18 +1,18 @@
 # The optional direct download address (README, "Optional direct download
-# address"): https://dl.example.org:8443 in front of the shop published on
+# address"): https://dl.example.org:8443 in front of the library published on
 # port 9080 of the same machine.
 #
 #   1. cp env.example .env and fill it in; put the same COOK_DIRECT_EDGE_SECRET
-#      in the shop's .env
+#      in the library's .env
 #   2. point dl.example.org at your public address (DNS only, not proxied);
 #      the ddns service below keeps it current on a home connection
 #   3. forward TCP 8443 on your router to this machine
 #   4. docker compose up -d
-#   5. on the shop's admin page set the direct address to
+#   5. on the library's admin page set the direct address to
 #      https://dl.example.org:8443 (or COOK_PUBLIC_DIRECT_BASE_URL in its .env)
 #
-# The proxy has to run on the same machine as the shop and reach it through
-# the published port: the shop accepts the direct lane only from this machine.
+# The proxy has to run on the same machine as the library and reach it through
+# the published port: the library accepts the direct lane only from this machine.
 services:
   direct-proxy:
     build: .

@@ -1,6 +1,6 @@
 /**
- * Build the shop response payload (consumed by /games.json and the sections
- * view via the chokidar-warmed cache in src/meta/shop-cache.js).
+ * Build the library response payload (consumed by /games.json and the sections
+ * view via the chokidar-warmed cache in src/meta/library-cache.js).
  *
  * Pipeline:
  *   fast-glob scan
@@ -23,7 +23,7 @@
  * Invariants (FINDINGS §6, §7):
  *   - Every scanned file ends up in `files[]`. Parse failures only thin out
  *     metadata; they never drop the item.
- *   - The shop response is self-contained: one request, all the metadata.
+ *   - The library response is self-contained: one request, all the metadata.
  *   - Image URLs in the response point to OUR proxy endpoints — never raw
  *     eShop CDN URLs, so the client app gets locally-cached
  *     bytes (offline-friendly) and we control retention.
@@ -243,7 +243,7 @@ export function rebuildFileItem(relPath, item) {
 /**
  * Full library scan + custom-entries load. Returns the primitive state
  * (`filesMap` keyed by relative path, plus `customs` array) that the
- * shop-cache layer then mutates via delta apply and re-composes on each
+ * library-cache layer then mutates via delta apply and re-composes on each
  * change.
  */
 export async function scanLibrary() {
@@ -283,7 +283,7 @@ function catalogEntry({ version, ...item }) {
 }
 
 /**
- * Produce the shop response payload from current primitive state. Cheap
+ * Produce the library response payload from current primitive state. Cheap
  * (O(filesMap.size + customs.length) iteration, no I/O), so safe to call
  * after every chokidar delta. Output ordering follows Map insertion order
  * + customs append, which is deterministic given the same state.

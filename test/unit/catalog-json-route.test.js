@@ -18,7 +18,7 @@ const TOKEN_SECRET = "s".repeat(40);
 const TOKEN = { Authorization: `Bearer cft_${TOKEN_ID}_${TOKEN_SECRET}` };
 const BASIC = { Authorization: "Basic " + Buffer.from("alice:alice-password").toString("base64") };
 
-const data = fs.mkdtempSync(path.join(os.tmpdir(), "shop-json-route-"));
+const data = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-json-route-"));
 const games = path.join(data, "games");
 fs.mkdirSync(games, { recursive: true });
 fs.writeFileSync(path.join(games, "Game [0100000000010000][v0].nsp"), "NSP");
@@ -134,5 +134,5 @@ test("the retired addresses are gone", async () => {
     assert.equal((await get(url, consoleHeaders)).status, 404, url);
   }
   const root = await get("/", { ...consoleHeaders, Accept: "application/json" });
-  assert.match(root.headers.get("content-type") ?? "", /text\/html/, "/ is the web page, never a shop index");
+  assert.match(root.headers.get("content-type") ?? "", /text\/html/, "/ is the web page, never a library index");
 });

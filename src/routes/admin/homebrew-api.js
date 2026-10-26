@@ -10,7 +10,7 @@
  *   POST /admin/api/homebrew/rescan                   read every hand-placed app again now (in the background; the activity menu shows it)
  *   POST /admin/api/homebrew/remove { repo }           stop following it and drop its cached build and what was added by hand (pictures, description, kind)
  *   POST /admin/api/homebrew/enabled { id, enabled }   show the app to clients or leave it out (kept on the server)
- *   POST /admin/api/homebrew/verified { id, verified } marks the app as tried on a console (the shop shows a 검수됨 badge), or not
+ *   POST /admin/api/homebrew/verified { id, verified } marks the app as tried on a console (the library shows a 검수됨 badge), or not
  *   POST /admin/api/homebrew/cores  { id, cores }      CPU cores its HOME-menu shortcut may use: 3 (default) or 4; the shortcut is built again at once
  *   POST /admin/api/homebrew/description       { id, en, ko }  the app's description (empty = none)
  *   POST /admin/api/homebrew/description/reset { id }          back to the GitHub repository's own

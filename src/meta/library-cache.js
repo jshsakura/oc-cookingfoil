@@ -1,5 +1,5 @@
 /**
- * In-memory shop response cache with filesystem-driven invalidation and a
+ * In-memory library response cache with filesystem-driven invalidation and a
  * persistent on-disk warm-restart layer.
  *
  * Before: every catalog request re-scanned the games folder
@@ -43,7 +43,7 @@ import * as titledbStore from "./titledb-store.js";
 import { prewarmIcons, baseTitleIdOf } from "./image-cache.js";
 import * as contentMeta from "./content-meta.js";
 import * as featured from "./featured.js";
-import * as diskCache from "./shop-cache-disk.js";
+import * as diskCache from "./library-cache-disk.js";
 import * as nacpExtractor from "./nacp-extractor.js";
 import { romsDirPath, customEntriesPath, dataDir } from "../helpers/envs.js";
 import { rewriteArtworkOrigin, rewriteDownloadOrigin } from "../helpers/origin.js";
@@ -66,7 +66,9 @@ let lastBuiltAt = 0;
 // slower than the debounce window for very large libraries.
 const BROTLI_QUALITY = 4;
 
-const SHOP_CACHE_DIR = path.join(dataDir, "shop-cache");
+const LIBRARY_CACHE_DIR = path.join(dataDir, "library-cache");
+// An earlier version kept this derived cache in a folder named differently. It is not read: the first start
+// rebuilds the cache here, and the old folder can be deleted by hand.
 
 // Per-origin re-encode cache. The base buffers below hold host-relative
 // artwork URLs; serving the console client needs ABSOLUTE ones (see helpers/origin.js).
@@ -83,7 +85,7 @@ const newMemo = () => ({ plain: new Map(), direct: new Map() }); // key -> { ide
 const originMemo = newMemo();
 
 // Sections view (/api/library/sections), built lazily from the
-// same filesMap and memoized per origin exactly like the shop response.
+// same filesMap and memoized per origin exactly like the library response.
 // Invalidated on every rebuild (alongside originMemo) so it never serves a
 // stale catalog.
 let sectionsIdentity = null; // Buffer: relative-URL sections JSON
@@ -108,7 +110,7 @@ async function memoized(memo, origin, link, make) {
   return variant;
 }
 
-let cached = null;           // raw shop object (for in-process consumers)
+let cached = null;           // raw library object (for in-process consumers)
 let serializedJson = null;   // Buffer: pre-stringified body for /games.json
 let serializedGzip = null;   // Buffer: gzip variant for Accept-Encoding: gzip
 let serializedBrotli = null; // Buffer: brotli variant for Accept-Encoding: br
@@ -123,7 +125,7 @@ let debounceTimer = null;
 let debounceDueAt = 0;
 
 // ── Build-event subscribers ─────────────────────────────────────────────
-// The realtime ws layer wants to push a "shop-updated" message every time
+// The realtime ws layer wants to push a "library-updated" message every time
 // the response changes. We expose a tiny pub/sub instead of pulling in
 // EventEmitter, so the cache stays a leaf module with no node:events tax.
 const subscribers = new Set();
@@ -157,7 +159,7 @@ function tellLibraryChanged(before, now) {
 function notify(payload) {
   for (const fn of subscribers) {
     try { fn(payload); } catch (err) {
-      debug.error("shop cache: subscriber threw: %s", err.message);
+      debug.error("library cache: subscriber threw: %s", err.message);
     }
   }
 }
@@ -242,13 +244,13 @@ async function build() {
       // of the two — not their sum.
       const [gzipBuf, brBuf] = await Promise.all([
         gzipAsync(json, { level: 6 }).catch((err) => {
-          debug.error("shop cache: gzip failed: %s", err.message);
+          debug.error("library cache: gzip failed: %s", err.message);
           return null;
         }),
         brotliAsync(json, {
           params: { [zlib.constants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY },
         }).catch((err) => {
-          debug.error("shop cache: brotli failed: %s", err.message);
+          debug.error("library cache: brotli failed: %s", err.message);
           return null;
         }),
       ]);
@@ -275,7 +277,7 @@ async function build() {
       lastMode = mode;
       if (mode.startsWith("full")) lastFullScan = { at: lastBuiltAt, ms: lastBuildMs, files: filesMap.size };
       debug.log(
-        "shop cache: built in %dms [%s] (%d files, raw=%d B, gzip=%s B, br=%s B, build #%d)",
+        "library cache: built in %dms [%s] (%d files, raw=%d B, gzip=%s B, br=%s B, build #%d)",
         lastBuildMs,
         mode,
         Array.isArray(r.files) ? r.files.length : 0,
@@ -289,9 +291,9 @@ async function build() {
       // Failures don't affect this process; they just mean the next boot
       // pays full build cost instead of warm-starting.
       diskCache
-        .write(SHOP_CACHE_DIR, { etag, identity: json, gzip: gzipBuf, brotli: brBuf })
-        .then((n) => debug.log("shop cache: persisted to disk (%d B)", n))
-        .catch((err) => debug.error("shop cache: disk persist failed: %s", err.message));
+        .write(LIBRARY_CACHE_DIR, { etag, identity: json, gzip: gzipBuf, brotli: brBuf })
+        .then((n) => debug.log("library cache: persisted to disk (%d B)", n))
+        .catch((err) => debug.error("library cache: disk persist failed: %s", err.message));
 
       // Prewarm icons in a separate tick so it doesn't extend the build's
       // critical-path measurement and so the consumer's `await build()`
@@ -328,19 +330,19 @@ async function build() {
   return building;
 }
 
-// Draw the card sizes of every icon in the current shop response ahead of time.
+// Draw the card sizes of every icon in the current library response ahead of time.
 let prewarmInFlight = null;
-function schedulePrewarm(shop) {
+function schedulePrewarm(library) {
   if (prewarmInFlight) return;
-  if (!Array.isArray(shop?.files) || shop.files.length === 0) return;
+  if (!Array.isArray(library?.files) || library.files.length === 0) return;
   const baseIds = new Set();
-  for (const f of shop.files) {
+  for (const f of library.files) {
     if (f.baseTitleId) baseIds.add(f.baseTitleId);
     else if (f.titleId) baseIds.add(baseTitleIdOf(f.titleId));
   }
   if (baseIds.size === 0) return;
   prewarmInFlight = prewarmIcons(baseIds)
-    .catch((err) => debug.error("shop cache: prewarm error %s", err.message))
+    .catch((err) => debug.error("library cache: prewarm error %s", err.message))
     .finally(() => { prewarmInFlight = null; });
 }
 
@@ -405,20 +407,20 @@ export async function getEncoded(acceptedEncodings) {
 }
 
 // Compress an identity Buffer into the { identity, gzip, brotli, etag } variant
-// shape shared by the shop response and the sections view. gzip + brotli run in
+// shape shared by the library response and the sections view. gzip + brotli run in
 // parallel on libuv's thread pool; a failed codec yields null and the caller
 // falls back to a lighter encoding.
 async function compressVariant(identity) {
   const etag = `"${crypto.createHash("sha1").update(identity).digest("base64url")}"`;
   const [gzip, brotli] = await Promise.all([
     gzipAsync(identity, { level: 6 }).catch((err) => {
-      debug.error("shop cache: gzip failed: %s", err.message);
+      debug.error("library cache: gzip failed: %s", err.message);
       return null;
     }),
     brotliAsync(identity, {
       params: { [zlib.constants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY },
     }).catch((err) => {
-      debug.error("shop cache: brotli failed: %s", err.message);
+      debug.error("library cache: brotli failed: %s", err.message);
       return null;
     }),
   ]);
@@ -443,7 +445,7 @@ function pickVariant(variant, acceptedEncodings) {
 // File URLs are anchored at the origin; with `link` (a client that asked for
 // the direct address) they are on the direct address instead (security/download-links.js).
 function rewriteDownloads(json, origin, link) {
-  return rewriteDownloadOrigin(downloadLinks.withShopDirect(json, link), origin);
+  return rewriteDownloadOrigin(downloadLinks.withLibraryDirect(json, link), origin);
 }
 
 // The memo key: one variant per origin, and one more per direct address. The
@@ -466,7 +468,7 @@ async function encodeForOrigin(origin, link) {
 }
 
 /**
- * Like getEncoded(), but rewrites the shop response's artwork URLs to be
+ * Like getEncoded(), but rewrites the library response's artwork URLs to be
  * ABSOLUTE against `origin` (scheme://host) so the console client can fetch
  * icons by curling the URL verbatim. A falsy origin falls back to the
  * host-relative payload (getEncoded) — correct for same-origin browser fetches
@@ -558,9 +560,9 @@ function scheduleRebuild(reason, { background = false } = {}) {
   debounceDueAt = Date.now() + delay;
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
-    debug.log("shop cache: rebuilding after %s", reason);
+    debug.log("library cache: rebuilding after %s", reason);
     build().catch((err) =>
-      debug.error("shop cache: rebuild failed: %s", err.message)
+      debug.error("library cache: rebuild failed: %s", err.message)
     );
   }, delay);
   // Don't block process exit just to debounce a rebuild.
@@ -589,7 +591,7 @@ function routeFileEvent(op, absPath) {
 
 async function tryHydrateFromDisk() {
   try {
-    const r = await diskCache.read(SHOP_CACHE_DIR);
+    const r = await diskCache.read(LIBRARY_CACHE_DIR);
     // Parse the identity body so in-process consumers (the prewarmer, the
     // landing dashboard's stats API, future admin endpoints) can read
     // `cached.files` without us having to re-stringify.
@@ -600,7 +602,7 @@ async function tryHydrateFromDisk() {
     serializedBrotli = r.brotli;
     serializedEtag = r.etag;
     debug.log(
-      "shop cache: hydrated from disk (%d files, raw=%d B, gzip=%s B, br=%s B)",
+      "library cache: hydrated from disk (%d files, raw=%d B, gzip=%s B, br=%s B)",
       Array.isArray(parsed.files) ? parsed.files.length : 0,
       r.identity.length,
       r.gzip ? r.gzip.length : "—",
@@ -608,13 +610,13 @@ async function tryHydrateFromDisk() {
     );
     return true;
   } catch (err) {
-    debug.log("shop cache: no disk cache (%s)", err.code || err.message);
+    debug.log("library cache: no disk cache (%s)", err.code || err.message);
     return false;
   }
 }
 
 export async function init() {
-  // Extractor → shop-cache: when the NACP worker finishes a record we
+  // Extractor → library-cache: when the NACP worker finishes a record we
   // schedule a rebuild so the new name/publisher/version surfaces in
   // /games.json + propagates to ws subscribers without the user having
   // to touch a file.
@@ -668,7 +670,7 @@ export async function init() {
     .on("unlink",    (p) => routeFileEvent("remove", p))
     .on("addDir",    (p) => { needsFullRescan = true; scheduleRebuild(`addDir ${path.basename(p)}`); })
     .on("unlinkDir", (p) => { needsFullRescan = true; scheduleRebuild(`unlinkDir ${path.basename(p)}`); })
-    .on("error",     (err) => debug.error("shop cache: watch error: %s", err.message));
+    .on("error",     (err) => debug.error("library cache: watch error: %s", err.message));
 
   // Don't keep the event loop alive for the watcher alone — Node should
   // exit cleanly on SIGTERM. chokidar v4 doesn't expose .unref directly,
