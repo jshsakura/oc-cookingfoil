@@ -92,7 +92,7 @@ export function isGameFile(relOrAbsPath) {
   return GAME_FILE_RE.test(relOrAbsPath);
 }
 
-function encodeRelPath(relPath) {
+export function encodeRelPath(relPath) {
   // The inner path is percent-encoded (incl. `/`), then a literal "../" prefix
   // is prepended; helpers/origin.js anchors it at the request's origin.
   const encoded = encodeUrlObject({ url: relPath }).url;
