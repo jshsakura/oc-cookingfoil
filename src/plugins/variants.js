@@ -140,20 +140,55 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     return { variant: { tag: variantTag(owner.id, registry.versionOf(owner.id), query, used), patches, vary: registry.consoleWanted(owner.id).length > 0 } };
   }
 
-  /** One option as the client gets it: strings in the reader's language, the query to send back. */
+  /** A dialog as { title, body } of texts maps, or null when it is not one. */
+  const dialogOf = (v) => {
+    if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+    const title = textsOf(v.title, 200);
+    const body = textsOf(v.body, 2000);
+    return title && body ? { title, body } : null;
+  };
+
+  /**
+   * One option as the client gets it, texts in the reader's language:
+   *   { id, label, note?, confirm?, progress?, failed?, hashesChange?, query }    an option the client can send
+   *   { id, label, blocked: { title, body } }                                   one it shows greyed, with the reason in a window
+   * confirm is { title, body }, or one text (older plugins). progress is shown while the server prepares the file, failed
+   * when it could not; hashesChange (true) says the bytes differ from the original, so a hash check is not expected to match.
+   */
   function optionOf(plugin, raw, lang, keys) {
     if (!raw || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id) return null;
     const label = textsOf(raw.label);
     if (!label) return null;
+    const text = (map) => pick(map, lang) ?? map.en ?? Object.values(map)[0];
+    const dialog = (d) => ({ title: text(d.title), body: text(d.body) });
+    if (raw.blocked !== undefined) {
+      const blocked = dialogOf(raw.blocked);
+      const extras = ["query", "note", "confirm", "progress", "failed", "hashesChange"];
+      if (!blocked || extras.some((k) => raw[k] !== undefined)) return null;
+      return { id: raw.id, plugin, label: text(label), blocked: dialog(blocked) };
+    }
     const note = raw.note === undefined ? null : textsOf(raw.note);
-    const confirm = raw.confirm === undefined ? null : textsOf(raw.confirm);
-    if ((raw.note !== undefined && !note) || (raw.confirm !== undefined && !confirm)) return null;
+    const progress = raw.progress === undefined ? null : textsOf(raw.progress);
+    const failed = raw.failed === undefined ? null : textsOf(raw.failed);
+    const confirmText = raw.confirm === undefined ? null : textsOf(raw.confirm);
+    const confirmDialog = raw.confirm === undefined || confirmText ? null : dialogOf(raw.confirm);
+    if ((raw.note !== undefined && !note) || (raw.progress !== undefined && !progress) || (raw.failed !== undefined && !failed)) return null;
+    if (raw.confirm !== undefined && !confirmText && !confirmDialog) return null;
+    if (raw.hashesChange !== undefined && typeof raw.hashesChange !== "boolean") return null;
     const query = raw.query;
     if (!query || typeof query !== "object" || Array.isArray(query)) return null;
     const entries = Object.entries(query);
     if (!entries.length || !entries.every(([k, v]) => OPTION_KEY_RE.test(k) && keys.includes(k) && typeof v === "string" && v.length <= 64)) return null;
-    const text = (map) => pick(map, lang) ?? map.en ?? Object.values(map)[0];
-    return { id: raw.id, plugin, label: text(label), ...(note ? { note: text(note) } : {}), ...(confirm ? { confirm: text(confirm) } : {}), query: Object.fromEntries(entries) };
+    return {
+      id: raw.id, plugin, label: text(label),
+      ...(note ? { note: text(note) } : {}),
+      ...(confirmText ? { confirm: text(confirmText) } : {}),
+      ...(confirmDialog ? { confirm: dialog(confirmDialog) } : {}),
+      ...(progress ? { progress: text(progress) } : {}),
+      ...(failed ? { failed: text(failed) } : {}),
+      ...(raw.hashesChange === true ? { hashesChange: true } : {}),
+      query: Object.fromEntries(entries),
+    };
   }
 
   /** files: [{ file, abs, st }] -> { [file]: option[] }. A plugin that is slow or broken adds nothing; the rest still answer. */
