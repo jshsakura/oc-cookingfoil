@@ -63,10 +63,8 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     return origin ? origin + url : url;
   };
 
+  // Game files carry no screenshots: only the admin's.
   const slots = new Set(overrides.screens.filter((i) => Number.isInteger(i) && i >= 0 && i <= 30));
-  if (Array.isArray(fromDb?.screenshots)) {
-    fromDb.screenshots.slice(0, 31).forEach((url, i) => { if (url) slots.add(i); });
-  }
   const screenshots = [...slots].sort((a, b) => a - b).map((i) => art(`/api/library/screenshot/${base}/${i}`));
 
   const categories = normalizeGenres(fromDb?.category);
@@ -123,8 +121,9 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
     size: fromDb?.size ?? extracted?.size ?? null,
     // With ?lang=, the icon and banner of that language's release when it has its own art.
+    // A banner is drawn from the icon, so a game with an icon has one.
     iconUrl: art(`/api/library/icon/${base}`, artIn(iconSource, iconKnown)),
-    bannerUrl: fromDb?.bannerUrl || overrides.banner
+    bannerUrl: bannerKnown(base, null) || bannerKnown(base, lang)
       ? art(`/api/library/banner/${base}`, artIn(bannerSource, bannerKnown))
       : null,
     icons: iconLangs(base).length

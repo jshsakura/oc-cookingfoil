@@ -304,22 +304,18 @@ async function build() {
   return building;
 }
 
-// Kick off a background icon prefetch for every title in the current
-// shop response. No-op when titledb has nothing yet (the bootstrap will
-// trigger a rebuild after it loads, which re-schedules).
+// Draw the card sizes of every icon in the current shop response ahead of time.
 let prewarmInFlight = null;
 function schedulePrewarm(shop) {
   if (prewarmInFlight) return;
   if (!Array.isArray(shop?.files) || shop.files.length === 0) return;
-  if (titledbStore.size() === 0) return;
   const baseIds = new Set();
   for (const f of shop.files) {
     if (f.baseTitleId) baseIds.add(f.baseTitleId);
     else if (f.titleId) baseIds.add(baseTitleIdOf(f.titleId));
   }
   if (baseIds.size === 0) return;
-  const getUpstream = (tid) => titledbStore.get(tid)?.iconUrl;
-  prewarmInFlight = prewarmIcons(getUpstream, baseIds)
+  prewarmInFlight = prewarmIcons(baseIds)
     .catch((err) => debug.error("shop cache: prewarm error %s", err.message))
     .finally(() => { prewarmInFlight = null; });
 }

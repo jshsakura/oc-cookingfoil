@@ -11,18 +11,22 @@ import path from "node:path";
 const data = mkdtempSync(path.join(tmpdir(), "cook-art-cache-"));
 process.env.COOK_DATA_DIR = data;
 process.env.COOK_EXTRACT_ICONS = "off";
-process.env.COOK_ESHOP_ARTWORK = "false";
 const BASE = "0100000000ABC000";
 const NO_DB = "0100000000EEE000";
 mkdirSync(path.join(data, "titledb"), { recursive: true });
-// load() prefers the slim copy it writes beside the region file, so drop it to read a new one.
-const titledb = (iconUrl) => rmSync(path.join(data, "titledb", "US.en.slim.json"), { force: true }) ?? writeFileSync(path.join(data, "titledb", "US.en.json"), JSON.stringify({
-  "70010000000001": { id: BASE, name: "Test", iconUrl, bannerUrl: "https://cdn/banner.jpg", screenshots: ["https://cdn/s0.jpg"] },
+writeFileSync(path.join(data, "titledb", "US.en.json"), JSON.stringify({
+  "70010000000001": { id: BASE, name: "Test", iconUrl: "https://cdn/icon-1.jpg", bannerUrl: "https://cdn/banner.jpg", screenshots: ["https://cdn/s0.jpg"] },
 }));
-titledb("https://cdn/icon-1.jpg");
 
 const { default: sharp } = await import("sharp");
+const jpeg = (w, h, color = "#808080") => sharp({ create: { width: w, height: h, channels: 3, background: color } }).jpeg().toBuffer();
+// The game file's icon, read before the server starts (data/icons is indexed once, at start).
+const icons = path.join(data, "icons");
+mkdirSync(icons, { recursive: true });
+writeFileSync(path.join(icons, `${BASE}.jpg`), await jpeg(512, 512));
+
 const { default: express } = await import("express");
+const { forget } = await import("../../src/meta/image-cache.js");
 const store = await import("../../src/meta/titledb-store.js");
 const art = await import("../../src/meta/custom-art.js");
 const { versionedArtwork, artworkVersion } = await import("../../src/meta/artwork-version.js");
@@ -31,13 +35,8 @@ const { default: bannerRoute } = await import("../../src/routes/banner.js");
 const { default: screenshotRoute } = await import("../../src/routes/screenshot.js");
 await store.load();
 await art.init();
-
-const jpeg = (w, h, color = "#808080") => sharp({ create: { width: w, height: h, channels: 3, background: color } }).jpeg().toBuffer();
-const extracted = path.join(data, "extracted");
-mkdirSync(extracted, { recursive: true });
-writeFileSync(path.join(extracted, `${BASE}.jpg`), await jpeg(512, 512));
-writeFileSync(path.join(extracted, `${BASE}.banner.jpg`), await jpeg(1920, 1080));
-writeFileSync(path.join(extracted, `${BASE}.screen.0.jpg`), await jpeg(1920, 1080));
+// Game files carry no screenshots: the one served is the admin's.
+await art.put(BASE, "screenshot", 0, await jpeg(1920, 1080));
 
 const app = express();
 app.get("/api/library/icon/:titleId", iconRoute);
@@ -57,33 +56,49 @@ test("artwork URLs carry ?v= of 12 hex characters, the same for every size", () 
   assert.match(versionedArtwork(`/api/library/icon/${BASE}`, "ja"), /\?v=[0-9a-f]{12}&lang=ja$/);
 });
 
-test("v changes with the source: a new titledb image, and an uploaded icon", async () => {
+test("v changes with the icon file and with an uploaded icon, never with titledb", async () => {
   const first = artworkVersion("icon", BASE);
-  titledb("https://cdn/icon-2.jpg");
+  const banner = artworkVersion("banner", BASE);
+  writeFileSync(path.join(data, "titledb", "US.en.json"), JSON.stringify({ "70010000000001": { id: BASE, name: "Test", iconUrl: "https://cdn/icon-2.jpg" } }));
+  rmSync(path.join(data, "titledb", "US.en.slim.json"), { force: true });
   await store.load();
+  assert.equal(artworkVersion("icon", BASE), first, "titledb's picture address is not the icon");
+  writeFileSync(path.join(icons, `${BASE}.jpg`), await jpeg(512, 512, "#101010"));
+  forget(path.join(icons, `${BASE}.jpg`));
   const second = artworkVersion("icon", BASE);
-  assert.notEqual(second, first, "titledb points at another image");
+  assert.notEqual(second, first, "the game file's icon read again");
+  assert.notEqual(artworkVersion("banner", BASE), banner, "the banner drawn from it follows");
   await art.put(BASE, "icon", null, await jpeg(300, 300, "#FFC23D"));
   const custom = artworkVersion("icon", BASE);
   assert.notEqual(custom, second, "uploaded art");
   assert.notEqual(artworkVersion("banner", BASE), custom, "each slot has its own");
   await art.remove(BASE, "icon", null);
-  assert.equal(artworkVersion("icon", BASE), second, "back to titledb's image");
+  assert.equal(artworkVersion("icon", BASE), second, "back to the game file's icon");
 });
 
 test("a game titledb does not know is versioned by its icon file", async () => {
   const none = artworkVersion("icon", NO_DB);
-  writeFileSync(path.join(extracted, `${NO_DB}.jpg`), await jpeg(256, 256));
-  const file = artworkVersion("icon", NO_DB);
-  assert.notEqual(file, none);
-  writeFileSync(path.join(extracted, `${NO_DB}.jpg`), await jpeg(256, 256, "#000000"));
-  assert.notEqual(artworkVersion("icon", NO_DB), file, "rewritten icon");
+  const file = path.join(icons, `${NO_DB}.jpg`);
+  writeFileSync(file, await jpeg(256, 256));
+  forget(file);
+  const once = artworkVersion("icon", NO_DB);
+  assert.notEqual(once, none);
+  writeFileSync(file, await jpeg(256, 256, "#000000"));
+  forget(file);
+  assert.notEqual(artworkVersion("icon", NO_DB), once, "rewritten icon");
 });
 
-for (const [kind, url, size] of [
-  ["icon", `/api/library/icon/${BASE}`, "md"],
-  ["banner", `/api/library/banner/${BASE}`, "xl"],
-  ["screenshot", `/api/library/screenshot/${BASE}/0`, "xl"],
+test("a game without an icon has no banner and no screenshot to send", async () => {
+  for (const url of ["/api/library/icon/0100000000DDD000", "/api/library/banner/0100000000DDD000", "/api/library/screenshot/0100000000DDD000/0", `/api/library/screenshot/${BASE}/1`]) {
+    assert.equal((await fetch(`${origin}${url}`)).status, 404, url);
+  }
+});
+
+// The admin's pictures (the screenshot here) revalidate sooner: they are edited from the dashboard.
+for (const [kind, url, size, short] of [
+  ["icon", `/api/library/icon/${BASE}`, "md", "public, max-age=300"],
+  ["banner", `/api/library/banner/${BASE}`, "xl", "public, max-age=300"],
+  ["screenshot", `/api/library/screenshot/${BASE}/0`, "xl", "public, max-age=60, must-revalidate"],
 ]) {
   test(`${kind}: immutable only for the current v; otherwise short, with ETag and 304`, async () => {
     const current = versionedArtwork(url);
@@ -96,7 +111,7 @@ for (const [kind, url, size] of [
     for (const stale of [url, `${url}?v=0.8`, `${url}?v=000000000000`]) {
       const r = await fetch(`${origin}${stale}`);
       assert.equal(r.status, 200);
-      assert.equal(r.headers.get("cache-control"), "public, max-age=300", stale);
+      assert.equal(r.headers.get("cache-control"), short, stale);
       const etag = r.headers.get("etag");
       assert.ok(etag, "an ETag to revalidate with");
       assert.equal((await fetch(`${origin}${stale}`, { headers: { "If-None-Match": etag, "Cache-Control": "max-age=0" } })).status, 304);
@@ -121,8 +136,8 @@ test("every image route answers WebP to the console, a browser and a client with
       }
     }
   }
-  const sources = [`${BASE}.jpg`, `${BASE}.banner.jpg`, `${BASE}.screen.0.jpg`, `${NO_DB}.jpg`];
-  assert.deepEqual(readdirSync(extracted).sort(), sources.sort(), "nothing written next to the cached originals");
-  const thumbs = readdirSync(path.join(data, "thumbs", "extracted"));
+  const sources = [`${BASE}.jpg`, `${BASE}.banner.jpg`, `${NO_DB}.jpg`];
+  assert.deepEqual(readdirSync(icons).sort(), sources.sort(), "only the icons and the banner drawn from one");
+  const thumbs = readdirSync(path.join(data, "thumbs", "icons"));
   assert.ok(thumbs.length && thumbs.every((f) => f.endsWith(".webp")), `only WebP variants: ${thumbs.join(", ")}`);
 });

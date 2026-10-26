@@ -12,7 +12,6 @@ process.env.COOK_DATA_DIR = data;
 process.env.COOK_UPLOADS_ENABLED = "true";
 process.env.COOK_EXTRACT_ICONS = "off";
 process.env.COOK_TITLEDB_AUTO_FETCH = "false";
-process.env.COOK_ESHOP_ARTWORK = "false";
 
 const { default: sharp } = await import("sharp");
 const { default: express } = await import("express");

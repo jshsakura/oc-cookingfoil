@@ -75,6 +75,7 @@ import {
 } from "./helpers/envs.js";
 import { addUrlEncodedFileInfo as encodeUrlObject } from "./helpers/helpers.js";
 import { versionedArtwork as withVersion } from "./meta/artwork-version.js";
+import { cachePathFor, hasCached } from "./meta/image-cache.js";
 
 // Every proxy artwork URL carries ?v=, a hash of the picture's bytes
 // (meta/artwork-version.js): the console client caches pictures by URL, so a
@@ -309,9 +310,9 @@ export function composeResponse(filesMap, customs) {
 }
 
 // Queue one title's file for NACP/icon extraction per the COOK_EXTRACT_ICONS policy:
-//   all     → every title, so the icon comes out of the container and
-//             covers render fully offline (CDN is only a fallback).
-//   missing → only titles titledb can't cover.
+//   all     → every title's name and icon.
+//   missing → every title's icon (game files are the only source of icons),
+//             and the name only for titles titledb can't cover.
 //   off     → never.
 // The worker de-dupes by titleId AND skips containers whose icon is
 // already on disk, so re-enqueueing on every rebuild stays cheap.
@@ -334,10 +335,11 @@ function queueExtraction(relPath, item, baseId) {
   const fromDb = titledbStore.get(baseId);
   const read = extractedMeta.get(baseId);
   const repair = Boolean(read?.garbled);
-  // A record already read is read again only when nacp-extractor.js asks for it (needsReread).
-  if (!fromDb && read && !nacpExtractor.needsReread(read)) return;
+  const needIcon = !hasCached(cachePathFor(baseId, "icon"));
+  // A record already read is read again only when nacp-extractor.js asks for it (needsReread), or for its icon.
+  if (!fromDb && read && !nacpExtractor.needsReread(read) && !needIcon) return;
   const sizeBytes = item.size;
-  const extractMode = repair ? "all" : extractIcons;
+  const extractMode = repair || (needIcon && extractIcons !== "off") ? "all" : extractIcons;
   if (shouldAutoExtract({ sizeBytes, extractMode, fromDb, maxBytes: extractMaxBytes, fileName: relPath })) {
     nacpExtractor.enqueue({
       absPath: path.join(romsDirPath, relPath),

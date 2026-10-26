@@ -10,6 +10,8 @@ import { langPriority } from "../helpers/envs.js";
 import { fileNamesOver, pickFileName } from "./name-pick.js";
 import * as shopCache from "./shop-cache.js";
 import { versionedArtwork } from "./artwork-version.js";
+import * as customArt from "./custom-art.js";
+import { baseTitleIdOf, cachePathFor, hasCached } from "./image-cache.js";
 
 /** The name the library shows for a base title (titledb, the file's own, or its file name), or null. */
 function libraryName(titleId) {
@@ -30,6 +32,6 @@ export function gameOf(titleId, origin = "") {
   if (!name) return null;
   const game = { name, names };
   // Absolute, like the shop's artwork URLs, so curl-style clients can fetch it with the shop's auth.
-  if (entry?.iconUrl || titledbStore.iconsOf(titleId) || extracted?.iconPath) game.icon = `${origin}${versionedArtwork(`/api/library/icon/${titleId}`)}`;
+  if (hasCached(cachePathFor(baseTitleIdOf(titleId), "icon")) || customArt.hasOverride(baseTitleIdOf(titleId), "icon")) game.icon = `${origin}${versionedArtwork(`/api/library/icon/${titleId}`)}`;
   return game;
 }

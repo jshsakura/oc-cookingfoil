@@ -83,7 +83,6 @@ const SS_GROUPS=[
     ['logKeepDays',[['7',()=>topFill('ss.nDays',{n:7})],['30',()=>topFill('ss.nDaysDef',{n:30})],['90',()=>topFill('ss.nDays',{n:90})],['180',()=>topFill('ss.nDays',{n:180})],['365',()=>topText('t.oneYear')]],()=>topText('ss.f.logKeepDays'),()=>topText('ss.f.logKeepDaysD')],
   ]],
   ['lookups',[
-    ['eshopArtwork','bool',()=>topText('ss.f.eshopArtwork'),()=>topText('ss.f.eshopArtworkD')],
     ['ratingSync','bool',()=>topText('ss.f.ratingSync'),()=>topText('ss.f.ratingSyncD')],
     ['retroMeta','bool',()=>topText('ss.f.retroMeta'),()=>topText('ss.f.retroMetaD')],
     ['retroAutoCores','bool',()=>topText('ss.autoCores'),()=>topText('ss.autoCoresD')],

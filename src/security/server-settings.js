@@ -58,7 +58,6 @@ export const SETTINGS = {
   titledbAutoFetch: bool,
   titledbRegions: list(REGION_RE, 30),
   titledbSource: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || URL_RE.test(v) },
-  eshopArtwork: bool,
   ratingSync: bool,
   retroMeta: bool,
   // Ready-made ROM and BIOS folders (retro/scaffold.js).

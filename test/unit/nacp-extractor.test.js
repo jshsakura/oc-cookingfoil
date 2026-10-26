@@ -9,7 +9,7 @@ import fs from "node:fs/promises";
 const DATA_DIR = await fs.mkdtemp(path.join(os.tmpdir(), "cook-extract-test-"));
 process.env.COOK_DATA_DIR = DATA_DIR;
 
-const { cachePathFor } = await import("../../src/meta/image-cache.js");
+const { cachePathFor, forget } = await import("../../src/meta/image-cache.js");
 const extractor = await import("../../src/meta/nacp-extractor.js");
 const extractedMeta = await import("../../src/meta/extracted-meta-store.js");
 
@@ -43,6 +43,7 @@ test("wantMeta=false + icon already on disk → skips the container dump", async
   const iconPath = cachePathFor(BASE_CACHED, "icon");
   await fs.mkdir(path.dirname(iconPath), { recursive: true });
   await fs.writeFile(iconPath, Buffer.from("cached-jpeg"));
+  forget(iconPath);
 
   const calls = [];
   extractor.setProvider(stubProvider({ iconBuffer: Buffer.from("new") }, calls));
@@ -90,6 +91,7 @@ test("an older record is extracted once more for language icons, keeping its han
   const iconPath = cachePathFor(BASE, "icon");
   await fs.mkdir(path.dirname(iconPath), { recursive: true });
   await fs.writeFile(iconPath, Buffer.from("korean-icon"));
+  forget(iconPath);
   await extractedMeta.put({ id: BASE, name: "Fixed By Hand", source: "nacp-nsp" });
   const calls = [];
   extractor.setProvider(stubProvider({
@@ -118,7 +120,7 @@ test("a record stored with a garbled name reads as nameless and is read again in
   assert.equal(extractedMeta.get(BASE).publisher, null);
   assert.equal(extractor.needsReread(extractedMeta.get(BASE)), true);
   const calls = [];
-  extractor.setProvider(stubProvider({ name: "Fresh Name", publisher: "Fresh Pub", source: "nacp-nsp" }, calls));
+  extractor.setProvider(stubProvider({ name: "Fresh Name", publisher: "Fresh Pub", source: "nacp-nsp", iconBuffer: Buffer.from("fresh-icon") }, calls));
 
   assert.equal(extractor.enqueue({ absPath: "/g.nsp", baseTitleId: BASE, fileName: "g.nsp" }), true);
   await extractor.whenDrained();
@@ -137,8 +139,10 @@ test("a record from the old icon mapping is extracted once more, its old Chinese
   const iconPath = cachePathFor(BASE, "icon");
   await fs.mkdir(path.dirname(iconPath), { recursive: true });
   await fs.writeFile(iconPath, Buffer.from("korean-icon"));
+  forget(iconPath);
   // main's mapping saved the traditional icon as zh.
   await fs.writeFile(cachePathFor(BASE, "icon-lang", "zh"), Buffer.from("traditional-icon"));
+  forget(cachePathFor(BASE, "icon-lang", "zh"));
   await extractedMeta.put({ id: BASE, name: "Kept", source: "nacp-nsp", iconLangs: ["zh"] });
   assert.equal(extractor.needsLangIcons(extractedMeta.get(BASE)), true, "an old record asks for its icons again");
   const calls = [];
