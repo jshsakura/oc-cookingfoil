@@ -159,39 +159,39 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-side>.adm-hdr{display:contents}
 .adm-side .brand{order:0;padding:26px 24px 18px}
 .adm-side .brand a{gap:10px}.adm-side .brand img{width:36px;height:36px}.adm-side .brand .wm{font-size:25px}
-.adm-side>.adm-side-in{order:1;display:grid;align-content:start;gap:2px;flex:1;min-height:0;overflow:auto;padding:4px 14px 20px}
+.adm-side>.adm-side-in{order:1;display:grid;align-content:start;gap:6px;flex:1;min-height:0;overflow:auto;padding:4px 14px 20px}
 .adm-side .hdr-right{order:2;position:relative;display:flex;align-items:center;gap:8px;padding:14px 16px 18px;background:var(--sunk)}
 .adm-side .up-entry{flex:1;min-width:0}
 /* The menus open upward and toward the page, never off the sidebar's edges. */
 .adm-side .acct-menu{position:static}
 .adm-side :is(.pop-list,.lang-list){left:12px;right:auto;top:auto;bottom:calc(100% + 6px)}}
 .adm-grp{border:0}
-.adm-grp summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:10px 12px;border-radius:12px;
+.adm-grp summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:11px 14px;border-radius:12px;
   color:var(--text);font-weight:700;font-size:14.5px}
 /* Icons on the top rows, as in the console client's menu; the rows inside a group line up with the label. */
 .adm-side-in .ico{width:20px;height:20px}
 .adm-grp summary::-webkit-details-marker{display:none}
-.adm-grp summary:hover{background:var(--sunk)}
+.adm-grp summary:hover{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
 .adm-grp summary:focus-visible{outline:2px solid var(--text);outline-offset:2px}
 .adm-grp summary .chev{width:14px;height:14px;margin-left:auto;flex:none;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round;color:var(--muted);transition:transform .15s}
 .adm-grp[open] summary .chev{transform:rotate(180deg)}
 .adm-item:focus-visible{outline:2px solid var(--text);outline-offset:-2px}
 .adm-grp summary .count{margin-left:auto}
-.adm-grp-in{display:grid;gap:2px;margin:0 0 8px;padding-left:20px}
+.adm-grp-in{display:grid;gap:4px;margin:6px 0 10px;padding-left:20px}
 .adm-grp-in .ico{width:17px;height:17px}
-.adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:9px 12px;border-radius:12px;position:relative;
+.adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:11px 14px;border-radius:12px;position:relative;
   color:var(--text);font-weight:600;font-size:13.5px;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.adm-item:hover{background:var(--sunk)}
+.adm-item:not([aria-current]):hover{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
 .adm-side-in>.adm-item{font-size:14.5px;font-weight:700}
 .adm-item[aria-current="page"]{background:var(--text);color:var(--bg)}
 .adm-item[aria-current="page"] .count{background:var(--bg);color:var(--text)}
 .adm-item .count{margin-left:auto}
-.adm-task{font-size:12.5px;font-weight:600;color:var(--muted);padding:7px 12px}
+.adm-task{font-size:12.5px;font-weight:600;color:var(--muted);padding:9px 14px}
 .adm-drawer{position:fixed;left:0;top:0;width:min(320px,86vw);height:100vh;max-height:100vh;margin:0;border:0;
   border-right:1px solid var(--line);border-radius:0 20px 20px 0;padding:0;background:var(--bg);color:var(--text)}
 .adm-drawer::backdrop{background:rgb(0 0 0 / .38)}
-.adm-drawer .adm-side-in{display:grid;gap:2px;align-content:start;grid-auto-rows:min-content;overflow:auto;height:calc(100vh - 58px);padding:10px 12px 24px;box-sizing:border-box}
+.adm-drawer .adm-side-in{display:grid;gap:6px;align-content:start;grid-auto-rows:min-content;overflow:auto;height:calc(100vh - 58px);padding:10px 12px 24px;box-sizing:border-box}
 /* Phone menu rows keep a real touch height without stretching to fill. */
 .adm-drawer .adm-item{min-height:44px}
 .adm-drawer .adm-grp summary{min-height:44px;box-sizing:border-box}
