@@ -61,8 +61,10 @@ tr:last-child td{border-bottom:none}
 .pill.off{background:rgba(var(--bad-rgb),.12);color:var(--bad)}
 .pill.warn{background:rgba(var(--accent-rgb),.22);color:var(--warn)}
 .ip{color:var(--muted);font-size:var(--fs-xs);font-family:ui-monospace,monospace;word-break:break-all}
-button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:1px solid var(--line);
-border-radius:var(--r-lg);cursor:pointer;background:var(--panel);color:var(--text);font:inherit;font-size:var(--fs-sm);font-weight:var(--fw-bold);text-decoration:none}
+/* A button and a field are one box: same height (40), corner and fill, so a toolbar reads as one row.
+   The client's secondary button is a sunk fill, not an outline. */
+button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:1px solid transparent;
+border-radius:var(--r-lg);cursor:pointer;background:var(--sunk);color:var(--text);font:inherit;font-size:var(--fs-sm);line-height:20px;font-weight:var(--fw-bold);text-decoration:none}
 button:hover,.btn:hover{border-color:var(--text)}
 /* The client's pressed look: the same shape darkened by a 14% black wash. Disabled is a Line fill with
    secondary text, not a faded button. */
@@ -70,7 +72,7 @@ button:not(:disabled):active,.btn:active{background-image:linear-gradient(rgba(0
 button:disabled,button.primary:disabled{background:var(--line);border-color:transparent;color:var(--muted);filter:none;cursor:default}
 button.primary{border-color:transparent;background:var(--accent);color:var(--accent-ink);font-weight:700}
 button.primary:hover{filter:brightness(1.04);border-color:transparent}
-input:not([type=checkbox]):not([type=radio]),select{padding:10px 14px;border-radius:var(--r-lg);border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:var(--fs-md)}
+input:not([type=checkbox]):not([type=radio]),select{padding:9px 14px;border-radius:var(--r-lg);border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:var(--fs-md);line-height:20px}
 /* Our own arrow with room on the right, instead of the browser's pressed against the edge. */
 select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238b909a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:12px 8px;text-overflow:ellipsis}
 input:not([type=checkbox]):not([type=radio]):focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.45)}

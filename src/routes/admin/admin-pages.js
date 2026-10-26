@@ -119,7 +119,7 @@ export function sidebarNav(current, withIds = true) {
 /** The phone drawer: the same tree inside a dialog, so Esc and the focus trap come free. */
 export function drawerHtml(current) {
   return `<dialog id="adm-drawer" class="adm-drawer" data-top-label="nav">
-<div class="adm-drawer-hd"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="28" height="28"><b>cookingfoil</b>
+<div class="adm-drawer-hd"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="28" height="28"><span class="wm">cookingfoil<span class="dot">.</span></span>
 <button type="button" id="adm-drawer-close" data-top-label="acc.close">✕</button></div>
 <nav class="adm-side-in" data-top-label="nav">${sidebarNav(current, false)}</nav></dialog>`;
 }
@@ -153,8 +153,8 @@ body.adm-shell{padding:0}
 #adm-menu{display:inline-flex;order:-1}
 .adm-side>.adm-hdr{flex-wrap:nowrap;gap:8px}
 .adm-side .hdr-right{display:contents}
-.adm-side .brand .wm{font-size:var(--fs-xl)}.adm-side .brand img{width:32px;height:32px}}
-@media (max-width:479px){.adm-side .brand .wm{display:none}}
+/* The brand lives in the menu, as on the desktop: the drawer carries it, so the bar doesn't repeat it (the heading stays for screen readers). */
+.adm-side .brand{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
 /* The account menu spans the phone's width under the bar, inside the same gutter the page keeps. */
 @media (max-width:640px){.adm-side .activity-account>.pop-list{left:12px;right:12px;width:auto}}
 /* Desktop: the sidebar is its own pane, cut from the page by its colour like the console client. Its brand
@@ -207,7 +207,8 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-drawer .adm-item{min-height:44px}
 .adm-drawer .adm-grp summary{min-height:44px;box-sizing:border-box}
 .adm-drawer-hd{flex:none;display:flex;align-items:center;gap:10px;padding:max(18px, env(safe-area-inset-top, 0px)) 16px 16px;border-bottom:1px solid var(--line);font-weight:var(--fw-bold)}
-.adm-drawer-hd b{font-size:var(--fs-lg);letter-spacing:-.01em}
+.adm-drawer-hd .wm{flex:1;font-family:'Baloo 2',inherit;font-size:var(--fs-xl);font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1}
+.adm-drawer-hd .wm .dot{color:var(--accent)}
 .adm-drawer-hd .logo{display:block}
 #adm-drawer-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel);color:var(--text);font-size:var(--fs-sm);line-height:1;cursor:pointer}
 #adm-drawer-close:hover{background:var(--sunk);color:var(--text)}
