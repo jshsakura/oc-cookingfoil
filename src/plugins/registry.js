@@ -47,15 +47,24 @@ export const HOOKS_OF = Object.freeze({ metadata: ["metadata"], art: ["art"], va
 /** Hooks that only decorate a listing: a failure of one does not count toward a pause. */
 const LISTING_HOOKS = new Set(["variants"]);
 
-/** A copy of the parsed keys a plugin may read but not change, and that is not the server's own Map. */
+const readOnlyCopies = new WeakMap();
+
+/**
+ * A copy of the parsed keys a plugin may read but not change, and that is not the server's own Map.
+ * One copy per source Map: the same prod.keys always arrives as the same object, so a plugin can
+ * tell by identity that nothing changed and keep what it worked out from them.
+ */
 function readOnlyKeys(keys) {
   if (!(keys instanceof Map)) return null;
+  const kept = readOnlyCopies.get(keys);
+  if (kept) return kept;
   const copy = new Map(keys);
   const refuse = () => { throw new TypeError("keys are read-only"); };
   copy.set = refuse;
   copy.delete = refuse;
   copy.clear = refuse;
-  return Object.freeze(copy);
+  readOnlyCopies.set(keys, Object.freeze(copy));
+  return readOnlyCopies.get(keys);
 }
 
 /** The hooks of a plugin that said needsKeys are handed the parsed prod.keys, for that call only. */

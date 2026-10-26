@@ -134,3 +134,19 @@ test("a trashed plugin's remembered keys are cleaned up", async () => {
   await env.registry.trash("tweaker");
   assert.equal(env.registry.variantKeyStatus("tweak"), null);
 });
+
+test("the same prod.keys always reaches a plugin as the same object, a new key file as a new one", async () => {
+  const d = makeDataDir();
+  const body = `const seen = []; export default { variants() { return []; }, async plan(a) { seen.push(a.keys); return { patches: [{ offset: 0, bytes: Buffer.from(String(seen.length > 1 && seen.at(-1) === seen.at(-2) ? "S" : "D")) }] }; } };`;
+  writePlugin(d, "same", { manifest: manifestOf("same", { provides: ["variant"], variantKeys: ["same"], needsKeys: true }), body });
+  const held = { keys: new Map([["header_key", "x"]]) };
+  const env = newRegistry(d, { keysProvider: () => held.keys });
+  await env.registry.init();
+  await env.registry.setEnabled("same", true, { confirmKeys: true });
+  const base = await serve(createVariants(env.registry));
+  const ask = async () => (await (await fetch(`${base}/g.nsp?same=1`)).text())[0];
+  assert.equal(await ask(), "D");
+  assert.equal(await ask(), "S", "second call: the identical object");
+  held.keys = new Map([["header_key", "z"]]);
+  assert.equal(await ask(), "D", "another key file is another object");
+});
