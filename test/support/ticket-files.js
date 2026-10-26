@@ -15,9 +15,10 @@ function keyPair(bits) {
 }
 
 /** A record: signature type, signature over `body` by `signer` (or `sigBytes` as given), padding, body. */
-function record(type, body, signer, sigBytes) {
+function record(type, body, signer, sigBytes, littleEndian = false) {
   const head = Buffer.alloc(align(4 + SIG_SIZE[type]));
-  head.writeUInt32BE(type, 0);
+  if (littleEndian) head.writeUInt32LE(type, 0);
+  else head.writeUInt32BE(type, 0);
   const sig = sigBytes ?? sign("sha256", body, signer);
   sig.copy(head, 4);
   return Buffer.concat([head, body]);
@@ -57,8 +58,11 @@ function ticketBody(issuer, mark) {
   return body;
 }
 
-/** A ticket signed by the chain's XS key; `fake` fills the signature with 0xFF as repackers do. */
-export function ticket({ issuer = "Root-CA00000003-XS00000020", mark = "TITLEKEY", fake = false } = {}) {
+/**
+ * A ticket signed by the chain's XS key, its signature type little-endian as a Switch ticket writes it
+ * (`bigEndian` for the other order); `fake` fills the signature with 0xFF as repackers do.
+ */
+export function ticket({ issuer = "Root-CA00000003-XS00000020", mark = "TITLEKEY", fake = false, bigEndian = false } = {}) {
   const body = ticketBody(issuer, mark);
-  return record(RSA2048, body, chain().xs.privateKey, fake ? Buffer.alloc(0x100, 0xff) : undefined);
+  return record(RSA2048, body, chain().xs.privateKey, fake ? Buffer.alloc(0x100, 0xff) : undefined, !bigEndian);
 }

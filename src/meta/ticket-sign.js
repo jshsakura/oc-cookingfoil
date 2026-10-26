@@ -10,7 +10,7 @@
  * does not verify, and that is what this tells. The root certificate is not in the package, so the CA
  * certificate is taken as found: a forged chain would pass here and still fail on the console.
  *
- * Record layout (ticket and certificates alike): u32 BE signature type, the signature, padding to a
+ * Record layout (ticket and certificates alike): u32 signature type (see recordAt), the signature, padding to a
  * 0x40 boundary, then the signed body. A certificate body is issuer (0x40), u32 BE key type, name
  * (0x40), u32, then the public key. A ticket body starts with its issuer, "Root-CA00000003-XS00000020",
  * whose last part names the certificate that signed it.
@@ -28,10 +28,14 @@ const MAX_CERTS = 8;
 const align = (n) => Math.ceil(n / 0x40) * 0x40;
 const text = (buf) => buf.toString("latin1").split("\0")[0];
 
-/** { type, sig, body, bodyAt } of the record at `at`, or null when it does not fit. */
-function recordAt(buf, at) {
+/**
+ * { type, sig, bodyAt } of the record at `at`, or null when it does not fit. A certificate writes its
+ * signature type big-endian; a Switch ticket writes it little-endian, so a ticket reads it either way.
+ */
+function recordAt(buf, at, eitherOrder = false) {
   if (buf.length < at + 4) return null;
-  const type = buf.readUInt32BE(at);
+  let type = buf.readUInt32BE(at);
+  if (!SIG_SIZE[type] && eitherOrder) type = buf.readUInt32LE(at);
   const size = SIG_SIZE[type];
   if (!size) return null;
   const bodyAt = at + align(4 + size);
@@ -78,7 +82,7 @@ const holds = (data, sig, type, key) => {
 /** Whether the ticket's signature holds against the certificates of the same package. Pure. */
 export function ticketSigned(tik, cert) {
   if (!Buffer.isBuffer(tik) || !Buffer.isBuffer(cert)) return false;
-  const t = recordAt(tik, 0);
+  const t = recordAt(tik, 0, true);
   if (!t) return false;
   const issuer = text(tik.subarray(t.bodyAt, t.bodyAt + NAME_BYTES));
   const cut = issuer.lastIndexOf("-");

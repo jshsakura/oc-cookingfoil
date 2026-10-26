@@ -12,6 +12,7 @@ test("the .cert file reads as its certificates with names, issuers and keys", ()
 
 test("a ticket signed by the package's XS certificate, itself signed by its CA, is signed", () => {
   assert.equal(ticketSigned(ticket(), chain().certFile), true);
+  assert.equal(ticketSigned(ticket({ bigEndian: true }), chain().certFile), true, "the signature type in either byte order");
 });
 
 test("a made-up ticket signature is not signed", () => {
