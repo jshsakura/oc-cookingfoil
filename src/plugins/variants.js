@@ -28,6 +28,8 @@ const SHOP_INFO_FRESH_MS = 30_000;
 const LIST_PARALLEL = 8;
 // Query keys the core keeps for plugins that came before the plugin system: "rewrap" is in every old client's cached shop info.
 export const LEGACY_KEYS = Object.freeze(["rewrap"]);
+const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
+const CARD_ICONS = ["warning", "info"];
 const OPTION_KEY_RE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
 
 /** { firmware?, region? } from the header's value; anything not of the right shape is left out. Pure. */
@@ -155,6 +157,19 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
    * confirm is { title, body }, or one text (older plugins). progress is shown while the server prepares the file, failed
    * when it could not; hashesChange (true) says the bytes differ from the original, so a hash check is not expected to match.
    */
+  /** The optional look of an option. A wrong part is left out and the rest stays. */
+  const looksOf = (raw) => {
+    const color = (v) => (typeof v === "string" && HEX_COLOR_RE.test(v) ? v : null);
+    const out = {};
+    const b = raw.button;
+    if (b && typeof b === "object" && color(b.color) && color(b.text)) out.button = { color: b.color, stripe: color(b.stripe), text: b.text };
+    const c = raw.card;
+    if (c && typeof c === "object" && color(c.color) && color(c.text)) {
+      out.card = { color: c.color, text: c.text, ...(CARD_ICONS.includes(c.icon) ? { icon: c.icon } : {}) };
+    }
+    return out;
+  };
+
   function optionOf(plugin, raw, lang, keys) {
     if (!raw || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id) return null;
     const label = textsOf(raw.label);
@@ -165,7 +180,7 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
       const blocked = dialogOf(raw.blocked);
       const extras = ["query", "note", "confirm", "progress", "failed", "hashesChange"];
       if (!blocked || extras.some((k) => raw[k] !== undefined)) return null;
-      return { id: raw.id, plugin, label: text(label), blocked: dialog(blocked) };
+      return { id: raw.id, plugin, label: text(label), blocked: dialog(blocked), ...looksOf(raw) };
     }
     const note = raw.note === undefined ? null : textsOf(raw.note);
     const progress = raw.progress === undefined ? null : textsOf(raw.progress);
@@ -187,6 +202,7 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
       ...(progress ? { progress: text(progress) } : {}),
       ...(failed ? { failed: text(failed) } : {}),
       ...(raw.hashesChange === true ? { hashesChange: true } : {}),
+      ...looksOf(raw),
       query: Object.fromEntries(entries),
     };
   }
