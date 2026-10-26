@@ -188,14 +188,18 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-item[aria-current="page"] .count{background:var(--bg);color:var(--text)}
 .adm-item .count{margin-left:auto}
 .adm-task{font-size:12.5px;font-weight:600;color:var(--muted);padding:9px 14px}
-.adm-drawer{position:fixed;left:0;top:0;width:min(320px,86vw);height:100vh;max-height:100vh;margin:0;border:0;
-  border-right:1px solid var(--line);border-radius:0 20px 20px 0;padding:0;background:var(--bg);color:var(--text)}
+/* The drawer is as tall as what the phone shows (dvh leaves out the browser bars) and square, so nothing at
+   the top or the foot hides under a bar or a rounded corner; only the menu scrolls. */
+.adm-drawer{position:fixed;left:0;top:0;width:min(320px,86vw);height:100vh;height:100dvh;max-height:none;margin:0;border:0;
+  border-right:1px solid var(--line);border-radius:0;padding:0;background:var(--bg);color:var(--text);box-sizing:border-box}
+.adm-drawer[open]{display:flex;flex-direction:column}
 .adm-drawer::backdrop{background:rgb(0 0 0 / .38)}
-.adm-drawer .adm-side-in{display:grid;gap:6px;align-content:start;grid-auto-rows:min-content;overflow:auto;height:calc(100vh - 58px);padding:10px 12px 24px;box-sizing:border-box}
+.adm-drawer .adm-side-in{display:grid;gap:6px;align-content:start;grid-auto-rows:min-content;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;
+  padding:12px 12px calc(32px + env(safe-area-inset-bottom, 0px));box-sizing:border-box}
 /* Phone menu rows keep a real touch height without stretching to fill. */
 .adm-drawer .adm-item{min-height:44px}
 .adm-drawer .adm-grp summary{min-height:44px;box-sizing:border-box}
-.adm-drawer-hd{display:flex;align-items:center;gap:10px;padding:15px 16px;border-bottom:1px solid var(--line);font-weight:800}
+.adm-drawer-hd{flex:none;display:flex;align-items:center;gap:10px;padding:max(18px, env(safe-area-inset-top, 0px)) 16px 16px;border-bottom:1px solid var(--line);font-weight:800}
 .adm-drawer-hd b{font-size:16px;letter-spacing:-.01em}
 .adm-drawer-hd .logo{display:block}
 #adm-drawer-close{margin-left:auto;border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer;width:44px;height:44px;border-radius:10px}

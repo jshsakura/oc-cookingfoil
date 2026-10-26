@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn, SECRET } from './admin-sign-in';
-import { generate } from 'otplib';
+import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error a plain ES module shared with the unit tests
@@ -36,10 +35,9 @@ test('a new plugin is listed off, switches on and off, is deleted into the trash
   const toggle = row.getByRole('switch');
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
   await toggle.click();
-  // This server is guarded by an authenticator only, so the dialog lists what the plugin asks for and asks for a code.
+  // The dialog lists what the plugin asks for and asks no password or code.
   await expect(page.locator('#ask-text')).toContainText('요구하는 것');
-  await expect(page.locator('#ask-text')).toContainText('6자리 코드');
-  await page.locator('#ask-input').fill(await generate({ secret: SECRET }));
+  await expect(page.locator('#ask-input')).toBeHidden();
   await page.locator('#ask-ok').click();
   await expect(page.locator('#toast')).toContainText('켰습니다');
   await expect(row).toContainText('켜짐');

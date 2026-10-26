@@ -1,5 +1,5 @@
 // Installing a plugin from a zip on the admin page: off unless the server allows it, two steps, always
-// switched off on arrival, and switching on asks for the admin password again.
+// switched off on arrival, and switching on takes no password.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -10,11 +10,10 @@ import { zip, good, INDEX_JS } from "../support/zip-builder.js";
 
 // The environment is read when the server's modules load, so it is set before any of them is imported.
 process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "install-api-data-"));
-process.env.COOK_ADMIN_PASSWORD = "correct horse battery";
+
 const { makeDataDir, newRegistry } = await import("../support/plugin-fixtures.js");
 const { mountPluginsApi } = await import("../../src/routes/admin/plugins-api.js");
 const { createInstaller, STAGE_TTL_MS } = await import("../../src/plugins/installer.js");
-const { resetReconfirm } = await import("../../src/security/admin-reconfirm.js");
 const { TOKEN_BLOCKED_RE } = await import("../../src/routes/admin-page.js");
 
 let env, installer, server, base, dataDir;
@@ -42,7 +41,6 @@ test("without COOK_PLUGIN_INSTALL=1 nothing can be uploaded or confirmed, and th
   delete process.env.COOK_PLUGIN_INSTALL;
   const snap = await json(await fetch(`${base}/api/plugins`));
   assert.equal(snap.installAllowed, false);
-  assert.equal(snap.reconfirm, "password", "the page is told it will be asked for the admin password");
   const r = await upload(zip(good()));
   assert.equal(r.status, 403);
   assert.equal((await r.json()).code, "install-off");
@@ -105,30 +103,13 @@ test("a waiting upload expires, and one that was replaced cannot be confirmed", 
   assert.equal((await post("/api/plugins/install/confirm", { stagedId: "nope" })).status, 400);
 });
 
-test("switching a plugin on asks for the admin password again; off and delete do not", async () => {
-  resetReconfirm();
-  assert.equal((await post("/api/plugins/demo/enabled", { on: true })).status, 403);
-  const wrong = await post("/api/plugins/demo/enabled", { on: true, password: "nope" });
-  assert.equal(wrong.status, 403);
-  assert.equal((await wrong.json()).code, "password-wrong");
+test("switching a plugin on, off and deleting it take no password", async () => {
   assert.equal(env.registry.view("demo").state, "off");
-  const ok = await post("/api/plugins/demo/enabled", { on: true, password: "correct horse battery" });
+  const ok = await post("/api/plugins/demo/enabled", { on: true });
   assert.equal(ok.status, 200);
   assert.equal((await ok.json()).plugin.state, "on");
   assert.equal((await post("/api/plugins/demo/enabled", { on: false })).status, 200);
   assert.equal((await post("/api/plugins/demo/trash", {})).status, 200);
-});
-
-test("five wrong passwords lock asking for a while, even for the right one", async () => {
-  resetReconfirm();
-  await post("/api/plugins/install/confirm", { stagedId: "x" });
-  const staged = await json(await upload(zip(good())));
-  await post("/api/plugins/install/confirm", { stagedId: staged.stagedId });
-  for (let i = 0; i < 5; i++) assert.equal((await post("/api/plugins/demo/enabled", { on: true, password: "bad" + i })).status, 403);
-  const locked = await post("/api/plugins/demo/enabled", { on: true, password: "correct horse battery" });
-  assert.equal(locked.status, 429);
-  assert.equal((await locked.json()).code, "password-locked");
-  resetReconfirm();
 });
 
 test("automation tokens are refused the install routes", () => {
@@ -143,7 +124,6 @@ test("a stopped server's leftover uploads are cleared at start", async () => {
 
 test("pressing install twice installs once; a second upload or the timer cannot take the waiting one away mid-install", async () => {
   process.env.COOK_PLUGIN_INSTALL = "1";
-  resetReconfirm();
   const slow = { ...env.registry, list: env.registry.list, installFrom: async (...args) => { await new Promise((r) => setTimeout(r, 150)); return env.registry.installFrom(...args); } };
   const own = createInstaller({ registry: slow, dataDir, now: () => clock.t });
   const staged = await own.stage(zip([{ name: "plugin.json", data: JSON.stringify({ id: "twice", apiVersion: 1, version: "1.0.0", name: { en: "Twice" }, provides: ["metadata"] }) }, { name: "index.js", data: INDEX_JS }]));
@@ -176,27 +156,16 @@ test("what is on disk is checked again at install: a folder changed since the lo
   await own.sweep();
 });
 
-test("two hundred wrong passwords at once are counted as they start: five are checked, the rest are locked out", async () => {
-  resetReconfirm();
-  const { reconfirm } = await import("../../src/security/admin-reconfirm.js");
-  const req = { webUser: { kind: "password", name: "nobody" } };
-  const results = await Promise.all(Array.from({ length: 200 }, () => reconfirm(req, { password: "wrong password here" })));
-  assert.equal(results.filter((r) => r.reason === "wrong").length, 5);
-  assert.equal(results.filter((r) => r.reason === "locked").length, 195);
-  resetReconfirm();
-});
-
 const freshZip = () => zip([{ name: "plugin.json", data: JSON.stringify({ id: "fresh", apiVersion: 1, version: "1.0.0", name: { en: "Fresh" }, provides: ["metadata"] }) }, { name: "index.js", data: INDEX_JS }]);
 
 test("a plugin that was loaded and is replaced waits for a restart; the upload note follows the folder", async () => {
-  resetReconfirm();
   const staged = await json(await upload(freshZip()));
   await post("/api/plugins/install/confirm", { stagedId: staged.stagedId, overwrite: true });
-  assert.equal((await post("/api/plugins/fresh/enabled", { on: true, password: "correct horse battery" })).status, 200, "first time in this process");
+  assert.equal((await post("/api/plugins/fresh/enabled", { on: true })).status, 200, "first time in this process");
   const again = await json(await upload(freshZip()));
   const done = await json(await post("/api/plugins/install/confirm", { stagedId: again.stagedId, overwrite: true }));
   assert.equal(done.plugin.restartNeeded, true);
-  const refused = await post("/api/plugins/fresh/enabled", { on: true, password: "correct horse battery" });
+  const refused = await post("/api/plugins/fresh/enabled", { on: true });
   assert.equal(refused.status, 409);
   assert.equal((await refused.json()).code, "restart-needed");
   assert.equal(env.registry.view("fresh").origin.source, "upload");

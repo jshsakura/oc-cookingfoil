@@ -17,6 +17,8 @@ export const PLUGINS_HTML = `<section id="tab-settings">
     <div class="actions" id="pl-install-on"><button type="button" id="pl-install-btn">${top("pl.installBtn")}</button><span class="muted" id="pl-install-state" role="status"></span></div>
     <input type="file" id="pl-install-file" accept=".zip,application/zip" hidden>`, { level: "h3" })}
   ${box("pl-installed", top("pl.listH"), `<div class="pl-list" id="pl-list"></div>`, { level: "h3", meta: `<span id="pl-count"></span>` })}
+  <div id="pl-agents" hidden>${box("pl-agents-box", top("pl.agH"), `<p class="muted">${top("pl.agLead")}</p>
+    <div class="pl-list" id="pl-agents-list"></div>`, { level: "h3" })}</div>
   <div id="pl-trashed-h" hidden>${box("pl-trash", top("pl.trashedH"), `<div class="pl-list" id="pl-trashed"></div>`, { level: "h3" })}</div>
 </section>`;
 
@@ -41,13 +43,40 @@ export const PLUGINS_CSS = `
 .pl-sw[aria-checked="true"] .switch::after{transform:translateX(12px)}
 .pl-sw:disabled{opacity:.6;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){.pl-sw .switch,.pl-sw .switch::after{transition:none}}
+.pl-ag{display:grid;gap:6px}
+.pl-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pl-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:100px;padding:2px 4px 2px 10px;font-size:13px}
+.pl-chip button{min-width:28px;height:26px;padding:0 6px}
 .pl-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:640px){.pl-row{grid-template-columns:1fr}.pl-act{justify-content:flex-start}}
 `;
 
 export const PLUGINS_SCRIPT = /* js */ `
 const plT=(k,v)=>{let s=topText('pl.'+k);if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
-let plData=null;
+let plData=null;let plAg=null;
+const plSrc=(s)=>s.startsWith('agent:')?s.slice(6):plT('agS.'+s);
+async function plSaveOrder(field,list){
+  try{plAg=await api('/admin/api/plugins/agents/order',{method:'POST',body:{[field]:list}});toast(plT('tAgOrder'));}
+  catch(err){toast(err.message);}plAgRender();}
+function plAgRow(f){
+  const list=(plAg.order[f]||plAg.defaults[f]).filter((x)=>x!=='admin');
+  const row=el('div',null,'pl-row pl-ag');row.append(el('b',plT('agF.'+f)));
+  const chips=el('div',null,'pl-chips');
+  list.forEach((src,i)=>{
+    const c=el('span',null,'pl-chip');c.append(el('span',plSrc(src)));
+    const up=btn('\u2191',()=>{const n=[...list];[n[i-1],n[i]]=[n[i],n[i-1]];plSaveOrder(f,n);});
+    const dn=btn('\u2193',()=>{const n=[...list];[n[i+1],n[i]]=[n[i],n[i+1]];plSaveOrder(f,n);});
+    up.title=plT('agUp');up.setAttribute('aria-label',plT('agUp'));dn.title=plT('agDown');dn.setAttribute('aria-label',plT('agDown'));
+    up.disabled=i===0;dn.disabled=i===list.length-1;c.append(up,dn);chips.append(c);});
+  row.append(chips);
+  if(plAg.order[f])row.append(btn(plT('agUsual'),()=>plSaveOrder(f,null)));
+  return row;}
+function plAgRender(){
+  const box=$('pl-agents');if(!plAg||!plAg.plugins.length){box.hidden=true;return;}
+  box.hidden=false;$('pl-agents-list').replaceChildren(...plAg.fields.map(plAgRow));}
+async function plClearValues(p){if(!await ask(plT('agAsk',{name:plName(p)})))return;
+  try{await api('/admin/api/plugins/agents/clear',{method:'POST',body:{id:p.id}});toast(plT('tAgClear'));}
+  catch(err){toast(err.message);}loadPlugins();}
 const plWhen=(t)=>t?new Date(t).toLocaleString(adminLang==='ko'?'ko-KR':adminLang):'';
 const PL_STATE={on:'s.on',off:'s.off',cooling:'s.cooling',failed:'s.failed','auto-disabled':'s.auto','crash-disabled':'s.crash',broken:'s.broken',incompatible:'s.incompat',missing:'s.missing',starting:'s.starting'};
 const PL_REASON={'start-failed':'r.start',crash:'r.crash','crash-during-start':'r.crash','unhandled-rejection':'r.rej'};
@@ -104,12 +133,15 @@ function plRow(p){
   if(p.disabledReason&&PL_REASON[p.disabledReason]&&!p.enabled)main.append(el('span',plT(PL_REASON[p.disabledReason]),'err'));
   if(p.lastError&&p.state!=='on'&&p.state!=='off')main.append(el('span',plT('lastErr',{when:plWhen(p.lastErrorAt),msg:p.lastError}),'err'));
   if(p.events&&(p.events.handled||p.events.dropped||p.events.failed||p.events.queued))main.append(el('span',plT('evStats',{handled:p.events.handled,dropped:p.events.dropped,failed:p.events.failed})));
+  const ag=plAg&&plAg.plugins.find((x)=>x.id===p.id);
+  if(ag)main.append(el('span',plT('agStats',{asked:ag.asked,answered:ag.answered,empty:ag.empty,failed:ag.failed,waiting:ag.waiting})));
   if(p.state==='cooling')main.append(el('span',plT('retry',{when:plWhen(p.retryAt)})));
   const act=el('div',null,'pl-act');
   const usable=!['broken','incompatible','missing'].includes(p.state);
   if(p.restartNeeded)main.append(el('span',plT('restartNeeded'),'err'));
   act.append(plToggle(p,name,usable&&!p.restartNeeded&&p.state!=='crash-disabled'));
   if(p.cache&&p.cache.bytes>0)act.append(btn(plT('cacheClear'),()=>plClearCache(p)));
+  if(ag&&ag.cached>0)act.append(btn(plT('agClear'),()=>plClearValues(p)));
   if(p.state!=='missing'){const dl=el('a',plT('download'),'btn');dl.href='/admin/api/plugins/'+encodeURIComponent(p.id)+'/download';dl.setAttribute('download','');act.append(dl);}
   if(p.state!=='missing')act.append(btn(plT('del'),()=>plDelete(p,name),'danger'));
   r.append(main,act);return r;}
@@ -124,18 +156,12 @@ function plRender(){if(!plData)return;
   $('pl-list').replaceChildren(...(plData.plugins.length?plData.plugins.map(plRow):[el('p',plT('none'),'muted')]));
   $('pl-trashed-h').hidden=!plData.trashed.length;
   $('pl-trashed').replaceChildren(...plData.trashed.map(plTrashedRow));}
-async function loadPlugins(){try{plData=await api('/admin/api/plugins');plRender();}
+async function loadPlugins(){try{plData=await api('/admin/api/plugins');plAg=await api('/admin/api/plugins/agents').catch(()=>null);plAgRender();plRender();}
   catch(err){if(err.message!=='session')toast(plT('loadFail',{err:err.message}));}}
 async function plSwitch(p,on){
-  // Switching on runs the plugin's code in this server: show what it asks for and ask for the password again.
-  let password,code;
-  if(on){const text=plT('askEnable',{name:plName(p),perms:plPerms(p)});
-    const kind=plData?plData.reconfirm:'password';
-    if(kind==='unavailable'){toast(plT('e.noPassword'));return;}
-    if(kind==='none'){if(!await ask(plT('askEnableNoPw',{name:plName(p),perms:plPerms(p)})))return;}
-    else if(kind==='totp'){code=await askText(plT('askEnableTotp',{name:plName(p),perms:plPerms(p)}),'');if(!code)return;}
-    else{password=await askText(text,'',{secret:true});if(!password)return;}}
-  try{await api('/admin/api/plugins/'+encodeURIComponent(p.id)+'/enabled',{method:'POST',body:{on,confirmKeys:on&&p.needsKeys,password,code}});toast(plT(on?'tOn':'tOff'));}
+  // Switching on runs the plugin's code in this server: show what it asks for before it is on.
+  if(on&&!await ask(plT('askEnableNoPw',{name:plName(p),perms:plPerms(p)})))return;
+  try{await api('/admin/api/plugins/'+encodeURIComponent(p.id)+'/enabled',{method:'POST',body:{on,confirmKeys:on&&p.needsKeys}});toast(plT(on?'tOn':'tOff'));}
   catch(err){toast(err.message);}loadPlugins();}
 async function plDelete(p,name){if(!await ask(plT('askDel',{name})))return;
   const dropData=await ask(plT('askDrop'));

@@ -70,7 +70,9 @@ async function loadTfa(){
 function renderAdminPassword(s){
   $('ap-status').textContent=s.passwordSaved?topText('as.pwSaved')
     :s.passwordEnv?topText('as.pwEnv'):topText('as.pwNone');
-  $('ap-current').hidden=!s.password;$('ap-clear').hidden=!s.passwordSaved;}
+  $('ap-current').hidden=!s.password;$('ap-clear').hidden=!s.passwordSaved;
+  // With an authenticator set up, its code stands in for a forgotten password.
+  const ph=topText(s.authenticator?'as.curOrCode':'as.curPh');$('ap-current').placeholder=ph;$('ap-current').setAttribute('aria-label',ph);}
 $('ap-form').addEventListener('submit',async(e)=>{e.preventDefault();
   const password=$('ap-new').value;if(password!==$('ap-new2').value){toast(topText('as.pwMismatch'));return;}
   try{const s=await api('/admin/api/admin-password',{method:'POST',body:{current:$('ap-current').value,password}});

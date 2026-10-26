@@ -9,9 +9,11 @@
  *   POST /admin/api/plugins/install          body: the zip itself (application/zip). Only while COOK_PLUGIN_INSTALL=1.
  *                                            Unpacks and checks, installs nothing -> { stagedId, manifest, existing, sha256, expiresAt }
  *   POST /admin/api/plugins/install/confirm  { stagedId, overwrite? }  installs it, switched off; 409 exists (+ existing) without overwrite
- *   POST /admin/api/plugins/:id/enabled      { on, confirmKeys?, password? }   switching ON asks for the admin's password again;
- *                                            needsKeys plugins want confirmKeys: true
+ *   POST /admin/api/plugins/:id/enabled      { on, confirmKeys? }   needsKeys plugins want confirmKeys: true
  *   POST /admin/api/plugins/:id/cache/clear  empties the plugin's cache folder (each plugin's cache is capped; see plugins/cache.js)
+ *   GET  /admin/api/plugins/agents           { fields, order, defaults, plugins, sources }: where each field's value is read from first
+ *   POST /admin/api/plugins/agents/order     { <field>: [sources] | null }  saves the order at once; null goes back to the usual
+ *   POST /admin/api/plugins/agents/clear     { id }  deletes what that plugin said about titles (it is asked again)
  *   POST /admin/api/plugins/:id/trash        { dropData? }  moves the folder to the plugins' own trash;
  *                                            dropData also deletes its cache and stored settings
  * Errors answer { error } in the page's language with the registry's status (404, 409, 400).
@@ -21,11 +23,12 @@ import debug from "../../debug.js";
 import { PluginError } from "../../plugins/registry.js";
 import { pluginCache, pluginInstaller, pluginRegistry } from "../../plugins/instance.js";
 import { installAllowed } from "../../plugins/installer.js";
+import { agentState, clearAgentValues, ID_RE as AGENT_ID_RE, OrderError, setAgentOrder } from "../../plugins/agent-admin.js";
+import { agentParts } from "../../plugins/instance.js";
 import { UNPACK_LIMITS } from "../../plugins/unpack.js";
 import { PackError, packPlugin } from "../../plugins/pack.js";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
-import { reconfirm, reconfirmKind } from "../../security/admin-reconfirm.js";
 import { requestLang } from "../../meta/langs.js";
 import { TOP_WORDS } from "./top-i18n.js";
 
@@ -36,13 +39,12 @@ const ERROR_WORD = {
   "keys-confirm-required": "pl.e.keys", exists: "pl.e.exists", "install-off": "pl.e.installOff", "bad-package": "pl.e.package",
   "stage-gone": "pl.e.stageGone", busy: "pl.e.busy", "restart-needed": "pl.e.restart",
 };
-const REASON_WORD = { wrong: "pl.e.password", unavailable: "pl.e.noPassword", locked: "pl.e.locked" };
 const word = (lang, key) => TOP_WORDS[lang]?.[key] ?? TOP_WORDS.en[key];
 
 async function snapshot(registry, req, cache, events) {
   const used = await cache.usage();
   const plugins = registry.list().map((p) => ({ ...p, cache: used[p.id] ?? { bytes: 0, files: 0, capBytes: cache.capBytes }, ...(events ? { events: events.statsOf(p.id) } : {}) }));
-  return { safeMode: registry.safeMode, installAllowed: installAllowed(), reconfirm: reconfirmKind(req), plugins, trashed: await registry.listTrashed() };
+  return { safeMode: registry.safeMode, installAllowed: installAllowed(), plugins, trashed: await registry.listTrashed() };
 }
 
 export function mountPluginsApi(router, requireSession, registry = pluginRegistry(), installer = pluginInstaller(), cache = pluginCache(), events = null) {
@@ -110,21 +112,33 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
   router.post("/api/plugins/:id/enabled", handle(async (req, res) => {
     const { id } = req.params;
     if (!ID_RE.test(id) || typeof req.body?.on !== "boolean") return bad(res, req);
-    if (req.body.on) {
-      const again = await reconfirm(req, { password: req.body.password, code: req.body.code });
-      if (!again.ok) {
-        debug.log("admin: switching plugin %s on was refused: %s", id, again.reason);
-        return res.status(again.reason === "locked" ? 429 : 403).json({ error: word(requestLang(req), REASON_WORD[again.reason]), code: `password-${again.reason}`, ...(again.retryAfter ? { retryAfter: again.retryAfter } : {}) });
-      }
-    }
     const plugin = await registry.setEnabled(id, req.body.on, { confirmKeys: req.body.confirmKeys === true });
     res.json({ ok: true, plugin });
+  }));
+
+  router.get("/api/plugins/agents", handle(async (req, res) => res.json(agentState())));
+
+  router.post("/api/plugins/agents/order", handle(async (req, res) => {
+    try {
+      setAgentOrder(req.body);
+    } catch (err) {
+      if (err instanceof OrderError) return res.status(400).json({ error: word(requestLang(req), "pl.e.agentOrder"), code: `agent-order-${err.code}` });
+      throw err;
+    }
+    res.json({ ok: true, ...agentState() });
+  }));
+
+  router.post("/api/plugins/agents/clear", handle(async (req, res) => {
+    const id = req.body?.id;
+    if (typeof id !== "string" || !AGENT_ID_RE.test(id) || !(await clearAgentValues(id))) return bad(res, req);
+    res.json({ ok: true, ...agentState() });
   }));
 
   router.post("/api/plugins/:id/cache/clear", handle(async (req, res) => {
     const { id } = req.params;
     if (!ID_RE.test(id)) return bad(res, req);
     await cache.clear(id);
+    await agentParts().store.forget(id);
     res.json({ ok: true, ...(await snapshot(registry, req, cache, events)) });
   }));
 
@@ -132,6 +146,7 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
     const { id } = req.params;
     if (!ID_RE.test(id)) return bad(res, req);
     const dropData = req.body?.dropData === true;
+    if (dropData) await agentParts().store.forget(id);
     res.json({ ok: true, ...(await registry.trash(id, { dropCache: dropData, dropSettings: dropData })) });
   }));
 }
