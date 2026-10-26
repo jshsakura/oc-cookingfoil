@@ -19,7 +19,7 @@ const PAGES: [string, string, string][] = [
   ['/admin/logs/downloads', 'xf-cards', '다운로드'],
   ['/admin/logs/clients', 'cl-list', '클라이언트 로그'],
   ['/admin/logs/security', 'lockouts', '차단과 거부'],
-  ['/admin/notifications', 'tab-alerts', '알림 설정'],
+  ['/admin/settings/notifications', 'tab-alerts', '알림 설정'],
   ['/admin/client', 'tab-client', '클라이언트 배포'],
   ['/admin/settings/server', 'ss-list', '서버 동작'],
   ['/admin/settings/integrations', 'intg-h', '외부 서비스'],
@@ -150,7 +150,9 @@ test.describe('on a phone', () => {
 
 test('dictionary text keeps its links and never shows a raw key or source', async ({ page }) => {
   await signIn(page);
+  // The old address of the alerts page still lands on it, now under the settings.
   await page.goto('/admin/notifications');
+  await expect(page).toHaveURL(/\/admin\/settings\/notifications(?:#alerts)?$/);
   await expect(page.locator('#tab-alerts a[href="https://t.me/BotFather"]')).toBeVisible();
   await page.goto('/admin/settings/integrations');
   await expect(page.locator('.intg-steps a').first()).toBeVisible();
