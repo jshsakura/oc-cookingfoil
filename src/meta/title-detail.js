@@ -19,6 +19,7 @@ import * as titledbVersions from "./titledb-versions.js";
 import * as userPatches from "./user-patches.js";
 import * as gameDescriptions from "./game-descriptions.js";
 import * as itemVerified from "./item-verified.js";
+import { valueOf, ADMIN, TITLEDB, LOCAL } from "./field-merge.js";
 import * as shopCache from "./shop-cache.js";
 import { titleKeyNeed } from "./key-needs.js";
 import { findingOf, signedOf } from "./file-integrity.js";
@@ -113,13 +114,18 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     id: base,
     // A reader who asked: `names` has the admin's name laid over titledb's language by language, so the
     // admin's in that language, titledb's in it, then English. Without one the admin's name wins outright.
-    name: (asked ? null : ownName(gameDescriptions.names(base), lang)) ?? (nameLang ? names[nameLang] : null) ?? fromDb?.name ?? extracted?.name ?? null,
-    publisher: fromDb?.publisher ?? extracted?.publisher ?? null,
+    name: valueOf("name", {
+      [ADMIN]: () => (asked ? null : ownName(gameDescriptions.names(base), lang)),
+      names: () => (nameLang ? names[nameLang] : null),
+      [TITLEDB]: fromDb?.name,
+      [LOCAL]: extracted?.name,
+    }, { order: [ADMIN, "names", TITLEDB, LOCAL] }),
+    publisher: valueOf("publisher", { [TITLEDB]: fromDb?.publisher, [LOCAL]: extracted?.publisher }),
     // What the admin wrote wins over every source; descriptionCustom says they did.
     // titledb's text per language when it has them; one kept without languages (a game file's) is shown as it is.
     description: ownDescription ?? (asked && descriptions && Object.keys(descriptions).length
       ? (descriptionLang && descriptions[descriptionLang]) || null
-      : fromDb?.description ?? extracted?.description ?? null),
+      : valueOf("description", { [TITLEDB]: fromDb?.description, [LOCAL]: extracted?.description }, { order: [TITLEDB, LOCAL] })),
     descriptionCustom: Boolean(ownDescription),
     // Extra information only the admin writes (what to install with it, space,
     // version); kept apart from the description, which titledb may refresh.
@@ -133,13 +139,13 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     category: categoryLabels ? categoryLabels.join(", ") : null,
     categories: categories ?? null,
     categoryLabels: categoryLabels ?? null,
-    releaseDate: fromDb?.releaseDate ?? extracted?.releaseDate ?? null,
+    releaseDate: valueOf("releaseDate", { [TITLEDB]: fromDb?.releaseDate, [LOCAL]: extracted?.releaseDate }),
     region: fromDb?.region ?? null,
     rating: fromDb?.rating ?? null,
     // Why the age rating is what it is, e.g. ["약물"]; a client can show them beside it.
     ratingContent: normalizeCategories(fromDb?.ratingContent, MAX_RATING_REASONS) ?? null,
     numberOfPlayers: fromDb?.numberOfPlayers ?? null,
-    size: fromDb?.size ?? extracted?.size ?? null,
+    size: valueOf("size", { [TITLEDB]: fromDb?.size, [LOCAL]: extracted?.size }),
     // With ?lang=, the icon and banner of that language's release when it has its own art.
     // A banner is drawn from the icon, so a game with an icon has one.
     iconUrl: art(`/api/library/icon/${base}`, artIn(iconSource, iconKnown)),
