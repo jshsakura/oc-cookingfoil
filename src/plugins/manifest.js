@@ -4,6 +4,8 @@
  *
  * parseManifest(raw, dirName) -> { ok: true, manifest } | { ok: false, problems: [code] }
  *   problems are stable codes the admin page words ("bad-id", "no-name", ...).
+ * "console" lists which facts about the asking console the plugin wants (CONSOLE_ITEMS); it is handed
+ * only those, never the rest.
  * apiVersion is not judged here: the loader says "incompatible" for a well-formed manifest of another
  * version, which is not the same as broken.
  *
@@ -13,6 +15,8 @@
 
 export const API_VERSION = 1;
 export const PROVIDES = Object.freeze(["metadata", "art", "variant", "task"]);
+/** What a console may tell a plugin about itself, and only when the manifest asks for it by name. */
+export const CONSOLE_ITEMS = Object.freeze(["firmware", "language", "region", "clientVersion"]);
 export const MAX_MANIFEST_BYTES = 64 * 1024;
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
@@ -53,6 +57,8 @@ export function parseManifest(raw, dirName) {
   if (m.needsKeys !== undefined && typeof m.needsKeys !== "boolean") problems.push("bad-needs-keys");
   if (m.settings !== undefined && !isObj(m.settings)) problems.push("bad-settings");
   if (m.variantKeys !== undefined && !(isStrList(m.variantKeys) && m.variantKeys.every((k) => QUERY_KEY_RE.test(k)))) problems.push("bad-variant-keys");
+  if (m.console !== undefined && !(Array.isArray(m.console) && m.console.every((c) => CONSOLE_ITEMS.includes(c)) && new Set(m.console).size === m.console.length)) problems.push("bad-console");
+  else if (m.console?.length && Array.isArray(m.provides) && !m.provides.includes("variant")) problems.push("console-without-variant");
   if (m.variantKeys?.length && Array.isArray(m.provides) && !m.provides.includes("variant")) problems.push("variant-keys-without-variant");
   if (problems.length) return { ok: false, problems };
 
@@ -71,6 +77,7 @@ export function parseManifest(raw, dirName) {
       needsKeys: m.needsKeys === true,
       settings: m.settings ?? {},
       variantKeys: m.variantKeys ?? [],
+      console: m.console ?? [],
     },
   };
 }

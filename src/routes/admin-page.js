@@ -72,6 +72,7 @@ import { mountKeysApi } from "./admin/keys-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
 import { mountTrashApi } from "./admin/trash-api.js";
+import { mountPluginsApi } from "./admin/plugins-api.js";
 import { mountLibraryOrganizeApi } from "./admin/library-organize-api.js";
 import { mountLibraryBrowseApi } from "./admin/library-browse-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
@@ -155,7 +156,7 @@ function clientBuildWarnings() {
 // the trash, the one delete nothing brings back. Restoring from the trash and undoing a move
 // stay open. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty)(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty|plugins\/(?:rescan|restore|[^/]+\/(?:enabled|trash)))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 // Reads a token may not make either: the token list (tokens never handle tokens), the admin
 // login's second step, and where consoles and accounts connected from.
@@ -572,6 +573,7 @@ export default function adminPageRouter() {
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
   mountTrashApi(router, requireSession);
+  mountPluginsApi(router, requireSession);
   mountLibraryOrganizeApi(router, requireSession);
   mountLibraryBrowseApi(router, requireSession);
   mountInboxApi(router, requireSession);

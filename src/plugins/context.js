@@ -52,6 +52,8 @@ export function makeCtx(manifest, { dataDir, settingsOf, keysReader, fetchImpl, 
   const say = (level) => (...args) => debug?.[level]?.(`plugin ${id}: ${args.map(String).join(" ")}`);
   const ctx = {
     id,
+    // Which facts about the asking console this plugin asked for in its manifest; hooks get only these.
+    console: Object.freeze({ wants: Object.freeze([...manifest.console]) }),
     settings: { get: (key) => settingsOf?.(id)?.[key] ?? manifest.settings?.[key]?.default },
     fetch: limitedFetch(manifest.hosts, fetchImpl),
     log: { info: say("info"), warn: say("warn"), error: say("error") },

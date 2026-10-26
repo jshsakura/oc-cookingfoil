@@ -9,7 +9,7 @@
  *                                           so the caller does not await it before listening)
  *   registry.list()                         every plugin as the admin page shows it (see view())
  *   registry.setEnabled(id, on, { confirmKeys })
- *   registry.callHook(id, kind, args)       never throws: { value } | { skipped } | { error }
+ *   registry.callHook(id, kind, args, { lang, console })   never throws: { value } | { skipped } | { error }
  *   registry.rescan() / startWatching()     folders appearing and disappearing, without a restart
  *   registry.trash(id, opts) / listTrashed() / restore(name)
  *   registry.recordVariantKeys(id, keys) / variantKeyStatus(key)
@@ -277,7 +277,17 @@ export function createRegistry({
     return message;
   }
 
-  async function callHook(id, kind, args) {
+  /** The facts about the asking console a plugin asked for, and nothing else. */
+  function consoleFor(id, facts) {
+    const wants = entries.get(id)?.manifest?.console ?? [];
+    return Object.fromEntries(wants.filter((k) => facts?.[k] !== undefined).map((k) => [k, facts[k]]));
+  }
+
+  /**
+   * call: { lang?, console? } the caller knows (the request's language, what the console told it). The hook
+   * gets (args, { signal, lang, console }) with console cut down to the manifest's `console` list.
+   */
+  async function callHook(id, kind, args, call = {}) {
     const rt = running.get(id);
     if (rt?.state !== "on") return { skipped: "not-running" };
     const fn = rt.instance?.[kind];
@@ -285,7 +295,7 @@ export function createRegistry({
     const row = store.get(id);
     if (row?.cooldownUntil && now() < row.cooldownUntil) return { skipped: "cooling", retryAt: row.cooldownUntil };
 
-    const r = await runInPlugin(id, (signal) => fn.call(rt.instance, args, { signal }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
+    const r = await runInPlugin(id, (signal) => fn.call(rt.instance, args, { signal, lang: call.lang ?? "en", console: consoleFor(id, call.console) }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
     if (r.ok) {
       if (row.hookStreak || row.cooldownStep || row.cooldownUntil) store.update(id, { hookStreak: 0, cooldownStep: 0, cooldownUntil: null });
       return { value: r.value };

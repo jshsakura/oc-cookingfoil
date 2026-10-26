@@ -1,0 +1,8 @@
+{
+  "id": "hello",
+  "apiVersion": 1,
+  "version": "1.0.0",
+  "name": { "en": "Hello plugin", "ko": "인사 플러그인" },
+  "description": { "en": "Does nothing useful. Copy it to data/plugins/hello to see the plugins page list it." },
+  "provides": ["metadata"]
+}

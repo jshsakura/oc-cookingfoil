@@ -326,3 +326,30 @@ test("ctx.fetch refuses a host the manifest did not name and an http url, redire
   await assert.rejects(f("https://api.example.com/jump"), { code: "PLUGIN_HOST_NOT_ALLOWED" });
   assert.ok(!calls.some((u) => u.includes("evil")), "the redirect target is never requested");
 });
+
+test("a hook is handed only the console facts its manifest asked for, and the language", async () => {
+  const d = makeDataDir();
+  const body = "export default { variants(item, o) { return [{ id: 'seen', got: o }]; }, plan() {}, wants: null };";
+  writePlugin(d, "wrap", { manifest: manifestOf("wrap", { provides: ["variant"], console: ["firmware"] }), body });
+  writePlugin(d, "blind", { manifest: manifestOf("blind", { provides: ["variant"] }), body });
+  const { registry } = newRegistry(d);
+  await registry.init();
+  for (const id of ["wrap", "blind"]) await registry.setEnabled(id, true);
+  const facts = { firmware: "21.0.1", language: "ko", region: "KR", clientVersion: "2.3.4" };
+  const asked = (await registry.callHook("wrap", "variants", { id: "t" }, { lang: "ko", console: facts })).value[0].got;
+  assert.deepEqual({ lang: asked.lang, console: asked.console }, { lang: "ko", console: { firmware: "21.0.1" } });
+  assert.ok(asked.signal instanceof AbortSignal);
+  const none = (await registry.callHook("blind", "variants", { id: "t" }, { console: facts })).value[0].got;
+  assert.deepEqual(none.console, {}, "nothing asked, nothing given");
+  assert.equal(none.lang, "en");
+});
+
+test("start() sees which console facts the plugin wants, not their values", async () => {
+  const d = makeDataDir();
+  const body = "let w; export default { start(ctx) { w = ctx.console; }, variants() { return [{ id: 'x', w }]; }, plan() {} };";
+  writePlugin(d, "wrap", { manifest: manifestOf("wrap", { provides: ["variant"], console: ["region"] }), body });
+  const { registry } = newRegistry(d);
+  await registry.init();
+  await registry.setEnabled("wrap", true);
+  assert.deepEqual((await registry.callHook("wrap", "variants", {})).value[0].w, { wants: ["region"] });
+});

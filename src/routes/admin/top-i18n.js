@@ -10,6 +10,7 @@ import { KEYS_WORDS } from "./keys-words.js";
 import { UPLOAD_LIMIT_WORDS } from "./upload-limit-words.js";
 import { WIDE_WORDS } from "./wide-words.js";
 import { OV_WORDS } from "./overview-words.js";
+import { PLUGINS_WORDS } from "./plugins-words.js";
 import { SETTINGS_WORDS } from "./settings-words.js";
 import { SETTINGS_FIELD_WORDS } from "./settings-field-words.js";
 import { SETTINGS_ROW_WORDS } from "./settings-row-words.js";
@@ -1591,7 +1592,7 @@ const PEOPLE_WORDS = {
   },
 };
 
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code] }]));
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...PLUGINS_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;
@@ -1655,7 +1656,7 @@ function applyTopI18n(relabelActivity=true){
   for(const b of document.querySelectorAll('[data-admin-lang]'))b.setAttribute('aria-checked',String(b.dataset.adminLang===adminLang));
   document.getElementById('lang-current').textContent=adminLang.toUpperCase();
   // The activity menu is declared further down and draws its own labels on start.
-  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();if(typeof trRender==='function')trRender();if(typeof accRelabel==='function')accRelabel();if(typeof ovRelabel==='function')ovRelabel();if(typeof lbRelabel==='function')lbRelabel();if(typeof nzRelabel==='function')nzRelabel();}}
+  if(relabelActivity){activityMenu.relabel();if(typeof upRender==='function')upRender();if(typeof ssRelabel==='function')ssRelabel();if(typeof raScaffoldRelabel==='function')raScaffoldRelabel();if(typeof fpRelabel==='function')fpRelabel();if(typeof loRelabel==='function')loRelabel();if(typeof trRender==='function')trRender();if(typeof accRelabel==='function')accRelabel();if(typeof ovRelabel==='function')ovRelabel();if(typeof plRender==='function')plRender();if(typeof lbRelabel==='function')lbRelabel();if(typeof nzRelabel==='function')nzRelabel();}}
 const langList=document.getElementById('lang-list'),langBtn=document.getElementById('lang-btn');
 function setLangMenu(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',String(open));
   if(open)langList.querySelector('[aria-checked="true"]')?.focus();}

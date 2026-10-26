@@ -34,7 +34,7 @@ import { TOKEN_PATHS } from "../security/auth-guard.js";
 import { TOKEN_BLOCKED_RE, TOKEN_BLOCKED_READ_RE, tokenBlocked } from "../routes/admin-page.js";
 import { TOKEN_LOCKED } from "../routes/admin/server-settings-api.js";
 
-export const AREAS = ["server", "library", "games", "retro", "homebrew", "content", "incoming", "jobs", "nsz", "settings", "inbox", "admin"];
+export const AREAS = ["server", "library", "games", "retro", "homebrew", "content", "incoming", "jobs", "nsz", "settings", "inbox", "admin", "plugins"];
 export const SAFETY = ["read", "write", "destructive"];
 export const ACCESS = ["read", "manage", "full"];
 // The lowest token level each safety tier needs.

@@ -106,6 +106,7 @@ import * as retroScaffold from "./retro/scaffold.js";
 import * as envs from "./helpers/envs.js";
 import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import * as trashService from "./library/trash-service.js";
+import { pluginRegistry, startPlugins } from "./plugins/instance.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
@@ -550,6 +551,9 @@ if (adminTotpEnabled()) {
 // server so it shares port + auth context with the rest of the API.
 const wsHandle = attachWs(server);
 
+// Plugins start after the server is listening and in the background: none of them can delay or stop it.
+startPlugins();
+
 // Safe restart on SIGTERM/SIGINT (docker stop, compose up) and from the admin
 // page: stop taking new requests, tell the dashboards, let running downloads
 // finish up to the grace limit, then flush the security state and exit. The
@@ -565,6 +569,7 @@ const restartOptions = (exitCode) => ({
     await nszQueue.shutdown().catch(() => {});
     await verifyQueue.shutdown().catch(() => {});
     telegramUpdates.stop().catch(() => {});
+    await pluginRegistry().stopAll().catch(() => {});
     await transferLog.shutdown().catch(() => {});
     await securityStore.shutdown().catch(() => {});
   },
