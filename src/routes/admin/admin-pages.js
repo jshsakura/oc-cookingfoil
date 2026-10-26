@@ -140,13 +140,19 @@ body.adm-shell{padding:0}
 .adm-side{position:sticky;top:0;z-index:40;box-sizing:border-box;background:var(--bg)}
 .adm-side>.adm-hdr{margin:0}
 #adm-menu{display:none}
+/* The page's name in the header: its menu path on a desktop, the item alone in the phone bar. */
+.adm-crumb{display:flex;align-items:center;gap:6px;min-width:0;margin:0;font-weight:700;white-space:nowrap}
+.adm-crumb>span{overflow:hidden;text-overflow:ellipsis}
+.adm-crumb-g{color:var(--muted);font-weight:600}
+.adm-crumb-sep{flex:none;width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:899px){
+.adm-crumb{flex:1;font-size:15px}
+.adm-crumb-g,.adm-crumb-sep{display:none}
 .adm-side{padding:8px 16px;border-bottom:1px solid var(--line)}
 .adm-side>.adm-side-in{display:none}
 #adm-menu{display:inline-flex;order:-1}
 .adm-side>.adm-hdr{flex-wrap:nowrap;gap:8px}
 .adm-side .hdr-right{display:contents}
-.adm-side .up-entry{margin-left:auto}
 .adm-side .brand .wm{font-size:20px}.adm-side .brand img{width:32px;height:32px}}
 @media (max-width:479px){.adm-side .brand .wm{display:none}}
 /* The account menu spans the phone's width under the bar, inside the same gutter the page keeps. */
@@ -163,7 +169,8 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-side .brand a{gap:10px}.adm-side .brand img{width:32px;height:32px}.adm-side .brand .wm{font-size:22px}
 .adm-side>.adm-side-in{order:1;display:grid;align-content:start;gap:6px;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px 14px 24px}
 .adm-side .hdr-right{position:fixed;top:0;left:260px;right:0;z-index:40;height:var(--adm-hdr-h);box-sizing:border-box;
-  display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 24px;background:var(--bg);border-bottom:1px solid var(--line)}
+  display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 24px 0 32px;background:var(--bg);border-bottom:1px solid var(--line)}
+.adm-side .adm-crumb{margin-right:auto;font-size:16px}
 .adm-shell>.wrap{padding-top:calc(var(--adm-hdr-h) + 24px)}}
 .adm-grp{border:0}
 .adm-grp summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:11px 14px;border-radius:12px;
@@ -202,7 +209,7 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-drawer-hd{flex:none;display:flex;align-items:center;gap:10px;padding:max(18px, env(safe-area-inset-top, 0px)) 16px 16px;border-bottom:1px solid var(--line);font-weight:800}
 .adm-drawer-hd b{font-size:16px;letter-spacing:-.01em}
 .adm-drawer-hd .logo{display:block}
-#adm-drawer-close{margin-left:auto;border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer;width:44px;height:44px;border-radius:10px}
+#adm-drawer-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:100px;background:var(--panel);color:var(--text);font-size:13px;line-height:1;cursor:pointer}
 #adm-drawer-close:hover{background:var(--sunk);color:var(--text)}
 @media (prefers-reduced-motion:no-preference){.adm-drawer[open]{animation:adm-drawer-in .18s ease-out}
 @keyframes adm-drawer-in{from{transform:translateX(-14px)}to{transform:none}}}
@@ -244,7 +251,17 @@ function mark(){const p=activePath(),q=new URLSearchParams(location.search);
       const def=key==='tab'?'apps':'art';
       on=u.searchParams.get(key)===(q.get(key)||def);}
     if(on){a.setAttribute('aria-current','page');const g=a.closest('details.adm-grp');if(g)g.open=true;}
-    else a.removeAttribute('aria-current');}}
+    else a.removeAttribute('aria-current');}
+  crumb();}
+// The header names the page by its menu path, "group > item", from the sidebar's current item. The label
+// spans are copies, so the language switch relabels them with the rest.
+function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySelector('.adm-side .adm-item[aria-current="page"]');
+  if(!c)return;c.replaceChildren();if(!a)return;
+  const label=(n)=>{const s=n&&n.querySelector(':scope>[data-top]');return s?s.cloneNode(true):null;};
+  const g=label(a.closest('details.adm-grp')?.querySelector('summary')),i=label(a);
+  if(g){g.classList.add('adm-crumb-g');c.append(g);
+    c.insertAdjacentHTML('beforeend','<svg class="adm-crumb-sep" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');}
+  if(i){i.classList.add('adm-crumb-i');c.append(i);}}
 window.__admMark=mark;
 function sums(){
   // The group sums sit inside the observed tree, so every write is made only

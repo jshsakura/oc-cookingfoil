@@ -163,7 +163,7 @@ function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kin
   else{if(game||k==='patch'||k==='save')tr.append(td(f.titleId||'-','mono lb-num'));
     if(game||k==='homebrew')tr.append(td(f.version!=null?(game?'v'+f.version:String(f.version)):'-','lb-num'));}
   tr.append(td(lbSize(f.size),'lb-num'),td(lbDate(f.mtime),'lb-num'));
-  if(game||kind==='all'){const c=td();if(game){const v=LB_CHECK[f.integrity]||LB_CHECK.unchecked;c.append(pill(v[0],v[1]));}tr.append(c);}
+  if(game||kind==='all'){const c=td();if(game){const v=LB_CHECK[f.integrity]||LB_CHECK.unchecked;c.append(pill(topText(v[0]),v[1]));}tr.append(c);}
   const act=td();const box=el('div',null,'lb-act');const edit=lbEditButton(f,k);if(edit)box.append(edit);
   const del=tbtn('delete','pp.delete',()=>lbRemove(f,k),'danger');del.setAttribute('aria-label',topFill('lb.delAria',{name:f.name||f.rel||topText('lo.colFile')}));box.append(del);act.append(box);tr.append(act);
   return tr;}

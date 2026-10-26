@@ -195,7 +195,26 @@ test.describe('on a phone', () => {
     expect(fit.radius).toBe('0px');
     expect(fit.bottom).toBeLessThanOrEqual(fit.screen);
     expect(fit.lastBottom).toBeLessThanOrEqual(fit.navBottom);
+    // The close button is a small round outlined button like the header's, not a bare 44px glyph.
+    const close = await page.locator('#adm-drawer-close').evaluate((b) => ({ w: b.getBoundingClientRect().width, border: getComputedStyle(b).borderTopWidth }));
+    expect(close.w).toBeLessThanOrEqual(40);
+    expect(close.border).toBe('1px');
   });
+});
+
+test('the header names every page by its menu path', async ({ page }) => {
+  await signIn(page);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/admin/retro?view=ratings');
+  await expect(page.locator('#adm-crumb')).toHaveText(/레트로 게임\s*평점/);
+  await page.goto('/admin/devices');
+  await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('기기');
+  await page.goto('/admin');
+  await expect(page.locator('#adm-crumb')).toHaveText('서버 현황');
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto('/admin/retro?view=ratings');
+  await expect(page.locator('#adm-crumb .adm-crumb-i')).toBeVisible();
+  await expect(page.locator('#adm-crumb .adm-crumb-g')).toBeHidden();
 });
 
 test('dictionary text keeps its links and never shows a raw key or source', async ({ page }) => {
