@@ -120,8 +120,6 @@ test('the account menu opens on a split page, shows who is in, and signs out', a
   // The account circle opens the menu with the activity list and the theme.
   await page.locator('#acct-btn').click();
   await expect(page.locator('#acct-list')).toBeVisible();
-  // The identity arrived (not stuck on "loading").
-  await expect(page.locator('#who')).not.toContainText('불러오고 있습니다');
 
   // The theme switch actually toggles: click it, the attribute and the page change.
   const before = await page.locator('#theme-toggle').getAttribute('aria-checked');

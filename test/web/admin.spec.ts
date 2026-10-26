@@ -503,7 +503,6 @@ test('the header has one account circle that opens the account, the web page, th
   await signIn(page);
   await expect(page.locator('#acct-list')).toBeHidden();
   await page.locator('#acct-btn').click();
-  await expect(page.locator('#who')).not.toHaveText('불러오고 있습니다');
   await expect(page.locator('#acct-list').getByRole('menuitem', { name: '운영 안내' })).toHaveAttribute('href', '/admin/guide');
   await expect(page.locator('#acct-list').getByRole('menuitem', { name: '로그아웃' })).toBeVisible();
   await page.keyboard.press('Escape');

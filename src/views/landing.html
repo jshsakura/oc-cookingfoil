@@ -146,8 +146,6 @@
         box-shadow: 0 16px 36px rgba(var(--shadow-rgb), 0.22);
       }
       .pop-list[hidden], .pop-list [hidden] { display: none; }
-      /* The signed-in account as a plain label: phones must not turn an email address into a mail link. */
-      .pop-list p.who { display: block; box-sizing: border-box; width: fit-content; max-width: calc(100% - 8px); margin: 4px 6px 10px; padding: 5px 11px; border: 0; border-radius: 100px; background: var(--sunk); font-size: 12.5px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; color: var(--secondary); }
       .pop-list a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; text-decoration: none; color: var(--ink); font: 600 14px var(--font-body); }
       .pop-list a:hover, .pop-list a:focus-visible { background: var(--sunk); outline: none; }
       .pop-list a svg { width: 16px; height: 16px; color: var(--secondary); }
@@ -1374,7 +1372,6 @@
           <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false">__ACTIVITY_BUTTON__</button>
           <div class="pop-list" id="acct-list" role="dialog" hidden>
             <div class="account-links" role="menu">
-            <p class="who" id="acct-who" hidden></p>
             <a role="menuitem" id="pair-link" href="/pair" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg><span data-i18n="tab.pair"></span></a>
             <a role="menuitem" id="inbox-link" href="#share" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span data-i18n="share.open"></span></a>
             <a role="menuitem" id="admin-link" href="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg><span data-i18n="action.admin"></span></a>
@@ -3480,7 +3477,6 @@
           session = d;
           activityMenu.permissions(d);
           $("logout-link").hidden = !d;
-          if (d?.user) { $("acct-who").textContent = d.user; $("acct-who").hidden = false; }
           acctAvatar(d?.avatar);
           // Only admin accounts can open the admin page; don't offer it to the others.
           if (d && !d.admin) $("admin-link").hidden = true;
