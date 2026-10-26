@@ -93,10 +93,10 @@ test('API calls preserve custom headers and use the selected UI language', async
 
 test('overview security warnings open the administrator security task directly', async ({ page }) => {
   await signIn(page);
-  await page.route('**/admin/api/stats', async (route) => {
+  await page.route('**/admin/api/overview', async (route) => {
     const response = await route.fetch();
     const body = await response.json();
-    await route.fulfill({ response, json: { ...body, warnings: [{ code: 'admin-unenrolled', severity: 'warn' }] } });
+    await route.fulfill({ response, json: { ...body, todo: [{ code: 'admin-unenrolled', severity: 'warn' }] } });
   });
   await page.goto('/admin');
   await page.locator('#warnings .note-go').click();

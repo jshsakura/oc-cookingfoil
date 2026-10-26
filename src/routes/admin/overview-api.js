@@ -2,7 +2,7 @@
  * The overview page's one read: what needs the admin, how the server stands, what happened lately.
  *
  *   GET /admin/api/overview
- *     { generatedAt,
+ *     { generatedAt, lanes (the sign-in lanes, as /api/stats has them),
  *       todo:   [{ code, n?, severity?, ...warning }]   only what needs doing; config warnings first
  *       status: { games: { titles, files, bytes }, disk: [{ key, free, size }],
  *                 verify: { status, total, counts }, transfers: { active }, plugins: { on, total } }
@@ -54,6 +54,7 @@ const firstLine = (text) => String(text ?? "").split("\n").find((l) => l.trim())
  */
 export function createOverview({
   warnings = () => [],
+  lanes = () => null,
   counts = async () => ({}),
   files = () => shopCache.files(),
   verify = () => verifyQueue.view(),
@@ -81,6 +82,7 @@ export function createOverview({
     ].filter((t) => t.n === undefined || t.n > 0);
     return {
       generatedAt: now(),
+      lanes: lanes(),
       todo,
       status: {
         games: gamesOf(files()),

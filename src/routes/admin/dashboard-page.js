@@ -1,7 +1,7 @@
 import { LIBRARY_HTML } from "./library-page.js";
 import { LIST_HELPERS_CSS } from "./list-helpers.js";
 import { HOMEBREW_HTML, HOMEBREW_DIALOG_HTML } from "./homebrew-page.js";
-import { OVERVIEW_HTML } from "./overview-page.js";
+import { OVERVIEW_CSS, OVERVIEW_HTML } from "./overview-page.js";
 import { UPLOAD_HTML } from "./upload-page.js";
 import { GOOGLE_SETTINGS_HTML, ADMIN_SECURITY_HTML } from "./security-pages.js";
 import { FEATURED_HTML } from "./featured-page.js";
@@ -351,7 +351,7 @@ export function dashboardPage(page = ADMIN_PAGE_BY_PATH.get("/admin"), view = ""
   const current = { path: page.path, view, countId: page.count ?? "" };
   return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${OVERVIEW_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
 ${LIST_HELPERS_CSS}
 tr.group td{font-weight:600;color:var(--muted);padding-top:14px}
 ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>

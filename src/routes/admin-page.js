@@ -552,6 +552,7 @@ export default function adminPageRouter() {
   });
   mountOverviewApi(router, requireSession, {
     warnings: () => [...configWarnings(authLanes()), ...clientBuildWarnings()],
+    lanes: () => authLanes(),
     counts: waitingCounts,
   });
 

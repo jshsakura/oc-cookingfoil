@@ -7,7 +7,7 @@ import { HOMEBREW_HTML, HOMEBREW_DIALOG_HTML, HOMEBREW_SCRIPT } from "./homebrew
 import { LIST_HELPERS_CSS, LIST_HELPERS_SCRIPT } from "./list-helpers.js";
 import { CONTENT_EDITOR_SCRIPT } from "./content-editor.js";
 import { CONTENT_DIALOG_HTML, PATCHES_CSS } from "./patches-panel.js";
-import { OVERVIEW_HTML, OVERVIEW_SCRIPT } from "./overview-page.js";
+import { OVERVIEW_CSS, OVERVIEW_HTML, OVERVIEW_SCRIPT } from "./overview-page.js";
 import { UPLOAD_HTML, UPLOAD_SCRIPT } from "./upload-page.js";
 import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
 import { GOOGLE_SETTINGS_HTML, ADMIN_SECURITY_HTML, ADMIN_SECURITY_SCRIPT } from "./security-pages.js";
@@ -89,7 +89,7 @@ export const SPLIT_PAGES = {
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+HOMEBREW_SCRIPT+CONTENT_EDITOR_SCRIPT,
     init: "subtabs('homebrew');SUBTABS.homebrew.show(location.hash.split('/')[1]||'apps');loadHomebrew();",
   }),
-  "/admin": bundle({ body: OVERVIEW_HTML, script: OVERVIEW_SCRIPT, init: "admInterval(loadOverview,15000);" }),
+  "/admin": bundle({ css: OVERVIEW_CSS, body: OVERVIEW_HTML, script: OVERVIEW_SCRIPT, init: "admInterval(loadOverview,15000);" }),
   "/admin/upload": bundle({ css: GAME_PICKER_CSS, body: UPLOAD_HTML, script: GAME_PICKER_SCRIPT+UPLOAD_SCRIPT, init: "loadUpload();" }),
   "/admin/settings/login": bundle({ body: '<section id="tab-settings">'+GOOGLE_SETTINGS_HTML+'</section>', script: GOOGLE_SETTINGS_SCRIPT, init: "loadGoogleSettings();" }),
   "/admin/settings/admin": bundle({ body: '<section id="tab-settings">'+ADMIN_SECURITY_HTML+'</section>', script: ADMIN_SECURITY_SCRIPT, init: "loadTfa();" }),

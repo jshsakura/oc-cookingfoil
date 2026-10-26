@@ -9,7 +9,7 @@ import { signIn } from './admin-sign-in';
 const SPLIT: [string, string, string[], RegExp][] = [
   ['/admin/games', '#lb-bar', ['#users', '#up-form', '#f-list', '#warnings'], /^\/admin\/api\/(library|counts)/],
   ['/admin/homebrew', '#hb-apps', ['#users', '#up-form', '#f-list', '#pt-q'], /^\/admin\/api\/(homebrew|counts)/],
-  ['/admin', '#cards', ['#users', '#up-form', '#cr-form', '#f-list'], /^\/admin\/api\/(stats|counts)/],
+  ['/admin', '#ov-status', ['#users', '#up-form', '#cr-form', '#f-list', '#cards'], /^\/admin\/api\/(overview|counts)/],
   ['/admin/upload', '#up-drop', ['#users', '#f-list', '#warnings', '#lib-files'], /^\/admin\/api\/(upload\/targets|games\/search|counts)/],
   ['/admin/settings/login', '#google-form', ['#tfa', '#ap-form', '#users', '#warnings'], /^\/admin\/api\/(google|counts)/],
   ['/admin/settings/admin', '#tfa', ['#google-form', '#users', '#warnings'], /^\/admin\/api\/(2fa|counts)/],

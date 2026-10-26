@@ -152,7 +152,7 @@ test('dictionary text keeps its links and never shows a raw key or source', asyn
   await signIn(page);
   // The old address of the alerts page still lands on it, now under the settings.
   await page.goto('/admin/notifications');
-  await expect(page).toHaveURL(/\/admin\/settings\/notifications$/);
+  await expect(page).toHaveURL(/\/admin\/settings\/notifications(?:#alerts)?$/);
   await expect(page.locator('#tab-alerts a[href="https://t.me/BotFather"]')).toBeVisible();
   await page.goto('/admin/settings/integrations');
   await expect(page.locator('.intg-steps a').first()).toBeVisible();
