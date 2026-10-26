@@ -65,7 +65,7 @@ test("dangerous access: the first hit at once, the rest in one summary", async (
 });
 
 test("defaults: every event on; '-' turns all off and a list picks", () => {
-  assert.deepEqual(alerts.enabledEvents(""), ["device", "account", "lockout", "probe", "inbox", "direct", "nsz", "security", "server", "plugin"]);
+  assert.deepEqual(alerts.enabledEvents(""), ["device", "account", "lockout", "probe", "inbox", "direct", "nsz", "security", "server", "plugin", "damaged"]);
   assert.deepEqual(alerts.enabledEvents("-"), []);
   assert.deepEqual(alerts.enabledEvents("server,lockout,nope"), ["server", "lockout"]);
   integrations.save("telegram", { botToken: "", chatId: "-100123", events: "lockout" });

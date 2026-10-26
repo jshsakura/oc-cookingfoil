@@ -43,6 +43,7 @@ import { adminDeviceOf } from "../security/device-admin.js";
 import { serverId } from "../security/server-id.js";
 import { requestLang } from "../meta/langs.js";
 import debug from "../debug.js";
+import { clientLanguages } from "../meta/client-strings.js";
 
 export const API_VERSION = 1;
 
@@ -56,6 +57,7 @@ const FEATURES = [
   "item-version-name",    // update item.version_name ("1.4.1")
   "item-install-size",    // item.install_size, the unpacked size (NSP/NSZ only)
   "item-integrity",       // item.integrity "modified" | "damaged" from the file check; absent when it passed or was not checked. Informational only
+  "item-integrity-detail", // item.integrity_detail { reason, certain, present? }; detail.integrity[] adds label and help { title, body } in the reader's language
   "item-required-firmware", // item.required_firmware ("16.0.0") and DLC item.required_app_version
   "item-key-generation",  // item.key_generation (master key generation, 0-based) and item.key_firmware ("21.0.0"); detail.keyGeneration, detail.keyFirmware
   "item-latest-version",  // base item.latest_version and item.dlc_total, from the eShop
@@ -70,6 +72,7 @@ const FEATURES = [
   "download-connections", // info.download.maxConnections and X-CookingFoil-Max-Connections on lists and downloads
   "active-downloads", // X-CookingFoil-Active-Downloads: consoles downloading now, the caller included
   "server-id",            // info.server_id, fixed per installation
+  "client-strings",       // GET /api/client/strings?lang=, and info.client_strings.languages [{ code, name, base }]
   "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon accepts ?size=sm|md|lg (160|256|512 square); banner, screenshot ?size=sm (256) and md|lg (512)
 ];
 
@@ -174,6 +177,7 @@ export default async function shopInfoRoute(req, res) {
     ...(devicePairing ? { enroll: { perHour: enrollPerHour } } : {}),
     files: stats.files,
     contentMeta: contentMeta.progress(),
+    client_strings: { languages: clientLanguages() },
   };
   await withPlugins(info, requestLang(req));
   res.json(info);

@@ -14,6 +14,21 @@ import drainer from "../security/drain.js";
 import * as activity from "../tasks/activity.js";
 import { appDb } from "../db/database.js";
 import { catalogStore } from "../db/stores.js";
+import { alert } from "../helpers/alerts.js";
+
+const TOLD_MAX = 10;
+
+/** The admin's alert for files found damaged in one run: one line each, the first TOLD_MAX. */
+export function tellDamaged(list) {
+  alert("damaged", (t) => {
+    const why = (f) => (f.reason === "truncated" && f.detail?.present != null
+      ? t("damaged.truncated", { p: Math.round(f.detail.present * 100) })
+      : t(`damaged.${f.reason}`));
+    const lines = list.slice(0, TOLD_MAX).map((f) => `- ${path.basename(f.path)}: ${why(f)}`);
+    if (list.length > TOLD_MAX) lines.push(t("andMore", { n: list.length - TOLD_MAX }));
+    return t("damagedFound", { n: list.length, lines: lines.join("\n") });
+  }, { subject: list.map((f) => f.path).sort().join("|") });
+}
 
 // Opened on first use, so importing this module does not open the database.
 // The second catalog keeps records of files that went away, for a rename that brings them back.
@@ -39,11 +54,12 @@ const queue = createVerifyQueue({
   fileInUse: (rel) => drainer.pathInUse(`/${rel.split(path.sep).join("/")}`),
   // A notice appeared or went away: the shop list and the sections carry it.
   onVerdict: () => shopCache.invalidate({ background: true }),
+  onDamaged: tellDamaged,
   track: (opts) => activity.begin("verify", opts),
   msUntilAllowed: () => msUntilHours(env.verifyHours),
 });
 
-fileIntegrity.provide((rel) => queue.integrityOf(rel));
+fileIntegrity.provide((rel) => queue.findingOf(rel));
 provideKnown((abs, st) => queue.identityOf(path.relative(env.romsDirPath, abs), st));
 
 let started = false;

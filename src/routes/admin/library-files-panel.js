@@ -22,7 +22,10 @@ async function lvLoad(){let d;try{d=await api('/admin/api/library/verify');}catc
   $('lv-state').textContent=(LV_STATUS[d.status]||'')+(d.current?' ('+d.current.path+')':'')+'. 남은 파일 '+num(d.pending)+'개, 해시를 기다리는 파일 '+num(d.hashPending)+'개입니다.';
   table('lv-list',[topText('lo.colFile'),'결과',topText('lo.colReason'),''],(d.flagged||[]).map((f)=>{const tr=el('tr');const n=td();n.append(el('b',f.path.split('/').pop()));n.append(el('div',f.path,'muted'));
     const again=btn('다시 검사',()=>lvRecheck(f));again.setAttribute('aria-label',f.path+' 다시 검사');const a=td();a.append(again);
-    tr.append(n,td(LV_VERDICT[f.verdict]||f.verdict),td((LV_REASON[f.reason]||f.reason||'—')+(f.contentId?'. 파일 안의 ID 는 '+f.contentId+' 입니다':'')),a);return tr;}),'수정되거나 손상된 파일, 이름이 다른 파일이 없습니다.');}
+    tr.append(n,td(f.label||LV_VERDICT[f.verdict]||f.verdict),f.help?lvHelp(f):td((LV_REASON[f.reason]||f.reason||'—')+(f.contentId?'. 파일 안의 ID 는 '+f.contentId+' 입니다':'')),a);return tr;}),'수정되거나 손상된 파일, 이름이 다른 파일이 없습니다.');}
+// The reason, and under it the help the server wrote in the admin's language, opened by a click.
+function lvHelp(f){const c=td();const d=el('details',null,'lv-help');d.append(el('summary',f.help.title));
+  for(const para of f.help.body.split('\\n\\n'))d.append(el('p',para,'muted'));c.append(d);return c;}
 async function lvRecheck(f){try{await api('/admin/api/library/verify/recheck',{method:'POST',body:{rel:f.path}});toast('다시 검사합니다.');lvLoad();}catch(err){toast(err.message);}}
 $('lv-hash-all').addEventListener('click',async()=>{
   if(!await ask('아직 해시를 확인하지 않은 모든 게임 파일을 처음부터 끝까지 읽습니다. 라이브러리가 크면 며칠이 걸리고, 다운로드가 있으면 그동안 쉽니다.'))return;

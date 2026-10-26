@@ -21,21 +21,23 @@ import * as gameDescriptions from "./game-descriptions.js";
 import * as itemVerified from "./item-verified.js";
 import * as shopCache from "./shop-cache.js";
 import { titleKeyNeed } from "./key-needs.js";
-import { integrityOf } from "./file-integrity.js";
+import { findingOf } from "./file-integrity.js";
+import { explain as explainIntegrity } from "./integrity-help.js";
 import path from "path";
 
 /**
  * What the file check found in this title's files (base, updates, DLC), only
- * those with something to say: [{ file, kind, titleId, verdict }] with the
- * file's name, "base" | "update" | "dlc", and "modified" | "damaged".
- * Informational; every file is offered all the same.
+ * those with something to say: [{ file, kind, titleId, verdict, reason,
+ * certain, present?, label, help: { title, body } }] with the file's name,
+ * "base" | "update" | "dlc", "modified" | "damaged", and the label and help
+ * in `lang` (integrity-help.js). Informational; every file is offered all the same.
  */
-export function integrityFor(base, files = shopCache.files()) {
+export function integrityFor(base, lang = "en", files = shopCache.files()) {
   const out = [];
   for (const f of files) {
     if (f.baseTitleId !== base) continue;
-    const verdict = integrityOf(f.rel);
-    if (verdict) out.push({ file: path.basename(f.rel), kind: f.kind ?? null, titleId: f.titleId ?? null, verdict });
+    const finding = findingOf(f.rel);
+    if (finding) out.push({ file: path.basename(f.rel), kind: f.kind ?? null, titleId: f.titleId ?? null, verdict: finding.verdict, ...explainIntegrity(finding, lang) });
   }
   return out;
 }
@@ -149,7 +151,7 @@ export async function titleDetail(base, { lang, asked = null, origin = null }) {
     // User patches for this game, as in /api/patches.
     patches: userPatches.forTitle(base),
     // Files of this title the file check found modified or damaged (see integrityFor).
-    integrity: integrityFor(base),
+    integrity: integrityFor(base, lang),
     // Tried on a console by the admin (a 검수됨 badge): verified, verified_at (ISO) or null.
     ...itemVerified.fields("game", base),
   };
