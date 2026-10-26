@@ -55,7 +55,7 @@ test('the admin top area follows the language picked on the web, and its account
   const games = page.locator('aside.adm-side .adm-grp[data-grp="games"] summary [data-top]');
   const files = page.locator('aside.adm-side a[href="/admin/games"] [data-top]');
   await expect(games).toHaveText('게임');
-  await expect(files).toHaveText('게임 라이브러리');
+  await expect(files).toHaveText('라이브러리');
 
   await page.goto('/');
   await pickLang(page, 'ja');
@@ -81,7 +81,7 @@ test('the admin top area follows the language picked on the web, and its account
   await page.keyboard.press('Escape');
   await pick('en');
   await expect(games).toHaveText('Games');
-  await expect(files).toHaveText('Game library');
+  await expect(files).toHaveText('Library');
   await expect(page.locator('#lang-current')).toHaveText('EN');
   await expect(page.locator('#lang-list')).toBeHidden();
   await expect(page.locator('#lang-list [data-admin-lang="en"]')).toHaveAttribute('aria-checked', 'true');

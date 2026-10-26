@@ -5,7 +5,7 @@
  */
 export const NSZ_WORDS = {
   ko: {
-    "nz.title": "NSZ 변환",
+    "nz.title": "파일 압축",
     "nz.scan": "라이브러리 검사",
     "nz.start": "시작",
     "nz.lede": "게임 폴더의 .nsp 를 .nsz 로 압축하고 검증한 뒤 원본을 교체합니다. 콘솔이 다운로드하는 동안에는 새 파일을 시작하지 않고, 다운로드가 30초 동안 없으면 이어서 합니다.",
@@ -104,7 +104,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "{word} {n}개를 변환합니다.",
   },
   en: {
-    "nz.title": "NSZ conversion",
+    "nz.title": "File compression",
     "nz.scan": "Scan the library",
     "nz.start": "Start",
     "nz.lede": "Compresses the .nsp files in the games folder to .nsz, verifies them and replaces the originals. While a console is downloading it starts no new file, and resumes once 30 seconds pass without a download.",
@@ -203,7 +203,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "Converting {n} {word}.",
   },
   ja: {
-    "nz.title": "NSZ変換",
+    "nz.title": "ファイル圧縮",
     "nz.scan": "ライブラリ検査",
     "nz.start": "開始",
     "nz.lede": "ゲームフォルダの.nspを.nszに圧縮して検証し、元のファイルを置き換えます。本体がダウンロードしている間は新しいファイルを始めず、30秒間ダウンロードがなければ続けます。",
@@ -302,7 +302,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "{word}{n}件を変換します。",
   },
   zh: {
-    "nz.title": "NSZ 转换",
+    "nz.title": "文件压缩",
     "nz.scan": "检查媒体库",
     "nz.start": "开始",
     "nz.lede": "把游戏文件夹中的 .nsp 压缩为 .nsz 并校验后替换原文件。主机下载期间不开始新文件，下载停止 30 秒后继续。",
@@ -401,7 +401,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "正在转换{word}{n}个。",
   },
   "zh-Hant": {
-    "nz.title": "NSZ 轉換",
+    "nz.title": "檔案壓縮",
     "nz.scan": "檢查媒體庫",
     "nz.start": "開始",
     "nz.lede": "把遊戲資料夾中的 .nsp 壓縮為 .nsz 並校驗後取代原檔案。主機下載期間不開始新檔案，下載停止 30 秒後繼續。",
@@ -500,7 +500,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "正在轉換{word}{n}個。",
   },
   es: {
-    "nz.title": "Conversión NSZ",
+    "nz.title": "Compresión de archivos",
     "nz.scan": "Examinar la biblioteca",
     "nz.start": "Iniciar",
     "nz.lede": "Comprime los .nsp de la carpeta de juegos a .nsz, los verifica y sustituye los originales. Mientras una consola descarga no empieza archivos nuevos y sigue tras 30 segundos sin descargas.",
@@ -599,7 +599,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "Convirtiendo {n} {word}.",
   },
   fr: {
-    "nz.title": "Conversion NSZ",
+    "nz.title": "Compression des fichiers",
     "nz.scan": "Analyser la bibliothèque",
     "nz.start": "Démarrer",
     "nz.lede": "Compresse les .nsp du dossier jeux en .nsz, les vérifie puis remplace les originaux. Pendant un téléchargement console, aucun nouveau fichier ne démarre ; la reprise suit 30 secondes sans téléchargement.",
@@ -698,7 +698,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "Conversion de {n} {word}.",
   },
   de: {
-    "nz.title": "NSZ-Umwandlung",
+    "nz.title": "Dateikomprimierung",
     "nz.scan": "Bibliothek prüfen",
     "nz.start": "Start",
     "nz.lede": "Packt die .nsp im Spieleordner zu .nsz, prüft sie und ersetzt die Originale. Während eine Konsole lädt, beginnt keine neue Datei; nach 30 Sekunden ohne Download geht es weiter.",
@@ -797,7 +797,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "{n} {word} werden gewandelt.",
   },
   it: {
-    "nz.title": "Conversione NSZ",
+    "nz.title": "Compressione dei file",
     "nz.scan": "Analizza la libreria",
     "nz.start": "Avvia",
     "nz.lede": "Comprime gli .nsp della cartella giochi in .nsz, li verifica e sostituisce gli originali. Mentre una console scarica non inizia file nuovi e riprende dopo 30 secondi senza scarichi.",
@@ -896,7 +896,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "Converto {n} {word}.",
   },
   pt: {
-    "nz.title": "Conversão NSZ",
+    "nz.title": "Compressão de arquivos",
     "nz.scan": "Examinar a biblioteca",
     "nz.start": "Iniciar",
     "nz.lede": "Comprime os .nsp da pasta de jogos para .nsz, verifica e substitui os originais. Enquanto um console baixa, não começa arquivos novos e retoma após 30 segundos sem download.",
@@ -995,7 +995,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "Convertendo {n} {word}.",
   },
   nl: {
-    "nz.title": "NSZ-conversie",
+    "nz.title": "Bestandscompressie",
     "nz.scan": "Bibliotheek doorzoeken",
     "nz.start": "Start",
     "nz.lede": "Pakt de .nsp uit de spellenmap naar .nsz, controleert ze en vervangt de originelen. Zolang een console downloadt begint er geen nieuw bestand; na 30 seconden zonder download gaat het verder.",
@@ -1094,7 +1094,7 @@ export const NSZ_WORDS = {
     "nz.runFilterGo": "{n} {word} worden gezet.",
   },
   ru: {
-    "nz.title": "Конвертация NSZ",
+    "nz.title": "Сжатие файлов",
     "nz.scan": "Проверить библиотеку",
     "nz.start": "Запустить",
     "nz.lede": "Сжимает .nsp из папки игр в .nsz, проверяет и заменяет оригиналы. Пока консоль скачивает, новые файлы не начинаются; после 30 секунд без загрузок продолжается.",

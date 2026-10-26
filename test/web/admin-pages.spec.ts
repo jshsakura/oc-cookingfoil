@@ -7,16 +7,16 @@ import { freshCode, signIn } from './admin-sign-in';
 
 const PAGES: [string, string, string][] = [
   ['/admin', 'tab-overview', '서버 현황'],
-  ['/admin/games', 'tab-library', '게임 라이브러리'],
+  ['/admin/games', 'tab-library', '라이브러리'],
   ['/admin/upload', 'tab-upload', '올리기'],
   // Stage B first bundle: these pages carry only their own panel.
-  ['/admin/convert', 'tab-nsz', 'NSZ 압축'],
+  ['/admin/convert', 'tab-nsz', '파일 압축'],
   ['/admin/inbox', 'tab-inbox', '수신함'],
   ['/admin/featured', 'tab-featured', '홈 화면 구성'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
   ['/admin/devices', 'tab-devices', '기기'],
-  ['/admin/logs/downloads', 'xf-cards', '다운로드'],
+  ['/admin/logs/downloads', 'xf-cards', '다운로드 기록'],
   ['/admin/logs/clients', 'cl-list', '클라이언트 로그'],
   ['/admin/logs/security', 'lockouts', '차단과 거부'],
   ['/admin/settings/notifications', 'tab-alerts', '알림 설정'],
@@ -46,7 +46,7 @@ test('the retro group lists its eight jobs as items with addresses of their own'
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
-  await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('코어');
+  await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('RetroArch 코어');
   const items = page.locator('aside.adm-side .adm-grp[data-grp="retro"] .adm-task');
   await expect(items).toHaveCount(8);
   await expect(items.first()).toHaveAttribute('href', '/admin/retro?view=art');
