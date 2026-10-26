@@ -44,6 +44,20 @@ export const DEFAULT_LIMITS = Object.freeze({
 /** The hook functions each `provides` entry obliges a plugin to export. */
 export const HOOKS_OF = Object.freeze({ metadata: ["metadata"], art: ["art"], variant: ["variants", "plan"], task: ["tasks"] });
 
+/** Hooks that only decorate a listing: a failure of one does not count toward a pause. */
+const LISTING_HOOKS = new Set(["variants"]);
+
+/** A copy of the parsed keys a plugin may read but not change, and that is not the server's own Map. */
+function readOnlyKeys(keys) {
+  if (!(keys instanceof Map)) return null;
+  const copy = new Map(keys);
+  const refuse = () => { throw new TypeError("keys are read-only"); };
+  copy.set = refuse;
+  copy.delete = refuse;
+  copy.clear = refuse;
+  return Object.freeze(copy);
+}
+
 /** The hooks of a plugin that said needsKeys are handed the parsed prod.keys, for that call only. */
 const KEYED_HOOKS = new Set(["plan", "variants", "shopInfo"]);
 
@@ -306,6 +320,12 @@ export function createRegistry({
     return message;
   }
 
+  function noteFailure(id, error, timedOut) {
+    const message = timedOut ? "hook-timeout" : firstLine(error);
+    store.update(id, { lastError: message, lastErrorAt: now() });
+    return message;
+  }
+
   /** The facts about the asking console a plugin asked for, and nothing else. */
   function consoleFor(id, facts) {
     const wants = entries.get(id)?.manifest?.console ?? [];
@@ -326,13 +346,17 @@ export function createRegistry({
     if (row?.cooldownUntil && now() < row.cooldownUntil) return { skipped: "cooling", retryAt: row.cooldownUntil };
 
     // A plugin that said needsKeys gets the parsed keys for this one call; they are never kept in ctx.
-    const given = KEYED_HOOKS.has(kind) && entries.get(id)?.manifest?.needsKeys ? { ...args, keys: keysProvider?.() ?? null } : args;
+    const given = KEYED_HOOKS.has(kind) && entries.get(id)?.manifest?.needsKeys ? { ...args, keys: readOnlyKeys(keysProvider?.()) } : args;
     const r = await runInPlugin(id, (signal) => fn.call(rt.instance, given, { signal, lang: call.lang ?? "en", clientVersion: call.clientVersion ?? null, console: consoleFor(id, call.console) }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
     if (r.ok) {
       if (row.hookStreak || row.cooldownStep || row.cooldownUntil) store.update(id, { hookStreak: 0, cooldownStep: 0, cooldownUntil: null });
       return { value: r.value };
     }
-    const message = recordHookFailure(id, r.error, r.timedOut);
+    // The listing hook runs for up to 200 files at a time and on a cold disk; its failures are shown but never
+    // start the pause that would refuse a download in progress.
+    const message = LISTING_HOOKS.has(kind)
+      ? noteFailure(id, r.error, r.timedOut)
+      : recordHookFailure(id, r.error, r.timedOut);
     // A hook that fails because its files are gone is a plugin that went missing, not a failing one.
     if (r.error?.code === "ENOENT" && entries.has(id)) {
       const gone = await fsp.access(entries.get(id).dir).then(() => false, () => true);
@@ -392,7 +416,8 @@ export function createRegistry({
         clearSettings?.(id);
         store.remove(id);
       } else {
-        store.update(id, { disabledReason: "trashed" });
+        // A trashed plugin's keys are forgotten: nothing is left behind to answer for them.
+        store.update(id, { disabledReason: "trashed", variantKeys: [] });
       }
       await applyScan(await scanPluginDir(root));
       missing.delete(id);
@@ -452,6 +477,18 @@ export function createRegistry({
   /** The variant keys one plugin claims (from its manifest and from what it was seen to claim). */
   const keysOf = (id) => store.get(id)?.variantKeys ?? [];
 
+  /** The `console` items a plugin's manifest asks for ([] when it asks for none or is unknown). */
+  const consoleWanted = (id) => entries.get(id)?.manifest?.console ?? [];
+
+  /** Changes whenever the server's prod.keys is read afresh, so what was worked out from the old keys is not reused. */
+  let stampKeys = null;
+  let stampN = 0;
+  function keysStamp() {
+    const k = keysProvider?.() ?? null;
+    if (k !== stampKeys) { stampKeys = k; stampN++; }
+    return stampN;
+  }
+
   /** The ids of plugins that are on and provide `kind` ("variant", ...), in id order. */
   const activeProviding = (kind) => [...entries.values()]
     .filter((e) => e.status === "ok" && e.manifest.provides.includes(kind) && stateOf(e.id) === "on")
@@ -467,7 +504,7 @@ export function createRegistry({
 
   return {
     API_VERSION, init, list, view, setEnabled, callHook, rescan, startWatching, trash, listTrashed, restore,
-    recordVariantKeys, variantKeyStatus, variantKeys, keysOf, activeProviding, wantedConsole, consoleFor, stopAll, pluginRejected, writeCrash,
+    recordVariantKeys, variantKeyStatus, variantKeys, keysOf, consoleWanted, keysStamp, activeProviding, wantedConsole, consoleFor, stopAll, pluginRejected, writeCrash,
     clearBooting: markers.clearBooting,
     capabilities: () => [...capabilities.values()],
     safeMode,

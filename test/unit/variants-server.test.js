@@ -101,7 +101,8 @@ test("console facts the manifest asked for are mixed into the ETag, and the answ
   assert.equal(a.headers.get("etag"), same.headers.get("etag"), "region was not asked for, so it changes nothing");
   assert.match(a.headers.get("vary"), /X-CookingFoil-Console/i);
   assert.equal(a.headers.get("cache-control"), "private, max-age=0");
-  assert.equal(none.headers.get("vary"), null);
+  assert.match(none.headers.get("vary"), /X-CookingFoil-Console/i, "a plugin that asks for console facts varies on them even when this request sent none");
+  assert.equal(none.headers.get("cache-control"), "private, max-age=0");
 });
 
 test("the plan hook of a plugin that needs keys gets them for that call", async () => {

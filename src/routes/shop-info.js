@@ -73,6 +73,13 @@ const FEATURES = [
   "item-names",           // base item.names { ko?, en?, ja?, zh? }; detail.names, and ?lang= picks detail.description         // /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches          // icon accepts ?size=sm|md|lg (160|256|512 square); banner, screenshot ?size=sm (256) and md|lg (512)
 ];
 
+// Every feature name the core can announce, on or off: a plugin may not announce one.
+const CORE_FEATURES = new Set([
+  ...FEATURES, "session-token", "pair-password-only", "device-pairing", "device-rebind", "enroll", "dropbox-sync",
+  "retro", "retro-index", "shop-saves", "saves-by-game", "user-patches", "homebrew", "homebrew-folders", "homebrew-titles",
+  "admin-edit", "client-update", "file-variants", "console-facts",
+]);
+
 /** Retro is offered only while there is at least one ROM to play (the client hides its menu otherwise). */
 async function hasRetroGames() {
   if (!retroEnabled()) return false;
@@ -109,7 +116,10 @@ export async function withPlugins(info, lang, variantsOf = async () => (await im
     add("console-facts");
     info.console = { wants: facts.wants };
   }
-  for (const feature of extras.features) add(feature);
+  for (const feature of extras.features) {
+    if (CORE_FEATURES.has(feature)) debug.log("shop info: a plugin tried to announce %s, which is the core's; dropped", feature);
+    else add(feature);
+  }
   for (const [key, value] of Object.entries(extras.info)) {
     if (key in info) debug.log("shop info: a plugin tried to set %s, which is already taken; dropped", key);
     else info[key] = value;

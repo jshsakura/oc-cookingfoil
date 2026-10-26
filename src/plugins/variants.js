@@ -26,6 +26,8 @@ const FIRMWARE_RE = /^\d{1,2}\.\d{1,2}\.\d{1,2}$/;
 const REGIONS = new Set(["jpn", "usa", "eur", "aus", "htk", "chn", "kor", "twn"]);
 const SHOP_INFO_FRESH_MS = 30_000;
 const LIST_PARALLEL = 8;
+// Query keys the core keeps for plugins that came before the plugin system: "rewrap" is in every old client's cached shop info.
+export const LEGACY_KEYS = Object.freeze(["rewrap"]);
 const OPTION_KEY_RE = /^[A-Za-z][A-Za-z0-9_-]{0,31}$/;
 
 /** { firmware?, region? } from the header's value; anything not of the right shape is left out. Pure. */
@@ -93,11 +95,16 @@ async function mapLimit(items, limit, fn) {
 export function createVariants(registry, { log = () => {}, now = Date.now } = {}) {
   const refusal = (code, key, lang) => ({ refusal: { status: 409, body: refusalBody(wordsOf(key), code, lang) } });
 
-  /** The first query key a plugin claimed: { id, available, keys } or null. */
+  /**
+   * The first query key a plugin claimed: { id, available, keys } or null. A key the core reserves
+   * (LEGACY_KEYS) with no plugin running behind it is never a plain download: old clients ask for it
+   * from a cached shop info, and the original file must not stand in for the option they asked for.
+   */
   function ownerOf(query) {
     for (const key of Object.keys(query ?? {})) {
       const status = registry.variantKeyStatus(key);
       if (status) return { ...status, keys: registry.keysOf(status.id) };
+      if (LEGACY_KEYS.includes(key)) return { id: null, available: false, keys: [] };
     }
     return null;
   }
@@ -129,7 +136,8 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
       return refusal("variant.failed", "failed", lang);
     }
     const used = registry.consoleFor(owner.id, facts);
-    return { variant: { tag: variantTag(owner.id, registry.versionOf(owner.id), query, used), patches, vary: Object.keys(used).length > 0 } };
+    // A plugin that asks for console facts always varies on them, header or not: a cache must not hand one console's answer to another.
+    return { variant: { tag: variantTag(owner.id, registry.versionOf(owner.id), query, used), patches, vary: registry.consoleWanted(owner.id).length > 0 } };
   }
 
   /** One option as the client gets it: strings in the reader's language, the query to send back. */
@@ -168,22 +176,26 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
   }
 
   // ── shop info ──
-  const infoCache = new Map(); // `${id}\0${lang}` -> { at, value, pending }
+  // Per plugin, language, plugin version and prod.keys: a new key file or a new plugin build answers afresh.
+  // An answer that did not come (timeout, error, cooling) is not kept as if it had.
+  const infoCache = new Map(); // `${id}\0${version}\0${keys}\0${lang}` -> { at, value, pending }
+  const EMPTY = Object.freeze({ features: [], info: {} });
   async function extrasOf(id, lang) {
-    const key = `${id}\0${lang}`;
+    const key = [id, registry.versionOf(id), registry.keysStamp(), lang].join("\0");
     const hit = infoCache.get(key);
-    if (hit && now() - hit.at < SHOP_INFO_FRESH_MS) return hit.value;
+    if (hit?.value && now() - hit.at < SHOP_INFO_FRESH_MS) return hit.value;
     if (hit?.pending) return hit.pending;
+    const stale = hit?.value ?? null;
     const pending = registry.callHook(id, "shopInfo", { lang }, { lang }).then((r) => {
       const v = r.value;
-      const value = v && typeof v === "object"
+      const value = !r.error && !r.skipped && v && typeof v === "object"
         ? { features: Array.isArray(v.features) ? v.features.filter((f) => typeof f === "string" && /^[a-z0-9-]{1,40}$/.test(f)) : [], info: v.info && typeof v.info === "object" && !Array.isArray(v.info) ? v.info : {} }
         : null;
-      // A slow or failing plugin keeps its last answer, so a shop info request is never held up twice.
-      infoCache.set(key, { at: now(), value: value ?? hit?.value ?? { features: [], info: {} } });
-      return infoCache.get(key).value;
+      if (value) infoCache.set(key, { at: now(), value });
+      else infoCache.set(key, { at: 0, value: stale });
+      return value ?? stale ?? EMPTY;
     });
-    infoCache.set(key, { at: hit?.at ?? 0, value: hit?.value ?? { features: [], info: {} }, pending });
+    infoCache.set(key, { at: hit?.at ?? 0, value: stale, pending });
     return pending;
   }
 
