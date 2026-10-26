@@ -14,45 +14,45 @@
 import { icon } from "../../views/icons.js";
 import { top } from "./top-i18n.js";
 
-/** A page: the section (tab) it opens, the sub-view inside it when there is one; a page outside a group carries its sidebar icon. */
+/** A page: the section (tab) it opens, the sub-view inside it when there is one, and its sidebar icon. */
 export const ADMIN_PAGES = [
   { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
   // games group
-  { path: "/admin/games", tab: "library", label: "m.library", group: "games" },
-  { path: "/admin/upload", tab: "upload", label: "m.upload", group: "games" },
-  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "games" },
-  { path: "/admin/inbox", tab: "inbox", label: "m.inbox", group: "games", count: "inbox-count" },
-  { path: "/admin/featured", tab: "featured", label: "m.featured", group: "games" },
-  { path: "/admin/trash", tab: "trash", label: "m.trash", group: "games" },
+  { path: "/admin/games", tab: "library", label: "m.library", group: "games", icon: "folder" },
+  { path: "/admin/upload", tab: "upload", label: "m.upload", group: "games", icon: "upload" },
+  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "games", icon: "shrink" },
+  { path: "/admin/inbox", tab: "inbox", label: "m.inbox", group: "games", icon: "inbox", count: "inbox-count" },
+  { path: "/admin/featured", tab: "featured", label: "m.featured", group: "games", icon: "star" },
+  { path: "/admin/trash", tab: "trash", label: "m.trash", group: "games", icon: "trash" },
   // retro: the eight jobs are items of their own, not a hidden tab row
   {
     path: "/admin/retro", tab: "retro", group: "retro", tasks: [
-      { view: "art", label: "rt.art" }, { view: "ratings", label: "rt.ratings" }, { view: "cores", label: "rt.cores" },
-      { view: "names", label: "rt.names" }, { view: "patch", label: "rt.patch" }, { view: "dups", label: "rt.dups" },
-      { view: "sets", label: "rt.sets" }, { view: "trash", label: "rt.rtrash" },
+      { view: "art", label: "rt.art", icon: "image" }, { view: "ratings", label: "rt.ratings", icon: "thumbs-up" },
+      { view: "cores", label: "rt.cores", icon: "monitor" }, { view: "names", label: "rt.names", icon: "tag" },
+      { view: "patch", label: "rt.patch", icon: "globe" }, { view: "dups", label: "rt.dups", icon: "copy" },
+      { view: "sets", label: "rt.sets", icon: "layers" }, { view: "trash", label: "rt.rtrash", icon: "trash" },
     ],
   },
   { path: "/admin/homebrew", tab: "homebrew", group: "homebrew", param: "tab", tasks: [
-    { view: "apps", label: "ht.apps" }, { view: "reco", label: "ht.reco" }, { view: "sources", label: "ht.sources" },
+    { view: "apps", label: "ht.apps", icon: "grid" }, { view: "reco", label: "ht.reco", icon: "sparkle" }, { view: "sources", label: "ht.sources", icon: "globe" },
   ] },
   // people
-  { path: "/admin/users", tab: "users", label: "s.users", group: "people", count: "account-count" },
-  { path: "/admin/devices", tab: "devices", label: "s.devices", group: "people", count: "pending-count" },
+  { path: "/admin/users", tab: "users", label: "s.users", group: "people", icon: "users", count: "account-count" },
+  { path: "/admin/devices", tab: "devices", label: "s.devices", group: "people", icon: "device", count: "pending-count" },
   // records and operations
-  { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops" },
-  { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops" },
-  { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", count: "lock-count" },
-  { path: "/admin/notifications", tab: "alerts", label: "m.alerts", icon: "bell" },
-  // Stage A keeps the client build block inside the overview section; Stage B gives it a page of its own.
+  { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops", icon: "download" },
+  { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops", icon: "device" },
+  { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", icon: "lock", count: "lock-count" },
   { path: "/admin/client", tab: "overview", label: "m.client", anchor: "client-release", icon: "download" },
   // settings
-  { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", group: "set" },
-  { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", group: "set" },
+  { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", group: "set", icon: "sliders" },
+  { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", group: "set", icon: "package" },
   // login and admin security still share the old "security" area until Stage B splits it.
-  { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", group: "set", shared: true },
-  { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", group: "set", shared: true },
-  { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "set" },
-  { path: "/admin/settings/plugins", tab: "settings", sub: "plugins", label: "m.setPlugins", group: "set" },
+  { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", group: "set", icon: "login", shared: true },
+  { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", group: "set", icon: "lock", shared: true },
+  { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "set", icon: "key" },
+  { path: "/admin/settings/plugins", tab: "settings", sub: "plugins", label: "m.setPlugins", group: "set", icon: "puzzle" },
+  { path: "/admin/settings/notifications", tab: "alerts", label: "m.alerts", group: "set", icon: "bell" },
 ];
 
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
@@ -69,7 +69,7 @@ const GROUPS = {
 /** The page a legacy "#tab" hash belongs to, so old links land on real paths. */
 export const PATH_FOR_TAB = {
   overview: "/admin", users: "/admin/users", devices: "/admin/devices", settings: "/admin/settings/server",
-  alerts: "/admin/notifications", logs: "/admin/logs/downloads", featured: "/admin/featured",
+  alerts: "/admin/settings/notifications", logs: "/admin/logs/downloads", featured: "/admin/featured",
   library: "/admin/games", nsz: "/admin/convert", upload: "/admin/upload", inbox: "/admin/inbox",
   homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash",
 };
@@ -85,7 +85,7 @@ const item = (page, current, withIds) => {
 const taskItem = (page, task, current) => {
   const href = `${page.path}?${page.param === "tab" ? "tab" : "view"}=${task.view}`;
   const on = current?.path === page.path && (current?.view || page.tasks[0].view) === task.view;
-  return `<a class="adm-item adm-task" href="${href}"${on ? ' aria-current="page"' : ""}>${top(task.label)}</a>`;
+  return `<a class="adm-item adm-task" href="${href}"${on ? ' aria-current="page"' : ""}>${task.icon ? icon(task.icon) : ""}${top(task.label)}</a>`;
 };
 
 /**
@@ -178,7 +178,8 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-grp[open] summary .chev{transform:rotate(180deg)}
 .adm-item:focus-visible{outline:2px solid var(--text);outline-offset:-2px}
 .adm-grp summary .count{margin-left:auto}
-.adm-grp-in{display:grid;gap:2px;margin:0 0 8px;padding-left:32px}
+.adm-grp-in{display:grid;gap:2px;margin:0 0 8px;padding-left:20px}
+.adm-grp-in .ico{width:17px;height:17px}
 .adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:9px 12px;border-radius:12px;position:relative;
   color:var(--text);font-weight:600;font-size:13.5px;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adm-item:hover{background:var(--sunk)}

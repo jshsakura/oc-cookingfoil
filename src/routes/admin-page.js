@@ -334,6 +334,8 @@ export default function adminPageRouter() {
       await serveAdminPage(req, res, page);
     });
   }
+  // Alerts moved under the settings: an old bookmark lands on the new address.
+  router.get("/notifications", (req, res) => res.redirect(301, "/admin/settings/notifications"));
 
   // The operator's guide, which is also what an AI assistant is handed with a token.
   router.get("/guide.md", (req, res) => {

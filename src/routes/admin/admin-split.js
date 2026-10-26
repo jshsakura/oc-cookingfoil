@@ -108,7 +108,7 @@ export const SPLIT_PAGES = {
     init: "admInterval(loadSecurity,15000);",
   }),
   // Third bundle: the pages whose panels were already modules of their own.
-  "/admin/notifications": bundle({
+  "/admin/settings/notifications": bundle({
     css: ALERTS_CSS, body: ALERTS_HTML, script: ALERTS_SCRIPT,
     init: "subtabs('alerts');SUBTABS.alerts.show(location.hash.split('/')[1]||'setup');loadAlerts();",
   }),

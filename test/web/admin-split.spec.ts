@@ -17,7 +17,7 @@ const SPLIT: [string, string, string[], RegExp][] = [
   ['/admin/settings/server', '#ss-list', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(server-settings|server\/status|counts)/],
   ['/admin/settings/integrations', '#intg-h', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(integrations|counts)/],
   ['/admin/settings/automation', '#mcp-on', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(tokens|server-settings|counts)/],
-  ['/admin/notifications', '#al-form', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(alerts|counts)/],
+  ['/admin/settings/notifications', '#al-form', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(alerts|counts)/],
   ['/admin/client', '#cr-form', ['#al-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(client-release|counts)/],
   ['/admin/trash', '#tr-list', ['#ib-list', '#nz-list', '#xf-cards', '#cl-list', '#lockouts', '#users'], /^\/admin\/api\/(trash|counts)/],
   ['/admin/inbox', '#ib-list', ['#tr-list', '#nz-list', '#xf-cards', '#cl-list', '#lockouts', '#users'], /^\/admin\/api\/(inbox|counts)/],
