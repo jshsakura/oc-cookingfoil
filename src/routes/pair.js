@@ -340,7 +340,9 @@ export default function pairRouter() {
     const out = { status: "approved", passwordOnly: true };
     // Only to the caller holding the pairSecret the console asked with (or any caller, for a legacy console).
     const accessKey = deliverAccessKey(deviceKey, typeof secret === "string" ? secret : null);
-    const repairSecret = accessKey ? null : normalizePairSecret(secret);
+    // A console that still holds a working key is approved as it is; only one without it gets a re-pair QR.
+    const holdsKey = verifyAccessKey(req.get("X-Access-Key"), store.getDeviceAccessKeyHash(deviceKey));
+    const repairSecret = accessKey || holdsKey ? null : normalizePairSecret(secret);
     if (repairSecret) return repairResponse(req, res, deviceKey, hashPairSecret(repairSecret));
     if (accessKey) {
       out.accessKey = accessKey;

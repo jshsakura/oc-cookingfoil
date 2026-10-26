@@ -323,3 +323,16 @@ test("a console the admin let in takes a new key from any account's download and
   assert.equal(await shop(target, fresh), 200);
   assert.equal(await shop(target, old), 401);
 }));
+
+test("a console that still holds its key is told it is approved, never shown a re-pair QR", () => withServer(async () => {
+  for (const k of Object.keys(sessions)) delete sessions[k];
+  const target = key("D");
+  const held = await pairAs("alice", target, secret("d"));
+  const r = await fetch(`${BASE}/api/pair/status`, { headers: { "X-Device-Key": target, "X-Pair-Secret": secret("e"), "X-Access-Key": held } });
+  const body = await r.json();
+  assert.equal(body.status, "approved");
+  assert.equal(body.repair, undefined);
+  assert.equal(await shop(target, held), 200);
+  // Without the key the same question still gets the re-pair QR.
+  assert.equal((await poll(target, secret("e"))).body.repair, true);
+}));
