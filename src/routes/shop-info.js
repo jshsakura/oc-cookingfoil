@@ -49,6 +49,8 @@ import * as prodKeys from "../security/prod-keys.js";
 import { serverId } from "../security/server-id.js";
 import { maxGeneration } from "../meta/nca-crypto.js";
 import { firmwareOf } from "../meta/rewrap/generations.js";
+import { requestLang } from "../meta/langs.js";
+import debug from "../debug.js";
 
 export const API_VERSION = 1;
 
@@ -89,6 +91,39 @@ async function hasRetroGames() {
   }
 }
 
+/**
+ * What the plugins that are on add to shop info, laid over `info` in place:
+ *   features "file-variants"     some plugin offers download options (POST /api/library/variants)
+ *   variants { keys }            the query keys of every plugin's options, on or off: a client takes them off a URL to tell two of one file apart
+ *   features "console-facts", console { wants }   the items a console is asked to send in X-CookingFoil-Console
+ *   plugin features and info keys (the shopInfo hook): a name core or an earlier plugin already has is dropped, with a log line
+ * Plugins failing or being absent add nothing: shop info is the same as without them.
+ */
+export async function withPlugins(info, lang, variantsOf = async () => (await import("../plugins/instance.js")).pluginVariants()) {
+  let facts;
+  let extras = { features: [], info: {} };
+  try {
+    const variants = await variantsOf();
+    facts = variants.shopInfoFacts();
+    extras = await variants.shopInfoExtras(lang);
+  } catch (err) {
+    debug.error("shop info: plugins skipped: %s", err.message);
+    return;
+  }
+  const add = (feature) => { if (!info.features.includes(feature)) info.features.push(feature); };
+  if (facts.active) add("file-variants");
+  if (facts.keys.length) info.variants = { keys: facts.keys };
+  if (facts.wants.length) {
+    add("console-facts");
+    info.console = { wants: facts.wants };
+  }
+  for (const feature of extras.features) add(feature);
+  for (const [key, value] of Object.entries(extras.info)) {
+    if (key in info) debug.log("shop info: a plugin tried to set %s, which is already taken; dropped", key);
+    else info[key] = value;
+  }
+}
+
 export default async function shopInfoRoute(req, res) {
   const retro = await hasRetroGames();
   // Saves and patches show on the console only once there is one to hand out; an empty folder is not a feature.
@@ -100,7 +135,7 @@ export default async function shopInfoRoute(req, res) {
   const rewrap = prodKeys.usable(keys);
   const rewrapGen = rewrap ? maxGeneration(keys) : null;
   res.header("Cache-Control", "private, max-age=60");
-  res.json({
+  const info = {
     name: "CookingFoil",
     version: pkg.version,
     apiVersion: API_VERSION,
@@ -143,5 +178,7 @@ export default async function shopInfoRoute(req, res) {
     files: stats.files,
     contentMeta: contentMeta.progress(),
     ...(rewrapGen !== null ? { rewrapMaxGen: rewrapGen, rewrapMaxFirmware: firmwareOf(rewrapGen) } : {}),
-  });
+  };
+  await withPlugins(info, requestLang(req));
+  res.json(info);
 }

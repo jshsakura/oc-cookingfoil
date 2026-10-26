@@ -33,7 +33,7 @@ export const MINUTE_MS = 60_000;
 export const DEFAULT_LIMITS = Object.freeze({
   startMs: 10_000,
   stopMs: 5_000,
-  hookMs: Object.freeze({ metadata: 15_000, art: 15_000, variants: 5_000, plan: 30_000, tasks: 5_000 }),
+  hookMs: Object.freeze({ metadata: 15_000, art: 15_000, variants: 5_000, plan: 30_000, tasks: 5_000, shopInfo: 2_000 }),
   hookMsDefault: 15_000,
   startFailLimit: 3,
   hookFailLimit: 5,
@@ -72,7 +72,7 @@ async function moveDir(from, to) {
 
 export function createRegistry({
   db, dataDir, now = Date.now, limits = {}, safeMode = false, notify = () => {}, debug,
-  settingsOf, keysReader, fetchImpl, clearSettings, importPlugin = (file) => import(file),
+  settingsOf, keysReader, keysProvider, fetchImpl, clearSettings, importPlugin = (file) => import(file),
 }) {
   const lim = { ...DEFAULT_LIMITS, ...limits, hookMs: { ...DEFAULT_LIMITS.hookMs, ...(limits.hookMs ?? {}) } };
   const root = path.join(dataDir, "plugins");
@@ -322,7 +322,9 @@ export function createRegistry({
     const row = store.get(id);
     if (row?.cooldownUntil && now() < row.cooldownUntil) return { skipped: "cooling", retryAt: row.cooldownUntil };
 
-    const r = await runInPlugin(id, (signal) => fn.call(rt.instance, args, { signal, lang: call.lang ?? "en", clientVersion: call.clientVersion ?? null, console: consoleFor(id, call.console) }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
+    // A plugin that said needsKeys gets the parsed keys for this one call; they are never kept in ctx.
+    const given = kind === "plan" && entries.get(id)?.manifest?.needsKeys ? { ...args, keys: keysProvider?.() ?? null } : args;
+    const r = await runInPlugin(id, (signal) => fn.call(rt.instance, given, { signal, lang: call.lang ?? "en", clientVersion: call.clientVersion ?? null, console: consoleFor(id, call.console) }), { timeoutMs: lim.hookMs[kind] ?? lim.hookMsDefault });
     if (r.ok) {
       if (row.hookStreak || row.cooldownStep || row.cooldownUntil) store.update(id, { hookStreak: 0, cooldownStep: 0, cooldownUntil: null });
       return { value: r.value };
@@ -441,6 +443,20 @@ export function createRegistry({
     return row ? { id: row.id, available: stateOf(row.id) === "on" } : null;
   }
 
+  /** Every key any variant plugin ever claimed, on or off: a client uses them to tell two URLs of one file apart. */
+  const variantKeys = () => [...new Set(store.all().flatMap((r) => r.variantKeys))].sort();
+
+  /** The variant keys one plugin claims (from its manifest and from what it was seen to claim). */
+  const keysOf = (id) => store.get(id)?.variantKeys ?? [];
+
+  /** The ids of plugins that are on and provide `kind` ("variant", ...), in id order. */
+  const activeProviding = (kind) => [...entries.values()]
+    .filter((e) => e.status === "ok" && e.manifest.provides.includes(kind) && stateOf(e.id) === "on")
+    .map((e) => e.id).sort();
+
+  /** What the plugins that are on ask of a console: the union of their manifests' `console` lists. */
+  const wantedConsole = () => [...new Set(activeProviding("variant").flatMap((id) => entries.get(id).manifest.console))].sort();
+
   async function stopAll() {
     if (watcher) { clearInterval(watcher); watcher = null; }
     await locked(async () => { for (const id of [...running.keys()]) await stopInstance(id); });
@@ -448,10 +464,11 @@ export function createRegistry({
 
   return {
     API_VERSION, init, list, view, setEnabled, callHook, rescan, startWatching, trash, listTrashed, restore,
-    recordVariantKeys, variantKeyStatus, stopAll, pluginRejected, writeCrash,
+    recordVariantKeys, variantKeyStatus, variantKeys, keysOf, activeProviding, wantedConsole, consoleFor, stopAll, pluginRejected, writeCrash,
     clearBooting: markers.clearBooting,
     capabilities: () => [...capabilities.values()],
     safeMode,
+    versionOf: (id) => entries.get(id)?.manifest?.version ?? null,
     paths: { root, trashRoot },
     /** For tests: the plugin's instance when it is running. */
     _instance: (id) => running.get(id)?.instance ?? null,

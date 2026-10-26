@@ -349,11 +349,16 @@ test("patch maps are kept per target: the same one is reused, another target get
   assert.equal((await a).tag, "rewrap-16.0.0");
 });
 
-test("a refusal is a 409 { error, code } in the request's language, never cached", async () => {
+test("a refusal is a 409 { error, errors, code } with error in the request's language, never cached", async () => {
   const bad = await fetch(`${base}?rewrap=16.0`, { headers: { "Accept-Language": "ko" } });
   assert.equal(bad.status, 409);
   assert.equal(bad.headers.get("cache-control"), "no-store");
-  assert.deepEqual(await bad.json(), { error: refusalText("rewrap.badTarget", {}, "ko"), code: "rewrap.badTarget" });
+  const badBody = await bad.json();
+  assert.deepEqual(badBody, {
+    error: refusalText("rewrap.badTarget", {}, "ko"),
+    errors: Object.fromEntries(Object.keys(REWRAP_WORDS).map((l) => [l, refusalText("rewrap.badTarget", {}, l)])),
+    code: "rewrap.badTarget",
+  });
 
   writeKeys(keysUpTo(K, 16).keys);
   serve.clearPlans();

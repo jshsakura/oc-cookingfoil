@@ -5,7 +5,7 @@
  * serving route answers in the request's language by that code (refusalBody).
  * `detail` is English for the server log only.
  */
-import { requestLang } from "../langs.js";
+import { LANGS, requestLang } from "../langs.js";
 
 export const REWRAP_WORDS = {
   en: {
@@ -126,5 +126,12 @@ export class RewrapError extends Error {
   }
 }
 
-/** The 409 body for a refusal, in the request's language. */
-export const refusalBody = (req, err) => ({ error: refusalText(err.code, err.vars, requestLang(req)), code: err.code });
+/**
+ * The 409 body for a refusal: `error` in the request's language (what a client that predates `errors`
+ * reads), `errors` in every language, and `code`. The same shape as every variant refusal.
+ */
+export const refusalBody = (req, err) => ({
+  error: refusalText(err.code, err.vars, requestLang(req)),
+  errors: Object.fromEntries(LANGS.map((lang) => [lang, refusalText(err.code, err.vars, lang)])),
+  code: err.code,
+});

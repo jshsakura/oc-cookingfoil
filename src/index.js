@@ -65,6 +65,7 @@ import sessionGate from "./security/session-gate.js";
 import adminOnly from "./security/admin-only.js";
 import videosRouter from "./routes/videos.js";
 import { sameOriginWrites } from "./security/same-origin.js";
+import libraryVariants from "./routes/library-variants.js";
 import sessionRoute from "./routes/session.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
@@ -105,7 +106,7 @@ import * as retroScaffold from "./retro/scaffold.js";
 import * as envs from "./helpers/envs.js";
 import { defaultOrganizer } from "./routes/admin/library-organize-api.js";
 import * as trashService from "./library/trash-service.js";
-import { pluginRegistry, startPlugins } from "./plugins/instance.js";
+import { pluginRegistry, pluginVariants, startPlugins } from "./plugins/instance.js";
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { afterStartFunction } from "./afterStartFunction.js";
 import { alert } from "./helpers/alerts.js";
@@ -325,6 +326,8 @@ expressApp.get("/api/library/banner/:titleId", bannerRoute);
 expressApp.get("/api/library/screenshot/:titleId/:idx", screenshotRoute);
 expressApp.get("/api/library/sections", sectionsRoute);
 expressApp.get("/api/library/info", shopInfoRoute);
+// The download options of up to 200 files at once, asked just before an install (plugins/variants.js).
+expressApp.post("/api/library/variants", sameOriginWrites(), ...libraryVariants({ root: romsDirPath, variants: pluginVariants }));
 expressApp.get("/games.json", shopJsonRoute);
 
 // Transitional aliases: retain until both client and scraper migrations are confirmed.

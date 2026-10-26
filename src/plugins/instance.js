@@ -9,6 +9,7 @@ import * as env from "../helpers/envs.js";
 import * as prodKeys from "../security/prod-keys.js";
 import { createProcessGuards } from "./guard.js";
 import { createRegistry } from "./registry.js";
+import { createVariants } from "./variants.js";
 
 let shared = null;
 
@@ -27,7 +28,13 @@ export const pluginRegistry = () => (shared ??= createRegistry({
   debug: { info: debug.log, warn: debug.log, error: debug.error },
   // What a plugin that says needsKeys may ask. The reading functions come with the first plugin that needs them.
   keysReader: Object.freeze({ present: () => prodKeys.status().present }),
+  // Handed to the plan hook of a plugin that said needsKeys, for that call only.
+  keysProvider: () => prodKeys.loadKeys(),
 }));
+
+let variantsShared = null;
+/** The generic variant path (plugins/variants.js) on the shared registry. */
+export const pluginVariants = () => (variantsShared ??= createVariants(pluginRegistry(), { log: (m) => debug.log("plugins: %s", m) }));
 
 /** Starts the registry without holding the server back: a slow or failing plugin never delays listening. */
 export function startPlugins() {

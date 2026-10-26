@@ -202,6 +202,8 @@ test("every refusal keeps its status, its headers and the fields an old client r
         const r = await fetch(url(c.file, `?rewrap=${c.query}`), { headers: { "Accept-Language": lang } });
         const j = await r.json();
         assert.equal(typeof j.error, "string");
+        assert.deepEqual(Object.keys(j.errors).sort(), [...LANGS].sort(), "every language is in errors");
+        assert.equal(j.errors[lang], j.error, "error is errors in the asked language");
         got[lang] = { status: r.status, cacheControl: r.headers.get("cache-control"), error: j.error, code: j.code };
       }
       const head = await fetch(url(c.file, `?rewrap=${c.query}`), { method: "HEAD" });
