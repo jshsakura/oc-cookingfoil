@@ -206,7 +206,7 @@ $('hb-shots-clear').addEventListener('click',async()=>{if(!await ask(topText('hb
 $('hb-shots-file').addEventListener('change',async()=>{const files=[...$('hb-shots-file').files];$('hb-shots-file').value='';if(!files.length)return;
   const st=$('hb-shots-state');let done=0;
   for(const file of files){st.textContent=topFill('hb.uploadingN',{i:done+1,n:files.length});
-    try{const r=await fetch('/admin/api/homebrew/shots/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
+    try{const r=await chunkedFetch('/admin/api/homebrew/shots/upload?id='+encodeURIComponent(hbBannerApp.id),file,{headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'}});
       const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||topText('u.rFail'));done++;}
     catch(err){st.textContent=file.name+': '+err.message;break;}}
   if(done===files.length)st.textContent=topFill('hb.shotsUploaded',{n:done});await hbMediaReload();});
@@ -214,7 +214,7 @@ $('hb-banner-remove').addEventListener('click',async()=>{if(!await ask(topText('
   try{await api('/admin/api/homebrew/banner/remove',{method:'POST',body:{id:hbBannerApp.id}});toast(topText('hb.bgRemoved'));await hbMediaReload();}catch(err){toast(err.message);}});
 $('hb-banner-file').addEventListener('change',async()=>{const file=$('hb-banner-file').files[0];$('hb-banner-file').value='';if(!file)return;
   $('hb-banner-state').textContent=topText('hb.uploading');
-  try{const r=await fetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:file});
+  try{const r=await chunkedFetch('/admin/api/homebrew/banner/upload?id='+encodeURIComponent(hbBannerApp.id),file,{headers:{'Content-Type':file.type||'application/octet-stream',Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'}});
     const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||topText('u.rFail'));toast(topText('hb.bgUploaded'));await hbMediaReload();}
   catch(err){$('hb-banner-state').textContent=err.message;}});
 async function removeHbExtra(type,id,name){if(!await ask(topFill(type==='patch'?'t.askPatch':'t.askSave',{name}),{danger:true}))return;
@@ -244,9 +244,8 @@ function pickHbFile(a,name){const ext=a.install_type==='title'?'.nsp':'.nro';
   input.addEventListener('change',()=>{const file=input.files[0];if(file)replaceHbFile(a,name,file);});input.click();}
 async function replaceHbFile(a,name,file){if(!await ask(topFill('t.askHbReplace',{name,file:file.name}),{danger:true}))return;
   toast(topFill('t.hbReplacing',{name}));
-  const fd=new FormData();fd.append('replace',a.id);fd.append('files',file,file.name);
-  try{const r=await fetch('/admin/api/upload/homebrew',{method:'POST',headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});
-    const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+  try{const r=await chunkedKind('homebrew',[file],{fields:{replace:a.id}});
+    const d=r.d||{};if(r.status!==200&&r.status!==201)throw new Error(d.error||(r.status?'HTTP '+r.status:topText('u.rNet')));
     toast(topFill('t.hbReplacedToast',{name,old:d.replaced}));loadHomebrew();}
   catch(err){toast(err.message);}}
 // Tool or port: a port (a program brought over from another system) is listed apart by the client.

@@ -18,7 +18,7 @@
  *                                            dropData also deletes its cache and stored settings
  * Errors answer { error } in the page's language with the registry's status (404, 409, 400).
  */
-import express from "express";
+import { rawOrChunk } from "../../meta/upload-chunks.js";
 import debug from "../../debug.js";
 import { PluginError } from "../../plugins/registry.js";
 import { pluginCache, pluginInstaller, pluginRegistry } from "../../plugins/instance.js";
@@ -96,7 +96,7 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
   router.post("/api/plugins/install", (req, res, next) => (requireSession(req, res) ? next() : undefined),
     // Refused before the body is read when the server does not allow installing.
     (req, res, next) => (installer.allowed() ? next() : handle(async () => { throw new PluginError("install-off", 403); })(req, res)),
-    express.raw({ type: () => true, limit: UNPACK_LIMITS.zipBytes }),
+    rawOrChunk({ type: () => true, limit: UNPACK_LIMITS.zipBytes }),
     handle(async (req, res) => {
       res.json({ ok: true, ...(await installer.stage(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0))) });
     }));

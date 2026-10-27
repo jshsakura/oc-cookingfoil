@@ -31,8 +31,7 @@ async function loadRetroPatch(){const q=$('rpt-q').value.trim();let d;
   $('rpt-found-box').hidden=!q;
   if(q)table('rpt-found',rptCols(),d.games.map(rptRow),topText('rpt.noFound'),{tall:true});}
 async function rptApply(g,file){toast(topFill('rpt.applying',{file:g.file}));
-  const fd=new FormData();fd.append('file',file,file.name);
-  try{const r=await fetch('/admin/api/retro-patch/'+encodeURIComponent(g.id)+'/apply',{method:'POST',headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:fd});
+  try{const r=await chunkedFetch('/admin/api/retro-patch/'+encodeURIComponent(g.id)+'/apply',file,{headers:{Accept:'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'}});
     const d=await r.json().catch(()=>({}));
     if(!r.ok){toast(d.error||('HTTP '+r.status));return;}
     const last=d.game?.patch?.patches?.at(-1);toast(topText(last&&!last.verified?'rpt.appliedUnverified':'rpt.applied'));loadRetroPatch();

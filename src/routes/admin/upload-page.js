@@ -294,28 +294,22 @@ document.addEventListener('dragover',(e)=>{if(hasFiles(e)){e.preventDefault();e.
 document.addEventListener('drop',async(e)=>{if(!hasFiles(e))return;e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');
   const got=await droppedFiles(e.dataTransfer);upTake(got.files,got.paths);});
 function upTitleId(){const v=$('up-game').value.trim();const m=v.match(/[0-9A-Fa-f]{16}/);return m?m[0].toUpperCase():'';}
-// One request for one unit; it ends with the unit marked sent or failed and its row repainted.
-function upSend(u,label){return new Promise((resolve)=>{
-  const fd=new FormData();
+// One unit goes up in pieces and is placed by one request; it ends with the unit marked sent or failed and its row repainted.
+async function upSend(u,label){
   // Where it goes was frozen into the unit when the batch was made; the name and descriptions are read now.
-  const k=u.f.kind;
-  if(k==='retro')fd.append('system',u.f.system);
+  const k=u.f.kind;const fields={};
+  if(k==='retro')fields.system=u.f.system;
   if(k==='patch'||k==='save'){const app=u.f.app;
-    if(app)fd.append('homebrew',app);else fd.append('titleId',u.f.titleId);fd.append('name',$('up-name').value.trim());
-    fd.append('description',$('up-desc').value.trim());fd.append('descriptionKo',$('up-desc-ko').value.trim());
-    if(k==='save'&&!app&&$('up-savetype').value)fd.append('saveType',$('up-savetype').value);
-    if(k==='patch'&&!app&&$('up-required').checked)fd.append('required','true');}
-  if(k==='port')fd.append('port','true');
-  if(u.paths)fd.append('paths',JSON.stringify(u.paths));
-  for(const f of u.files)fd.append('files',f,f.name);
-  const xhr=new XMLHttpRequest();const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-progress').textContent=label;
-  xhr.upload.addEventListener('progress',(ev)=>{if(ev.lengthComputable)bar.firstElementChild.style.width=(ev.loaded/ev.total*100).toFixed(1)+'%';});
-  xhr.addEventListener('loadend',()=>{
-    if(xhr.status===401){location.reload();return;}
-    let d={};try{d=JSON.parse(xhr.responseText);}catch{}
-    u.status=xhr.status;u.d=d;u.msg=d.error||'';u.code=d.code||null;u.state=xhr.status===201?'ok':'fail';
-    upPaint(u);resolve();});
-  xhr.open('POST','/admin/api/upload/'+(k==='port'?'homebrew':k));xhr.setRequestHeader('Accept-Language',typeof adminLang==='string'?adminLang:'ko');xhr.send(fd);});}
+    if(app)fields.homebrew=app;else fields.titleId=u.f.titleId;fields.name=$('up-name').value.trim();
+    fields.description=$('up-desc').value.trim();fields.descriptionKo=$('up-desc-ko').value.trim();
+    if(k==='save'&&!app&&$('up-savetype').value)fields.saveType=$('up-savetype').value;
+    if(k==='patch'&&!app&&$('up-required').checked)fields.required='true';}
+  if(k==='port')fields.port='true';
+  const bar=$('up-bar');bar.hidden=false;bar.firstElementChild.style.width='0';$('up-progress').textContent=label;
+  const r=await chunkedKind(k==='port'?'homebrew':k,u.files,{fields,paths:u.paths,onProgress:(x)=>{bar.firstElementChild.style.width=(x*100).toFixed(1)+'%';}});
+  const d=r.d||{};
+  u.status=r.status;u.d=d;u.msg=d.error||'';u.code=d.code||null;u.state=r.status===201?'ok':'fail';
+  upPaint(u);}
 // Send the given units (default: every one that has not gone in). Units that went up are never sent again.
 async function upSubmit(only){
   if(upBusy)return;

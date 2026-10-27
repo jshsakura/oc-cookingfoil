@@ -18,6 +18,7 @@ import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
 import multer from "multer";
+import { accountOf, ChunkError, takeFile } from "../../meta/upload-chunks.js";
 import debug from "../../debug.js";
 import { retroDir, uploadMaxBytes } from "../../helpers/envs.js";
 import { requestLang } from "../../meta/langs.js";
@@ -66,6 +67,18 @@ export async function retroPatchStatus({ q = "", lang = "en" } = {}) {
 async function receive(req, res) {
   const work = path.join(retroDir, STAGING, crypto.randomBytes(8).toString("hex"));
   await fsp.mkdir(work, { recursive: true });
+  // The file may have gone up in pieces first (meta/upload-chunks.js); the request then names it.
+  const chunkId = req.get("X-Chunk-Id");
+  if (chunkId) {
+    try {
+      const dest = path.join(work, "patch");
+      const { name } = await takeFile(chunkId, { account: accountOf(req), dest });
+      return { work, file: dest, name };
+    } catch (err) {
+      await fsp.rm(work, { recursive: true, force: true });
+      throw err;
+    }
+  }
   const upload = multer({
     storage: multer.diskStorage({ destination: (_req, _file, cb) => cb(null, work), filename: (_req, _file, cb) => cb(null, "patch") }),
     limits: { fileSize: uploadMaxBytes, files: 1, fields: 4 },
@@ -91,6 +104,7 @@ export function mountRetroPatchApi(router, requireSession) {
       await handler(req, res);
     } catch (err) {
       if (err instanceof RomPatchError) return res.status(err.status).json({ error: apiWord(req, `retroPatch.${err.code}`), code: err.code });
+      if (err instanceof ChunkError) return res.status(err.status).json({ error: apiWord(req, err.key, err.vars), code: err.key, ...err.extra });
       if (err.code === "LIMIT_FILE_SIZE") return res.status(413).json({ error: apiWord(req, "retroPatch.too-large"), code: "too-large" });
       if (err.code?.startsWith?.("LIMIT_")) return res.status(400).json({ error: apiWord(req, "retroPatch.oneFile"), code: "one-file" });
       debug.error("admin retro-patch: %s", err.message);

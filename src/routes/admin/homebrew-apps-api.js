@@ -23,7 +23,7 @@
  *   POST /admin/api/homebrew/shots/upload?id=    one image body, added after the screenshots it has (8 at most)
  *   POST /admin/api/homebrew/shots/remove  { id, n? }  one screenshot (n from 1), or all of them without n
  */
-import express from "express";
+import { rawOrChunk } from "../../meta/upload-chunks.js";
 import path from "path";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
@@ -151,7 +151,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
     res.json({ ok: true });
   }));
 
-  const imageBody = express.raw({ type: "image/*", limit: MAX_IMAGE_BYTES });
+  const imageBody = rawOrChunk({ type: "image/*", limit: MAX_IMAGE_BYTES });
   /** The app and the image body of an upload, or null once an answer has gone out. The session is checked first. */
   const readUpload = async (req, res) => {
     const origin = req.get("Origin");
