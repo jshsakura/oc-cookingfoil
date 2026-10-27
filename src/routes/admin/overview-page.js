@@ -15,8 +15,8 @@ export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
   </div>
   <h3 class="ov-h" data-top="ov.statusH">${ko("ov.statusH")}</h3>
   <div class="cards" id="ov-status"></div>
-  <div class="lanes" id="lanes"></div>
-  <div class="lanes" id="health"></div>
+  <dl class="ov-facts" id="lanes"></dl>
+  <dl class="ov-facts" id="health"></dl>
   <p class="muted" id="health-hint" hidden></p>
   <h3 class="ov-h" data-top="ov.recentH">${ko("ov.recentH")}</h3>
   <ul class="ov-recent" id="ov-recent"></ul>
@@ -48,6 +48,15 @@ export const OVERVIEW_CSS = /* css */ `
 .ov-list time{flex:none;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ov-list li.none{color:var(--muted)}
 .ov-list .pt-edit{flex:none}
+.ov-facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));margin:12px 0 0;border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden}
+.ov-facts:empty{display:none}
+.ov-facts+.ov-facts{margin-top:8px}
+.ov-fact{display:flex;align-items:center;gap:10px;min-width:0;padding:11px 16px;border-top:1px solid var(--line);margin-top:-1px;font-size:var(--fs-sm)}
+.ov-fact::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.ov-fact.on::before{background:var(--good)}.ov-fact.warn::before{background:var(--warn)}.ov-fact.off::before{background:var(--bad)}
+.ov-fact dt{color:var(--muted);flex:none}
+.ov-fact dd{margin:0 0 0 auto;font-weight:var(--fw-bold);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-fact a{flex:none;color:var(--text);font-size:var(--fs-xs);text-underline-offset:3px}
 `;
 
 export const OVERVIEW_SCRIPT = /* js */ `
@@ -82,11 +91,17 @@ function renderWarnings(list){const box=$('warnings');box.replaceChildren();
     const k=WARNINGS[w.code];
     box.append(ovNote(k?topText(k.t):w.title,k?(k.df?k.df(w):topText(k.d)):w.detail,w.severity==='warn',k?.go?[topText(k.go[0]),k.go[1]]:null));}
   if(!list.length)box.append(el('p',topText('ov.todoNone'),'muted'));}
+// Every status string in every language reads "label: value" (or "titledb 12"), so one row splits it there.
+function ovFact(text,state,go){const m=/^(.*?)\\s?[:：]\\s?(.*)$/.exec(text)||/^(\\S+)\\s(.*)$/.exec(text)||[text,text,''];
+  const row=el('div',null,'ov-fact'+(state?' '+state:''));row.append(el('dt',m[1]),el('dd',m[2]));
+  if(go){const a=document.createElement('a');a.href=go[1];a.textContent=go[0];row.append(a);}
+  return row;}
 function renderLanes(l){const box=$('lanes');box.replaceChildren();
-  box.append(pill(l.accounts.enabled?topFill('ov.laneAccounts',{n:l.accounts.userCount}):topText('ov.laneAccountsNone'),l.accounts.enabled?'on':'off'));
-  box.append(pill(topFill('ov.lanePairing',{v:topText(l.pairing.enabled?'ov.on':'ov.off')}),l.pairing.enabled?'on':''));
-  if(l.pairingOnly)box.append(pill(topText('ov.pairingOnly'),'warn'));
-  box.append(pill(topFill('ov.lane2fa',{v:topText(l.admin.enrolled?'ov.enrolled':'ov.notEnrolled')}),l.admin.enrolled?'on':'off'));}
+  box.append(ovFact(l.accounts.enabled?topFill('ov.laneAccounts',{n:l.accounts.userCount}):topText('ov.laneAccountsNone'),l.accounts.enabled?'on':'off'));
+  const pairing=ovFact(topFill('ov.lanePairing',{v:topText(l.pairing.enabled?'ov.on':'ov.off')}),l.pairing.enabled?'on':'');
+  if(l.pairingOnly){pairing.className='ov-fact warn';pairing.querySelector('dd').textContent+=' · '+topText('ov.pairingOnly');}
+  box.append(pairing);
+  box.append(ovFact(topFill('ov.lane2fa',{v:topText(l.admin.enrolled?'ov.enrolled':'ov.notEnrolled')}),l.admin.enrolled?'on':'',l.admin.enrolled?null:[topText('ov.w.enroll'),'/admin/settings/admin']));}
 // Where game names come from (titledb, the files' own data): the operator's view of what the web page used to show.
 let ovHealth=null;
 async function loadHealth(){
@@ -95,10 +110,10 @@ async function loadHealth(){
 function renderHealth(nh){
   const box=$('health');box.replaceChildren();if(!nh)return;
   const v=nh.verdict==='filename-only'?[topText('ov.namesFilenameOnly'),'off']:nh.verdict==='degraded'?[topText('ov.namesDegraded'),'warn']:[topText('ov.namesOk'),'on'];
-  box.append(pill(v[0],v[1]));
-  const tdb=nh.titledb||{};box.append(pill(topFill('ov.titledbCount',{n:num(tdb.titles||0)})+((tdb.regions||[]).length?topFill('ov.regions',{n:tdb.regions.length}):''),(tdb.titles||0)>0?'on':'off'));
+  box.append(ovFact(v[0],v[1]));
+  const tdb=nh.titledb||{};box.append(ovFact(topFill('ov.titledbCount',{n:num(tdb.titles||0)})+((tdb.regions||[]).length?topFill('ov.regions',{n:tdb.regions.length}):''),(tdb.titles||0)>0?'on':'off'));
   const ex=nh.extraction||{};
-  box.append(pill(topFill('ov.extraction',{v:ex.mode==='off'?topText('ov.off'):!ex.nstool?topText('ov.exNoNstool'):!ex.prodKeys?topText('ov.exNoKeys'):topText('ov.exOn')}),ex.nspXciCapable?'on':'off'));
+  box.append(ovFact(topFill('ov.extraction',{v:ex.mode==='off'?topText('ov.off'):!ex.nstool?topText('ov.exNoNstool'):!ex.prodKeys?topText('ov.exNoKeys'):topText('ov.exOn')}),ex.nspXciCapable?'on':'off'));
   const hint=$('health-hint');hint.hidden=nh.verdict!=='filename-only';
   hint.textContent=topText('ov.healthHint');}
 function ovBytes(b){const u=['B','KB','MB','GB','TB','PB'];let i=0;b=Number(b||0);while(b>=1024&&i<u.length-1){b/=1024;i++;}

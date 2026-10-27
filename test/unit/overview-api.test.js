@@ -36,6 +36,16 @@ test("the to-do list holds config warnings first and only counts above zero", as
   assert.deepEqual(todo.find((t) => t.code === "plugins-failing").ids, ["b"]);
 });
 
+test("a hint about the setup, like the admin page opening with the password, is not a to-do", async () => {
+  const { o } = overviewWith({ warnings: () => [
+    { code: "admin-authenticator-optional", severity: "info" },
+    { code: "both-lanes", severity: "info" },
+    { code: "proxy-collapse", severity: "warn" },
+  ] });
+  const { todo } = await o.read();
+  assert.deepEqual(todo.filter((t) => t.severity).map((t) => t.code), ["proxy-collapse"]);
+});
+
 test("the status counts games by title, sums their size and keeps the disks it could read", async () => {
   const { o } = overviewWith();
   const { status } = await o.read();

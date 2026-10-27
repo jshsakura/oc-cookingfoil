@@ -3,7 +3,7 @@
  *
  *   GET /admin/api/overview
  *     { generatedAt, lanes (the sign-in lanes, as /api/stats has them),
- *       todo:   [{ code, n?, severity?, ...warning }]   only what needs doing; config warnings first
+ *       todo:   [{ code, n?, severity?, ...warning }]   only what needs doing; config warnings first, hints left out
  *       status: { games: { titles, files, bytes }, disk: [{ key, free, size }],
  *                 verify: { status, total, counts }, transfers: { active }, plugins: { on, total } }
  *       recent: [{ at, event, text, status }]           the newest alerts, sent or not, first line only
@@ -99,7 +99,8 @@ export function createOverview({
     const all = files();
     const failing = pl.filter((p) => p.enabled && PLUGIN_FAILING.has(p.state));
     const todo = [
-      ...warnings().map((w) => ({ ...w })),
+      // A hint about how the server is set up is not something to do; the status facts already show it.
+      ...warnings().filter((w) => w.severity !== "info").map((w) => ({ ...w })),
       { code: "damaged", n: v.counts?.damaged ?? 0 },
       { code: "pending-devices", n: c.pendingDevices ?? 0 },
       { code: "pending-accounts", n: c.pendingAccounts ?? 0 },
