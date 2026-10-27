@@ -184,7 +184,7 @@ if($('approve-code'))$('approve-code').addEventListener('submit',async(e)=>{e.pr
   catch(err){toast(err.message==='no device is waiting with that code'?topText('pp.noMatchingCode'):err.message);}});
 // Drops a request without approving it; the console shows up again only if it asks again.
 async function dismissDevice(deviceKey,code){if(!await ask(topFill('pp.dismissAsk',{code:code||topText('pp.thisDevice')}),{danger:true}))return;
-  try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast(topText('pp.dismissed'));loadDevices();}catch(err){toast(err.message);}}
+  try{const d=await api('/admin/api/devices/dismiss',{method:'POST',body:{deviceKey}});if(d.dismissed)toast(topText('pp.dismissed'));loadDevices();}catch(err){toast(err.message);}}
 async function approve(deviceKey){const label=await askText(topText('pp.approveNamePh'),'');if(label===null)return;
   try{await api('/admin/api/devices/approve',{method:'POST',body:{deviceKey,label}});toast(topText('pp.approved'));loadDevices();}catch(err){toast(err.message);}}
 async function reissue(deviceKey,label){if(!await ask(topText('pp.reissueAsk'),{danger:true}))return;

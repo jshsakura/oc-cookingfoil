@@ -24,7 +24,7 @@ test("the routes tokens are refused are served over MCP, and the HTTP lane stays
   assert.ok(servedTools().includes(set));
   assert.equal(set.token, false);
   assert.equal(set.mcp, true);
-  assert.deepEqual(set.also.sort(), ["POST /admin/api/clients/:id/revoke", "POST /admin/api/devices/admin", "POST /admin/api/devices/label", "POST /admin/api/devices/revoke"]);
+  assert.deepEqual(set.also.sort(), ["POST /admin/api/clients/:id/revoke", "POST /admin/api/devices/admin", "POST /admin/api/devices/dismiss", "POST /admin/api/devices/label", "POST /admin/api/devices/revoke"]);
 });
 
 test("device_list names waiting and approved consoles by code, never by key", async () => {

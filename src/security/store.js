@@ -510,11 +510,17 @@ export function pendingName(deviceKey) {
   return state.pending.get(deviceKey)?.name ?? null;
 }
 
-/** Drop a console from the approval queue without approving it. */
+/**
+ * Drop a console from the approval queue without approving it. A console approved
+ * meanwhile (QR, auto approval) is left alone: its approval and the key staged for
+ * it stay. Returns whether a waiting request was dropped.
+ */
 export function dismissPending(deviceKey) {
+  if (isDeviceApproved(deviceKey)) return false;
   const dismissed = dropPending(deviceKey);
   dropRepair(deviceKey);
   if (state.pairSecrets.delete(deviceKey) || dismissed) scheduleFlush();
+  return dismissed;
 }
 
 /**
