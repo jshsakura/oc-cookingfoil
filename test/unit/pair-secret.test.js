@@ -146,6 +146,27 @@ test("refusing or forgetting a console clears its pairSecret", () => {
   assert.equal(store.pairSecretHash(forgotten), null);
 });
 
+// The admin's waiting list can be stale: the console may be approved (QR, auto approval) before
+// the admin presses its reject button. Dropping that old request must leave the approval alone.
+test("dismissing a request of a console approved meanwhile keeps its approval and key", () => {
+  const late = newKey();
+  store.recordPendingDevice(late);
+  const secret = newSecret();
+  registerPairSecret(late, secret);
+  approveWaitingDevice(late, { addedBy: "admin" });
+  assert.equal(store.dismissPending(late), false);
+  assert.equal(store.isDeviceApproved(late), true);
+  assert.ok(store.pairSecretHash(late), "the staged key still waits for the console that asked");
+  assert.ok(deliverAccessKey(late, secret));
+});
+
+test("dismissing a waiting console reports that it dropped it", () => {
+  const waiting = newKey();
+  store.recordPendingDevice(waiting);
+  assert.equal(store.dismissPending(waiting), true);
+  assert.equal(store.isDevicePending(waiting), false);
+});
+
 test("a poll without the secret does not consume the delivery", () => {
   const key = newKey();
   const secret = newSecret();

@@ -147,10 +147,10 @@ export const devicesCapabilities = [
     }),
     safety: "write",
     http: { method: "POST", path: "/admin/api/devices/approve" },
-    also: ["POST /admin/api/devices/label", "POST /admin/api/devices/revoke", "POST /admin/api/devices/admin", "POST /admin/api/clients/:id/revoke"],
+    also: ["POST /admin/api/devices/label", "POST /admin/api/devices/revoke", "POST /admin/api/devices/dismiss", "POST /admin/api/devices/admin", "POST /admin/api/clients/:id/revoke"],
     mcp: true,
     handler: async (ctx, input) => {
-      const { key, row } = check(input);
+      const { key, row, state } = check(input);
       if (input.op === "cancel_download") {
         enrollTokens.revoke(row.id);
         return { done: "cancel_download", code: row.id, label: `download of ${row.owner}`, admin: false };
@@ -168,7 +168,9 @@ export const devicesCapabilities = [
         store.setDeviceAdmin(key, input.on);
         return { done: "admin", code: deviceCode(key), label: row.label ?? "", admin: store.isDeviceAdmin(key) };
       }
-      store.revokeDevice(key);
+      // A waiting console's request is only dropped; one approved since device_list keeps its approval.
+      if (state === "pending") store.dismissPending(key);
+      else store.revokeDevice(key);
       return { done: "revoke", code: deviceCode(key), label: name(row), admin: false };
     },
   }),

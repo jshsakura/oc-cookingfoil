@@ -10,6 +10,7 @@
  *   GET  /admin/api/devices         → approved + pending devices
  *   POST /admin/api/devices/approve → approve (or rotate the key of) a device
  *   POST /admin/api/devices/revoke  → revoke a device
+ *   POST /admin/api/devices/dismiss → drop a waiting console's request; an approved console is left alone
  *   POST /admin/api/devices/admin   → { deviceKey, admin } make an approved console an admin device (it may
  *                                     change item settings, routes/admin-items.js) or not
  *   GET  /admin/api/admin-edits?limit=100 → item setting changes, newest first (meta/admin-edits.js)
@@ -498,6 +499,19 @@ export default function adminPageRouter() {
     const removed = store.revokeDevice(deviceKey);
     debug.log("admin: revoke device %s… → %s", deviceKey.slice(0, 12), removed);
     res.json({ ok: true, revoked: removed ? 1 : 0 });
+  });
+
+  // The waiting list's reject button. The list may be stale, so a console approved meanwhile keeps its approval.
+  router.post("/api/devices/dismiss", (req, res) => {
+    if (!requireSession(req, res)) return;
+    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    if (!deviceKey) {
+      res.status(400).json({ error: "invalid deviceKey" });
+      return;
+    }
+    const dismissed = store.dismissPending(deviceKey);
+    debug.log("admin: dismiss request %s… → %s", deviceKey.slice(0, 12), dismissed);
+    res.json({ ok: true, dismissed: dismissed ? 1 : 0, approved: store.isDeviceApproved(deviceKey) });
   });
 
   // An admin device may change item settings from the console (security/device-admin.js). Off by default.
