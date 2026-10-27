@@ -33,6 +33,11 @@ export const OPT_OUT = {
   "GET /api/library/info": "token-blocked",
   "GET /api/library/screenshot/:titleId/:idx": "token-blocked",
   "GET /api/library/sections": "token-blocked",
+  // The admin chat is a person's tool; an agent has the MCP endpoint itself (routes/admin/chat-api.js).
+  "GET /admin/api/chat": "token-blocked",
+  "POST /admin/api/chat": "token-blocked",
+  "POST /admin/api/chat/decision": "token-blocked",
+  "DELETE /admin/api/chat": "token-blocked",
   // The admin file browser's writes and downloads: a person picks them in the browser (routes/admin/files-api.js).
   "GET /admin/api/files/download": "token-blocked",
   "POST /admin/api/files/mkdir": "token-blocked",

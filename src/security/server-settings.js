@@ -81,6 +81,8 @@ export const SETTINGS = {
   restartGrace: seconds(35),
   // The MCP endpoint for AI assistants (mcp/route.js).
   mcpEnabled: bool,
+  // The chat on the admin page (chat/service.js).
+  chatEnabled: bool,
   // The NSZ conversion queue (meta/nsz-queue.js).
   nszEnabled: bool,
   nszAutoQueue: bool,

@@ -70,6 +70,7 @@ import { mountRetroCoresApi } from "./admin/retro-cores-api.js";
 import { mountRetroPackApi } from "./admin/retro-pack-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
 import { mountServerSettingsApi } from "./admin/server-settings-api.js";
+import { mountChatApi } from "./admin/chat-api.js";
 import { mountKeysApi } from "./admin/keys-api.js";
 import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
@@ -161,11 +162,11 @@ function clientBuildWarnings() {
 // the trash, the one delete nothing brings back. Restoring from the trash and undoing a move
 // stay open. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|files\/(?:mkdir|rename|move|trash|upload)|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty|plugins\/(?:rescan|restore|recommended\/install|install(?:\/confirm)?|[^/]+\/(?:enabled|trash|cache\/clear)))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|chat|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/telegram|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|files\/(?:mkdir|rename|move|trash|upload)|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty|plugins\/(?:rescan|restore|recommended\/install|install(?:\/confirm)?|[^/]+\/(?:enabled|trash|cache\/clear)))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
-// Reads a token may not make either: the token list (tokens never handle tokens), the admin
-// login's second step, and where consoles and accounts connected from.
-export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:(?:tokens|2fa|access-history|counts)(?:\/|$)|plugins\/[^/]+\/download\/?$|files\/download\/?$)/i;
+// Reads a token may not make either: the token list (tokens never handle tokens), the chat
+// (a person's tool), the admin login's second step, and where consoles and accounts connected from.
+export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:(?:tokens|chat|2fa|access-history|counts)(?:\/|$)|plugins\/[^/]+\/download\/?$|files\/download\/?$)/i;
 
 /**
  * Whether an automation token is refused `method path`, with the path decoded and as this router
@@ -598,6 +599,7 @@ export default function adminPageRouter() {
   mountRetroPackApi(router, requireSession);
   mountApiTokensApi(router, requireSession);
   mountServerSettingsApi(router, requireSession);
+  mountChatApi(router, requireSession);
   mountKeysApi(router, requireSession);
   mountContentApi(router, requireSession);
   mountLibraryFilesApi(router, requireSession);
