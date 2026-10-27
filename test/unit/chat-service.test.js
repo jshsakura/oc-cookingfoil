@@ -130,7 +130,7 @@ test("the chat integration is saved sealed, shows only whether the key is set, a
 test("an automation token cannot read or change the chat or its model settings", async () => {
   process.env.COOK_DATA_DIR ??= fs.mkdtempSync(path.join(os.tmpdir(), "cook-chat-token-"));
   const { tokenBlocked } = await import("../../src/routes/admin-page.js");
-  for (const [method, p] of [["POST", "/api/integrations/chat"], ["POST", "/api/integrations/chat/clear"], ["POST", "/api/integrations/chat/test"], ["POST", "/api/chat"], ["GET", "/api/chat"], ["DELETE", "/api/chat"]]) {
+  for (const [method, p] of [["POST", "/api/integrations/chat"], ["POST", "/api/integrations/chat/clear"], ["POST", "/api/integrations/chat/test"], ["POST", "/api/chat"], ["GET", "/api/chat"], ["DELETE", "/api/chat"], ["POST", "/api/chat/attach"]]) {
     assert.equal(tokenBlocked(method, p), true, `${method} ${p}`);
   }
   assert.equal(tokenBlocked("POST", "/api/integrations/github"), false, "the other keys keep working for tokens");

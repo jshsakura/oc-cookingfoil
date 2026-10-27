@@ -120,3 +120,79 @@ test('with reduced motion the dots stand still', async ({ page }) => {
   await page.locator('#ch-go').click();
   await expect(page.locator('#ch-widget .ch-typing')).toHaveCount(0);
 });
+
+/** /api/inbox standing in for the real one: records each upload's headers and body and answers like it. */
+async function fakeInbox(page, answer?: { status: number; json: object }) {
+  const uploads: { headers: Record<string, string>; body: string }[] = [];
+  await page.route('**/api/inbox', async (route) => {
+    const req = route.request();
+    if (req.method() !== 'POST') return route.fallback();
+    const body = req.postDataBuffer()!.toString('latin1');
+    uploads.push({ headers: req.headers(), body });
+    if (answer) return route.fulfill(answer);
+    const items = [...body.matchAll(/filename="([^"]+)"[\s\S]*?\r\n\r\n([\s\S]*?)\r\n--/g)].map((m) => ({ name: m[1], size: m[2].length }));
+    return route.fulfill({ status: 201, json: { ok: true, id: '20261028-alice-0001', files: items.length, bytes: 0, items } });
+  });
+  return uploads;
+}
+
+test('a person pastes a screenshot and drops a file: both go to the inbox with the CSRF token, and the message names them', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  const posts = await signedIn(page, { chatOn: true });
+  const uploads = await fakeInbox(page);
+  await page.goto('/');
+  await page.locator('#ch-launch').click();
+
+  // Text on the clipboard is left to the browser.
+  const textPaste = await page.locator('#ch-text').evaluate((el) => {
+    const dt = new DataTransfer();
+    dt.setData('text/plain', 'hello');
+    const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+    el.dispatchEvent(ev);
+    return ev.defaultPrevented;
+  });
+  expect(textPaste).toBe(false);
+
+  await page.locator('#ch-text').evaluate((el) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'image.png', { type: 'image/png' }));
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await expect(page.locator('#ch-files .ch-file')).toHaveCount(1);
+  expect(uploads).toHaveLength(1);
+  expect(uploads[0].headers['x-csrf-token']).toBe('csrf-test');
+  const pasted = /filename="(paste-\d{8}-\d{6}\.png)"/.exec(uploads[0].body)?.[1];
+  expect(pasted, 'a pasted screenshot is named for when it was pasted').toBeTruthy();
+
+  await page.locator('#ch-log').evaluate((el) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File(['abc'], 'list.csv', { type: 'text/csv' }));
+    el.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    el.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  });
+  await expect(page.locator('#ch-files .ch-file')).toHaveCount(2);
+  expect(uploads[1].body).toContain('filename="list.csv"');
+
+  // Files alone are enough to send.
+  await expect(page.locator('#ch-go')).toBeEnabled();
+  await page.locator('#ch-text').focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].body.message).toBe([
+    `📎 첨부 ${pasted} (4 B) inbox/20261028-alice-0001/${pasted}`,
+    '📎 첨부 list.csv (3 B) inbox/20261028-alice-0001/list.csv',
+  ].join('\n'));
+  expect(errors).toEqual([]);
+});
+
+test('an upload the inbox refuses says why and attaches nothing', async ({ page }) => {
+  await signedIn(page, { chatOn: true });
+  await fakeInbox(page, { status: 413, json: { error: '한 번에 올릴 수 있는 크기를 넘었습니다.', code: 'too-big' } });
+  await page.goto('/');
+  await page.locator('#ch-launch').click();
+  await page.locator('#ch-file').setInputFiles({ name: 'big.bin', mimeType: 'application/octet-stream', buffer: Buffer.from('x') });
+  await expect(page.locator('#ch-widget .ch-note.ch-err')).toHaveText('파일을 올리지 못했습니다. 한 번에 올릴 수 있는 크기를 넘었습니다.');
+  await expect(page.locator('#ch-files .ch-file')).toHaveCount(0);
+  await expect(page.locator('#ch-go')).toBeDisabled();
+});

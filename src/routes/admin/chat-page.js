@@ -10,6 +10,10 @@
  *          /api/chat with the page's CSRF token; no settings sheet, and a request shows that it
  *          waits for an admin.
  * Everything from the model or a tool goes in as text.
+ *
+ * Files (the paperclip, a drop on the chat, or a paste) go into the share inbox first: /api/inbox
+ * for a person, /admin/api/chat/attach for the admin. The message then carries one line per file
+ * (name, size, where it is in the inbox); the model never gets the file.
  */
 import { icon } from "../../views/icons.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
@@ -69,7 +73,11 @@ export function chatInnerHtml({ web = false } = {}) {
         <p class="muted">${w.text("ch.lost")}</p>
         <div id="ch-pending-list"></div>
       </div>
+      <div class="ch-files" id="ch-files" hidden></div>
+      <div class="ch-up" id="ch-up" hidden><span class="ch-up-bar"><i id="ch-up-fill"></i></span><span id="ch-up-txt"></span></div>
       <form class="ch-card" id="ch-send">
+        <button type="button" class="icon-btn ch-clip" id="ch-clip" ${w.label("ch.attach")}>${icon("paperclip")}</button>
+        <input type="file" id="ch-file" multiple hidden>
         <textarea id="ch-text" rows="1" maxlength="${MESSAGE_MAX}" ${w.ph("ch.placeholder")}></textarea>
         <span class="ch-count" id="ch-count" hidden></span>
         <button type="submit" class="primary ch-go" id="ch-go" ${w.label("ch.send")}>${icon("send")}</button>
@@ -129,7 +137,18 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-pending p{margin:2px 0 6px}
 .ch-card-ask{background:var(--sunk);border-radius:var(--r-xl);padding:10px 12px;margin:8px 0;display:grid;gap:8px}
 .ch-card-ask pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--fs-sm)}
-.ch-card{display:flex;align-items:flex-end;gap:8px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-2xl);padding:8px 8px 8px 16px}
+.ch-card{display:flex;align-items:flex-end;gap:8px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-2xl);padding:8px}
+.ch-clip{flex:none;width:36px;height:36px;padding:0;display:grid;place-items:center;border:0;background:transparent}
+.ch-clip .ico{width:18px;height:18px}
+.ch-files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.ch-file{display:inline-flex;align-items:center;gap:6px;max-width:100%;background:var(--sunk);border-radius:var(--r-pill);padding:4px 6px 4px 12px;font-size:var(--fs-sm)}
+.ch-file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ch-file button{flex:none;width:24px;height:24px;padding:0;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.ch-file button .ico{width:14px;height:14px}
+.ch-up{display:flex;align-items:center;gap:10px;margin-bottom:6px;color:var(--muted);font-size:var(--fs-sm)}
+.ch-up-bar{flex:1;height:6px;border-radius:var(--r-pill);background:var(--sunk);overflow:hidden}
+.ch-up-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.ch-drop{outline:2px dashed var(--accent);outline-offset:-6px}
 .ch-card:focus-within{box-shadow:0 0 0 3px rgba(var(--accent-rgb),.45)}
 .ch-card textarea{flex:1;min-width:0;box-sizing:border-box;border:0;outline:0;resize:none;background:transparent;color:var(--text);font:inherit;font-size:var(--fs-md);line-height:22px;padding:7px 0;max-height:none;overflow-y:hidden}
 .ch-go{flex:none;display:grid;place-items:center;width:36px;height:36px;padding:0;border-radius:50%;border:0}
@@ -175,8 +194,10 @@ export function chatScript({ web = false } = {}) {
   const body = /* js */ `
 const CH_ADMIN=${web ? "false" : "true"},CH_API='${web ? "/api/chat" : "/admin/api/chat"}',CH_MAX=${MESSAGE_MAX};
 ${web ? "" : "const chLang=()=>typeof adminLang==='string'?adminLang:'ko';const chWriteHeaders=()=>({});"}
-const CH_ICON={send:${JSON.stringify(icon("send"))},stop:${JSON.stringify(icon("stop"))}};
+const CH_ATTACH='${web ? "/api/inbox" : "/admin/api/chat/attach"}';
+const CH_ICON={send:${JSON.stringify(icon("send"))},stop:${JSON.stringify(icon("stop"))},x:${JSON.stringify(icon("x"))}};
 let chConv=null,chAbort=null,chBusy=false,chState={enabled:false,ready:false,name:''};
+let chFiles=[],chUp=false; // files already in the inbox, waiting to go with the next message; an upload running
 const chCol=()=>$('ch-col');
 function chScroll(){const l=$('ch-log');l.scrollTop=l.scrollHeight;}
 // The section takes the height left under the header, also when a phone keyboard shrinks the screen.
@@ -187,7 +208,34 @@ function chCount(){const n=$('ch-text').value.length,c=$('ch-count');c.hidden=n<
   if(n>CH_MAX)c.title=topFill('ch.tooLong',{max:CH_MAX});}
 function chGrow(){const t=$('ch-text');t.style.height='auto';const cs=getComputedStyle(t),line=parseFloat(cs.lineHeight)||22,pad=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
   const max=line*8+pad;t.style.height=Math.min(t.scrollHeight,max)+'px';t.style.overflowY=t.scrollHeight>max?'auto':'hidden';chCount();chSendState();chFit();}
-function chSendState(){const b=$('ch-go'),v=$('ch-text').value;b.disabled=!chBusy&&(!v.trim()||v.length>CH_MAX);}
+function chSendState(){const b=$('ch-go'),v=$('ch-text').value;b.disabled=!chBusy&&(chUp||(!v.trim()&&!chFiles.length)||v.length>CH_MAX);}
+function chSize(n){const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++;}return (i?n.toFixed(1):String(n))+' '+u[i];}
+function chChips(){const box=$('ch-files');box.replaceChildren();
+  chFiles.forEach((f,i)=>{const c=el('span',null,'ch-file');c.append(el('span',f.name+' · '+chSize(f.size)));
+    const x=el('button');x.type='button';x.innerHTML=CH_ICON.x;x.setAttribute('aria-label',topText('ch.unattach'));
+    x.addEventListener('click',()=>{chFiles.splice(i,1);chChips();});c.append(x);box.append(c);});
+  box.hidden=!chFiles.length;chSendState();chFit();}
+function chUpShow(pct){const u=$('ch-up');u.hidden=pct===null;if(pct===null){chFit();return;}
+  $('ch-up-fill').style.width=pct+'%';$('ch-up-txt').textContent=topFill('ch.uploading',{pct});chFit();}
+// What the message says about each file: the inbox entry and its name there, never the file itself.
+function chFileLines(){return chFiles.map((f)=>topText('ch.attachTag')+' '+f.name+' ('+chSize(f.size)+') inbox/'+f.id+'/'+f.name).join('\\n');}
+const chStamp=()=>new Date().toISOString().replace(/[-:]/g,'').replace('T','-').replace(/\\..*$/,'');
+// A pasted screenshot comes as image.png or with no name; it is named for when it was pasted.
+function chPasteName(f,i){if(f.name&&!/^image\\.\\w+$/i.test(f.name))return f;
+  const ext=(f.type.split('/')[1]||'bin').replace(/[^a-z0-9]/gi,'');return new File([f],'paste-'+chStamp()+(i?'-'+i:'')+'.'+ext,{type:f.type});}
+function chUpload(list){const files=[...list].filter(Boolean);if(!files.length||chUp)return;
+  const fd=new FormData();for(const f of files)fd.append('files',f,f.name);
+  chUp=true;chSendState();chUpShow(0);
+  const x=new XMLHttpRequest();x.open('POST',CH_ATTACH);
+  for(const [k,v] of Object.entries({Accept:'application/json','Accept-Language':chLang(),...chWriteHeaders()}))x.setRequestHeader(k,v);
+  x.upload.onprogress=(e)=>{if(e.lengthComputable)chUpShow(Math.round(e.loaded/e.total*100));};
+  const end=(err)=>{chUp=false;chUpShow(null);if(err)chNote(topFill('ch.attachFail',{msg:err}),'ch-err');chSendState();};
+  x.onload=()=>{let d={};try{d=JSON.parse(x.responseText||'{}');}catch{}
+    if(x.status===401&&!CH_ADMIN){location.reload();return;}
+    if(x.status!==201)return end(d.error||('HTTP '+x.status));
+    for(const it of d.items||[])chFiles.push({id:d.id,name:it.name,size:it.size});chChips();end(null);};
+  x.onerror=()=>end('network');
+  x.send(fd);}
 function chIcon(){const b=$('ch-go');b.innerHTML=chBusy?CH_ICON.stop:CH_ICON.send;b.setAttribute('aria-label',topText(chBusy?'ch.stop':'ch.send'));}
 function chName(){return chState.name||topText('ch.defaultName');}
 function chShowName(){$('ch-name').textContent=chName();}
@@ -347,7 +395,20 @@ $('ch-pick').addEventListener('change',()=>chOpen($('ch-pick').value));
 $('ch-new').addEventListener('click',()=>{$('ch-pick').value='';chOpen(null);$('ch-text').focus();});
 $('ch-send').addEventListener('submit',(ev)=>{ev.preventDefault();
   if(chBusy){if(chAbort)chAbort.abort();return;}
-  const t=$('ch-text').value.trim();if(!t||t.length>CH_MAX)return;$('ch-text').value='';chGrow();chSend(t);});
+  if(chUp)return;
+  const typed=$('ch-text').value.trim(),files=chFileLines();
+  const t=files&&typed?files+'\\n'+typed:files||typed;if(!t)return;
+  if(t.length>CH_MAX){chNote(topFill('ch.tooLong',{max:CH_MAX}),'ch-err');return;}
+  $('ch-text').value='';chFiles=[];chChips();chGrow();chSend(t);});
+$('ch-clip').addEventListener('click',()=>$('ch-file').click());
+$('ch-file').addEventListener('change',()=>{const f=[...$('ch-file').files];$('ch-file').value='';chUpload(f);});
+$('ch-text').addEventListener('paste',(ev)=>{const items=[...((ev.clipboardData&&ev.clipboardData.items)||[])].filter((i)=>i.kind==='file');
+  const files=items.map((i)=>i.getAsFile()).filter(Boolean);if(!files.length)return;
+  ev.preventDefault();chUpload(files.map(chPasteName));});
+{const zone=$('ch-log').parentElement,hasFiles=(e)=>[...((e.dataTransfer&&e.dataTransfer.types)||[])].includes('Files');
+  zone.addEventListener('dragover',(e)=>{if(!hasFiles(e)||$('ch-dock').hidden)return;e.preventDefault();zone.classList.add('ch-drop');});
+  zone.addEventListener('dragleave',(e)=>{if(!zone.contains(e.relatedTarget))zone.classList.remove('ch-drop');});
+  zone.addEventListener('drop',(e)=>{if(!hasFiles(e))return;e.preventDefault();zone.classList.remove('ch-drop');if(!$('ch-dock').hidden)chUpload(e.dataTransfer.files);});}
 $('ch-text').addEventListener('input',chGrow);
 $('ch-text').addEventListener('keydown',(ev)=>{if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){ev.preventDefault();if(!chBusy)$('ch-send').requestSubmit();}});
 `;

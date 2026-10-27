@@ -16,6 +16,9 @@
  *   POST   <base>/compact       { conversation }  sums the conversation up for the model → { used, window }
  *   POST   <base>/decision      { id, approve, conversation? }  settle a call that waits for approval (admin only)
  *   DELETE <base>?id=<id>       delete one conversation
+ *   POST   /admin/api/chat/attach   the admin's attach button: files into the share inbox, as /api/inbox takes
+ *                               them (routes/inbox.js), answered { id, items: [{ name, size }] }. People attach
+ *                               through /api/inbox itself.
  *
  * A call waiting for approval is kept in memory and is gone after a restart.
  */
@@ -24,6 +27,7 @@ import { chatService, ChatError } from "../../chat/service.js";
 import { personaFromSettings } from "../../chat/persona.js";
 import { tooManyRequests } from "../../security/retry-after.js";
 import debug from "../../debug.js";
+import { inboxUpload } from "../inbox.js";
 
 // There is one admin session and no account behind it, so the chat's account is fixed.
 const ADMIN = { account: "admin", owner: "admin", admin: true, name: "admin" };
@@ -110,4 +114,7 @@ export function mountChatRoutes(router, { path, whoOf, service, enabled, limit =
 
 export function mountChatApi(router, requireSession, { service = () => chatService(env.dataDir), enabled = () => env.chatEnabled } = {}) {
   mountChatRoutes(router, { path: "/api/chat", whoOf: (req, res) => (requireSession(req, res) ? ADMIN : null), service, enabled, label: "admin: chat" });
+  // The admin router checks the origin of every write; the admin is not told of their own upload.
+  const attach = inboxUpload({ whoOf: () => ({ name: "admin", label: "admin", slug: "admin" }), csrf: () => true, notify: () => {} });
+  router.post("/api/chat/attach", (req, res) => (requireSession(req, res) ? attach(req, res) : undefined));
 }

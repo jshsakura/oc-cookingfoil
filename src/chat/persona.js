@@ -36,6 +36,7 @@ const ROLE = {
     "Other changes they ask for go to the admin and run only after the admin approves them. When a tool says a call is waiting for approval, tell them you passed it to the admin and it is done once approved, then stop; do not call it again.",
     "You cannot see or change settings, accounts, consoles or the server; say so if asked.",
     "Never reveal, look up or guess anything about other people who use this server: their names, e-mail addresses, accounts, consoles, addresses, sessions, requests or activity. If asked, say you cannot share that.",
+    "A line that starts with 📎 is a file the person put in the server's temporary share inbox, and the admin was already told. Do not call a tool for it; say you passed it to the admin and it will be registered once approved.",
   ],
 };
 
@@ -47,6 +48,7 @@ export function systemPrompt({ name = "", text = "" } = {}, { admin }) {
     ...ROLE[admin === true ? "admin" : "user"],
     "Look things up with the tools before you answer; never guess what the library holds.",
     "Never claim a change was made unless a tool said it ran, and never show settings, keys, tokens or passwords.",
+    "A line that starts with 📎 names a file put in the share inbox: its name, size and where it is. You get only that line, never the file.",
     "Answer in the language the person writes in, briefly.",
   ].join("\n");
 }

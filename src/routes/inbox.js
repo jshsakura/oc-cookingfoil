@@ -9,7 +9,10 @@
  *                       paths   JSON list of folder-relative paths, one per file, when a folder was picked
  *                       memo    text, up to 10,000 characters
  *                       links   http/https addresses, one per line, up to 20
- *                     → 201 { ok, id, files, bytes }
+ *                     → 201 { ok, id, files, bytes, items: [{ name, size }] }
+ *
+ * The admin chat's attach button posts the same form to /admin/api/chat/attach (inboxUpload,
+ * mounted by routes/admin/chat-api.js) under the admin session, with no alert to the admin.
  *
  *   400 { code: empty | bad-link | too-many-links | memo-too-long }  nothing given, or a field that doesn't fit
  *   401 not signed in on the web (a console's keys don't count)
@@ -127,29 +130,21 @@ function countedStorage(work, money, onOver) {
 }
 const tooBigVars = () => ({ size: inbox.fmtBytes(envs.inboxMaxBytes) });
 
-export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => alert("inbox", text, { subject: id }) } = {}) {
-  const router = express.Router();
-  // A server stopped mid-upload left its staging folder behind.
-  inbox.clearStaging();
+const tellAdmin = (text, id) => alert("inbox", text, { subject: id });
 
-  router.use((req, res, next) => {
+/**
+ * The upload itself, as one handler: `whoOf(req)` names the uploader ({ name, label, slug }) or
+ * null, `csrf(req)` checks the request's token, `notify(text, id)` tells the admin.
+ */
+export function inboxUpload({ whoOf = signedIn, notify = tellAdmin, csrf = csrfOk } = {}) {
+  return async (req, res) => {
     res.set("Cache-Control", "no-store");
-    req.inboxUser = whoOf(req);
-    if (!req.inboxUser) return fail(req, res, 401, "signin", "inbox.signin");
-    next();
-  });
-
-  router.get("/", async (_req, res) => {
-    const used = envs.inboxEnabled ? await inbox.usage() : 0;
-    res.json({ enabled: envs.inboxEnabled, maxBytes: envs.inboxMaxBytes, freeBytes: Math.max(0, envs.inboxQuotaBytes - used) });
-  });
-
-  router.post("/", async (req, res) => {
+    const user = whoOf(req);
+    if (!user) return fail(req, res, 401, "signin", "inbox.signin");
     const origin = req.get("Origin");
     if (origin && origin !== resolveOrigin(req, envs.publicBaseUrl)) return fail(req, res, 403, "origin", "origin mismatch");
-    if (!csrfOk(req)) return fail(req, res, 403, "csrf", "csrf token missing or wrong");
+    if (!csrf(req)) return fail(req, res, 403, "csrf", "csrf token missing or wrong");
     if (!envs.inboxEnabled) return fail(req, res, 404, "off", "inbox.off");
-    const user = req.inboxUser;
     // Refused before a byte is read: an announced size that can't fit.
     const announced = Number(req.get("content-length")) || 0;
     if (announced > envs.inboxMaxBytes + FORM_OVERHEAD) {
@@ -204,7 +199,7 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
       const note = await inbox.create({ user: user.name, slug: user.slug, work, files, memo, links });
       debug.log("inbox: %s left %d files (%d bytes), %d links", user.slug, files.length, bytes, links.length);
       notify(inbox.alertText({ ...note, user: user.label }), note.id);
-      res.status(201).json({ ok: true, id: note.id, files: note.files.length, bytes });
+      res.status(201).json({ ok: true, id: note.id, files: note.files.length, bytes, items: note.files.map(({ name, size }) => ({ name, size })) });
     } catch (err) {
       await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
       if (res.headersSent) return;
@@ -216,7 +211,20 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
     } finally {
       money.release();
     }
-  });
+  };
+}
 
+export default function inboxRouter({ whoOf = signedIn, notify = tellAdmin } = {}) {
+  const router = express.Router();
+  // A server stopped mid-upload left its staging folder behind.
+  inbox.clearStaging();
+
+  router.get("/", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!whoOf(req)) return fail(req, res, 401, "signin", "inbox.signin");
+    const used = envs.inboxEnabled ? await inbox.usage() : 0;
+    res.json({ enabled: envs.inboxEnabled, maxBytes: envs.inboxMaxBytes, freeBytes: Math.max(0, envs.inboxQuotaBytes - used) });
+  });
+  router.post("/", inboxUpload({ whoOf, notify }));
   return router;
 }

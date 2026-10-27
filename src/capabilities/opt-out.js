@@ -39,6 +39,8 @@ export const OPT_OUT = {
   "POST /admin/api/chat/decision": "token-blocked",
   "DELETE /admin/api/chat": "token-blocked",
   "POST /admin/api/chat/compact": "token-blocked",
+  // The chat's attach button puts files in the share inbox; a person at the page, never a token.
+  "POST /admin/api/chat/attach": "token-blocked",
   // The same chat for people signed in on the web page (routes/chat.js); a web sign-in only, never a token.
   "GET /api/chat": "browser-only",
   "POST /api/chat": "browser-only",
