@@ -65,6 +65,15 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-pager[hidden]{display:none}
 #fb .fb-pager button{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 #fb .fb-note{margin:0;font-size:var(--fs-xs)}
+/* Files dragged over the list: the list is the target, outlined, with what dropping does said on it. */
+#fb .fb-wrap{position:relative}
+#fb .fb-drop{display:none;position:absolute;inset:0;z-index:4;place-items:center;border:2px dashed var(--accent);border-radius:inherit;
+  background:color-mix(in srgb,var(--panel) 86%,transparent);color:var(--text);font-weight:700;pointer-events:none}
+#fb.dragging .fb-drop{display:grid}
+#fb .fb-wrap:has(.fb-empty:not([hidden])){min-height:160px}
+#fb .fb-up{color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
+#fb .fb-up[hidden]{display:none}
+#fb-file{display:none}
 #fb-move{width:min(560px,calc(100vw - 32px))}
 #fb-move .fb-m-crumb{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:8px 0;color:var(--muted);font-size:var(--fs-sm)}
 #fb-move .fb-m-crumb button{border:0;background:none;padding:2px 4px;color:var(--muted);font-weight:700}
@@ -89,6 +98,8 @@ export const FILES_HTML = `<section id="tab-files" hidden><div id="fb">
     <ol class="fb-crumb" id="fb-crumb" ${topLabel("fb.crumbLabel")}></ol>
     <label class="fb-q">${icon("search")}<input type="search" id="fb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("fb.qPh")} ${topLabel("fb.qPh")}></label>
     <button type="button" id="fb-mkdir">${icon("plus")}${top("fb.newFolder")}</button>
+    <button type="button" id="fb-upload">${icon("upload")}${top("fb.upload")}</button>
+    <input type="file" id="fb-file" multiple tabindex="-1" aria-hidden="true">
   </div>
   <div class="fb-wrap"><table>
     <thead><tr>
@@ -99,10 +110,11 @@ export const FILES_HTML = `<section id="tab-files" hidden><div id="fb">
       <th class="c-act"></th>
     </tr></thead>
     <tbody id="fb-rows"></tbody>
-  </table><div class="fb-empty" id="fb-empty" hidden></div></div>
+  </table><div class="fb-empty" id="fb-empty" hidden></div><div class="fb-drop" aria-hidden="true">${top("fb.dropHere")}</div></div>
   <p class="muted fb-note">${top("fb.note")}</p>
   <div class="fb-foot" id="fb-foot">
     <span class="fb-info" id="fb-info" aria-live="polite"></span>
+    <span class="fb-up" id="fb-up" aria-live="polite" hidden></span>
     <div class="fb-sel-act">
       <button type="button" id="fb-move-btn">${top("fb.move")}</button>
       <button type="button" id="fb-trash-btn" class="danger">${top("fb.trash")}</button>
@@ -179,6 +191,47 @@ async function fbTrash(rels){if(!rels.length)return;
     toast(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
 async function fbMkdir(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{await api('/admin/api/files/mkdir',{method:'POST',body:{root:fb.root,path:fb.path,name:name.trim()}});toast(topText('fb.made'));fbLoad();}catch(err){toast(err.message);}}
+// Upload into the open folder: files dropped on the list (a dropped folder keeps its shape) or picked with the
+// button go up one at a time in pieces (chunkUpload, common-script.js) and land where the list was when they were
+// dropped. A name the folder already has is skipped before a byte goes up; nothing is ever overwritten.
+const fbu={busy:false,queue:[],done:0,total:0,placed:0,skipped:0};
+async function fbEntries(entry,prefix,out){
+  if(entry.isFile){out.push({file:await new Promise((ok,no)=>entry.file(ok,no)),rel:prefix+entry.name});return;}
+  if(!entry.isDirectory)return;const reader=entry.createReader();
+  for(;;){const batch=await new Promise((ok,no)=>reader.readEntries(ok,no));if(!batch.length)break;
+    for(const e of batch)await fbEntries(e,prefix+entry.name+'/',out);}}
+async function fbDropped(dt){const out=[];const entries=[];
+  for(const it of dt.items||[]){if(it.kind!=='file')continue;const e=it.webkitGetAsEntry&&it.webkitGetAsEntry();if(e)entries.push(e);else{const f=it.getAsFile();if(f)out.push({file:f,rel:f.name});}}
+  for(const e of entries)await fbEntries(e,'',out);
+  if(!out.length&&dt.files)for(const f of dt.files)out.push({file:f,rel:f.name});
+  return out;}
+function fbUpShow(pct){const s=$('fb-up');if(!fbu.busy){s.hidden=true;return;}
+  s.hidden=false;s.textContent=topFill('fb.uploading',{n:num(fbu.done+1),t:num(fbu.total),p:String(Math.floor(pct*100))});}
+function fbUpload(items){if(!items.length||!fb.root)return;const at={root:fb.root,path:fb.path};
+  for(const it of items)fbu.queue.push({...it,...at});fbu.total+=items.length;if(!fbu.busy)fbUpRun();}
+async function fbUpRun(){fbu.busy=true;
+  while(fbu.queue.length){const it=fbu.queue.shift();fbUpShow(0);
+    const start={url:'/admin/api/files/upload/chunks',body:{root:it.root,path:it.path,rel:it.rel,size:it.file.size,lastModified:it.file.lastModified}};
+    const r=await chunkUpload(null,it.file,(n)=>fbUpShow(it.file.size?n/it.file.size:1),start);
+    if(r.status===200){const f=await chunkCall('POST','/admin/api/files/upload',JSON.stringify({root:it.root,path:it.path,items:[{id:r.id,rel:it.rel}]}),'application/json');
+      if(f.status===200){fbu.placed+=f.d.placed.length;fbu.skipped+=f.d.skipped.length;}
+      else toast(topFill('fb.upFail',{name:it.rel,msg:f.d.error||String(f.status)}));}
+    else if(r.status===409&&r.d.code==='exists')fbu.skipped++;
+    else toast(topFill('fb.upFail',{name:it.rel,msg:r.d?.error||topText('u.rNet')}));
+    fbu.done++;
+    if(it.root===fb.root&&it.path===fb.path&&!fbu.queue.length)fbLoad();}
+  const msg=fbu.skipped?topFill('fb.upSome',{n:num(fbu.placed),s:num(fbu.skipped)}):topFill('fb.uploaded',{n:num(fbu.placed)});
+  if(fbu.placed||fbu.skipped)toast(msg);
+  Object.assign(fbu,{busy:false,done:0,total:0,placed:0,skipped:0});fbUpShow(0);}
+// A page left while files go up asks first; what was sent waits a day and the same file picks up where it stopped.
+window.addEventListener('beforeunload',(e)=>{if(fbu.busy){e.preventDefault();e.returnValue='';}});
+{let depth=0;const wrap=document.querySelector('#fb .fb-wrap');const has=(e)=>[...(e.dataTransfer?.types||[])].includes('Files');
+  wrap.addEventListener('dragenter',(e)=>{if(!has(e))return;e.preventDefault();depth++;$('fb').classList.add('dragging');});
+  wrap.addEventListener('dragover',(e)=>{if(!has(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
+  wrap.addEventListener('dragleave',()=>{if(--depth<=0){depth=0;$('fb').classList.remove('dragging');}});
+  wrap.addEventListener('drop',async(e)=>{if(!has(e))return;e.preventDefault();depth=0;$('fb').classList.remove('dragging');fbUpload(await fbDropped(e.dataTransfer));});}
+$('fb-upload').addEventListener('click',()=>$('fb-file').click());
+$('fb-file').addEventListener('change',(e)=>{const files=[...e.target.files];e.target.value='';fbUpload(files.map((f)=>({file:f,rel:f.name})));});
 // The move dialog walks folders only, starting where the list is; "Move here" takes the selection there.
 const fbm={root:'',path:'',seq:0};
 async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');

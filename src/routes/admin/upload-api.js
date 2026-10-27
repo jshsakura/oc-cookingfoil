@@ -62,6 +62,7 @@ import {
   safeName, safeRelPath, saveLayout, unzip, walk, MAX_UPLOAD_FILES as MAX_FILES,
 } from "../../meta/library-upload.js";
 import * as chunks from "../../meta/upload-chunks.js";
+import { FILE_ROOT_KEYS } from "../../library/file-roots.js";
 
 const KINDS = ["game", "retro", "patch", "save", "homebrew", "client", "core"];
 
@@ -357,7 +358,9 @@ async function handleUpload(req, kind, work, receive) {
 }
 
 const chunkBody = (req, err) => ({ error: apiWord(req, err.key, err.vars), code: err.key, ...err.extra });
-const chunksDir = (kind) => (kind === chunks.FILE_KIND ? chunks.fileChunksDir() : path.join(stagingOf(kind), "chunks"));
+const chunksDir = (kind) => (kind === chunks.FILE_KIND ? chunks.fileChunksDir()
+  : chunks.isDropKind(kind) ? chunks.dropChunksDir(kind.slice(chunks.DROP_PREFIX.length))
+  : path.join(stagingOf(kind), "chunks"));
 const { accountOf } = chunks;
 
 /** The raw body of a request, at most `max` bytes; it is held in memory so a piece lands whole or not at all. */
@@ -386,18 +389,22 @@ async function rawBody(req, max) {
  *   POST   /api/upload/:kind/finish     { ids, paths?, fields? } → what the multipart request answers
  */
 function mountChunkRoutes(router, guard) {
-  const swept = () => Promise.all([...KINDS, chunks.FILE_KIND].map((k) => chunks.sweep(chunksDir(k)))).catch(() => {});
+  const dropKinds = () => FILE_ROOT_KEYS.map((k) => chunks.DROP_PREFIX + k).filter((k) => chunksDir(k));
+  const swept = () => Promise.all([...KINDS, chunks.FILE_KIND, ...dropKinds()].map((k) => chunks.sweep(chunksDir(k)))).catch(() => {});
   swept();
   setInterval(swept, 3600_000).unref();
 
   const kindOf = (req, res) => {
     const kind = req.params.kind ?? req.query.kind;
-    if (!KINDS.includes(kind) && kind !== chunks.FILE_KIND) return void res.status(404).json({ error: "unknown kind" });
+    // A drop kind is started by the file browser (files-api.js) and only goes on here, piece by piece.
+    const dropping = chunks.isDropKind(kind) && !req.params.kind && chunks.dropChunksDir(kind.slice(chunks.DROP_PREFIX.length));
+    if (!KINDS.includes(kind) && kind !== chunks.FILE_KIND && !dropping) return void res.status(404).json({ error: "unknown kind" });
     return kind;
   };
   /** A kind an automation token may not upload (client, homebrew, patch) is closed to it in every chunk route too. */
   const tokenRefused = async (req, kind) => {
     if (!req.apiToken || kind === chunks.FILE_KIND) return false;
+    if (chunks.isDropKind(kind)) return true;
     const { tokenBlocked } = await import("../admin-page.js");
     return tokenBlocked("POST", `/api/upload/${kind}`);
   };

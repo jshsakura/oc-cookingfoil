@@ -95,3 +95,29 @@ test('on a phone the list fits the width', async ({ page }) => {
   expect(width).toBeLessThanOrEqual(390);
   if (process.env.FB_SHOTS) await page.screenshot({ path: path.join(process.env.FB_SHOTS, 'files-phone.png') });
 });
+
+test('files dropped on the list or picked with Upload land in the open folder, in pieces', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/files?root=games&path=fb-test%2FBeta');
+  await expect(row(page, 'keep.txt')).toBeVisible();
+  await page.evaluate(() => { (window as any).UP_CHUNK_BYTES = 4; });
+
+  await page.locator('#fb-file').setInputFiles([{ name: 'picked.nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('0123456789') }]);
+  await expect(page.locator('#toast')).toContainText('1개를 올렸습니다');
+  await expect(row(page, 'picked.nsp')).toBeVisible();
+  expect(fs.readFileSync(path.join(base, 'Beta/picked.nsp'), 'utf8')).toBe('0123456789');
+
+  const drop = await page.evaluateHandle(() => {
+    const dt = new DataTransfer();
+    dt.items.add(new File(['dropped bytes'], 'dropped.nsp'));
+    dt.items.add(new File(['NEW'], 'keep.txt'));
+    return dt;
+  });
+  await page.locator('#fb .fb-wrap').dispatchEvent('dragenter', { dataTransfer: drop });
+  await expect(page.locator('#fb')).toHaveClass(/dragging/);
+  await page.locator('#fb .fb-wrap').dispatchEvent('drop', { dataTransfer: drop });
+  await expect(page.locator('#toast')).toContainText('1개를 올렸습니다. 1개는 같은 이름이 이미 있어 건너뛰었습니다');
+  await expect(page.locator('#fb')).not.toHaveClass(/dragging/);
+  expect(fs.readFileSync(path.join(base, 'Beta/dropped.nsp'), 'utf8')).toBe('dropped bytes');
+  expect(fs.readFileSync(path.join(base, 'Beta/keep.txt'), 'utf8')).toBe('x');
+});

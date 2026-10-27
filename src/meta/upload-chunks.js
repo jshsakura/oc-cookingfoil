@@ -14,7 +14,7 @@ import express from "express";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
 import { moveFile, safeRelPath } from "./library-upload.js";
-import { actorOf } from "../library/trash-service.js";
+import { actorOf, rootOf as libraryRoot } from "../library/trash-service.js";
 
 /** The most bytes one piece may carry. */
 export const MAX_CHUNK_BYTES = 32 * 1024 ** 2;
@@ -159,6 +159,19 @@ export async function sweep(dir, maxAge = PARTIAL_MAX_AGE_MS, now = Date.now()) 
  */
 export const FILE_KIND = "file";
 export const fileChunksDir = () => path.join(dataDir, "upload-chunks");
+
+/**
+ * Files dropped into a folder of the admin file browser go up as kind "drop-<root>" and wait here until the
+ * browser places them (library/file-roots.js place). On the root's own disk, so placing is a rename; the
+ * game and incoming folders are watched as files land, so theirs wait in the data folder.
+ */
+export const DROP_PREFIX = "drop-";
+export const isDropKind = (kind) => typeof kind === "string" && kind.startsWith(DROP_PREFIX);
+export function dropChunksDir(key) {
+  const root = libraryRoot(key);
+  if (!root || root.key === "data") return null;
+  return ["games", "incoming"].includes(key) ? path.join(dataDir, "uploads", `drop-${key}`) : path.join(root.dir, ".upload-staging", "drop");
+}
 
 /**
  * `account`'s finished upload `id` of the "file" kind, moved to `dest` (or read, with no `dest`); the partial

@@ -135,10 +135,13 @@ async function chunkRetry(call){let r;
     if(i<CHUNK_TRIES-1)await new Promise((ok)=>setTimeout(ok,Math.min(15000,(Number(window.UP_RETRY_MS)||1000)*2**i)));}
   return r;}
 // One file in pieces: {status:200,id}, or the {status,d} that stopped it (status 0: no answer). onBytes(n): bytes of it sent.
-async function chunkUpload(kind,file,onBytes){
+// start {url,body} begins it somewhere else (the file browser's folder upload), which answers the kind the pieces go under.
+async function chunkUpload(kind,file,onBytes,start){
   const base='/admin/api/upload/';
-  let r=await chunkRetry(()=>chunkCall('POST',base+kind+'/chunks',JSON.stringify({name:file.name,size:file.size,lastModified:file.lastModified}),'application/json'));
+  let r=await chunkRetry(()=>start?chunkCall('POST',start.url,JSON.stringify(start.body),'application/json')
+    :chunkCall('POST',base+kind+'/chunks',JSON.stringify({name:file.name,size:file.size,lastModified:file.lastModified}),'application/json'));
   if(r.status!==200)return r;
+  if(r.d.kind)kind=r.d.kind;
   const id=r.d.id;let off=r.d.offset,stall=0;
   if(onBytes)onBytes(off);
   while(off<file.size){
