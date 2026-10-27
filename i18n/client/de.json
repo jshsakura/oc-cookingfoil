@@ -1227,5 +1227,6 @@
   "USB could not be opened. Close other apps that use USB and try again.": "USB konnte nicht geöffnet werden. Schließe andere Apps, die USB verwenden, und versuche es erneut.",
   "Opened from the Album there is too little memory to connect to a PC. Opened from a HOME Menu shortcut, it can.": "Über das Album geöffnet ist zu wenig Speicher frei, um eine Verbindung mit einem PC herzustellen. Über eine Verknüpfung im HOME-Menü geöffnet klappt es.",
   "A game sent from the web waits until the console has room.": "Ein vom Web gesendetes Spiel wartet, bis auf der Konsole Platz ist.",
-  "Sent from the web. Goes to the download queue unless cancelled.": "Vom Web gesendet. Kommt in die Download-Warteschlange, wenn du nicht abbrichst."
+  "Sent from the web. Goes to the download queue unless cancelled.": "Vom Web gesendet. Kommt in die Download-Warteschlange, wenn du nicht abbrichst.",
+  "Downloads start once the console is online.": "Downloads starten, sobald die Konsole online ist."
 }
