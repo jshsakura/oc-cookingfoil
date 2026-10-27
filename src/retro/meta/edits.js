@@ -10,9 +10,9 @@
  * undoes it, and a field left empty falls back to what was collected. A game
  * nothing was found for gets a record from the edit alone.
  */
-import fs from "fs";
 import path from "path";
 import debug from "../../debug.js";
+import { jsonFile } from "../../helpers/json-file.js";
 import { dataDir } from "../../helpers/envs.js";
 import { GENRE_LABELS } from "../../meta/categories.js";
 import { playersInt, releaseDateInt } from "./fields.js";
@@ -22,23 +22,12 @@ const MAX_TEXT = 6000;
 const MAX_NAME = 120;
 const MAX_GENRES = 4;
 
-let saved = null;
-
-function all() {
-  if (saved) return saved;
-  try {
-    const read = JSON.parse(fs.readFileSync(FILE, "utf8"));
-    saved = read && typeof read === "object" && !Array.isArray(read) ? read : {};
-  } catch (err) {
-    if (err.code !== "ENOENT") debug.error("retro meta: %s is unreadable, using no edits: %s", FILE, err.message);
-    saved = {};
-  }
-  return saved;
-}
+const file = jsonFile(FILE);
+const all = file.read;
 
 /** For tests and after a restore: read the file again on the next use. */
 export function reload() {
-  saved = null;
+  file.forget();
 }
 
 /** The edit filed under a meta key, or null. */
@@ -68,10 +57,7 @@ export function set(key, input) {
   const edit = cleanEdit(input);
   const { [key]: _old, ...rest } = all();
   const next = Object.keys(edit).length ? { ...rest, [key]: edit } : rest;
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
-  fs.renameSync(`${FILE}.tmp`, FILE);
-  saved = next;
+  file.write(next);
   version++;
   return next[key] ?? null;
 }

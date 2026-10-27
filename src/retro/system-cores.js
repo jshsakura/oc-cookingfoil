@@ -5,38 +5,24 @@
  * systems.json is never written. The pick changes every game's core, and with
  * it each HOME menu shortcut's key, so consoles see it as out of date.
  */
-import fs from "fs";
 import path from "path";
 import debug from "../debug.js";
+import { jsonFile } from "../helpers/json-file.js";
 import { dataDir } from "../helpers/envs.js";
 
 const FILE = path.join(dataDir, "retro-system-cores.json");
 export const SYSTEM_RE = /^[a-z0-9_-]{1,24}$/;
 export const CORE_RE = /^[a-z0-9_]{1,64}$/;
 
-let saved = null;
-
-export function all() {
-  if (saved) return saved;
-  try {
-    const read = JSON.parse(fs.readFileSync(FILE, "utf8"));
-    saved = read && typeof read === "object" && !Array.isArray(read) ? read : {};
-  } catch (err) {
-    if (err.code !== "ENOENT") debug.error("retro: %s is unreadable, using the system table's cores: %s", FILE, err.message);
-    saved = {};
-  }
-  return saved;
-}
+const file = jsonFile(FILE);
+export const all = file.read;
 
 /** Picks a console's core; null goes back to the system table's. False for malformed ids. */
 export function set(system, core) {
   if (!SYSTEM_RE.test(String(system)) || (core !== null && !CORE_RE.test(String(core)))) return false;
   const { [system]: _old, ...rest } = all();
   const next = core === null ? rest : { ...rest, [system]: core };
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
-  fs.renameSync(`${FILE}.tmp`, FILE);
-  saved = next;
+  file.write(next);
   return true;
 }
 
