@@ -36,6 +36,12 @@ test('the chat page opens, needs its model before it turns on, and shows a strea
     ].map((e) => JSON.stringify(e)).join('\n') + '\n';
     await route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: lines });
   });
+  // The box looks like the other fields and is as tall as the button beside it.
+  const box = await page.locator('#ch-text').boundingBox();
+  const go = await page.locator('#ch-go').boundingBox();
+  expect(Math.abs(box!.height - go!.height)).toBeLessThan(2);
+  expect(await page.locator('#ch-text').evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(await page.locator('#ch-url').evaluate((e) => getComputedStyle(e).backgroundColor));
+  expect(await page.locator('#ch-text').evaluate((e) => getComputedStyle(e).borderRadius)).toBe(await page.locator('#ch-url').evaluate((e) => getComputedStyle(e).borderRadius));
   await page.locator('#ch-text').fill('hi');
   await page.locator('#ch-go').click();
   await expect(page.locator('#ch-log .ch-msg').last()).toContainText('안녕하세요');
