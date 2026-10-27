@@ -1230,5 +1230,6 @@
   "Sent from the web. Goes to the download queue unless cancelled.": "Отправлено с сайта. Попадёт в очередь загрузок, если не отменить.",
   "Downloads start once the console is online.": "Загрузка начнётся, когда консоль будет в сети.",
   "Cleaning up files": "Очистка файлов",
-  "Removed {0} unfinished copies.": "Удалено незавершённых копий: {0}."
+  "Removed {0} unfinished copies.": "Удалено незавершённых копий: {0}.",
+  "Deleting unfinished copies and files a Mac left.": "Удаление незавершённых копий и файлов, оставленных Mac."
 }

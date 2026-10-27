@@ -1230,5 +1230,6 @@
   "Sent from the web. Goes to the download queue unless cancelled.": "Webから送られたゲームです。キャンセルしなければダウンロードに追加します。",
   "Downloads start once the console is online.": "インターネットに接続してからダウンロードできます。",
   "Cleaning up files": "ファイルを整理しています",
-  "Removed {0} unfinished copies.": "完了していないコピー {0} 件を削除しました。"
+  "Removed {0} unfinished copies.": "完了していないコピー {0} 件を削除しました。",
+  "Deleting unfinished copies and files a Mac left.": "完了していないコピーと Mac が残したファイルを削除しています。"
 }
