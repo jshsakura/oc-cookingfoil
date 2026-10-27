@@ -161,7 +161,7 @@ button.ib.picked{color:var(--accent);opacity:1}button.ib.picked svg{fill:current
 .src-facts dt{font-size:var(--fs-2xs);color:var(--muted);margin-bottom:3px}.src-facts dd{margin:0;font-size:var(--fs-sm);min-width:0}
 .src-facts select{width:100%}
 .src-state{display:grid;gap:6px;font-size:var(--fs-xs)}
-.src-foot{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+.src-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
 .src-foot select{width:auto}.src-foot .danger{margin-left:auto}
 @media (min-width:641px){:is(td,.gc) button.ib{width:36px;height:36px;padding:0;position:relative}
   :is(td,.gc) button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}

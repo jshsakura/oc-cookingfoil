@@ -57,7 +57,7 @@ tr:last-child td{border-bottom:none}
 .ip{color:var(--muted);font-size:var(--fs-xs);font-family:ui-monospace,monospace;word-break:break-all}
 /* A button and a field are one box: same height (40), corner and fill, so a toolbar reads as one row.
    The client's secondary button is a sunk fill, not an outline. */
-button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:1px solid transparent;
+button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;padding:9px 16px;border:1px solid transparent;
 border-radius:var(--r-lg);cursor:pointer;background:var(--sunk);color:var(--text);font:inherit;font-size:var(--fs-sm);line-height:20px;font-weight:var(--fw-bold);text-decoration:none}
 button:hover,.btn:hover{border-color:var(--text)}
 /* The client's pressed look: the same shape darkened by a 14% black wash. Disabled is a Line fill with
