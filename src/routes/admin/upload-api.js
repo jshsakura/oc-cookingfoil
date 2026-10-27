@@ -90,7 +90,7 @@ async function fetchRetroArt(systemId) {
   try {
     const catalog = await retroCatalog.scan(retroDir);
     const roms = { [systemId]: catalog.games.filter((g) => g.system === systemId).map(romKey) };
-    await syncArt(retroDir, catalog.systems, roms, { only: systemId, token: integrations.get("github").token });
+    await syncArt(retroDir, catalog.systems, roms, { only: [systemId], token: integrations.get("github").token });
     await retroCatalog.scan(retroDir);
   } catch (err) {
     debug.error("upload: retro art for %s: %s", systemId, err.message);
