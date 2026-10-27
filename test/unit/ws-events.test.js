@@ -20,7 +20,7 @@ users.add("guest", "guest-password-1", "user");
 users.add("other", "other-password-1", "user");
 
 const server = http.createServer((_req, res) => res.end());
-const channel = ws.attach(server);
+const channel = ws.attach(server, { heartbeatMs: 50 });
 server.listen(0, "127.0.0.1");
 await new Promise((r) => server.once("listening", r));
 const port = server.address().port;
@@ -110,5 +110,36 @@ test("a page that connects later is not given what it missed", async () => {
   page.client.send(JSON.stringify({ type: "resume", since: 0 }));
   await settle();
   assert.deepEqual(page.events(), [], "there is no resume: a page reads current state from the API");
+  page.client.close();
+});
+
+const closedWithin = (client, ms) => new Promise((resolve) => {
+  const timer = setTimeout(() => resolve(false), ms);
+  client.once("close", () => { clearTimeout(timer); resolve(true); });
+});
+
+test("a page whose session ended stops receiving at the next heartbeat", async () => {
+  users.add("leaver", "leaver-password-1", "user");
+  const page = await connect("/ws/library", userCookie("leaver"));
+  bus.publish({ topic: "notice", audience: { accounts: ["leaver"] }, payload: { n: 1 } });
+  await settle();
+  assert.equal(page.events().length, 1);
+  users.setPassword("leaver", "leaver-password-2");
+  assert.equal(await closedWithin(page.client, 1000), true, "the socket is closed once the session is no longer valid");
+});
+
+test("a page whose account was removed also stops receiving", async () => {
+  users.add("gone", "gone-password-1", "user");
+  const page = await connect("/ws/library", userCookie("gone"));
+  users.remove("gone");
+  assert.equal(await closedWithin(page.client, 1000), true);
+});
+
+test("a page whose session is still valid stays connected across heartbeats", async () => {
+  const page = await connect("/ws/library", userCookie("guest"));
+  assert.equal(await closedWithin(page.client, 300), false);
+  bus.publish({ topic: "notice", audience: { accounts: ["guest"] }, payload: { n: 2 } });
+  await settle();
+  assert.equal(page.events().length, 1);
   page.client.close();
 });

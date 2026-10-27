@@ -5,7 +5,11 @@
  * for `library-updated`.
  *
  *   publish({ topic, audience, payload, adminExtra })   delivers now to whoever is connected
+ *   tell(event)                                         publish for a feature: a failure is logged, never thrown
  *   subscribe(who, handler)                             returns the unsubscribe function
+ *
+ * A hint must never break the action it reports (an upload, a saved wish). Features call `tell`;
+ * `publish` throws on bad input and is for code that wants to know.
  *
  * `who` is { account, admin }. `audience` is { all: true }, { admin: true } or { accounts: [...] };
  * an empty or unknown audience is refused, never "everyone". `adminExtra` (who did it) is merged into
@@ -31,7 +35,7 @@ const checked = (label, value) => {
 export function createEventBus() {
   const listeners = new Set();
 
-  return {
+  const bus = {
     publish({ topic, audience, payload, adminExtra }) {
       if (typeof topic !== "string" || !TOPIC_RE.test(topic)) throw fail("topic", "must be a short lower-case name");
       if (!validAudience(audience)) throw fail("audience", "must be { all: true }, { admin: true } or a non-empty { accounts }");
@@ -47,10 +51,19 @@ export function createEventBus() {
       }
     },
 
+    tell(event) {
+      try {
+        bus.publish(event);
+      } catch (err) {
+        debug.error("event bus: dropped a hint: %s", err.message);
+      }
+    },
+
     subscribe(who, handler) {
       const l = { who, handler };
       listeners.add(l);
       return () => listeners.delete(l);
     },
   };
+  return bus;
 }

@@ -78,3 +78,13 @@ test("unsubscribing stops delivery, and a listener that throws does not stop the
   assert.equal(got.length, 1);
   assert.equal(last.length, 2);
 });
+
+test("tell never throws: a bad event is logged and the caller carries on", () => {
+  const bus = createEventBus();
+  const got = listen(bus, USER);
+  assert.doesNotThrow(() => bus.tell({ topic: "Bad Topic", audience: all, payload: {} }));
+  assert.doesNotThrow(() => bus.tell({ topic: "t", audience: {}, payload: {} }));
+  assert.doesNotThrow(() => bus.tell(null));
+  bus.tell({ topic: "t", audience: all, payload: { ok: true } });
+  assert.deepEqual(got.map((e) => e.payload), [{ ok: true }]);
+});

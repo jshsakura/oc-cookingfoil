@@ -119,7 +119,7 @@ function send(ws, obj) {
 /** Gives one open page the bus events meant for `who`, as they happen. A page reads current state when it connects, so nothing is replayed. */
 const serveEvents = (ws, who) => bus.subscribe(who, (event) => send(ws, { type: "event", ...event }));
 
-export function attach(server) {
+export function attach(server, { heartbeatMs = HEARTBEAT_MS } = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
   const adminWss = new WebSocketServer({ noServer: true, maxPayload: 1024 });
@@ -180,6 +180,9 @@ export function attach(server) {
   wss.on("connection", (ws, req) => {
     const ip = clientIp(req);
     ws.isAlive = true;
+    // Checked again on every heartbeat, like the admin channel: a signed-out page, a changed password
+    // or a revoked account stops receiving the hints addressed to that account.
+    ws.stillAllowed = () => { try { return authorize(req) === "ok"; } catch { return false; } };
     debug.log("ws: connect %s (clients=%d)", ip, wss.clients.size + 1);
 
     // Snapshot greeting so the client can fast-path re-render without
@@ -227,7 +230,7 @@ export function attach(server) {
       ws.isAlive = false;
       try { ws.ping(); } catch {}
     }
-  }, HEARTBEAT_MS);
+  }, heartbeatMs);
   if (hbTimer.unref) hbTimer.unref();
 
   // Fan library-cache updates out to every connected client. Cheap — payload
