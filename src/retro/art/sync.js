@@ -297,12 +297,12 @@ export async function matchSystem(dir, id, system, roms, opts = {}) {
 }
 
 /**
- * Matches, then downloads, for every system (or `only`). `roms` maps system id → ROM names;
+ * Matches, then downloads, for every system (or the system ids in `only`). `roms` maps system id → ROM names;
  * a system without ROMs is skipped, so a pre-registered console leaves nothing on disk.
  */
 export async function syncArt(dir, systems, roms, { only = null, onProgress = () => {}, ...opts } = {}) {
   const summary = {};
-  const ids = Object.keys(systems).filter((id) => (!only || id === only) && roms[id]?.length);
+  const ids = Object.keys(systems).filter((id) => (!only || only.includes(id)) && roms[id]?.length);
   for (const [i, id] of ids.entries()) {
     onProgress({ system: id, index: i, total: ids.length });
     const system = systems[id];

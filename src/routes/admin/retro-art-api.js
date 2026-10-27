@@ -46,6 +46,7 @@ import * as metaStore from "../../retro/meta/store.js";
 import * as metaEdits from "../../retro/meta/edits.js";
 import { GENRE_LABELS } from "../../meta/categories.js";
 import * as art from "../../retro/art/sync.js";
+import { artJobTitle, systemName } from "../../retro/art/job-title.js";
 import { gameOf, overview } from "../../retro/art/admin.js";
 import * as integrations from "../../security/integrations.js";
 import * as activity from "../../tasks/activity.js";
@@ -136,25 +137,27 @@ export async function retroRequirements() {
 }
 
 /**
- * Starts the cover and bezel download for every console with ROMs (or `only`). { job, done } with `done`
- * resolving to the summary, or { error, status } when one is already running or the console is unknown.
+ * Starts the cover and bezel download for every console with ROMs (or the ids in `only`), one activity entry
+ * named after those consoles. { job, done } with `done` resolving to the summary, or { error, status } when
+ * one is already running or a console is unknown. The job's `system` is the console when there is one.
  * The one-go pack fill (retro-pack-api.js) runs the same job as its last step.
  */
 export async function startArtSync(only = null) {
   if (job && !job.finishedAt) return { error: retroText("en", "art.busy"), code: "art.busy", status: 409, job };
   const catalog = await retroCatalog.current(retroDir);
-  if (only && !catalog.systems[only]) return { error: retroText("en", "art.noSystem"), code: "art.noSystem", status: 400 };
+  if (only?.some((id) => !catalog.systems[id])) return { error: retroText("en", "art.noSystem"), code: "art.noSystem", status: 400 };
   const roms = {};
   for (const g of catalog.games) (roms[g.system] ??= []).push(romKey(g));
-  const current = (job = { system: only, startedAt: Date.now(), progress: null });
-  const act = activity.begin("retro-art", { title: only ? retroText(ACTIVITY_LANG, "art.jobSystem", { system: only }) : retroText(ACTIVITY_LANG, "art.job") });
-  const done = art.syncArt(retroDir, catalog.systems, roms, { only, token: ghToken(), onProgress: (p) => { current.progress = p; act.total(p.total); act.step(p.index, p.system); } })
+  const current = (job = { system: only?.length === 1 ? only[0] : null, startedAt: Date.now(), progress: null });
+  const act = activity.begin("retro-art", { title: artJobTitle(catalog.systems, only, ACTIVITY_LANG) });
+  const step = (p) => { current.progress = p; act.total(p.total); act.step(p.index, systemName(catalog.systems, p.system, ACTIVITY_LANG)); };
+  const done = art.syncArt(retroDir, catalog.systems, roms, { only, token: ghToken(), onProgress: step })
     .then((summary) => { current.summary = summary; act.done(); return summary; })
     .catch((err) => { current.error = err.message; act.fail(err); throw err; })
     .finally(async () => {
       current.finishedAt = Date.now();
       await retroCatalog.scan(retroDir).catch((err) => debug.error("retro: rescan after an art change failed: %s", err.message));
-      debug.log("admin retro-art: sync %s done", only ?? "all");
+      debug.log("admin retro-art: sync %s done", only?.join(", ") ?? "all");
     });
   done.catch(() => {});
   return { job: current, done };
@@ -193,7 +196,7 @@ export function mountRetroArtApi(router, requireSession) {
   }));
 
   router.post("/api/retro-art/sync", guarded(async (req, res) => {
-    const started = await startArtSync(req.body?.system ? String(req.body.system) : null);
+    const started = await startArtSync(req.body?.system ? [String(req.body.system)] : null);
     if (started.error) return res.status(started.status).json({ ...retroError(req, started), ...(started.job ? { job: started.job } : {}) });
     res.status(202).json({ job: started.job });
   }));

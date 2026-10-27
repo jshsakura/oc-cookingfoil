@@ -187,7 +187,7 @@ export const retroArtCapabilities = [
     http: { method: "POST", path: "/admin/api/retro-art/sync" },
     handler: async (ctx, input) => {
       await systemsFor(input.system);
-      const started = await (await route()).startArtSync(input.system ?? null);
+      const started = await (await route()).startArtSync(input.system ? [input.system] : null);
       if (started.error) throw fail(started.status === 409 ? 409 : 400, started.status === 409 ? "an art sync is running already; follow it with jobs_list" : `unknown system ${input.system}`);
       return { started: true, system: started.job.system ?? null, startedAt: started.job.startedAt };
     },

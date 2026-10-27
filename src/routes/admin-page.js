@@ -104,6 +104,7 @@ import { mountOverviewApi } from "./admin/overview-api.js";
 import * as adminEdits from "../meta/admin-edits.js";
 import debug from "../debug.js";
 import fs from "fs";
+import path from "path";
 import { fileURLToPath } from "url";
 
 const GUIDE = fs.readFileSync(fileURLToPath(new URL("../views/guide.md", import.meta.url)), "utf8");
@@ -590,7 +591,7 @@ export default function adminPageRouter() {
   mountAlertsApi(router, requireSession);
   mountRetroArtApi(router, requireSession);
   // Box art for ROMs a scan finds without any, as the retro tab's button fetches it (retroAutoArt).
-  watchRetroArt({ dir: envs.retroDir, start: startArtSync, enabled: () => envs.retroAutoArt });
+  watchRetroArt({ dir: envs.retroDir, file: path.join(envs.dataDir, "retro-auto-art.json"), start: startArtSync, enabled: () => envs.retroAutoArt });
   mountStorageGuideApi(router, requireSession);
   mountRetroVariantsApi(router, requireSession);
   mountRetroKoApi(router, requireSession);
