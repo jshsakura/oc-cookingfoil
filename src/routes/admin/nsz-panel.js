@@ -97,7 +97,7 @@ export const NSZ_CSS = `
 .nz-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.nz-cards .card:last-child{grid-column:1/-1}
 .nz-run{grid-template-columns:48px 1fr}.nz-run .nz-ico{width:48px;height:48px}
 .nz-row{grid-template-columns:auto minmax(0,1fr)}.nz-lrow{grid-template-columns:minmax(0,1fr)}.nz-lrow .nz-info{grid-column:1}.nz-info{grid-column:2;justify-content:flex-start}.nz-acts{grid-column:1/-1}.nz-acts button{flex:1}
-.nz-tools .actions{width:100%}.nz-tools .actions button{flex:1}
+.nz-tools .actions{width:100%;flex-wrap:nowrap}.nz-tools .actions button{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 @media (prefers-reduced-motion:reduce){.nz-sk,.nz-bar.ind>i{animation:none}.nz-bar>i{transition:none}}
 `;
