@@ -75,7 +75,7 @@ export const POLISH_SCRIPT = /* js */ `
 ;(function(){
 var SVG={${NAMES.map((n) => `${JSON.stringify(n)}:${JSON.stringify(icon(n, "ico bi"))}`).join(",")}};
 var RULES=[${BY_LABEL.map(([re, n]) => `[${re},${JSON.stringify(n)}]`).join(",")}];
-var SKIP='.ib,.icon-btn,[aria-pressed],[role=tab],[role=menuitem],[role=menuitemcheckbox],[data-kind],[data-noicon]';
+var SKIP='.ib,.icon-btn,[aria-pressed],[role=tab],[role=menuitem],[role=menuitemradio],[data-kind],[data-noicon]';
 function pick(b){
   if(b.id==='ra-prev')return 'chevleft';if(b.id==='ra-next')return 'chevright';
   var t=(b.textContent||'').trim();if(!t)return null;

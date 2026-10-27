@@ -1,12 +1,14 @@
 /**
  * The admin page chrome every page shares: the account circle and its menu,
- * the theme switch, the sign-out chain, and the sidebar's count badges.
+ * the theme picker, the sign-out chain, and the sidebar's count badges.
  *
  * The whole-page dashboard used to wire these inside its own script; the split
  * pages of the redesign need the very same wiring, so it lives here and both
  * inline it. The identity and the badges come from one small counts answer
  * the shell asks for on load.
  */
+import { THEME_PICKER_SCRIPT } from "../../views/themes.js";
+
 export const CHROME_SCRIPT = /* js */ `
 // ── the account circle and its menu ────────────────────────────────────
 function setAcct(open){$('acct-list').hidden=!open;$('acct-btn').setAttribute('aria-expanded',String(open));
@@ -22,17 +24,8 @@ if($('logout'))$('logout').addEventListener('click',async()=>{try{await fetch('/
   const me=await fetch('/auth/me').then((r)=>r.ok?r.json():null);if(me)await fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':me.csrf}});}
   finally{location.href='/login?next=%2Fadmin';}});
 
-// ── theme: the system setting until the switch is used here or on the web ──
-const THEME_KEY='cookingfoil:theme';
-const systemLight=matchMedia('(prefers-color-scheme: light)');
-const currentTheme=()=>document.documentElement.dataset.theme||(systemLight.matches?'light':'dark');
-function syncThemeMenu(){const t=$('theme-toggle');if(t)t.setAttribute('aria-checked',String(currentTheme()==='dark'));}
-if($('theme-toggle'))$('theme-toggle').addEventListener('click',()=>{const v=currentTheme()==='dark'?'light':'dark';
-  document.documentElement.dataset.theme=v;
-  try{localStorage.setItem(THEME_KEY,v);}catch{/* storage blocked: this visit only */}
-  syncThemeMenu();});
-systemLight.addEventListener('change',syncThemeMenu);
-syncThemeMenu();
+// ── theme: the picker in the account menu, shared with the web page ──
+${THEME_PICKER_SCRIPT}
 
 // ── who is in, and the sidebar's four numbers ─────────────────────────
 // One small answer for the identity and the counts, refreshed on the same

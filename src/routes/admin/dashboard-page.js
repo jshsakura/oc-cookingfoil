@@ -16,6 +16,7 @@ import { FEATURED_HTML } from "./featured-page.js";
  *   4. keep the library healthy without shell access
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
+import { themePickerHtml } from "../../views/themes.js";
 import { BRAND_MOTION_CSS } from "../../views/brand-motion.js";
 import { DASHBOARD_SCRIPT } from "./dashboard-script.js";
 import { ICON_CSS, icon } from "../../views/icons.js";
@@ -334,7 +335,7 @@ export const ADMIN_HEADER_HTML = /* html */ `<header class="adm-hdr">
       <a role="menuitem" href="/">${icon("home")}${top("web")}</a>
       <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}${top("guide")}</a>
       <div class="menu-sep" role="separator"></div>
-      <button role="menuitemcheckbox" type="button" class="menu-toggle" id="theme-toggle" aria-checked="false">${icon("moon")}${top("dark")}<span class="switch" aria-hidden="true"></span></button>
+      ${themePickerHtml(top)}
       <button role="menuitem" type="button" id="logout">${icon("logout")}${top("logout")}</button>
       </div>
       ${ACTIVITY_HTML}

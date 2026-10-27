@@ -3,14 +3,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { ADMIN_HEAD, THEME_HEAD_SCRIPT } from "../../src/routes/admin/styles.js";
+import { ADMIN_HEAD } from "../../src/routes/admin/styles.js";
+import { fillTemplate } from "../../src/routes/landing.js";
+import { THEME_HEAD_SCRIPT } from "../../src/views/themes.js";
 
 // The web page and the admin pages read one stored theme before paint. A copy
 // that drifts would show one theme on the web page and another in admin.
-const html = readFileSync(path.join(import.meta.dirname, "../../src/views/landing.html"), "utf-8");
+const html = fillTemplate(readFileSync(path.join(import.meta.dirname, "../../src/views/landing.html"), "utf-8"));
 
 test("the web page applies the stored theme with the same head script as the admin pages", () => {
-  assert.ok(html.includes(THEME_HEAD_SCRIPT), "landing.html carries another copy of the theme script");
+  assert.ok(html.includes(THEME_HEAD_SCRIPT), "the served web page lacks the theme script");
   assert.ok(ADMIN_HEAD.includes(THEME_HEAD_SCRIPT));
   assert.match(THEME_HEAD_SCRIPT, /localStorage\.getItem\("cookingfoil:theme"\)/);
 });
