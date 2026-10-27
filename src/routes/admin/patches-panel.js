@@ -61,7 +61,7 @@ export const PATCHES_CSS = `
 .pt-game{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:6px 14px;margin:0 0 10px}
 .pt-game>header{display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:10px 0 6px;text-align:left}
 .pt-game>header>div{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1}
-.pt-game>header b{font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pt-game>header span{font-size:var(--fs-xs);color:var(--muted);font-family:ui-monospace,monospace}
+.pt-game>header b{max-width:100%;font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pt-game>header span{font-size:var(--fs-xs);color:var(--muted);font-family:ui-monospace,monospace}
 .pt-ico{width:44px;height:44px;border-radius:var(--r-md);background:var(--sunk);object-fit:cover;flex:none}
 .pt-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
 .pt-row:first-of-type{border-top:0}
@@ -78,7 +78,7 @@ export const PATCHES_CSS = `
 #ct-edit{width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box}
 #ct-form label,#ct-form .ct-pair>*{min-width:0}#ct-form input,#ct-form select,#ct-form textarea{width:100%;min-width:0;box-sizing:border-box}
 .ct-move input{width:auto}.ct-move button{flex:none}
-@media (max-width:640px){.ct-pair{grid-template-columns:1fr}}
+@media (max-width:640px){.ct-pair{grid-template-columns:1fr}.pt-row{flex-wrap:wrap;row-gap:6px}.pt-row .pt-name{flex:1 1 100%}.pt-row .pt-size{margin-right:auto}}
 `;
 
 export const PATCHES_SCRIPT = /* js */ `
