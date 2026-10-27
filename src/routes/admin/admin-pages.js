@@ -17,6 +17,7 @@ import { top } from "./top-i18n.js";
 /** A page: the section (tab) it opens, the sub-view inside it when there is one, and its sidebar icon. */
 export const ADMIN_PAGES = [
   { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
+  { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "sparkle" },
   // games group
   { path: "/admin/games", tab: "library", label: "m.library", group: "games", icon: "folder" },
   { path: "/admin/patches", tab: "library", sub: "patches", label: "m.patches", group: "games", icon: "package" },
