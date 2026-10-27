@@ -154,13 +154,12 @@ export const themePickerHtml = (word) => `<div class="theme-pick" role="group" a
 export const THEME_PICKER_CSS = `
 .theme-pick{display:grid;gap:6px;padding:6px 6px 4px}
 .theme-pick-label{font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--muted);padding:0 6px}
-.theme-pick-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px}
-.pop-list .theme-pick [data-theme-pick]{display:flex;align-items:center;justify-content:center;position:relative;min-width:0;width:100%;padding:8px;border:0;border-radius:var(--r-md);background:transparent;color:var(--text);font:inherit;font-size:var(--fs-sm);font-weight:var(--fw-bold);line-height:20px;cursor:pointer;text-align:left}
-.pop-list .theme-pick [data-theme-pick]:hover{background:var(--sunk)}
-.pop-list .theme-pick [data-theme-pick]:focus-visible{outline:3px solid var(--accent);outline-offset:-1px;background:var(--sunk)}
-.pop-list .theme-pick [data-theme-pick][aria-checked="true"]{background:var(--sunk)}
-.theme-swatch{flex:none;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(127,127,127,.45)}
-.theme-pick [aria-checked="true"] .theme-swatch{outline:2px solid var(--text);outline-offset:2px}
+.theme-pick-grid{display:flex;justify-content:space-between;align-items:center;padding:2px 4px}
+.pop-list .theme-pick [data-theme-pick]{display:grid;place-items:center;position:relative;flex:none;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer}
+.pop-list .theme-pick [data-theme-pick]:hover .theme-swatch{transform:scale(1.12)}
+.pop-list .theme-pick [data-theme-pick]:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+.theme-pick [aria-checked="true"] .theme-swatch{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+.theme-swatch{width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(127,127,127,.45);transition:transform .12s,box-shadow .12s}
 .theme-name{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 ${THEMES.map((t) => `[data-theme-pick="${t.id}"] .theme-swatch{background:linear-gradient(135deg,${t.ground} 0 50%,${t.surface} 50% 100%)}`).join("\n")}
 `;
