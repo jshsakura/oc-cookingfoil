@@ -332,11 +332,13 @@
       /* An install path stays on one line: on a phone its middle gives way (sdmc:/…/contents/<id>/), never its end. */
       .path-code { white-space: nowrap; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
       .path-code .p-short { display: none; }
+      /* The label and the path share one line inside the popup: the path is what gives way, never the popup edge. */
+      .xm-where:not([hidden]), .modal .modal-where:not([hidden]) { display: flex; align-items: baseline; gap: .35em; min-width: 0; white-space: nowrap; }
+      .xm-where .path-code, .modal-where .path-code { flex: 0 1 auto; min-width: 0; }
       @media (max-width: 640px) {
         /* Out of sight but still read aloud: a screen reader says the whole path, never the shortened one. */
         .path-code .p-full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
         .path-code .p-short { display: inline; }
-        .xm-where, .modal .modal-where { white-space: nowrap; }
       }
       .xitem.xapp { grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; border-top: none; margin-top: 0; padding-top: 0; }
       .xitem.xapp > img { width: 44px; height: 44px; border-radius: 12px; object-fit: cover; background: var(--sunk); }
@@ -5205,7 +5207,7 @@
           // Where it lands on the console's SD card, as the client shows it.
           const at = $("xm-where");
           at.hidden = !where;
-          if (where) { at.replaceChildren(document.createTextNode(t("xm.where") + ": ")); at.append(pathCode(where)); }
+          if (where) { at.replaceChildren(document.createTextNode(t("xm.where") + ": "), pathCode(where)); }
           $("xm-sections").replaceChildren(...sections.filter((x) => x.items.length).map((x) => {
             const sec = node("section", "xm-section"); sec.append(node("h4", null, x.title), ...x.items); return sec;
           }));

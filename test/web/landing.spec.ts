@@ -587,6 +587,8 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(where).toHaveAttribute('title', 'sdmc:/atmosphere/contents/0100000000010000/');
   const lines = await where.evaluate((el) => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)));
   expect(lines).toBe(1);
+  const spill = await page.locator('#xm-where').evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(spill, 'the label and the path stay inside the popup').toBe(0);
   await page.screenshot({ path: 'out/web/patch-detail-phone.png' });
 });
 

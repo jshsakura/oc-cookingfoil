@@ -96,7 +96,7 @@ test('two waiting rows run by themselves, a kept row says when its original goes
 
   const runSel = page.locator('#nz-run-sel');
   await expect(runSel).toBeDisabled();
-  await expect(runSel).toHaveText('변환할 파일을 고릅니다');
+  await expect(runSel).toHaveText('골라서 변환');
   await page.getByRole('checkbox', { name: /^One .* 선택$/ }).check();
   await page.getByRole('checkbox', { name: /^Three .* 선택$/ }).check();
   await expect(runSel).toHaveText('선택한 2개 변환');
