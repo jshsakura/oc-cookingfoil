@@ -1,0 +1,116 @@
+/**
+ * The admin file browser (files-panel.js) in all twelve admin languages: the
+ * storage tabs, the folder path, the table, the selection bar and the move
+ * dialog. Korean is the source of truth.
+ */
+const KEYS = [
+  "m.files", "fb.rootsLabel", "fb.root.games", "fb.root.incoming", "fb.root.retro", "fb.root.homebrew", "fb.root.patches", "fb.root.saves",
+  "fb.qPh", "fb.newFolder", "fb.newFolderAsk", "fb.rename", "fb.renameAsk", "fb.move", "fb.trash", "fb.download", "fb.clear",
+  "fb.selected", "fb.counts", "fb.colName", "fb.colSize", "fb.colMtime", "fb.selectAll", "fb.selectRow", "fb.up", "fb.crumbLabel",
+  "fb.empty", "fb.noMatch", "fb.askTrash", "fb.trashed", "fb.moved", "fb.movedSome", "fb.renamed", "fb.made",
+  "fb.moveTitle", "fb.moveHere", "fb.cancel", "fb.loadFail", "fb.pageOf", "fb.prev", "fb.next", "fb.note",
+];
+
+const ROWS = {
+  ko: [
+    "파일", "저장 위치", "게임", "들어온 파일", "레트로 게임", "홈브류", "패치", "세이브",
+    "이 폴더에서 이름 찾기", "새 폴더", "새 폴더 이름을 적습니다", "이름 바꾸기", "새 이름을 적습니다", "이동", "휴지통으로", "내려받기", "선택 해제",
+    "{n}개를 골랐습니다", "폴더 {dirs}개 · 파일 {files}개", "이름", "크기", "수정한 날짜", "이 페이지를 전부 고릅니다", "{name} 고르기", "상위 폴더", "폴더 경로",
+    "빈 폴더입니다", "찾는 이름이 이 폴더에 없습니다", "고른 {n}개를 휴지통으로 옮길까요? 휴지통에서 되살릴 수 있습니다.", "{n}개를 휴지통으로 옮겼습니다", "{n}개를 옮겼습니다", "{moved}개를 옮겼습니다. {skipped}개는 같은 이름이 있거나 옮길 수 없어 그대로 뒀습니다", "이름을 바꿨습니다", "폴더를 만들었습니다",
+    "옮길 폴더를 고릅니다", "여기로 이동", "취소", "목록을 불러오지 못했습니다: {msg}", "{page} / {pages}쪽", "이전 쪽", "다음 쪽",
+    "지운 것은 저장 위치마다 휴지통으로 갑니다. 이름 바꾸기와 이동은 휴지통 페이지의 작업 기록에서 되돌릴 수 있습니다.",
+  ],
+  en: [
+    "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
+    "Find a name in this folder", "New folder", "Name the new folder", "Rename", "Type the new name", "Move", "Move to trash", "Download", "Clear selection",
+    "{n} selected", "{dirs} folders · {files} files", "Name", "Size", "Modified", "Selects everything on this page", "Select {name}", "Parent folder", "Folder path",
+    "This folder is empty", "No name in this folder matches", "Move the {n} selected items to the trash? You can restore them from the trash.", "Moved {n} to the trash", "Moved {n}", "Moved {moved}. {skipped} stayed where they were because the name was taken or they could not be moved", "Renamed", "Folder created",
+    "Choose the folder to move into", "Move here", "Cancel", "The list could not be loaded: {msg}", "Page {page} of {pages}", "Previous page", "Next page",
+    "Deleted items go to each storage location's trash. Renames and moves can be undone from the activity record on the Trash page.",
+  ],
+  ja: [
+    "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
+    "このフォルダーで名前を探す", "新しいフォルダー", "新しいフォルダーの名前を入力します", "名前を変更", "新しい名前を入力します", "移動", "ごみ箱へ", "ダウンロード", "選択を解除",
+    "{n}個を選択しました", "フォルダー {dirs}個 · ファイル {files}個", "名前", "サイズ", "更新日時", "このページをすべて選択します", "{name}を選択", "親フォルダー", "フォルダーのパス",
+    "空のフォルダーです", "このフォルダーに一致する名前はありません", "選んだ{n}個をごみ箱に移動しますか？ごみ箱から元に戻せます。", "{n}個をごみ箱に移動しました", "{n}個を移動しました", "{moved}個を移動しました。{skipped}個は同じ名前があるか移動できないため、そのままにしました", "名前を変更しました", "フォルダーを作成しました",
+    "移動先のフォルダーを選びます", "ここに移動", "キャンセル", "一覧を読み込めませんでした: {msg}", "{page} / {pages}ページ", "前のページ", "次のページ",
+    "削除したものは保存場所ごとのごみ箱に移ります。名前の変更と移動は、ごみ箱ページの作業記録から元に戻せます。",
+  ],
+  zh: [
+    "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
+    "在此文件夹中查找名称", "新建文件夹", "输入新文件夹的名称", "重命名", "输入新名称", "移动", "移到回收站", "下载", "取消选择",
+    "已选择 {n} 项", "{dirs} 个文件夹 · {files} 个文件", "名称", "大小", "修改时间", "选择本页全部项目", "选择 {name}", "上级文件夹", "文件夹路径",
+    "这是一个空文件夹", "此文件夹中没有匹配的名称", "要将选中的 {n} 项移到回收站吗？可以从回收站恢复。", "已将 {n} 项移到回收站", "已移动 {n} 项", "已移动 {moved} 项。{skipped} 项因名称已存在或无法移动而保留原位", "已重命名", "已创建文件夹",
+    "选择要移入的文件夹", "移到这里", "取消", "无法加载列表：{msg}", "第 {page} / {pages} 页", "上一页", "下一页",
+    "删除的项目会进入各存储位置的回收站。重命名和移动可以在回收站页面的操作记录中撤销。",
+  ],
+  "zh-Hant": [
+    "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
+    "在此資料夾中尋找名稱", "新增資料夾", "輸入新資料夾的名稱", "重新命名", "輸入新名稱", "移動", "移至垃圾桶", "下載", "取消選取",
+    "已選取 {n} 項", "{dirs} 個資料夾 · {files} 個檔案", "名稱", "大小", "修改時間", "選取本頁全部項目", "選取 {name}", "上層資料夾", "資料夾路徑",
+    "這是空的資料夾", "此資料夾中沒有符合的名稱", "要將選取的 {n} 項移至垃圾桶嗎？可以從垃圾桶還原。", "已將 {n} 項移至垃圾桶", "已移動 {n} 項", "已移動 {moved} 項。{skipped} 項因名稱已存在或無法移動而保留原處", "已重新命名", "已建立資料夾",
+    "選擇要移入的資料夾", "移到這裡", "取消", "無法載入清單：{msg}", "第 {page} / {pages} 頁", "上一頁", "下一頁",
+    "刪除的項目會進入各儲存位置的垃圾桶。重新命名和移動可以在垃圾桶頁面的操作記錄中復原。",
+  ],
+  es: [
+    "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
+    "Buscar un nombre en esta carpeta", "Nueva carpeta", "Escribe el nombre de la nueva carpeta", "Cambiar nombre", "Escribe el nuevo nombre", "Mover", "Mover a la papelera", "Descargar", "Quitar selección",
+    "{n} seleccionados", "{dirs} carpetas · {files} archivos", "Nombre", "Tamaño", "Modificado", "Selecciona todo en esta página", "Seleccionar {name}", "Carpeta superior", "Ruta de la carpeta",
+    "Esta carpeta está vacía", "Ningún nombre de esta carpeta coincide", "¿Mover los {n} elementos seleccionados a la papelera? Puedes restaurarlos desde la papelera.", "{n} movidos a la papelera", "{n} movidos", "{moved} movidos. {skipped} se quedaron donde estaban porque el nombre ya existía o no se podían mover", "Nombre cambiado", "Carpeta creada",
+    "Elige la carpeta de destino", "Mover aquí", "Cancelar", "No se pudo cargar la lista: {msg}", "Página {page} de {pages}", "Página anterior", "Página siguiente",
+    "Lo que se elimina va a la papelera de cada ubicación. Los cambios de nombre y los movimientos se pueden deshacer desde el registro de la página Papelera.",
+  ],
+  fr: [
+    "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
+    "Chercher un nom dans ce dossier", "Nouveau dossier", "Saisissez le nom du nouveau dossier", "Renommer", "Saisissez le nouveau nom", "Déplacer", "Mettre à la corbeille", "Télécharger", "Désélectionner",
+    "{n} sélectionnés", "{dirs} dossiers · {files} fichiers", "Nom", "Taille", "Modifié", "Sélectionne tout sur cette page", "Sélectionner {name}", "Dossier parent", "Chemin du dossier",
+    "Ce dossier est vide", "Aucun nom de ce dossier ne correspond", "Mettre les {n} éléments sélectionnés à la corbeille ? Vous pourrez les restaurer depuis la corbeille.", "{n} mis à la corbeille", "{n} déplacés", "{moved} déplacés. {skipped} sont restés en place, car le nom existait déjà ou ils ne pouvaient pas être déplacés", "Renommé", "Dossier créé",
+    "Choisissez le dossier de destination", "Déplacer ici", "Annuler", "Impossible de charger la liste : {msg}", "Page {page} sur {pages}", "Page précédente", "Page suivante",
+    "Ce qui est supprimé va dans la corbeille de chaque emplacement. Les renommages et déplacements s'annulent depuis le journal de la page Corbeille.",
+  ],
+  de: [
+    "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
+    "Namen in diesem Ordner suchen", "Neuer Ordner", "Gib den Namen des neuen Ordners ein", "Umbenennen", "Gib den neuen Namen ein", "Verschieben", "In den Papierkorb", "Herunterladen", "Auswahl aufheben",
+    "{n} ausgewählt", "{dirs} Ordner · {files} Dateien", "Name", "Größe", "Geändert", "Wählt alles auf dieser Seite aus", "{name} auswählen", "Übergeordneter Ordner", "Ordnerpfad",
+    "Dieser Ordner ist leer", "Kein Name in diesem Ordner passt", "Die {n} ausgewählten Einträge in den Papierkorb verschieben? Du kannst sie aus dem Papierkorb wiederherstellen.", "{n} in den Papierkorb verschoben", "{n} verschoben", "{moved} verschoben. {skipped} blieben, wo sie waren, weil der Name schon vergeben war oder sie nicht verschoben werden konnten", "Umbenannt", "Ordner erstellt",
+    "Wähle den Zielordner", "Hierher verschieben", "Abbrechen", "Die Liste konnte nicht geladen werden: {msg}", "Seite {page} von {pages}", "Vorherige Seite", "Nächste Seite",
+    "Gelöschtes landet im Papierkorb des jeweiligen Speicherorts. Umbenennen und Verschieben lassen sich im Verlauf der Papierkorb-Seite rückgängig machen.",
+  ],
+  it: [
+    "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
+    "Cerca un nome in questa cartella", "Nuova cartella", "Scrivi il nome della nuova cartella", "Rinomina", "Scrivi il nuovo nome", "Sposta", "Sposta nel cestino", "Scarica", "Deseleziona",
+    "{n} selezionati", "{dirs} cartelle · {files} file", "Nome", "Dimensione", "Modificato", "Seleziona tutto in questa pagina", "Seleziona {name}", "Cartella superiore", "Percorso della cartella",
+    "Questa cartella è vuota", "Nessun nome in questa cartella corrisponde", "Spostare nel cestino i {n} elementi selezionati? Potrai ripristinarli dal cestino.", "{n} spostati nel cestino", "{n} spostati", "{moved} spostati. {skipped} sono rimasti al loro posto perché il nome esisteva già o non potevano essere spostati", "Rinominato", "Cartella creata",
+    "Scegli la cartella di destinazione", "Sposta qui", "Annulla", "Impossibile caricare l'elenco: {msg}", "Pagina {page} di {pages}", "Pagina precedente", "Pagina successiva",
+    "Ciò che elimini va nel cestino di ogni posizione. Rinomine e spostamenti si annullano dal registro della pagina Cestino.",
+  ],
+  pt: [
+    "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
+    "Buscar um nome nesta pasta", "Nova pasta", "Digite o nome da nova pasta", "Renomear", "Digite o novo nome", "Mover", "Mover para a lixeira", "Baixar", "Limpar seleção",
+    "{n} selecionados", "{dirs} pastas · {files} arquivos", "Nome", "Tamanho", "Modificado", "Seleciona tudo nesta página", "Selecionar {name}", "Pasta acima", "Caminho da pasta",
+    "Esta pasta está vazia", "Nenhum nome nesta pasta corresponde", "Mover os {n} itens selecionados para a lixeira? Você pode restaurá-los pela lixeira.", "{n} movidos para a lixeira", "{n} movidos", "{moved} movidos. {skipped} ficaram onde estavam porque o nome já existia ou não puderam ser movidos", "Renomeado", "Pasta criada",
+    "Escolha a pasta de destino", "Mover para cá", "Cancelar", "Não foi possível carregar a lista: {msg}", "Página {page} de {pages}", "Página anterior", "Próxima página",
+    "O que é excluído vai para a lixeira de cada local. Renomeações e movimentos podem ser desfeitos no registro da página Lixeira.",
+  ],
+  nl: [
+    "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
+    "Een naam in deze map zoeken", "Nieuwe map", "Typ de naam van de nieuwe map", "Naam wijzigen", "Typ de nieuwe naam", "Verplaatsen", "Naar de prullenbak", "Downloaden", "Selectie wissen",
+    "{n} geselecteerd", "{dirs} mappen · {files} bestanden", "Naam", "Grootte", "Gewijzigd", "Selecteert alles op deze pagina", "{name} selecteren", "Bovenliggende map", "Mappad",
+    "Deze map is leeg", "Geen naam in deze map komt overeen", "De {n} geselecteerde items naar de prullenbak verplaatsen? Je kunt ze uit de prullenbak terugzetten.", "{n} naar de prullenbak verplaatst", "{n} verplaatst", "{moved} verplaatst. {skipped} bleven staan omdat de naam al bestond of ze niet verplaatst konden worden", "Naam gewijzigd", "Map gemaakt",
+    "Kies de map om naartoe te verplaatsen", "Hierheen verplaatsen", "Annuleren", "De lijst kon niet worden geladen: {msg}", "Pagina {page} van {pages}", "Vorige pagina", "Volgende pagina",
+    "Wat je verwijdert gaat naar de prullenbak van elke opslaglocatie. Naamwijzigingen en verplaatsingen maak je ongedaan via het logboek op de pagina Prullenbak.",
+  ],
+  ru: [
+    "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
+    "Найти имя в этой папке", "Новая папка", "Введите имя новой папки", "Переименовать", "Введите новое имя", "Переместить", "В корзину", "Скачать", "Снять выделение",
+    "Выбрано: {n}", "Папок: {dirs} · Файлов: {files}", "Имя", "Размер", "Изменён", "Выбирает всё на этой странице", "Выбрать {name}", "Родительская папка", "Путь к папке",
+    "Папка пуста", "В этой папке нет подходящих имён", "Переместить выбранные элементы ({n}) в корзину? Их можно восстановить из корзины.", "Перемещено в корзину: {n}", "Перемещено: {n}", "Перемещено: {moved}. Остались на месте: {skipped}, потому что имя уже занято или их нельзя переместить", "Переименовано", "Папка создана",
+    "Выберите папку назначения", "Переместить сюда", "Отмена", "Не удалось загрузить список: {msg}", "Страница {page} из {pages}", "Предыдущая страница", "Следующая страница",
+    "Удалённое попадает в корзину своего хранилища. Переименование и перемещение можно отменить в журнале на странице «Корзина».",
+  ],
+};
+
+export const FILES_WORDS = Object.fromEntries(Object.entries(ROWS).map(([lang, row]) => {
+  if (row.length !== KEYS.length) throw new Error(`files-words: ${lang} has ${row.length} words for ${KEYS.length} keys`);
+  return [lang, Object.fromEntries(KEYS.map((k, i) => [k, row[i]]))];
+}));

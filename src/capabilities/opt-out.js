@@ -53,6 +53,7 @@ export const OPT_OUT = {
   "GET /admin/convert": "browser-only",
   "GET /admin/inbox": "browser-only",
   "GET /admin/featured": "browser-only",
+  "GET /admin/files": "browser-only",
   "GET /admin/trash": "browser-only",
   "GET /admin/retro": "browser-only",
   "GET /admin/homebrew": "browser-only",
