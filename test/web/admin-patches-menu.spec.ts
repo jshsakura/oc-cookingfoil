@@ -8,5 +8,5 @@ test('the sidebar has a 패치 page that opens the game patches, and its upload 
   await expect(page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' })).toBeVisible();
   await page.getByRole('button', { name: '패치 올리기' }).click();
   await expect(page).toHaveURL(/\/admin\/upload\?kind=patch/);
-  await page.screenshot({ path: '/tmp/claude-3000/-home-jshsakura-workspace-oc-cookingfoil/c0849644-697d-4a23-8fb5-1434530fe951/scratchpad/up-patch.png', fullPage: true });
+  await expect(page.locator('#up-hint')).toContainText('atmosphere/contents');
 });
