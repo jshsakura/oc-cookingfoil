@@ -35,7 +35,9 @@
       /* The client app's palette (include/ui/Theme.hpp): warm ground, white
          surfaces, ink text and the butter accent. Dark mode keeps the same
          accent on an ink ground. The legacy names (--base, --surface0 ...) stay
-         so every rule below reads from one set of tokens. */
+         so every rule below reads from one set of tokens. The admin's sizes
+         come first: the activity menu borrowed from it reads them. */
+      :root { __SCALE__; }
       :root {
         --ground: #16161a; --surface: #1f1f24; --sunk: #26262c; --ink: #f2f1ee;
         --line: #303037; --line2: #41414a; --secondary: #a9a8a3; --faint: #75747c;
