@@ -21,8 +21,10 @@ test("the sidebar draws an icon in front of every link", () => {
   for (const a of links) assert.match(a, /<svg class="ico"/, a);
 });
 
-test("the alerts page lives under the settings", () => {
-  const alerts = ADMIN_PAGES.find((p) => p.tab === "alerts");
-  assert.equal(alerts.path, "/admin/settings/notifications");
-  assert.equal(alerts.group, "set");
+test("the alert settings live under the settings and what was sent under the records", () => {
+  const [settings, history] = ["setup", "history"].map((sub) => ADMIN_PAGES.find((p) => p.tab === "alerts" && (p.sub ?? "setup") === sub));
+  assert.equal(settings.path, "/admin/settings/notifications");
+  assert.equal(settings.group, "set");
+  assert.equal(history.path, "/admin/logs/alerts");
+  assert.equal(history.group, "ops");
 });

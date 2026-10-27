@@ -20,6 +20,11 @@ const PAGES: [string, string, string][] = [
   ['/admin/logs/clients', 'cl-list', '클라이언트 로그'],
   ['/admin/logs/security', 'lockouts', '차단과 거부'],
   ['/admin/settings/notifications', 'tab-alerts', '알림 설정'],
+  ['/admin/logs/alerts', 'al-history', '알림 기록'],
+  ['/admin/saves', 'tab-library', '세이브'],
+  ['/admin/titles', 'tab-library', '이름과 소개'],
+  ['/admin/integrity', 'tab-library', '무결성 검사'],
+  ['/admin/organize', 'tab-library', '임시 폴더'],
   ['/admin/client', 'tab-client', '클라이언트 배포'],
   ['/admin/settings/server', 'ss-list', '서버 동작'],
   ['/admin/settings/integrations', 'intg-h', '외부 서비스'],
@@ -42,13 +47,13 @@ test('every page opens its own section, marks the sidebar and keeps its address 
   }
 });
 
-test('the retro group lists its eight jobs as items with addresses of their own', async ({ page }) => {
+test('the retro group lists its seven jobs as items with addresses of their own', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
   await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('RetroArch 코어');
   const items = page.locator('aside.adm-side .adm-grp[data-grp="retro"] .adm-task');
-  await expect(items).toHaveCount(8);
+  await expect(items).toHaveCount(7);
   await expect(items.first()).toHaveAttribute('href', '/admin/retro?view=art');
 });
 

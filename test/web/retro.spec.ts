@@ -112,10 +112,10 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   await page.locator('aside.adm-side a.adm-task[href*="view=sets"]').click();
   await expect(page.locator('#rv-summary')).toContainText('게임 1개, 세트 2개입니다');
   await expect(list).toContainText('해외판입니다');
-  await page.locator('aside.adm-side a.adm-task[href*="view=trash"]').click();
-  await expect(list).toContainText('휴지통이 비어 있습니다');
-  // One sub-tab at a time: the covers are out of sight while the trash shows.
+  // One sub-tab at a time: the covers are out of sight while the sets show.
   await expect(page.locator('#tab-retro [data-sub-panel="art"]')).toBeHidden();
+  // Retro has no trash of its own: the shared one, narrowed to the retro folder, takes old links.
+  await expect(page.locator('aside.adm-side a[href*="view=trash"]')).toHaveCount(0);
   await page.locator('aside.adm-side a.adm-task[href*="view=art"]').click();
   await expect(page.locator('#ra-systems')).toBeVisible();
   await expect(page.locator('#ra-bios')).toContainText('roms/ 안의 My Hacks 폴더는 어느 기종인지 몰라 읽지 않습니다');

@@ -29,7 +29,8 @@ export const TRASH_HTML = `<section id="tab-trash" hidden>
 export const TRASH_CSS = `
 .tr-old{background:rgba(var(--accent-rgb),.1);border:1px solid rgba(var(--accent-rgb),.4);border-radius:var(--r-xl);padding:10px 14px;margin:6px 0 12px}
 .tr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:8px 0 14px}
-.tr-cards .card{padding:12px 14px}.tr-cards .card .v{font-size:var(--fs-xl)}
+.tr-cards .card{padding:12px 14px;cursor:pointer;text-align:left;font:inherit;color:inherit}.tr-cards .card .v{font-size:var(--fs-xl)}
+.tr-cards .card[aria-pressed=true]{background:rgba(var(--accent-rgb),.14)}
 .tr-tools{align-items:center;margin-bottom:8px}
 .tr-chk{display:inline-flex;align-items:center;gap:8px;font-weight:var(--fw-bold)}
 .tr-list{display:grid;gap:10px}
@@ -48,12 +49,15 @@ export const TRASH_SCRIPT = /* js */ `
 const trT=(k,v)=>{let s=topText('t.'+k);if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};
 const trSize=(n)=>{n=Number(n)||0;if(n<1024)return n+' B';const u=['KB','MB','GB','TB'];let i=-1;do{n/=1024;i++;}while(n>=1024&&i<3);return (n>=100?n.toFixed(0):n.toFixed(1))+' '+u[i];};
 let trData=null,trJournal=null;const trSel=new Set();
+// A folder card narrows the list to that folder ("?root=retro" opens it narrowed); the total card shows everything.
+let trFilter=new URLSearchParams(location.search).get('root')||'';
+const trShown=()=>trData?trData.items.filter((e)=>!trFilter||e.root===trFilter):[];
 const trRoot=(k)=>topWords[adminLang]['t.root.'+k]?trT('root.'+k):k;
 const trAction=(a)=>{const k=String(a||'').startsWith('nsz-kept')?'nsz-kept':a;return topWords.ko['t.a.'+k]?trT('a.'+k):trT('a.other');};
 const trBy=(b)=>!b?trT('byNone'):b.type==='token'?trT('byToken',{name:b.name}):b.type==='job'?trT('byJob',{name:b.name}):trT('byAdmin',{name:b.name});
 const trWhen=(t)=>t?new Date(t).toLocaleString(adminLang==='ko'?'ko-KR':adminLang):'';
 function trSelUpdate(){const n=trSel.size;$('tr-restore-sel').disabled=!n;$('tr-empty-sel').disabled=!n;
-  const all=trData?trData.items.length:0;$('tr-pick-all').checked=!!all&&n===all;$('tr-empty-all').disabled=!all;}
+  const all=trShown().length;$('tr-pick-all').checked=!!all&&n===all;$('tr-empty-all').disabled=!trData||!trData.items.length;}
 function trRow(e){const r=el('div',null,'tr-row'+(trData&&e.ageDays>=trData.noticeDays?' old':''));r.dataset.id=e.id;
   const c=el('input');c.type='checkbox';c.checked=trSel.has(e.id);c.setAttribute('aria-label',trT('pick',{name:e.name||e.items[0]?.rel||e.entry}));
   c.addEventListener('change',()=>{if(c.checked)trSel.add(e.id);else trSel.delete(e.id);trSelUpdate();});
@@ -66,15 +70,18 @@ function trRow(e){const r=el('div',null,'tr-row'+(trData&&e.ageDays>=trData.noti
   if(e.incomplete)main.append(el('span',trT('incomplete',{n:e.incomplete}),'err'));
   const act=el('div',null,'tr-act');act.append(btn(trT('restore'),()=>trRestore([e.id])),btn(trT('emptyOne'),()=>trEmpty([e.id]),'danger'));
   r.append(c,main,act);return r;}
-function trCards(d){const cards=[[trT('total'),trSize(d.total.bytes),trT('count',{n:num(d.total.count)})],
-    ...Object.entries(d.roots).map(([k,v])=>[trRoot(k),trSize(v.bytes),trT('count',{n:num(v.count)})])];
-  $('tr-cards').replaceChildren(...cards.map(([l,v,sub])=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l+' · '+sub,'l'));return c;}));}
+function trCards(d){const roots={...d.roots};if(trFilter&&!roots[trFilter])roots[trFilter]={bytes:0,count:0};
+  const cards=[['',trT('total'),trSize(d.total.bytes),trT('count',{n:num(d.total.count)})],
+    ...Object.entries(roots).map(([k,v])=>[k,trRoot(k),trSize(v.bytes),trT('count',{n:num(v.count)})])];
+  $('tr-cards').replaceChildren(...cards.map(([k,l,v,sub])=>{const c=el('button',null,'card');c.type='button';c.dataset.root=k;c.setAttribute('aria-pressed',String(k===trFilter));
+    c.append(el('div',v,'v'),el('div',l+' · '+sub,'l'));
+    c.addEventListener('click',()=>{trFilter=k;trSel.clear();const u=new URL(location.href);if(k)u.searchParams.set('root',k);else u.searchParams.delete('root');history.replaceState(history.state,'',u);trRender();});return c;}));}
 function trRender(){if(!trData)return;const d=trData;trCards(d);
   const un=d.unavailable||[];const u=$('tr-unavail');u.hidden=!un.length;
   if(un.length)u.textContent=un.map((x)=>trT('unavailable',{where:trRoot(x.root)+' / '+x.home})).join(' ');
   const o=$('tr-old');o.hidden=!d.old.count;if(d.old.count)o.textContent=trT('old',{days:d.noticeDays,n:num(d.old.count),size:trSize(d.old.bytes)});
-  for(const id of [...trSel])if(!d.items.some((e)=>e.id===id))trSel.delete(id);
-  $('tr-list').replaceChildren(...(d.items.length?d.items.map(trRow):[el('p',trT('none'),'muted')]));trSelUpdate();trJournalRender();}
+  const shown=trShown();for(const id of [...trSel])if(!shown.some((e)=>e.id===id))trSel.delete(id);
+  $('tr-list').replaceChildren(...(shown.length?shown.map(trRow):[el('p',trT('none'),'muted')]));trSelUpdate();trJournalRender();}
 function trMove(o){const r=el('div',null,'tr-row');const main=el('div',null,'tr-main');
   main.append(el('b',topWords.ko['t.j.'+o.action]?trT('j.'+o.action):o.action),el('span',trRoot(o.fromRoot)+' / '+o.from+'  →  '+trRoot(o.toRoot)+' / '+o.to));
   const meta=el('div',null,'tr-meta');meta.append(el('span',trWhen(o.at)),el('span',trBy(o.by)));
@@ -108,7 +115,7 @@ async function trUndo(o){if(!await ask(trT(o.action==='organize'?'undoAskOrganiz
   try{const d=await api('/admin/api/trash/undo',{method:'POST',body:{id:o.id}});toast(d.warning?trT('undoneToast')+' '+d.warning:trT('undoneToast'));}catch(err){toast(err.message);}loadTrash();}
 async function trRelease(o){if(!await ask(trT('releaseAsk',{from:o.from})))return;
   try{await api('/admin/api/trash/release',{method:'POST',body:{id:o.id}});toast(trT('releasedToast'));}catch(err){toast(err.message);}loadTrash();}
-$('tr-pick-all').addEventListener('change',()=>{const on=$('tr-pick-all').checked;trSel.clear();if(on&&trData)for(const e of trData.items)trSel.add(e.id);
+$('tr-pick-all').addEventListener('change',()=>{const on=$('tr-pick-all').checked;trSel.clear();if(on)for(const e of trShown())trSel.add(e.id);
   for(const c of $('tr-list').querySelectorAll('.tr-row>input'))c.checked=on;trSelUpdate();});
 $('tr-restore-sel').addEventListener('click',()=>trRestore([...trSel]));
 $('tr-empty-sel').addEventListener('click',()=>trEmpty([...trSel]));

@@ -26,6 +26,9 @@ export const SCALE = `--r-xs:4px;--r-sm:6px;--r-md:10px;--r-lg:12px;--r-xl:14px;
 
 export const ADMIN_CSS = /* css */ `
 :root{${SCALE}}
+/* iOS zooms the page into any field under 16px when it takes the focus; on a touch screen every
+   field is 16px, whatever a panel's own rule says. */
+@media (pointer:coarse){input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:var(--fs-lg)!important}}
 ${themeCss(adminVars)}
 /* One scrollbar for every admin page, in the page's own colours and both themes.
    The scope is the admin document root itself (html.adm) so the viewport scroll is

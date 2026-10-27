@@ -119,9 +119,14 @@ export const SPLIT_PAGES = {
     init: "admInterval(loadSecurity,15000);",
   }),
   // Third bundle: the pages whose panels were already modules of their own.
+  // One alerts panel, two pages: the settings here, what was sent under the records.
   "/admin/settings/notifications": bundle({
-    css: ALERTS_CSS, body: ALERTS_HTML, script: ALERTS_SCRIPT,
-    init: "subtabs('alerts');SUBTABS.alerts.show(location.hash.split('/')[1]||'setup');loadAlerts();",
+    css: ALERTS_CSS + "#alerts-subtabs{display:none}", body: ALERTS_HTML, script: ALERTS_SCRIPT,
+    init: "subtabs('alerts');SUBTABS.alerts.show('setup');loadAlerts();",
+  }),
+  "/admin/logs/alerts": bundle({
+    css: ALERTS_CSS + "#alerts-subtabs{display:none}", body: ALERTS_HTML, script: ALERTS_SCRIPT,
+    init: "subtabs('alerts');SUBTABS.alerts.show('history');loadAlerts();",
   }),
   "/admin/client": bundle({
     body: `<section id="tab-client"><div class="hd"><h2 class="first">${top("m.client")}</h2></div>${CLIENT_RELEASE_HTML}</section>`,

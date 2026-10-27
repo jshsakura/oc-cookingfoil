@@ -20,6 +20,12 @@ export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
   <p class="muted" id="health-hint" hidden></p>
   <h3 class="ov-h" data-top="ov.recentH">${ko("ov.recentH")}</h3>
   <ul class="ov-recent" id="ov-recent"></ul>
+  <dialog id="ov-alert" aria-labelledby="ov-alert-h">
+    <h3 id="ov-alert-h"></h3>
+    <p class="muted" id="ov-alert-meta"></p>
+    <div class="ov-alert-body" id="ov-alert-body"></div>
+    <div class="dialog-actions"><a class="btn" href="/admin/logs/alerts" data-top="ov.alertAll">${ko("ov.alertAll")}</a><button type="button" class="primary" id="ov-alert-x" data-top="acc.close">${ko("acc.close")}</button></div>
+  </dialog>
   <p class="muted" id="ts"></p>
 </section>`;
 
@@ -34,6 +40,10 @@ export const OVERVIEW_CSS = /* css */ `
 .ov-recent time{color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
 .ov-recent span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ov-recent li.none{color:var(--muted)}
+.ov-recent li[role=button]{cursor:pointer}.ov-recent li[role=button]:hover{background:var(--sunk)}
+.ov-recent li[role=button]:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+#ov-alert{width:min(560px,94vw)}
+.ov-alert-body{white-space:pre-wrap;word-break:break-word;background:var(--sunk);border-radius:var(--r-lg);padding:12px 14px;font-size:var(--fs-sm);max-height:50vh;overflow:auto}
 .ov-added{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px}
 .ov-col{border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden;min-width:0}
 .ov-col-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
@@ -128,8 +138,15 @@ function renderStatus(st){const box=$('ov-status');box.replaceChildren();
   box.append(card(topText('ov.s.verify'),vc.damaged?topFill('ov.s.verifyDamaged',{d:num(vc.damaged)}):topText('ov.s.verifyOk'),vc.modified?checked+' · '+topFill('ov.s.verifyModified',{m:num(vc.modified)}):checked,(vc.damaged||0)>0));
   box.append(card(topText('ov.s.xfer'),topFill('ov.s.xferV',{n:num(st.transfers.active)})));
   box.append(card(topText('ov.s.plugins'),topFill('ov.s.pluginsV',{on:num(st.plugins.on),total:num(st.plugins.total)})));}
+// A row opens the whole message: the list shows its first line only.
+function ovAlert(e){$('ov-alert-h').textContent=e.text;
+  $('ov-alert-meta').textContent=fmt(e.at)+' · '+(topWords.ko['al.st.'+e.status]?topText('al.st.'+e.status):e.status)+(e.detail?' · '+e.detail:'');
+  $('ov-alert-body').textContent=e.body||e.text;$('ov-alert').showModal();}
+$('ov-alert-x').addEventListener('click',()=>$('ov-alert').close());
 function renderRecent(list){const box=$('ov-recent');box.replaceChildren();
-  for(const e of list){const li=el('li');const t=el('time',fmt(e.at));t.dateTime=new Date(e.at).toISOString();li.append(t,el('span',e.text));li.title=e.text;box.append(li);}
+  for(const e of list){const li=el('li');const t=el('time',fmt(e.at));t.dateTime=new Date(e.at).toISOString();li.append(t,el('span',e.text));li.title=e.text;
+    li.tabIndex=0;li.setAttribute('role','button');li.addEventListener('click',()=>ovAlert(e));li.addEventListener('keydown',(ev)=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();ovAlert(e);}});
+    box.append(li);}
   if(!list.length)box.append(el('li',topText('ov.recentNone'),'none'));}
 // What came in lately: the newest game files and patches, each with when.
 const OV_KIND={base:'ov.kind.base',update:'ov.kind.update',dlc:'ov.kind.dlc'};
