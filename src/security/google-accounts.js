@@ -7,6 +7,7 @@
  * Only what is needed to tell accounts apart is kept: Google's account id
  * (`sub`) and the verified email. Stored in the security database (db/database.js).
  */
+import { approvalsChanged } from "../realtime/events.js";
 import { adminEmail } from "../helpers/envs.js";
 import { recordStore } from "../db/security-stores.js";
 import { alert } from "../helpers/alerts.js";
@@ -67,7 +68,9 @@ export function signIn({ sub, email }, now = Date.now()) {
   if (accounts.size >= MAX_ACCOUNTS) return null;
   const owner = isOwner(email);
   if (!owner) alert("account", (t) => t("account", { email: maskEmail(email) }), { subject: sub, now, approval: { kind: "account", ref: sub } });
-  return put({ sub, email, status: owner ? "approved" : "pending", role: owner ? "admin" : "user", createdAt: now, ...(owner ? { approvedAt: now } : {}), lastAt: now });
+  const added = put({ sub, email, status: owner ? "approved" : "pending", role: owner ? "admin" : "user", createdAt: now, ...(owner ? { approvedAt: now } : {}), lastAt: now });
+  approvalsChanged("account");
+  return added;
 }
 
 export function get(sub) {
@@ -112,6 +115,7 @@ export function setStatus(sub, status, now = Date.now()) {
   const a = accounts.get(sub);
   if (!a || !STATUSES.includes(status)) return false;
   put({ ...a, status, ...(status === "approved" ? { approvedAt: now } : {}) });
+  approvalsChanged("account");
   return true;
 }
 
@@ -125,6 +129,7 @@ export function remove(sub) {
     accounts.set(sub, a);
     throw err;
   }
+  approvalsChanged("account");
   return true;
 }
 

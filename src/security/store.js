@@ -9,6 +9,7 @@
  * changed and the log lines added since the last one. State survives container
  * restarts so attackers can't just bounce us to reset their failure count.
  */
+import { approvalsChanged } from "../realtime/events.js";
 import { emitPluginEvent } from "../plugins/emit.js";
 import { translator } from "../helpers/alert-messages.js";
 import debug from "../debug.js";
@@ -441,6 +442,7 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash, admin 
   dropPending(deviceKey);
   appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, at: now });
   scheduleFlush();
+  approvalsChanged("device");
   emitPluginEvent("deviceApproved", { isNew: !prev, admin: state.devices.get(deviceKey)?.admin === true }, { deviceKey });
 }
 
@@ -455,6 +457,7 @@ export function revokeDevice(deviceKey) {
   deviceSends.forget(deviceKey);
   if (removed) appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
   if (removed || dismissed || hadSecret) scheduleFlush();
+  if (removed || dismissed) approvalsChanged("device");
   return removed;
 }
 
@@ -520,6 +523,7 @@ export function dismissPending(deviceKey) {
   const dismissed = dropPending(deviceKey);
   dropRepair(deviceKey);
   if (state.pairSecrets.delete(deviceKey) || dismissed) scheduleFlush();
+  if (dismissed) approvalsChanged("device");
   return dismissed;
 }
 
@@ -639,6 +643,7 @@ export function recordPendingDevice(deviceKey, { message, name, download, quiet 
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
   const learned = Boolean(next.download && !prev?.download) || Boolean(next.name && !prev?.name);
+  if (!prev || learned || (message && message !== prev.message)) approvalsChanged("device");
   if (!quiet && (!prev || learned || (message && message !== prev.message))) {
     // The code is what the console shows on its screen; the note is the console's own words.
     const message = (t) => t("device", { code: deviceCode(deviceKey), note, lines: [...pendingLines(next, t), ...requesterLines(from, now, t)].map((line) => `${line}\n`).join("") });
