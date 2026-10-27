@@ -32,12 +32,12 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="nz-cards" id="nz-cards">${`<div class="card nz-sk"><div class="v">0</div><div class="l">${top("loading")}</div></div>`.repeat(5)}</div>
   <div class="nz-active" id="nz-active"></div>
   <div class="hd nz-tools">
-    <div class="seg" id="nz-filter" role="group" data-top-label="nz.filterAria" aria-label="${ko("nz.filterAria")}">
-      <button type="button" data-filter="all" class="active" aria-pressed="true">${top("t.total")}</button>
-      <button type="button" data-filter="waiting" aria-pressed="false">${top("pp.waiting")}</button>
-      <button type="button" data-filter="running" aria-pressed="false">${top("nz.running")}</button>
-      <button type="button" data-filter="done" aria-pressed="false">${top("nz.done")}</button>
-      <button type="button" data-filter="failed" aria-pressed="false">${top("ss.fail")}</button>
+    <div class="subtabs hide-bar" id="nz-filter" role="tablist" data-top-label="nz.filterAria" aria-label="${ko("nz.filterAria")}">
+      <button type="button" data-filter="all" role="tab" aria-selected="true">${top("t.total")}</button>
+      <button type="button" data-filter="waiting" role="tab" aria-selected="false">${top("pp.waiting")}</button>
+      <button type="button" data-filter="running" role="tab" aria-selected="false">${top("nz.running")}</button>
+      <button type="button" data-filter="done" role="tab" aria-selected="false">${top("nz.done")}</button>
+      <button type="button" data-filter="failed" role="tab" aria-selected="false">${top("ss.fail")}</button>
     </div>
     <div class="actions"><button type="button" id="nz-clear">${top("nz.clearDone")}</button><button type="button" class="primary" id="nz-run-sel" disabled>${top("nz.runPick")}</button></div>
   </div>
@@ -70,7 +70,7 @@ export const NSZ_CSS = `
 @keyframes nz-slide{from{left:-30%}to{left:100%}}
 @keyframes nz-pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .nz-sk{color:transparent!important;background:var(--sunk)!important;border-radius:var(--r-sm);animation:nz-pulse 1.4s ease-in-out infinite}
-.nz-tools{margin-top:16px}.nz-tools .seg{margin:6px 0}
+.nz-tools{margin-top:16px}.nz-tools .subtabs{margin:6px 0 12px}
 .nz-list{display:grid;gap:8px;margin-top:8px}
 .nz-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:10px 12px}
 .nz-row.running{border-color:rgba(var(--accent-rgb),.6)}
@@ -97,7 +97,7 @@ export const NSZ_CSS = `
 .nz-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.nz-cards .card:last-child{grid-column:1/-1}
 .nz-run{grid-template-columns:48px 1fr}.nz-run .nz-ico{width:48px;height:48px}
 .nz-row{grid-template-columns:auto minmax(0,1fr)}.nz-lrow{grid-template-columns:minmax(0,1fr)}.nz-lrow .nz-info{grid-column:1}.nz-info{grid-column:2;justify-content:flex-start}.nz-acts{grid-column:1/-1}.nz-acts button{flex:1}
-.nz-tools .actions{width:100%}.nz-tools .actions button{flex:1}
+.nz-tools .actions{width:100%;flex-wrap:nowrap}.nz-tools .actions button{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 @media (prefers-reduced-motion:reduce){.nz-sk,.nz-bar.ind>i{animation:none}.nz-bar>i{transition:none}}
 `;
@@ -272,7 +272,7 @@ $('nz-purge').addEventListener('click',async()=>{if(!await ask(topText('t.nz.ask
   nzAct('/admin/api/nsz/purge-kept',{method:'POST',body:{}},(d)=>topFill('t.nz.purged',{n:d.removed,size:nzSize(d.bytes)}));});
 $('nz-log-q').addEventListener('input',()=>{clearTimeout(nzLogTimer);nzLogTimer=setTimeout(()=>{nzLogQ=$('nz-log-q').value.trim();nzLogOff=0;loadNszLog();},250);});
 $('nz-filter').addEventListener('click',(e)=>{const b=e.target.closest('[data-filter]');if(!b)return;nzFilter=b.dataset.filter;nzOffset=0;nzSel.clear();
-  for(const x of $('nz-filter').querySelectorAll('button')){const on=x===b;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on));}
+  for(const x of $('nz-filter').querySelectorAll('button'))x.setAttribute('aria-selected',String(x===b));
   // Until the new rows arrive there is nothing to pick or run: a 모두 선택 click would untick itself and the run button would ask with the old tab's count.
   $('nz-list').replaceChildren();$('nz-pick').hidden=true;nzTabCount=0;nzSelUpdate();loadNsz();});
 `;
