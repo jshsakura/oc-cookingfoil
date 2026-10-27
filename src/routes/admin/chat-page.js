@@ -34,7 +34,7 @@ export const CHAT_HTML = /* html */ `<section id="tab-chat" hidden>
       <div id="ch-pending-list"></div>
     </div>
     <form class="ch-input" id="ch-send">
-      <textarea id="ch-text" rows="2" maxlength="8000" ${topPh("ch.placeholder")}></textarea>
+      <textarea id="ch-text" rows="1" maxlength="8000" ${topPh("ch.placeholder")}></textarea>
       <button type="submit" class="primary" id="ch-go">${top("ch.send")}</button>
       <button type="button" id="ch-stop" hidden>${top("ch.stop")}</button>
     </form>
@@ -66,8 +66,10 @@ export const CHAT_CSS = /* css */ `
 .ch-pending h3{margin:0 0 4px}
 .ch-card{background:var(--panel);border:1px solid rgba(var(--accent-rgb),.6);border-radius:var(--r-2xl);padding:10px 14px;margin:8px 0;display:grid;gap:8px}
 .ch-card pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--fs-sm)}
-.ch-input{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
-.ch-input textarea{flex:1;resize:vertical;min-height:44px}
+.ch-input{display:flex;gap:8px;align-items:stretch;margin-top:10px}
+.ch-input textarea{flex:1;min-height:40px;box-sizing:border-box;resize:vertical;padding:9px 14px;border-radius:var(--r-lg);border:1px solid transparent;background:var(--sunk);color:var(--text);font:inherit;font-size:var(--fs-md);line-height:20px}
+.ch-input textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.45)}
+.ch-input button{align-self:stretch}
 `;
 
 export const CHAT_SCRIPT = /* js */ `
