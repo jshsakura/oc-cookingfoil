@@ -86,6 +86,7 @@ export const OPT_OUT = {
   "POST /admin/api/plugins/restore": "token-blocked",
   "POST /admin/api/plugins/install": "token-blocked",
   "POST /admin/api/plugins/install/confirm": "token-blocked",
+  "POST /admin/api/plugins/recommended/install": "token-blocked",
   "POST /admin/api/plugins/:id/enabled": "token-blocked",
   "POST /admin/api/plugins/:id/trash": "token-blocked",
   "POST /admin/api/plugins/:id/cache/clear": "token-blocked",

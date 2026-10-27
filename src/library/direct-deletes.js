@@ -46,7 +46,7 @@ export const DIRECT_DELETES = Object.freeze({
   "src/plugins/agent-cache.js": { count: 1, why: "what a metadata plugin said about titles, when the admin deletes that plugin's values; the plugin is asked again" },
   "src/plugins/cache.js": { count: 2, why: "the oldest files of a plugin's own cache folder when it is over its cap, and the folder when the admin empties it" },
   "src/plugins/registry.js": { count: 4, why: "a plugin's cache folder when the operator asks to drop it, the source of a cross-disk move after the copy, the note of a restored trash entry, and the install note of a plugin whose data was dropped" },
-  "src/plugins/installer.js": { count: 2, why: "an upload waiting to be installed, when it is replaced, expires, or the server starts again" },
+  "src/plugins/installer.js": { count: 3, why: "an upload waiting to be installed, when it is replaced, expires, or the server starts again, and a recommended release whose plugin id is not the listed one, just unpacked" },
   "src/plugins/unpack.js": { count: 1, why: "the half-unpacked folder of an upload that was refused, which the unpacker made a moment before" },
   "src/plugins/state.js": { count: 1, why: "the boot and crash marks, which the server writes itself" },
   "src/routes/admin/homebrew-upload.js": { count: 1, why: "the waiting copy, after the old file could not go to the trash" },
