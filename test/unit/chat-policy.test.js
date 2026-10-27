@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { DEFAULT_TIERS, tierOf, decide, classifyUpload, uploadTier, MAX_AUTO_FILES } = await import("../../src/chat/policy.js");
+const { DEFAULT_TIERS, tierOf, decide, AUTO_WRITES } = await import("../../src/chat/policy.js");
 
 test("a capability the table does not list is blocked", () => {
   assert.equal(tierOf("something_new_and_unlisted"), "blocked");
@@ -10,9 +10,15 @@ test("a capability the table does not list is blocked", () => {
   assert.equal(tierOf("constructor"), "blocked");
 });
 
-test("searching, art, names and restores run on their own", () => {
-  for (const id of ["games_search", "retro_games_search", "game_get", "game_art_search", "game_art_set", "game_art_crop", "retro_cover_set", "retro_ko_name_decide", "trash_restore", "jobs_list"]) {
+test("searching and listing run on their own", () => {
+  for (const id of ["games_search", "retro_games_search", "game_get", "game_art_search", "jobs_list", "games_wishlist"]) {
     assert.equal(tierOf(id), "auto", id);
+  }
+});
+
+test("art, names, restores and downloads of core files need an approval", () => {
+  for (const id of ["game_art_set", "game_art_crop", "retro_art_sync", "retro_cover_set", "retro_ko_name_decide", "trash_restore", "retro_cores_update", "retro_cores_fetch_missing"]) {
+    assert.equal(tierOf(id), "approve", id);
   }
 });
 
@@ -41,50 +47,6 @@ test("decide: auto runs, blocked is denied, approve asks the person or the admin
   assert.equal(decide("nonsense", { admin: true }), "deny");
 });
 
-const have = [{ identity: "0100AAAA00000000", version: 65536 }];
-
-test("classifyUpload: no such title yet is an add", () => {
-  assert.equal(classifyUpload({ identity: "0100BBBB00000000", version: 0 }, have), "add");
-  assert.equal(classifyUpload({ identity: "0100BBBB00000000", version: 0 }, []), "add");
-});
-
-test("classifyUpload: only a strictly higher version is an update", () => {
-  assert.equal(classifyUpload({ identity: "0100AAAA00000000", version: 131072 }, have), "update");
-  assert.equal(classifyUpload({ identity: "0100AAAA00000000", version: 65536 }, have), "change");
-  assert.equal(classifyUpload({ identity: "0100AAAA00000000", version: 0 }, have), "change");
-});
-
-test("classifyUpload: the highest version already held decides", () => {
-  const several = [{ identity: "0100AAAA00000000", version: 65536 }, { identity: "0100AAAA00000000", version: 196608 }];
-  assert.equal(classifyUpload({ identity: "0100AAAA00000000", version: 131072 }, several), "change");
-  assert.equal(classifyUpload({ identity: "0100AAAA00000000", version: 262144 }, several), "update");
-});
-
-test("classifyUpload: an unknown identity or version is never an add or an update", () => {
-  assert.equal(classifyUpload({ identity: null, version: 1 }, have), "change");
-  assert.equal(classifyUpload({ identity: "", version: 1 }, have), "change");
-  assert.equal(classifyUpload({ identity: "0100AAAA00000000", version: null }, have), "change");
-  assert.equal(classifyUpload({ identity: "0100AAAA00000000", version: "2" }, have), "change");
-  assert.equal(classifyUpload({ identity: "0100BBBB00000000", version: null }, have), "change");
-  assert.equal(classifyUpload(null, have), "change");
-});
-
-test("classifyUpload: identities compare without regard to case", () => {
-  assert.equal(classifyUpload({ identity: "0100aaaa00000000", version: 131072 }, have), "update");
-  assert.equal(classifyUpload({ identity: "0100aaaa00000000", version: 65536 }, have), "change");
-});
-
-test("uploadTier: adds and updates run on their own, anything else needs an approval", () => {
-  assert.equal(uploadTier(["add"]), "auto");
-  assert.equal(uploadTier(["add", "update"]), "auto");
-  assert.equal(uploadTier(["add", "change"]), "approve");
-  assert.equal(uploadTier([]), "approve");
-});
-
-test("uploadTier: a batch past the cap needs an approval even when every file is new", () => {
-  assert.equal(uploadTier(Array(MAX_AUTO_FILES).fill("add")), "auto");
-  assert.equal(uploadTier(Array(MAX_AUTO_FILES + 1).fill("add")), "approve");
-});
 
 // Drift guard: a capability added to the registry must be given a tier on purpose. Unlisted ones are
 // blocked in chat, which is safe but silent, so the list below names every one that is left out.
@@ -102,7 +64,18 @@ test("every capability the registry serves has a tier, or is left out of chat on
 
 test("the table names no capability that does not exist", () => {
   const ids = new Set(registry.all.map((c) => c.id));
-  const NOT_YET = new Set(["upload_apply", "image_optimize", "server_checkup", "upload_ticket", "upload_from_url", "homebrew_kind_set"]);
-  const stale = Object.keys(DEFAULT_TIERS).filter((id) => !ids.has(id) && !NOT_YET.has(id));
+  const stale = Object.keys(DEFAULT_TIERS).filter((id) => !ids.has(id));
   assert.deepEqual(stale, [], `no such capability: ${stale.join(", ")}`);
+});
+
+test("only a read runs without an approval, unless AUTO_WRITES says why a write may", () => {
+  const safety = new Map(registry.all.map((c) => [c.id, c.safety]));
+  const writesOnTheirOwn = Object.entries(DEFAULT_TIERS)
+    .filter(([id, tier]) => tier === "auto" && safety.get(id) !== "read" && !Object.hasOwn(AUTO_WRITES, id))
+    .map(([id]) => id);
+  assert.deepEqual(writesOnTheirOwn, [], `a write needs an approval, or a reason in AUTO_WRITES: ${writesOnTheirOwn.join(", ")}`);
+  for (const [id, why] of Object.entries(AUTO_WRITES)) {
+    assert.equal(DEFAULT_TIERS[id], "auto", `${id} is listed in AUTO_WRITES but is not auto`);
+    assert.ok(why.length > 10, `${id} needs a reason`);
+  }
 });

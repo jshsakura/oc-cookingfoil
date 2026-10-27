@@ -28,7 +28,7 @@ async function fixture(options = {}) {
     if (gated.includes(action) && confirm !== "approve") return text({ preview: { changes: `would run ${action}` }, next: "ask the user" });
     return text({ ran: action, args });
   });
-  area("games", ["games_search", "game_art_set"], ["game_art_set"]);
+  area("games", ["games_search", "game_art_set", "games_wishlist_set"], ["game_art_set", "games_wishlist_set"]);
   area("admin", ["settings_set", "server_status", "no_preview_set", "boom"], ["settings_set"]);
   area("library", ["library_files_remove", "brand_new_unlisted"], ["library_files_remove", "brand_new_unlisted"]);
   server.registerTool("help", { description: "help", inputSchema: fromJsonSchema({ type: "object", properties: {} }) }, async () => {
@@ -55,7 +55,7 @@ test("an auto read runs and returns the parsed result", async () => {
 
 test("an auto write is carried out at once, the host supplies the confirm", async () => {
   const { host, calls } = await fixture();
-  const r = await call(host, USER, "games", "game_art_set", { id: 1 });
+  const r = await call(host, USER, "games", "games_wishlist_set", { op: "add", titleId: "0100000000010000" });
   assert.equal(r.status, "done");
   assert.equal(calls.at(-1).confirm, "approve");
 });
@@ -155,7 +155,7 @@ test("tools(): blocked and unlisted actions and the confirm argument are not sho
   const byName = Object.fromEntries(tools.map((t) => [t.name, t]));
   assert.ok(byName.games && byName.admin && byName.help);
   assert.equal(byName.library, undefined, "an area with nothing offered is left out");
-  assert.deepEqual(byName.games.inputSchema.properties.action.enum, ["games_search", "game_art_set"]);
+  assert.deepEqual(byName.games.inputSchema.properties.action.enum, ["games_search", "game_art_set", "games_wishlist_set"]);
   assert.deepEqual(byName.admin.inputSchema.properties.action.enum, ["settings_set", "server_status"]);
   for (const t of tools) assert.equal(t.inputSchema.properties?.confirm, undefined, `${t.name} must not ask the model for confirm`);
 });
