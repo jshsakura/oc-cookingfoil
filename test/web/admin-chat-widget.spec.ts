@@ -8,6 +8,8 @@ async function chatOn(page, on: boolean) {
   }
   const s = await page.request.post('/admin/api/server-settings', { data: { chatEnabled: on } });
   expect(s.ok()).toBe(true);
+  // Off also forgets the model, so the next spec starts from a server with no chat.
+  if (!on) expect((await page.request.post('/admin/api/integrations/chat/clear')).ok()).toBe(true);
 }
 
 test('the floating chat shows only while the chat is on, opens over any page, and talks like the chat page', async ({ page }) => {
@@ -77,6 +79,10 @@ test('on a phone the panel takes the whole screen and the launcher steps aside',
   await chatOn(page, true);
   try {
     await page.goto('/admin/games');
+    // The page ends below the floating button, so its last row can be scrolled clear of it.
+    const pad = await page.locator('.wrap').evaluate((e) => parseFloat(getComputedStyle(e).paddingBottom));
+    const btn = await page.locator('#ch-launch').boundingBox();
+    expect(pad).toBeGreaterThanOrEqual(844 - btn!.y);
     await page.locator('#ch-launch').click();
     const panel = await page.locator('#ch-widget').boundingBox();
     expect([panel!.x, panel!.y, panel!.width, panel!.height]).toEqual([0, 0, 390, 844]);

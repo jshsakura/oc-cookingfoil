@@ -15,6 +15,9 @@ test('the chat is a full-height chat screen: off state, settings sheet, greeting
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await signIn(page);
+  // Start from a server with no chat, whatever an earlier spec left.
+  await page.request.post('/admin/api/server-settings', { data: { chatEnabled: false } });
+  await page.request.post('/admin/api/integrations/chat/clear');
   await page.goto('/admin/chat');
   await expect(page.locator('a.adm-item[href="/admin/chat"]').first()).toHaveAttribute('aria-current', 'page');
 

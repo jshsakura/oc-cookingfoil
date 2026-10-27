@@ -16,6 +16,8 @@ export const CHAT_WIDGET_CSS = /* css */ `${CHAT_CSS}
 .ch-launch{position:fixed;right:20px;bottom:20px;z-index:60;display:grid;place-items:center;width:52px;height:52px;padding:0;border-radius:50%;border:0}
 .ch-launch .ico{width:24px;height:24px}
 .ch-launch[hidden]{display:none}
+/* While the button floats, the page ends below it, so the last row can be scrolled clear of it. */
+body:has(.ch-launch:not([hidden])) .wrap{padding-bottom:104px}
 .ch-widget{position:fixed;right:20px;bottom:84px;z-index:60;display:flex;flex-direction:column;box-sizing:border-box;width:min(400px,calc(100vw - 32px));height:min(640px,calc(100dvh - 110px));padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-2xl);box-shadow:0 12px 40px rgba(0,0,0,.25)}
 .ch-widget[hidden]{display:none}
 .ch-widget .ch-col{max-width:none}
