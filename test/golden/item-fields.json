@@ -652,7 +652,7 @@
         "pt": "Modificado",
         "ru": "Изменён",
         "nl": "Aangepast",
-        "tone": "warn",
+        "tone": "neutral",
         "icon": "info",
         "order": 31
       },

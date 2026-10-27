@@ -47,3 +47,7 @@ test("every label has its text in four languages, a known tone and a known icon"
     assert.equal(typeof l.order, "number");
   }
 });
+
+test("a modified file is labelled as quietly as an update, not as a warning", () => {
+  assert.equal(SWITCH_LABELS.modified.tone, SWITCH_LABELS.update.tone);
+});
