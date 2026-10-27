@@ -42,6 +42,7 @@ const TITLE_ID_RE = /^[0-9A-F]{16}$/;
 const APP_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/;
 
 let saved = null; // key → { info, missing_since }
+let saves = 0;
 
 /** A refusal with its meta-messages.js key as `code` and its English message. */
 export class InfoError extends Error {
@@ -157,6 +158,12 @@ function persist(next) {
   fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(body, null, 1)}\n`);
   fs.renameSync(`${FILE}.tmp`, FILE);
   saved = next;
+  saves++;
+}
+
+/** A number that changes with every save, for readers that keep an answer built from the store. */
+export function revision() {
+  return saves;
 }
 
 /** True when the store holds an entry for the key (imported, uploaded or edited). */
@@ -240,5 +247,6 @@ export function sweep(foundKeys, now = Date.now()) {
 /** For tests: forget everything, on disk too. */
 export function reset() {
   saved = new Map();
+  saves++;
   fs.rmSync(FILE, { force: true });
 }

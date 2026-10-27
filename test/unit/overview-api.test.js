@@ -87,3 +87,29 @@ test("a patch listing that fails leaves the patches empty and the rest standing"
   assert.deepEqual(r.added.patches, []);
   assert.ok(r.status.games);
 });
+
+test("an added patch carries what the edit dialog fills and posts back, so a save from the overview keeps its fields", async () => {
+  const { o } = overviewWith({
+    patches: () => [{
+      id: "p1", name: "Patch", title_id: "0100000000002000", updated_at: 30, size: 9, files: 2, hash: "x",
+      ko: { name: "패치" }, description: "d", version: "1.0", author: "a", game_version: "1.2.0", update_version: 65536, required: true,
+    }],
+    nameOf: () => "Game",
+  });
+  const { added } = await o.read();
+  assert.deepEqual(added.patches[0], {
+    id: "p1", name: "Patch", game: "Game", titleId: "0100000000002000", at: 30_000, size: 9, files: 2,
+    ko: { name: "패치" }, description: "d", version: "1.0", author: "a", game_version: "1.2.0", update_version: 65536,
+  });
+});
+
+test("a patch edit shows at once: the kept answer is read again when the patch information changed", async () => {
+  let rev = 1;
+  const { o, calls } = overviewWith({ patchRevision: () => rev });
+  await o.read();
+  await o.read();
+  assert.equal(calls.files, 1);
+  rev = 2;
+  await o.read();
+  assert.equal(calls.files, 2);
+});
