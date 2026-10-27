@@ -52,9 +52,14 @@ export const CHAT_CSS = /* css */ `
 .ch-log{display:grid;gap:10px;align-content:start;min-height:240px;max-height:60vh;overflow:auto;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl)}
 .ch-msg{display:grid;gap:2px;max-width:min(760px,100%)}
 .ch-msg b{color:var(--muted);font-size:var(--fs-sm)}
-.ch-msg p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.ch-body{overflow-wrap:anywhere}
+.ch-body.plain{white-space:pre-wrap}
+.ch-body p{margin:0 0 6px}
+.ch-body ul,.ch-body ol{margin:0 0 6px;padding-left:22px}
+.ch-body pre{margin:0 0 6px;padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-xl);overflow:auto;white-space:pre}
+.ch-body code{font-family:ui-monospace,monospace;font-size:.92em}
 .ch-msg.me{justify-self:end}
-.ch-msg.me p{background:rgba(var(--accent-rgb),.12);border-radius:var(--r-xl);padding:8px 12px}
+.ch-msg.me .ch-body{background:rgba(var(--accent-rgb),.12);border-radius:var(--r-xl);padding:8px 12px}
 .ch-note{color:var(--muted);font-size:var(--fs-sm)}
 .ch-err{color:var(--bad)}
 .ch-pending{margin:12px 0}
@@ -70,8 +75,30 @@ let chConv=null,chAbort=null,chBusy=false,chState={enabled:false,configured:fals
 const chLog=()=>$('ch-log');
 function chScroll(){const l=chLog();l.scrollTop=l.scrollHeight;}
 function chClear(){chLog().replaceChildren(el('p',topText('ch.empty'),'ch-note'));}
+const BT=String.fromCharCode(96),FENCE=BT+BT+BT;
+// Bold and inline code only; everything else stays text. Nodes are built, never parsed from HTML.
+function chInline(parent,s){let i=0;
+  while(i<s.length){const b=s.indexOf('**',i),c=s.indexOf(BT,i);let n=-1,k=null;
+    if(b>=0&&(c<0||b<c)){n=b;k='b';}else if(c>=0){n=c;k='c';}
+    if(n<0){parent.append(s.slice(i));return;}
+    const mark=k==='b'?'**':BT,end=s.indexOf(mark,n+mark.length);
+    if(end<0){parent.append(s.slice(i));return;}
+    if(n>i)parent.append(s.slice(i,n));
+    parent.append(el(k==='b'?'strong':'code',s.slice(n+mark.length,end)));i=end+mark.length;}}
+// Paragraphs, bullet and numbered lists, fenced code. A fence still open (the answer is streaming) shows as code.
+function chRender(box,text){box.replaceChildren();let list=null,code=null;
+  for(const line of text.split('\\n')){
+    if(line.trim().startsWith(FENCE)){if(code){box.append(code);code=null;}else{code=el('pre');list=null;}continue;}
+    if(code){code.textContent+=(code.dataset.n?'\\n':'')+line;code.dataset.n='1';continue;}
+    const m=/^\\s*([-*]|\\d+\\.)\\s+(.*)$/.exec(line);
+    if(m){const tag=/\\d/.test(m[1])?'ol':'ul';if(!list||list.tagName.toLowerCase()!==tag){list=el(tag);box.append(list);}
+      const li=el('li');chInline(li,m[2]);list.append(li);continue;}
+    list=null;if(!line.trim())continue;
+    const p=el('p');chInline(p,line);box.append(p);}
+  if(code)box.append(code);}
 function chMsg(who,text){const l=chLog();if(l.firstChild&&l.firstChild.classList.contains('ch-note')&&l.children.length===1)l.replaceChildren();
-  const d=el('div',null,'ch-msg'+(who==='me'?' me':''));d.append(el('b',topText(who==='me'?'ch.you':'ch.bot')));const p=el('p',text);d.append(p);l.append(d);chScroll();return p;}
+  const d=el('div',null,'ch-msg'+(who==='me'?' me':''));d.append(el('b',topText(who==='me'?'ch.you':'ch.bot')));
+  const body=el('div',null,'ch-body'+(who==='me'?' plain':''));if(who==='me')body.textContent=text;else chRender(body,text);d.append(body);l.append(d);chScroll();return body;}
 function chNote(text,cls){const l=chLog();l.append(el('div',text,'ch-note'+(cls?' '+cls:'')));chScroll();}
 function chPreview(p){try{return JSON.stringify(p,null,2);}catch{return String(p);}}
 function chCard(a){const box=$('ch-pending-list');const c=el('div',null,'ch-card');c.dataset.id=a.id;
@@ -103,7 +130,7 @@ async function chOpen(id){
   }catch(err){toast(err.message);}}
 function chBusyUi(on){chBusy=on;$('ch-go').hidden=on;$('ch-stop').hidden=!on;$('ch-text').disabled=on;}
 async function chSend(text){
-  chMsg('me',text);let bot=null;chAbort=new AbortController();chBusyUi(true);
+  chMsg('me',text);let bot=null,botText='';chAbort=new AbortController();chBusyUi(true);
   try{
     const r=await fetch('/admin/api/chat',{method:'POST',signal:chAbort.signal,headers:{'Content-Type':'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:JSON.stringify({message:text,conversation:chConv||undefined})});
     if(r.status===401){location.reload();return;}
@@ -113,7 +140,7 @@ async function chSend(text){
       let i;while((i=buf.indexOf('\\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line)continue;
         let e;try{e=JSON.parse(line);}catch{continue;}
         if(e.conversation&&!chConv){chConv=e.conversation;}
-        if(e.type==='text'){bot??=chMsg('bot','');bot.textContent+=e.delta;chScroll();}
+        if(e.type==='text'){if(!bot){bot=chMsg('bot','');botText='';}botText+=e.delta;chRender(bot,botText);chScroll();}
         else if(e.type==='tool_end'&&e.status!=='pending'&&e.status!=='requested'){bot=null;}
         else if(e.type==='tool_start'){bot=null;chNote(topFill('ch.tool',{name:e.action||e.name}));}
         else if(e.type==='approval'){chCard({id:e.id,action:e.action,preview:e.preview});}
