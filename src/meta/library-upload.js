@@ -10,7 +10,6 @@ import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import { kindOf } from "./user-patches.js";
 import { zipEntries } from "./homebrew.js";
 import { uploadMaxBytes } from "../helpers/envs.js";
 import { coded } from "./meta-messages.js";
@@ -67,24 +66,6 @@ export function stripShared(paths) {
   const first = paths.map((p) => p.split("/")[0]);
   if (!paths.length || paths.some((p) => !p.includes("/")) || new Set(first).size !== 1) return null;
   return paths.map((p) => p.slice(first[0].length + 1));
-}
-
-/**
- * Patch files arranged from the SD root: wrapper folders (a zip of a folder,
- * a picked folder) are peeled off until "atmosphere/" is on top. Pure.
- */
-export function patchLayout(paths, titleId) {
-  const owned = (p) => kindOf(p, titleId) !== null;
-  let cur = paths;
-  while (!cur.every(owned)) {
-    const next = stripShared(cur);
-    if (!next) {
-      const stray = cur.find((p) => !owned(p));
-      throw bad("upload.notPatchPath", { titleId, path: stray });
-    }
-    cur = next;
-  }
-  return cur;
 }
 
 /** A homebrew app folder name (switch/<app>/), or null. Pure. */

@@ -7,8 +7,9 @@
  *
  *     game    one .nsp/.nsz/.xci/.xcz          → <games>/<file name>
  *     retro   system; the ROM and its discs    → <retro>/roms/<console folder>/<file name>
- *     patch   titleId (or homebrew), name, description, descriptionKo, required ("true" when the game won't start without it);
- *             a .zip or folder                 → <patches>/<title id>/<name>/ in SD-root layout; the information goes
+ *     patch   titleId (or homebrew; left out, the patch's own title folder names the game), name, description,
+ *             descriptionKo, required ("true" when the game won't start without it); a .zip or folder however it was
+ *             packed (meta/patch-intake.js)  → <patches>/<title id>/<name>/ in SD-root layout; the information goes
  *                                              into the server's patch store (meta/patch-info.js), no patch.json
  *     save    titleId, name, description, descriptionKo, saveType (device|account); a .zip or the save folder
  *             (a save-keeper backup's .meta is read for saveType and left out)
@@ -57,8 +58,9 @@ import { ClientBuildError, compareVersions, inspectNro } from "../../meta/client
 import { CLIENT_NRO, clientBuildStatus, latestBuild } from "../client-update.js";
 import { actorOf } from "../../library/trash-service.js";
 import { apiText, apiWord } from "./api-words.js";
+import { patchPlan } from "../../meta/patch-intake.js";
 import {
-  GAME_EXT_RE, UploadError, backupSaveType, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, patchLayout, retroLayout,
+  GAME_EXT_RE, UploadError, backupSaveType, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, retroLayout,
   safeName, safeRelPath, saveLayout, unzip, walk, MAX_UPLOAD_FILES as MAX_FILES,
 } from "../../meta/library-upload.js";
 import * as chunks from "../../meta/upload-chunks.js";
@@ -196,7 +198,10 @@ async function placeFolder(kind, items, body, work, fromFolder) {
   // The target is a game (its base title id) or a homebrew app (its switch/<app>/ folder name).
   const app = body.homebrew ? homebrewApp(body.homebrew) : null;
   if (body.homebrew && !app) throw refuse(400, "upload.pickApp");
-  const tid = app ? null : baseTitleId(body.titleId);
+  // A patch may come without a game picked: its own title folder names the game (patch-intake.js).
+  const plan = kind === "patch" && !app ? patchPlan(items.map((i) => i.rel), baseTitleId(body.titleId)) : null;
+  if (plan) items = plan.files.map((f) => ({ ...items.find((i) => i.rel === f.from), rel: f.to }));
+  const tid = app ? null : plan ? plan.titleId : baseTitleId(body.titleId);
   if (!app && !tid) throw refuse(400, "upload.pickTarget");
   const name = safeName(body.name);
   if (!name) throw refuse(400, "upload.noName");
@@ -207,7 +212,7 @@ async function placeFolder(kind, items, body, work, fromFolder) {
     if (!items.length) throw refuse(400, "upload.noSave");
   }
   const paths = items.map((i) => i.rel);
-  const rels = app ? homebrewLayout(paths, app, fromFolder) : kind === "patch" ? patchLayout(paths, tid) : saveLayout(paths, fromFolder);
+  const rels = app ? homebrewLayout(paths, app, fromFolder) : plan ? paths : saveLayout(paths, fromFolder);
   const under = app ? `homebrew/${app}` : tid;
   const metaName = kind === "patch" ? "patch.json" : "meta.json";
   if (rels.some((r) => r.toLowerCase() === metaName)) {

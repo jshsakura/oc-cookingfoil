@@ -4,7 +4,7 @@ import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { backupSaveType, baseTitleId, patchLayout, retroLayout, safeName, safeRelPath, saveLayout } from "../../src/meta/library-upload.js";
+import { backupSaveType, baseTitleId, retroLayout, safeName, safeRelPath, saveLayout } from "../../src/meta/library-upload.js";
 import { CONSOLE, seedConsole } from "../support/console.js";
 import { adminSession } from "../support/web-session.js";
 import { metaErrorText } from "../../src/meta/meta-messages.js";
@@ -24,13 +24,6 @@ test("upload names and paths can't leave their folder", () => {
   assert.equal(safeRelPath("dir\\sub/file"), "dir/sub/file");
   assert.equal(baseTitleId("0100152000022000"), MK);
   assert.equal(baseTitleId("0100152000022800"), null, "an update id isn't a game");
-});
-
-test("patches are laid out from the SD root, wrapper folders peeled off", () => {
-  const files = [`My Patch/atmosphere/contents/${MK}/romfs/a.bin`, `My Patch/atmosphere/contents/${MK}/cheats/x.txt`];
-  assert.deepEqual(patchLayout(files, MK), files.map((f) => f.slice("My Patch/".length)));
-  assert.throws(() => patchLayout(["atmosphere/contents/0100000000010000/romfs/a"], MK), (err) => err.code === "upload.notPatchPath" && /Not a patch path/.test(err.message)
-    && /패치 경로가 아닙니다/.test(metaErrorText("ko", err)));
 });
 
 test("saves keep their folder's contents; retro ROMs must be the console's", () => {
@@ -79,6 +72,15 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
   fs.writeFileSync(path.join(src, "text.bin"), "KO");
   const zip = path.join(root, "patch.zip");
   execFileSync("zip", ["-qr", zip, "Korean"], { cwd: path.join(root, "zipsrc") });
+  // The same patch as people often pack it: no atmosphere/, a Mac's leftovers and an install note.
+  const messy = path.join(root, "messysrc");
+  fs.mkdirSync(path.join(messy, "한글", "contents", MK, "romfs"), { recursive: true });
+  fs.mkdirSync(path.join(messy, "__MACOSX", "한글"), { recursive: true });
+  fs.writeFileSync(path.join(messy, "한글", "contents", MK, "romfs", "text.bin"), "KO2");
+  fs.writeFileSync(path.join(messy, "한글", "설치방법.txt"), "copy to SD");
+  fs.writeFileSync(path.join(messy, "__MACOSX", "한글", "._설치방법.txt"), "mac");
+  const messyZip = path.join(root, "messy.zip");
+  execFileSync("zip", ["-qr", messyZip, "한글", "__MACOSX"], { cwd: messy });
 
   const server = await boot(dirs);
   try {
@@ -120,6 +122,19 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     const store = () => JSON.parse(fs.readFileSync(path.join(dirs.data, "patches", "info.json"), "utf8")).patches;
     assert.deepEqual(store()[`${MK}/한글패치`].info, { name: "한글패치", description: "한국어로 변경합니다" });
 
+    // No game picked: the patch's own title folder names it, and only the patch itself is kept.
+    r = await send("patch", { name: "대충 묶은 패치" }, [["messy.zip", fs.readFileSync(messyZip)]]);
+    assert.equal(r.status, 201, await r.clone().text());
+    const messyDir = path.join(dirs.patches, MK, "대충 묶은 패치");
+    assert.equal(fs.readFileSync(path.join(messyDir, "atmosphere", "contents", MK, "romfs", "text.bin"), "utf8"), "KO2");
+    assert.deepEqual(fs.readdirSync(messyDir), ["atmosphere"], "the note and the Mac leftovers stay out");
+    const notesZip = path.join(root, "notes.zip");
+    execFileSync("zip", ["-qr", notesZip, "한글/설치방법.txt"], { cwd: messy });
+    r = await send("patch", { name: "노트뿐" }, [["notes.zip", fs.readFileSync(notesZip)]]);
+    assert.equal(r.status, 400);
+    assert.equal((await r.json()).code, "upload.noPatchFiles");
+    assert.equal(fs.existsSync(path.join(dirs.patches, MK, "노트뿐")), false);
+
     // A patch the game can't start without: marked on upload, changed later from the admin page.
     r = await send("patch", { titleId: MK, name: "게임 데이터", required: "true" }, [["patch.zip", fs.readFileSync(zip)]]);
     assert.equal(r.status, 201, await r.clone().text());
@@ -127,9 +142,9 @@ test("the admin uploads a game, a retro ROM, a patch zip and a save folder", asy
     assert.equal(fs.existsSync(path.join(dirs.patches, MK, "게임 데이터", "patch.json")), false);
     const adminPatches = async () => (await (await fetch(`${BASE}/admin/api/patches`, { headers: admin })).json()).patches;
     let listed = [];
-    for (let i = 0; i < 40 && listed.length < 2; i++) {
+    for (let i = 0; i < 40 && listed.length < 3; i++) {
       listed = await adminPatches();
-      if (listed.length < 2) await new Promise((res) => setTimeout(res, 100));
+      if (listed.length < 3) await new Promise((res) => setTimeout(res, 100));
     }
     const data = listed.find((p) => p.name === "게임 데이터");
     assert.equal(data.required, true);
