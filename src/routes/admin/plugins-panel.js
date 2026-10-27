@@ -16,6 +16,8 @@ export const PLUGINS_HTML = `<section id="tab-settings">
     <p class="pl-off" id="pl-install-off" hidden>${top("pl.installOffNote")}</p>
     <div class="actions" id="pl-install-on"><button type="button" id="pl-install-btn">${top("pl.installBtn")}</button><span class="muted" id="pl-install-state" role="status"></span></div>
     <input type="file" id="pl-install-file" accept=".zip,application/zip" hidden>`, { level: "h3" })}
+  ${box("pl-reco", top("pl.recoH"), `<p class="muted">${top("pl.recoLead")}</p>
+    <div class="pl-list" id="pl-reco-list"></div>`, { level: "h3" })}
   ${box("pl-installed", top("pl.listH"), `<div class="pl-list" id="pl-list"></div>`, { level: "h3", meta: `<span id="pl-count"></span>` })}
   <div id="pl-agents" hidden>${box("pl-agents-box", top("pl.agH"), `<p class="muted">${top("pl.agLead")}</p>
     <div class="pl-list" id="pl-agents-list"></div>`, { level: "h3" })}</div>
@@ -123,6 +125,7 @@ function plRow(p){
   main.append(meta);
   if(p.cache&&p.cache.bytes>0)meta.append(el('span',plT('cacheUsed',{used:plBytes(p.cache.bytes),cap:plBytes(p.cache.capBytes)})));
   if(p.origin&&p.origin.source==='upload')main.append(el('span',plT('fromUpload',{sha:p.origin.sha256})));
+  if(p.origin&&p.origin.source==='recommended')main.append(el('span',plT('fromReco',{repo:p.origin.repo,tag:p.origin.tag||''})));
   if(p.state==='broken'){const codes=[...new Set(p.problems.map(plProblem))];for(const c of codes)main.append(el('span',c,'err'));}
   if(p.state==='incompatible')main.append(el('span',plT('needs',{n:p.needs}),'err'));
   if(p.disabledReason&&PL_REASON[p.disabledReason]&&!p.enabled)main.append(el('span',plT(PL_REASON[p.disabledReason]),'err'));
@@ -140,6 +143,19 @@ function plRow(p){
   if(p.state!=='missing'){const dl=el('a',plT('download'),'btn');dl.href='/admin/api/plugins/'+encodeURIComponent(p.id)+'/download';dl.setAttribute('download','');act.append(dl);}
   if(p.state!=='missing')act.append(btn(plT('del'),()=>plDelete(p,name),'danger'));
   r.append(main,act);return r;}
+// A recommended plugin: installed from its repository's latest release; again with overwrite once it is in.
+function plRecoRow(r){
+  const have=plData.plugins.find((p)=>p.id===r.id);
+  const row=el('div',null,'pl-row');const main=el('div',null,'pl-main');
+  main.append(el('b',r.name),el('span',plT('r.'+r.id)),el('span',have?plT('recoHave',{version:have.version||''}):r.repo,'muted'));
+  const act=el('div',null,'pl-act');act.append(btn(plT(have?'recoUpdate':'recoInstall'),()=>plReco(r,!!have)));
+  row.append(main,act);return row;}
+async function plReco(r,overwrite){
+  if(!await ask(plT(overwrite?'recoUpdateAsk':'recoAsk',{name:r.name,repo:r.repo})))return;
+  toast(plT('recoFetching'));
+  try{await api('/admin/api/plugins/recommended/install',{method:'POST',body:{id:r.id,overwrite}});toast(plT('tInstalled'));}
+  catch(err){toast(plT('tInstallFail',{why:err.message}));}
+  loadPlugins();}
 function plTrashedRow(t){
   const r=el('div',null,'pl-row');const main=el('div',null,'pl-main');
   main.append(el('b',t.id+(t.version?' '+t.version:'')),el('span',plT('trashedAt',{when:plWhen(t.trashedAt)})));
@@ -148,6 +164,7 @@ function plTrashedRow(t){
 function plRender(){if(!plData)return;
   $('pl-safe').hidden=!plData.safeMode;
   $('pl-install-on').hidden=!plData.installAllowed;$('pl-install-off').hidden=!!plData.installAllowed;$('pl-count').textContent=plData.plugins.length?String(plData.plugins.length):'';
+  $('pl-reco-list').replaceChildren(...(plData.recommended||[]).map(plRecoRow));
   $('pl-list').replaceChildren(...(plData.plugins.length?plData.plugins.map(plRow):[el('p',plT('none'),'muted')]));
   $('pl-trashed-h').hidden=!plData.trashed.length;
   $('pl-trashed').replaceChildren(...plData.trashed.map(plTrashedRow));}

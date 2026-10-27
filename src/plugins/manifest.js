@@ -14,7 +14,8 @@
  */
 
 export const API_VERSION = 1;
-export const PROVIDES = Object.freeze(["metadata", "art", "variant", "task", "request", "route", "event"]);
+/** "names": a dictionary of retro game names by content hash (names.json in the plugin folder, read by retro/ko-names.js). */
+export const PROVIDES = Object.freeze(["metadata", "art", "variant", "task", "request", "route", "event", "names"]);
 /** Events a plugin may handle (functions of the same name on its default export), and what a payload may name beyond the plain facts. */
 export const EVENT_KINDS = Object.freeze(["afterDownload", "installReported", "libraryChanged", "deviceApproved"]);
 export const IDENTITY_ITEMS = Object.freeze(["ip", "account"]);

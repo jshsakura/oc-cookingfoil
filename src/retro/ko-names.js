@@ -7,6 +7,8 @@
  *   systems  { system id: { <SHA-256, first 32 hex>: [ko, en|null, crc32|"", <SHA-1, first 32 hex>|""] } }
  *   titles   { system id: { <normalized English title>: ko } } for names that came without a hash
  *
+ * A plugin that provides "names" ships a names.json of the same shape; see setNameSources.
+ *
  * Matching, strongest first: SHA-256, SHA-1, CRC-32 (all of the ROM's content),
  * then the title. The first three are exact; a title match is only an estimate
  * and says so in `by`.
@@ -14,15 +16,67 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import debug from "../debug.js";
 
 const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "ko-names.json");
 
-let loaded = null;
-const load = () => (loaded ??= index(JSON.parse(fs.readFileSync(DATA, "utf8"))));
+/** A plugin's names.json past this size is not read: the bundled dictionary is a few MB. */
+export const MAX_PLUGIN_NAMES_BYTES = 32 * 1024 * 1024;
 
-/** Swaps in another dictionary of the same shape (tests); null goes back to the bundled one. */
+let bundled = null;
+let override = null; // tests: a whole dictionary in place of bundled + plugins
+let sources = () => [];
+let loaded = null;
+let loadedStamp = "";
+
+/**
+ * Where the dictionaries of the plugins that are on and provide "names" are: () -> [{ id, version, file }].
+ * Their rows are laid over the bundled ones, the plugin first by id, so turning one on or off changes the
+ * names on the next lookup (the retro lists are built again within seconds) with no restart.
+ */
+export function setNameSources(fn) {
+  sources = fn;
+  loaded = null;
+}
+
+function readPluginNames({ id, file }) {
+  try {
+    if (fs.statSync(file).size > MAX_PLUGIN_NAMES_BYTES) throw new Error("names.json is too large");
+    const raw = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!raw || typeof raw !== "object" || typeof raw.systems !== "object") throw new Error("names.json has no systems");
+    return raw;
+  } catch (err) {
+    debug.error("retro names: plugin %s: %s", id, err.message);
+    return null;
+  }
+}
+
+/** The bundled dictionary with each plugin's laid over it: a plugin row wins for the same hash or title. Pure. */
+export function layered(base, extras) {
+  const out = { folders: { ...base.folders }, systems: {}, titles: {} };
+  for (const raw of [base, ...extras]) {
+    Object.assign(out.folders, raw.folders ?? {});
+    for (const [system, rows] of Object.entries(raw.systems ?? {})) out.systems[system] = { ...out.systems[system], ...rows };
+    for (const [system, rows] of Object.entries(raw.titles ?? {})) out.titles[system] = { ...out.titles[system], ...rows };
+  }
+  return out;
+}
+
+function load() {
+  if (override) return override;
+  const list = sources();
+  const stamp = list.map((s) => `${s.id}@${s.version}`).join(",");
+  if (loaded && stamp === loadedStamp) return loaded;
+  bundled ??= JSON.parse(fs.readFileSync(DATA, "utf8"));
+  const extras = list.map(readPluginNames).filter(Boolean);
+  loaded = index(extras.length ? layered(bundled, extras) : bundled);
+  loadedStamp = stamp;
+  return loaded;
+}
+
+/** Swaps in another dictionary of the same shape (tests); null goes back to the bundled one and the plugins'. */
 export function useKoreanNames(raw) {
-  loaded = raw ? index(raw) : null;
+  override = raw ? index(raw) : null;
 }
 
 function index(raw) {
