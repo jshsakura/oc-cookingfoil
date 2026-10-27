@@ -234,8 +234,6 @@ let retroPackUrl = envString("COOK_RETRO_PACK_URL", "").trim();
 let retroAutoCores = envBool("COOK_RETRO_AUTO_CORES", true);
 // Box art fetched by itself for ROMs a scan finds without any (retro/art/auto.js), as the admin's "fetch all missing" does.
 let retroAutoArt = envBool("COOK_RETRO_AUTO_ART", true);
-// Recommended plugins meant for the server's first language, fetched and switched on once (plugins/recommended.js).
-const defaultPlugins = envBool("COOK_DEFAULT_PLUGINS", true);
 // Pictures missing from a game's files (icon, banner, screenshots) are fetched once from titledb, else from a metadata plugin (meta/art-fill.js).
 let fillMissingArt = envBool("COOK_FILL_MISSING_ART", true);
 // Dropbox save sync for the client app: this server relays the Dropbox
@@ -624,7 +622,6 @@ export {
   retroAutoCores,
   retroAutoArt,
   fillMissingArt,
-  defaultPlugins,
   dropboxAppKey,
   dropboxRedirectBase,
   googleClientId,

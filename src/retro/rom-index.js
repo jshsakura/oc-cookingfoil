@@ -1,7 +1,7 @@
 /**
  * CRC-32, SHA-1 and SHA-256 of each retro ROM file, read in one streaming pass
  * in the background after a scan (or when the admin asks), so a ROM can be named
- * from the bundled Korean title dictionary (ko-names.js) by its content.
+ * from the names plugins' Korean title dictionary (ko-names.js) by its content.
  *
  * Retro games only: the Switch library is never read here. Files are only ever
  * read, never written, renamed or moved.

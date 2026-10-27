@@ -8,7 +8,7 @@ import { koreanName, koreanNameByTitle, koreanNameSystem, layered, setNameSource
 import { parseManifest } from "../../src/plugins/manifest.js";
 import { makeDataDir, manifestOf, newRegistry, writePlugin } from "../support/plugin-fixtures.js";
 
-// A plugin that provides "names" lays its names.json over the bundled dictionary while it is on.
+// The Korean names come only from plugins that provide "names", while they are on.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cf-retro-names-"));
 const SHA = "a".repeat(32);
 const file = (name, raw) => {
@@ -48,12 +48,12 @@ test("a new version of the plugin is read again; a broken names.json is skipped,
   setNameSources(() => []);
 });
 
-test("layered: a plugin row wins for the same hash, and the bundled rows it does not name stay", () => {
-  const base = { folders: { nes: "Nintendo - NES" }, systems: { nes: { [SHA]: ["옛 이름", "Old", "", ""], ["c".repeat(32)]: ["그대로", "Kept", "", ""] } }, titles: {} };
-  const out = layered(base, [{ systems: { nes: { [SHA]: ["새 이름", "New", "", ""] } } }]);
+test("layered: a later plugin's row wins for the same hash, and the rows it does not name stay", () => {
+  const first = { systems: { nes: { [SHA]: ["옛 이름", "Old", "", ""], ["c".repeat(32)]: ["그대로", "Kept", "", ""] } }, titles: {} };
+  const out = layered({ systems: {}, titles: {} }, [first, { systems: { nes: { [SHA]: ["새 이름", "New", "", ""] } } }]);
   assert.equal(out.systems.nes[SHA][0], "새 이름");
   assert.equal(out.systems.nes["c".repeat(32)][0], "그대로");
-  assert.equal(base.systems.nes[SHA][0], "옛 이름", "the bundled dictionary is not changed");
+  assert.equal(first.systems.nes[SHA][0], "옛 이름", "a plugin's dictionary is not changed");
 });
 
 test("a manifest may say it provides names", () => {

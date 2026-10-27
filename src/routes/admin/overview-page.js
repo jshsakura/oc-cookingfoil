@@ -80,6 +80,7 @@ const TODO={
   inbox:{t:'ov.t.inbox',d:'ov.t.inboxD',go:'/admin/inbox'},
   'plugins-failing':{t:'ov.t.pluginsFailing',d:'ov.t.pluginsFailingD',go:'/admin/settings/plugins'},
   lockouts:{t:'ov.t.lockouts',d:'ov.t.lockoutsD',go:'/admin/logs/security'},
+  'no-names-plugin':{t:'ov.t.noNames',d:'ov.t.noNamesD',go:'/admin/settings/plugins'},
 };
 function ovNote(title,detail,warn,go){const n=el('div',null,'note'+(warn?' warn':''));
   n.append(el('div',title,'t'),el('div',detail,'d'));

@@ -1,5 +1,5 @@
 /**
- * The retro tab's Korean title block: names the bundled dictionary gives by a
+ * The retro tab's Korean title block: names the names plugins' dictionaries give by a
  * ROM's content hash (shown already), and the ones it only guesses from the
  * English title, each with approve and reject. Talks to /admin/api/retro-ko.
  */
@@ -8,6 +8,7 @@ import { top } from "./top-i18n.js";
 export const RETRO_KO_HTML = `
   <div class="hd"><h2 class="first">${top("rk.tab")}</h2><button type="button" id="rk-index">${top("rk.index")}</button></div>
   <p class="muted">${top("rk.lead")}</p>
+  <div class="note warn" id="rk-nosource" hidden><div class="d">${top("rk.noSource")}</div><a class="btn note-go" href="/admin/settings/plugins">${top("m.setPlugins")}</a></div>
   <p class="muted" id="rk-state"></p>
   <h3 id="rk-guess-h"></h3>
   <p class="muted">${top("rk.guessLead")}</p>
@@ -20,6 +21,7 @@ function rkMore(total,shown){return total>shown?' · '+topFill('rk.more',{n:show
 function rkFile(k){const c=td();c.append(k.name);c.append(el('div',k.file,'muted'));return c;}
 async function loadRetroKo(){let d;
   try{d=await api('/admin/api/retro-ko');}catch(err){toast(err.message);return;}
+  $('rk-nosource').hidden=d.sources>0;
   const i=d.index;$('rk-state').textContent=topFill('rk.state',i)+(i.busy?' '+topText('rk.busy'):'');
   $('rk-guess-h').textContent=topFill('rk.guessH',{n:d.guessesTotal})+rkMore(d.guessesTotal,d.guesses.length);
   $('rk-confirmed-h').textContent=topFill('rk.confirmedH',{n:d.confirmedTotal})+rkMore(d.confirmedTotal,d.confirmed.length);

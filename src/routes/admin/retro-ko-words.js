@@ -6,7 +6,7 @@ export const RETRO_KO_WORDS = {
   ko: {
     "rk.tab": "한글 제목",
     "rk.index": "새 파일 해시 읽기",
-    "rk.lead": "서버에 들어 있는 한글 제목 사전으로 레트로 게임에 한글 이름을 붙입니다. 롬 파일 내용의 해시가 사전과 같으면 확정으로 보고 바로 보여 줍니다. 영어 제목만 같으면 제안으로 두고, 여기서 승인한 것만 보여 줍니다. 롬 파일은 읽기만 하고 바꾸지 않습니다.",
+    "rk.lead": "레트로 게임의 한글 이름은 한글 이름 플러그인(OC 레트로 데이터베이스 등)의 사전에서 옵니다. 롬 파일 내용의 해시가 사전과 같으면 확정으로 보고 바로 보여 줍니다. 영어 제목만 같으면 제안으로 두고, 여기서 승인한 것만 보여 줍니다. 롬 파일은 읽기만 하고 바꾸지 않습니다.", "rk.noSource": "켜져 있는 한글 이름 플러그인이 없어 붙일 이름이 없습니다. 플러그인 화면에서 OC 레트로 데이터베이스를 받아 켭니다.",
     "rk.state": "롬 파일 {files}개 중 {read}개의 해시를 읽었습니다. 건너뛴 파일은 {skipped}개입니다.",
     "rk.busy": "지금 해시를 읽고 있습니다.",
     "rk.started": "해시 읽기를 시작했습니다. 활동 메뉴에서 진행을 봅니다.",
@@ -32,7 +32,7 @@ export const RETRO_KO_WORDS = {
   en: {
     "rk.tab": "Korean titles",
     "rk.index": "Read new file hashes",
-    "rk.lead": "The bundled Korean title dictionary names retro games in Korean. When a ROM file's content hash matches the dictionary, the name is confirmed and shown at once. When only the English title matches, the name stays a suggestion and shows only after you approve it here. ROM files are only read, never changed.",
+    "rk.lead": "Korean names for retro games come from the dictionary of a names plugin, such as OC Retro Database. When a ROM file's content hash matches the dictionary, the name is confirmed and shown at once. When only the English title matches, the name stays a suggestion and shows only after you approve it here. ROM files are only read, never changed.", "rk.noSource": "No names plugin is on, so there are no Korean names to give. Fetch and switch on OC Retro Database on the plugins screen.",
     "rk.state": "Read the hashes of {read} of {files} ROM files. {skipped} files were skipped.",
     "rk.busy": "Reading hashes now.",
     "rk.started": "Started reading hashes. Follow it in the activity menu.",
@@ -58,7 +58,7 @@ export const RETRO_KO_WORDS = {
   ja: {
     "rk.tab": "韓国語タイトル",
     "rk.index": "新しいファイルのハッシュを読む",
-    "rk.lead": "サーバーに入っている韓国語タイトル辞書で、レトロゲームに韓国語の名前を付けます。ROM ファイルの内容ハッシュが辞書と一致すれば確定として、すぐに表示します。英語タイトルだけが一致した場合は候補として残し、ここで承認したものだけを表示します。ROM ファイルは読むだけで変更しません。",
+    "rk.lead": "レトロゲームの韓国語名は、名前プラグイン(OC Retro Database など)の辞書から来ます。ROM ファイルの内容ハッシュが辞書と一致すれば確定として、すぐに表示します。英語タイトルだけが一致した場合は候補として残し、ここで承認したものだけを表示します。ROM ファイルは読むだけで変更しません。", "rk.noSource": "有効な名前プラグインがないため、付ける名前がありません。プラグイン画面で OC Retro Database を取得して有効にします。",
     "rk.state": "ROM ファイル {files} 個のうち {read} 個のハッシュを読みました。スキップしたファイルは {skipped} 個です。",
     "rk.busy": "今ハッシュを読んでいます。",
     "rk.started": "ハッシュの読み取りを始めました。進み具合はアクティビティメニューで確認します。",
@@ -84,7 +84,7 @@ export const RETRO_KO_WORDS = {
   zh: {
     "rk.tab": "韩语标题",
     "rk.index": "读取新文件的哈希",
-    "rk.lead": "用服务器内置的韩语标题词典为复古游戏加上韩语名称。ROM 文件内容的哈希与词典一致时视为确定，并立即显示。只有英文标题一致时作为建议保留，只有在这里批准后才显示。ROM 文件只读取，不会修改。",
+    "rk.lead": "复古游戏的韩语名称来自名称插件(如 OC Retro Database)的词典。ROM 文件内容的哈希与词典一致时视为确定，并立即显示。只有英文标题一致时作为建议保留，只有在这里批准后才显示。ROM 文件只读取，不会修改。", "rk.noSource": "没有启用的名称插件，因此没有可加的韩语名称。请在插件界面获取并启用 OC Retro Database。",
     "rk.state": "已读取 {files} 个 ROM 文件中 {read} 个的哈希。跳过了 {skipped} 个文件。",
     "rk.busy": "正在读取哈希。",
     "rk.started": "已开始读取哈希。可在活动菜单中查看进度。",

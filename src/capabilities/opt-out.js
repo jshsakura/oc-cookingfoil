@@ -21,6 +21,8 @@ export const OPT_OUT_REASONS = {
 
 /** "METHOD /path" -> reason, one of OPT_OUT_REASONS other than legacy-unregistered. */
 export const OPT_OUT = {
+  // First-run setup picks the recommended plugins in the browser, before any token exists.
+  "POST /setup/api/plugins": "browser-only",
   // The console client's strings for a language it shows (meta/client-strings.js).
   "GET /api/client/strings": "console-ui",
   // The console's own queue of downloads sent to it: read and acked by the paired console only.

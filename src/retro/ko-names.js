@@ -1,37 +1,33 @@
 /**
- * Korean titles for retro games that ship with the server, so a fresh install
- * can name a Korean ROM without anything imported.
+ * Korean titles for retro games, from the plugins that provide "names" (OC Retro Database is the
+ * recommended one). The server ships no dictionary of its own: with no such plugin on, nothing is named.
  *
- * data/ko-names.json is built by scripts/retro-ko-names.mjs:
- *   folders  { system id: libretro folder name } for the systems that came after the first ones (systems.js folder)
+ * A plugin's names.json:
  *   systems  { system id: { <SHA-256, first 32 hex>: [ko, en|null, crc32|"", <SHA-1, first 32 hex>|""] } }
  *   titles   { system id: { <normalized English title>: ko } } for names that came without a hash
- *
- * A plugin that provides "names" ships a names.json of the same shape; see setNameSources.
+ *   folders  { system id: libretro folder name } (read and ignored: systems.js owns the folders)
  *
  * Matching, strongest first: SHA-256, SHA-1, CRC-32 (all of the ROM's content),
  * then the title. The first three are exact; a title match is only an estimate
  * and says so in `by`.
  */
 import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import debug from "../debug.js";
 
-const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), "data", "ko-names.json");
-
-/** A plugin's names.json past this size is not read: the bundled dictionary is a few MB. */
+/** A plugin's names.json past this size is not read: OC Retro Database's is a few MB. */
 export const MAX_PLUGIN_NAMES_BYTES = 32 * 1024 * 1024;
 
-let bundled = null;
-let override = null; // tests: a whole dictionary in place of bundled + plugins
+const EMPTY = Object.freeze({ systems: {}, titles: {} });
+
+let override = null; // tests: a whole dictionary in place of the plugins'
+let sourceCount = 0;
 let sources = () => [];
 let loaded = null;
 let loadedStamp = "";
 
 /**
  * Where the dictionaries of the plugins that are on and provide "names" are: () -> [{ id, version, file }].
- * Their rows are laid over the bundled ones, the plugin first by id, so turning one on or off changes the
+ * Later plugins' rows win over earlier ones for the same hash or title, so turning one on or off changes the
  * names on the next lookup (the retro lists are built again within seconds) with no restart.
  */
 export function setNameSources(fn) {
@@ -51,11 +47,10 @@ function readPluginNames({ id, file }) {
   }
 }
 
-/** The bundled dictionary with each plugin's laid over it: a plugin row wins for the same hash or title. Pure. */
+/** The plugins' dictionaries laid over `base` in order: a later row wins for the same hash or title. Pure. */
 export function layered(base, extras) {
-  const out = { folders: { ...base.folders }, systems: {}, titles: {} };
+  const out = { systems: {}, titles: {} };
   for (const raw of [base, ...extras]) {
-    Object.assign(out.folders, raw.folders ?? {});
     for (const [system, rows] of Object.entries(raw.systems ?? {})) out.systems[system] = { ...out.systems[system], ...rows };
     for (const [system, rows] of Object.entries(raw.titles ?? {})) out.titles[system] = { ...out.titles[system], ...rows };
   }
@@ -67,14 +62,14 @@ function load() {
   const list = sources();
   const stamp = list.map((s) => `${s.id}@${s.version}`).join(",");
   if (loaded && stamp === loadedStamp) return loaded;
-  bundled ??= JSON.parse(fs.readFileSync(DATA, "utf8"));
   const extras = list.map(readPluginNames).filter(Boolean);
-  loaded = index(extras.length ? layered(bundled, extras) : bundled);
+  sourceCount = extras.length;
+  loaded = index(layered(EMPTY, extras));
   loadedStamp = stamp;
   return loaded;
 }
 
-/** Swaps in another dictionary of the same shape (tests); null goes back to the bundled one and the plugins'. */
+/** Swaps in another dictionary of the same shape (tests); null goes back to the plugins'. */
 export function useKoreanNames(raw) {
   override = raw ? index(raw) : null;
 }
@@ -107,14 +102,6 @@ export function normalizeTitle(title) {
     .trim();
 }
 
-/** "한글 (English)" → ["한글", "English"]; a bare title → [title, null]. Pure. */
-export function splitName(name) {
-  const s = String(name ?? "").trim().normalize("NFC");
-  const m = s.match(/^(.*\S)\s+\(([^()]*)\)$/);
-  if (m && /[가-힣]/.test(m[1]) && /[A-Za-z]/.test(m[2])) return [m[1], m[2].trim()];
-  return [s, null];
-}
-
 const hex = (v, n) => (v ? String(v).toLowerCase().slice(0, n) : null);
 
 /** { ko, en, by } for a ROM of `system` found by content hash (`by` is "sha256", "sha1" or "crc32"), or null. */
@@ -136,14 +123,10 @@ export function koreanNameByTitle(system, title) {
   return hit ? { ...hit, by: "title" } : null;
 }
 
-/** libretro folder names of the dictionary's later systems, as systems.js names their folders. */
-export function koreanNameFolders() {
-  return { ...(load().raw.folders ?? {}) };
-}
-
-/** How many hash-keyed names the bundled dictionary holds per system. */
-export function koreanNameCounts() {
-  return Object.fromEntries(Object.entries(load().raw.systems ?? {}).map(([id, rows]) => [id, Object.keys(rows).length]));
+/** How many plugins' dictionaries are read now: 0 means no Korean names at all. */
+export function koreanNameSources() {
+  load();
+  return override ? 1 : sourceCount;
 }
 
 /** Whether the dictionary holds any name, by hash or by title, for `system`. */

@@ -1,10 +1,11 @@
 /**
- * Korean titles from the bundled dictionary, from the admin page (retro tab):
+ * Korean titles from the names plugins' dictionaries, from the admin page (retro tab):
  *
- *   GET  /admin/api/retro-ko           { index: { files, read, skipped, busy },
+ *   GET  /admin/api/retro-ko           { sources, index: { files, read, skipped, busy },
  *                                        confirmed: [K…], guesses: [K…] }
  *                                      confirmed: named by the ROM's content hash, shown already;
- *                                      guesses: named by the English title only, waiting for a decision
+ *                                      guesses: named by the English title only, waiting for a decision;
+ *                                      sources: how many names plugins are on (0: nothing can be named)
  *   POST /admin/api/retro-ko/guess     { game, approve }  keep the guess as the game's Korean name, or turn it down
  *   POST /admin/api/retro-ko/index     read the content hashes of new and changed ROM files now
  *
@@ -17,6 +18,7 @@ import { requestLang } from "../../meta/langs.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import * as koMatch from "../../retro/ko-match.js";
 import * as romIndex from "../../retro/rom-index.js";
+import { koreanNameSources } from "../../retro/ko-names.js";
 import { apiWord } from "./api-words.js";
 
 const LIST_MAX = 1000;
@@ -40,6 +42,7 @@ export async function retroKoReview(lang = "ko", max = LIST_MAX) {
     }
   }
   return {
+    sources: koreanNameSources(),
     index: { ...romIndex.counts(catalog.games), busy: romIndex.busy() },
     confirmedTotal: confirmed.length,
     confirmed: confirmed.slice(0, max),

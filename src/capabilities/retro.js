@@ -4,7 +4,7 @@
  * libretro nightly buildbot. Switching a user's core to the official build and back moves the
  * user's file to or from the trash, so those two routes are token-blocked (opt-out.js). Also
  * what the library's retro games need from the pack (retro_requirements), and the Korean titles
- * the bundled dictionary gives retro games by content hash or, for the admin to decide, by title.
+ * the names plugins give retro games by content hash or, for the admin to decide, by title.
  */
 import { defineCapability } from "./define.js";
 import { arr, bool, int, nullable, num, obj, oneOf, str } from "./shape.js";
