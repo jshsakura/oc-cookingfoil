@@ -113,11 +113,19 @@ function actFollow(prev,next){
     if(hit&&f.when())actSoon(f.kinds[0],f.run);}}
 `;
 
+/** What the admin page does with a hint on /admin/ws: read the list that changed again (at most every two seconds, like a job's panel). */
+export const ADMIN_EVENT_SCRIPT = /* js */ `const ACT_EVENTS={
+  approvals:(p)=>{
+    if(p.kind==='account'){if(typeof loadAccounts==='function'&&typeof accountsLoaded!=='undefined'&&accountsLoaded)actSoon('approvals-account',loadAccounts);}
+    else if(typeof loadDevices==='function')actSoon('approvals-device',loadDevices);}};
+function actEvent(m){const f=ACT_EVENTS[m.topic];if(f)f(m.payload||{});}
+`;
+
 const ADMIN_CHANNEL_SCRIPT = /* js */ `function actConnect(){
   try{actWs=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/admin/ws');}
   catch{actSetLive(false);actFallback();setTimeout(actConnect,actRetry);actRetry=Math.min(actRetry*2,30000);return;}
   actWs.onopen=()=>{actSetLive(true);actRetry=1000;clearInterval(actPoll);actPoll=null;};
-  actWs.onmessage=(ev)=>{let m;try{m=JSON.parse(ev.data);}catch{return;}if(m.type==='activity')actApply(m);};
+  actWs.onmessage=(ev)=>{let m;try{m=JSON.parse(ev.data);}catch{return;}if(m.type==='activity')actApply(m);else if(m.type==='event')actEvent(m);};
   actWs.onclose=()=>{const was=actLive;actWs=null;actSetLive(false);actFallback();
     // The panels go back to their own timers while the socket is down; on a
     // split page the panel that owns the work may not be there at all.
@@ -186,6 +194,7 @@ function actSoon(key,fn){const q=actQ[key]||(actQ[key]={at:0,t:0});if(q.t)return
   // The window starts when a read finishes, so a slow one never overlaps the next.
   q.t=setTimeout(async()=>{try{await fn();}finally{q.t=0;q.at=Date.now();}},Math.max(0,q.at+2000-Date.now()));}
 ${web ? "function actFollow() {}" : ADMIN_FOLLOW_SCRIPT}
+${web ? "" : ADMIN_EVENT_SCRIPT}
 async function actCancel(id){if(!actCanCancel)return;if(!await ${web ? "confirmAsk({text:actText('confirm'),title:actText('stop'),action:actText('stop')})" : "ask(actText('confirm'))"})return;
   try{await actApi('/admin/api/activity/'+encodeURIComponent(id)+'/cancel',{method:'POST'});toast(actText('stopping'));}
   catch(err){if(err.message!=='session')toast(err.message);}}
