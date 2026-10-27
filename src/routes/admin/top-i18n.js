@@ -33,6 +33,7 @@ import { ENROLL_WORDS } from "./enroll-words.js";
 import { CONTENT_EDITOR_WORDS } from "./content-editor-words.js";
 import { CONNECT_HOWTO_WORDS } from "./connect-howto-words.js";
 import { GUIDE_PAGE_WORDS } from "./guide-page-words.js";
+import { THEME_WORDS } from "../../views/themes.js";
 
 export const TOP_LANGS = [
   ["ko", "한국어"], ["en", "English"], ["ja", "日本語"], ["zh", "中文"],
@@ -75,7 +76,7 @@ const BASE_WORDS = {
     "hb.reason.nro-release": "릴리스가 nro 파일 하나입니다",
     "hb.reason.partial": "일부 파일을 빼고 설치합니다",
 
-    title: "CookingFoil 서버 관리", loading: "불러오고 있습니다", web: "대시보드", guide: "운영 안내", dark: "어두운 테마",
+    title: "CookingFoil 서버 관리", loading: "불러오고 있습니다", web: "대시보드", guide: "운영 안내",
     logout: "로그아웃", language: "언어", nav: "서버 관리 메뉴", subnav: "세부 메뉴",
     "g.overview": "개요", "g.games": "파일·정리", "g.retro": "레트로", "g.homebrew": "홈브류", "g.people": "계정·기기", "g.ops": "운영",
     "s.library": "파일", "s.nsz": "압축", "s.upload": "업로드", "s.inbox": "임시 공유", "s.featured": "홈 추천",
@@ -507,7 +508,7 @@ const BASE_WORDS = {
     "pp.count": "{n} devices",
     "pp.telegram": "Telegram",
 
-    title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide", dark: "Dark theme",
+    title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide",
     logout: "Sign out", language: "Language", nav: "Server admin menu", subnav: "Section menu",
     "g.overview": "Overview", "g.games": "Files", "g.retro": "Retro", "g.homebrew": "Homebrew", "g.people": "Accounts", "g.ops": "Operations",
     "s.library": "Files", "s.nsz": "Compress", "s.upload": "Upload", "s.inbox": "Shared inbox", "s.featured": "Home picks",
@@ -876,7 +877,7 @@ const BASE_WORDS = {
     "pp.count": "{n} 台",
     "pp.telegram": "Telegram",
 
-    title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド", dark: "ダークテーマ",
+    title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド",
     logout: "ログアウト", language: "言語", nav: "サーバー管理メニュー", subnav: "サブメニュー",
     "g.overview": "概要", "g.games": "ファイル", "g.retro": "レトロ", "g.homebrew": "自作アプリ", "g.people": "アカウント", "g.ops": "運用",
     "s.library": "ファイル", "s.nsz": "圧縮", "s.upload": "アップロード", "s.inbox": "一時共有", "s.featured": "ホームのおすすめ",
@@ -1245,7 +1246,7 @@ const BASE_WORDS = {
     "pp.count": "{n} 台",
     "pp.telegram": "Telegram",
 
-    title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南", dark: "深色主题",
+    title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南",
     logout: "退出登录", language: "语言", nav: "服务器管理菜单", subnav: "子菜单",
     "g.overview": "概览", "g.games": "文件", "g.retro": "复古", "g.homebrew": "自制软件", "g.people": "账户", "g.ops": "运维",
     "s.library": "文件", "s.nsz": "压缩", "s.upload": "上传", "s.inbox": "临时分享", "s.featured": "首页推荐",
@@ -1596,7 +1597,7 @@ const PEOPLE_WORDS = {
   },
 };
 
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...PLUGINS_WORDS[code], ...BUILD_WARNING_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...FILES_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code], ...GATE_WORDS[code], ...PAIR_PAGE_WORDS[code], ...ENROLL_WORDS[code], ...CONTENT_EDITOR_WORDS[code], ...CONNECT_HOWTO_WORDS[code], ...GUIDE_PAGE_WORDS[code] }]));
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...PLUGINS_WORDS[code], ...BUILD_WARNING_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...FILES_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code], ...GATE_WORDS[code], ...PAIR_PAGE_WORDS[code], ...ENROLL_WORDS[code], ...CONTENT_EDITOR_WORDS[code], ...CONNECT_HOWTO_WORDS[code], ...GUIDE_PAGE_WORDS[code], ...THEME_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;

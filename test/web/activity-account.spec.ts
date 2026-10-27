@@ -45,7 +45,7 @@ test('everyone can see activity in the web account menu, with no stop control fo
   await expect(page.locator('#act-board')).toHaveCount(0);
   await button.click();
   const menu = page.locator('#acct-list');
-  await expect(menu.getByRole('menuitemcheckbox', { name: '어두운 테마' })).toBeVisible();
+  await expect(menu.getByRole('group', { name: '테마' }).getByRole('menuitemradio')).toHaveCount(6);
   await expect(menu.locator('#act-running .t')).toHaveText('NSZ 로 변환합니다');
   await expect(menu.locator('#act-running .n')).toContainText('50% · 3.0 GB / 6.0 GB');
   await expect(menu.locator('.act-stop')).toHaveCount(0);

@@ -121,12 +121,11 @@ test('the account menu opens on a split page, shows who is in, and signs out', a
   await page.locator('#acct-btn').click();
   await expect(page.locator('#acct-list')).toBeVisible();
 
-  // The theme switch actually toggles: click it, the attribute and the page change.
-  const before = await page.locator('#theme-toggle').getAttribute('aria-checked');
-  await page.locator('#theme-toggle').click();
-  await expect(page.locator('#theme-toggle')).not.toHaveAttribute('aria-checked', before!);
-  const htmlTheme = await page.evaluate(() => document.documentElement.dataset.theme);
-  expect(htmlTheme).toBeTruthy();
+  // The theme picker works here too: a pick marks it and changes the page.
+  const navy = page.locator('#acct-list [data-theme-pick="navy"]');
+  await navy.click();
+  await expect(navy).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'navy');
 
   // Escape closes the menu and returns focus to the button.
   await page.keyboard.press('Escape');

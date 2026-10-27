@@ -1,24 +1,19 @@
+import { THEMES, THEME_HEAD_SCRIPT, THEME_PICKER_CSS, adminVars, themeCss } from "../../views/themes.js";
+
 /**
- * Shared chrome for every /admin page, in the client app's palette (warm
- * ground, white surfaces, ink text, butter accent) and the public dashboard's
- * dark variant. ADMIN_HEAD adds the icon and applies the theme picked in the
- * account menu (here or on the web page: same origin, same storage key) before
- * paint; no choice follows the system. THEME_HEAD_SCRIPT is the same script the
- * web page carries, and it keeps the address-bar colour on the theme in use.
+ * Shared chrome for every /admin page, in the client app's palettes (src/views/themes.js). ADMIN_HEAD
+ * adds the icon and applies the theme picked in the account menu (here or on the web page: same
+ * origin, same storage key) before paint; with none picked the page follows the system.
  */
-export const THEME_HEAD_SCRIPT = `(()=>{const r=document.documentElement,q=matchMedia("(prefers-color-scheme: light)"),m=document.querySelector('meta[name="theme-color"]');try{const t=localStorage.getItem("cookingfoil:theme");if(t==="light"||t==="dark")r.dataset.theme=t;}catch{}const s=()=>{if(m)m.content=(r.dataset.theme||(q.matches?"light":"dark"))==="light"?"#f2f1ee":"#16161a";};s();q.addEventListener("change",s);new MutationObserver(s).observe(r,{attributes:true,attributeFilter:["data-theme"]});})();`;
+export { THEME_HEAD_SCRIPT };
 
 export const ADMIN_HEAD = /* html */ `<link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml">\
 <link rel="stylesheet" href="/assets/fonts.css">\
 <meta name="theme-color" content="#16161a">\
 <script>${THEME_HEAD_SCRIPT}</script>`;
 
-const DARK = `--bg:#16161a;--panel:#1f1f24;--sunk:#26262c;--line:#303037;--line2:#41414a;
---text:#f2f1ee;--muted:#a9a8a3;--faint:#75747c;--warn:#e3a43a;--bad:#ef6b5f;--good:#3fbf83;--accent:#ffc23d;--accent-ink:#16161a;
---warn-rgb:227,164,58;--bad-rgb:239,107,95;--good-rgb:63,191,131;--accent-rgb:255,194,61;--shadow:rgba(0,0,0,.4);--warn-card:#3a2424;color-scheme:dark`;
-export const LIGHT = `--bg:#f2f1ee;--panel:#ffffff;--sunk:#ebe9e4;--line:#e2e0da;--line2:#d3d0c8;
---text:#16161a;--muted:#55555e;--faint:#8d8c93;--warn:#c47c00;--bad:#cc3e34;--good:#1e8e5a;--accent:#ffc23d;--accent-ink:#16161a;
---warn-rgb:196,124,0;--bad-rgb:204,62,52;--good-rgb:30,142,90;--accent-rgb:255,194,61;--shadow:rgba(22,22,26,.14);--warn-card:#fde2e2;color-scheme:light`;
+/** The light theme's tokens, for a page that never changes theme. */
+export const LIGHT = adminVars(THEMES.find((t) => t.id === "light"));
 
 // The client's scale (~/app/cookingfoil-ops/design/client-design-tokens.md) at web size: radii
 // badge 5, chip 7, row 10-12, button 14, group card 18, dialog 20 on a 1280x720 screen read from
@@ -30,9 +25,8 @@ export const SCALE = `--r-xs:4px;--r-sm:6px;--r-md:10px;--r-lg:12px;--r-xl:14px;
 --white:#ffffff;--ground:#f2f1ee;--medal-1:#f5c542;--medal-1-ink:#3d2e00;--medal-2:#cfd3d9;--medal-2-ink:#2a2e35;--medal-3:#d9a574;--medal-3-ink:#3b2410`;
 
 export const ADMIN_CSS = /* css */ `
-:root{${SCALE};${DARK}}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){${LIGHT}}}
-:root[data-theme="light"]{${LIGHT}}
+:root{${SCALE}}
+${themeCss(adminVars)}
 /* One scrollbar for every admin page, in the page's own colours and both themes.
    The scope is the admin document root itself (html.adm) so the viewport scroll is
    covered too, and the user dashboard (landing.html) keeps its own rules untouched.
@@ -87,7 +81,7 @@ input:not([type=checkbox]):not([type=radio]):focus,select:focus{outline:none;bor
 /* One focus ring, the client's: butter outside, a strip of the page between it and the control. */
 button:focus-visible,.btn:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 /* The client's toggle (52x30 pill, a white knob, green when on) at web size. Two markups share it: a
-   button[role=switch or menuitemcheckbox][aria-checked] holding span.switch, and label.ss-switch holding
+   button[role=switch][aria-checked] holding span.switch, and label.ss-switch holding
    a checkbox and a span. */
 .switch,.ss-switch>span{position:relative;display:inline-block;flex:none;width:40px;height:24px;border-radius:var(--r-pill);background:var(--line2);transition:background .15s}
 .switch::after,.ss-switch>span::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--white);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
@@ -96,8 +90,7 @@ button:focus-visible,.btn:focus-visible,a:focus-visible,summary:focus-visible{ou
 .ss-switch{position:relative;display:inline-block;vertical-align:middle;width:40px;height:24px;flex:none}
 .ss-switch>input{position:absolute;inset:0;z-index:1;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
 .ss-switch>input:disabled{cursor:default}.ss-switch>input:disabled+span{opacity:.5}
-.ss-switch>input:focus-visible+span,[role=switch]:focus-visible>.switch,[role=menuitemcheckbox]:focus-visible>.switch{outline:3px solid var(--accent);outline-offset:2px}
-.menu-toggle .switch{margin-left:auto}
+.ss-switch>input:focus-visible+span,[role=switch]:focus-visible>.switch{outline:3px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.switch,.switch::after,.ss-switch>span,.ss-switch>span::after{transition:none}}
 /* The client's empty state: a plain white card, its text in the secondary colour. */
 .empty{color:var(--muted);padding:24px 20px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);margin-bottom:20px}
@@ -111,4 +104,4 @@ dialog>.dialog-actions:last-child{margin:16px calc(-1 * var(--dlg-pad,24px)) cal
 .note.warn>.t{background:rgba(var(--accent-rgb),.16);border-bottom-color:rgba(var(--accent-rgb),.45)}
 .note>.d{color:var(--muted);font-size:var(--fs-sm);padding:12px 18px 14px}
 .note:has(>.t)>:not(.t):not(.d){margin:0 18px 16px}
-`;
+${THEME_PICKER_CSS}`;

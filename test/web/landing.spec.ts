@@ -8,7 +8,7 @@ async function pickLang(page: Page, code: string) {
   await expect(page.locator('#lang-list')).toBeHidden();
 }
 
-test('landing follows the system until the theme switch in the account menu is used, then keeps it', async ({ page }) => {
+test('landing follows the system until a theme is picked in the account menu, then keeps it', async ({ page }) => {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
@@ -19,11 +19,15 @@ test('landing follows the system until the theme switch in the account menu is u
   expect(await background()).toBe('rgb(242, 241, 238)');
 
   await page.locator('#acct-btn').click();
-  const dark = page.locator('#acct-list').getByRole('menuitemcheckbox', { name: '어두운 테마' });
-  await expect(dark).toHaveAttribute('aria-checked', 'false');
-  await dark.click();
+  const picker = page.locator('#acct-list').getByRole('group', { name: '테마' });
+  const black = picker.getByRole('menuitemradio', { name: '블랙' });
+  const beige = picker.getByRole('menuitemradio', { name: '베이지' });
+  await expect(beige).toHaveAttribute('aria-checked', 'true');
+  await expect(black).toHaveAttribute('aria-checked', 'false');
+  await black.click();
   await expect(root).toHaveAttribute('data-theme', 'dark');
-  await expect(dark).toHaveAttribute('aria-checked', 'true');
+  await expect(black).toHaveAttribute('aria-checked', 'true');
+  await expect(beige).toHaveAttribute('aria-checked', 'false');
   expect(await background()).toBe('rgb(22, 22, 26)');
   await expect.poll(themeColor).toBe('#16161a');
   expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBe('dark');
@@ -34,11 +38,11 @@ test('landing follows the system until the theme switch in the account menu is u
   await expect.poll(themeColor).toBe('#16161a');
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#acct-btn').click();
-  await expect(dark).toHaveAttribute('aria-checked', 'true');
+  await expect(black).toHaveAttribute('aria-checked', 'true');
   await page.screenshot({ path: 'out/web/landing-dark.png' });
 
-  // switched off it is light, kept even when the system turns dark
-  await dark.click();
+  // beige picked is kept even when the system turns dark
+  await beige.click();
   await expect(root).toHaveAttribute('data-theme', 'light');
   expect(await page.evaluate(() => localStorage.getItem('cookingfoil:theme'))).toBe('light');
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -54,7 +58,9 @@ test('a stored light theme wins over a dark system setting, and the menu labels 
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 241, 238)');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f2f1ee');
   await page.locator('#acct-btn').click();
-  await expect(page.locator('#acct-list').getByRole('menuitemcheckbox', { name: 'Dark theme' })).toHaveAttribute('aria-checked', 'false');
+  const picker = page.locator('#acct-list').getByRole('group', { name: 'Theme' });
+  await expect(picker.getByRole('menuitemradio', { name: 'Beige' })).toHaveAttribute('aria-checked', 'true');
+  await expect(picker.getByRole('menuitemradio', { name: 'Navy' })).toHaveAttribute('aria-checked', 'false');
 });
 
 test('the web page has no upload: no floating button and no upload item in the menu', async ({ page }) => {

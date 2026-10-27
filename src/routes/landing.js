@@ -19,6 +19,7 @@ import { promisify } from "node:util";
 import pkg from "../app-info.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, activityScript } from "./admin/activity-panel.js";
 import { SCALE } from "./admin/styles.js";
+import { THEME_HEAD_SCRIPT, THEME_PICKER_CSS, THEME_PICKER_SCRIPT, THEME_WORDS, siteVars, themeCss, themePickerHtml } from "../views/themes.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
@@ -28,6 +29,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // The names the page's buttons may use (landing.html, BTN_ICON_FOR and data-icon), and the retro preview's row icons.
 const BUTTON_ICON_NAMES = ["download", "x", "refresh", "file", "folder", "upload", "save", "undo", "arrowright", "chevleft", "chevright", "trash", "check", ...ROW_ICON_NAMES];
 const TEMPLATE_PATH = path.join(__dirname, "../views/landing.html");
+// The languages landing.html has dictionaries for.
+const SITE_LANGS = ["ko", "en", "ja", "zh"];
 
 const gzipAsync = promisify(zlib.gzip);
 const brotliAsync = promisify(zlib.brotliCompress);
@@ -47,21 +50,30 @@ async function loadTemplate() {
   if (preparing) return preparing;
   preparing = (async () => {
     try {
-      const raw = await readFile(TEMPLATE_PATH, "utf-8");
-      template = raw
-        .replace(/id="version">v\?/g, `id="version">v${pkg.version}`)
-        .replace("__BUTTON_ICONS__", () => JSON.stringify(iconSet(BUTTON_ICON_NAMES)))
-        .replace("__SCALE__", () => SCALE)
-        .replace("__ACTIVITY_CSS__", () => ACTIVITY_CSS)
-        .replace("__ACTIVITY_BUTTON__", () => ACTIVITY_BUTTON_HTML)
-        .replace("__ACTIVITY_HTML__", () => ACTIVITY_HTML)
-        .replace("__ACTIVITY_SCRIPT__", () => activityScript({ web: true }));
+      template = fillTemplate(await readFile(TEMPLATE_PATH, "utf-8"));
       return template;
     } finally {
       preparing = null;
     }
   })();
   return preparing;
+}
+
+/** The page with everything but its origin filled in. */
+export function fillTemplate(raw) {
+  return raw
+    .replace(/id="version">v\?/g, `id="version">v${pkg.version}`)
+    .replace("__THEME_HEAD__", () => THEME_HEAD_SCRIPT)
+    .replace("__BUTTON_ICONS__", () => JSON.stringify(iconSet(BUTTON_ICON_NAMES)))
+    .replace("__SCALE__", () => SCALE)
+    .replace("__THEME_CSS__", () => themeCss(siteVars))
+    .replace("__THEME_PICKER__", () => themePickerHtml((key) => `<span data-i18n="${key}"></span>`))
+    .replace("__THEME_WORDS__", () => JSON.stringify(Object.fromEntries(SITE_LANGS.map((code) => [code, THEME_WORDS[code]]))))
+    .replace("__THEME_PICKER_SCRIPT__", () => THEME_PICKER_SCRIPT)
+    .replace("__ACTIVITY_CSS__", () => ACTIVITY_CSS + THEME_PICKER_CSS)
+    .replace("__ACTIVITY_BUTTON__", () => ACTIVITY_BUTTON_HTML)
+    .replace("__ACTIVITY_HTML__", () => ACTIVITY_HTML)
+    .replace("__ACTIVITY_SCRIPT__", () => activityScript({ web: true }));
 }
 
 /** The page for one origin: the share tags point at its absolute image URL. */

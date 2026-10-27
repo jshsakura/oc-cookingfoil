@@ -27,50 +27,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" />
     <script>
-      // The theme picked in the account menu (shared with the admin pages), applied before paint;
-      // no choice follows the system. The address-bar colour follows whichever one shows.
-      (()=>{const r=document.documentElement,q=matchMedia("(prefers-color-scheme: light)"),m=document.querySelector('meta[name="theme-color"]');try{const t=localStorage.getItem("cookingfoil:theme");if(t==="light"||t==="dark")r.dataset.theme=t;}catch{}const s=()=>{if(m)m.content=(r.dataset.theme||(q.matches?"light":"dark"))==="light"?"#f2f1ee":"#16161a";};s();q.addEventListener("change",s);new MutationObserver(s).observe(r,{attributes:true,attributeFilter:["data-theme"]});})();
+      // The theme picked in the account menu (shared with the admin pages, src/views/themes.js),
+      // applied before paint; with none picked the page follows the system.
+      __THEME_HEAD__
     </script>
     <style>
-      /* The client app's palette (include/ui/Theme.hpp): warm ground, white
-         surfaces, ink text and the butter accent. Dark mode keeps the same
-         accent on an ink ground. The legacy names (--base, --surface0 ...) stay
-         so every rule below reads from one set of tokens. The admin's sizes
-         come first: the activity menu borrowed from it reads them. */
+      /* The client app's six palettes, filled in from src/views/themes.js,
+         each with the butter accent. The admin's sizes come first: the activity
+         menu borrowed from it reads them, and the palettes override its --ground. */
       :root { __SCALE__; }
-      :root {
-        --ground: #16161a; --surface: #1f1f24; --sunk: #26262c; --ink: #f2f1ee;
-        --line: #303037; --line2: #41414a; --secondary: #a9a8a3; --faint: #75747c;
-        --butter: #ffc23d; --butter-ink: #16161a; --hero: #0c0c0e;
-        /* Dialogs sit a step above the page so a dark dialog never melts into a dark page. */
-        --modal-bg: #232329; --modal-panel: #2d2d34; --modal-sunk: #35353d; --modal-line: #3e3e47;
-        --good: #3fbf83; --pending: #e3a43a; --bad: #ef6b5f;
-        --dlc: #9aa7ff; --dlc-rgb: 154, 167, 255;
-        --butter-rgb: 255, 194, 61; --good-rgb: 63, 191, 131; --bad-rgb: 239, 107, 95; --shadow-rgb: 0, 0, 0;
-        color-scheme: dark;
-      }
-      @media (prefers-color-scheme: light) {
-        :root:not([data-theme="dark"]) {
-          --ground: #f2f1ee; --surface: #ffffff; --sunk: #ebe9e4; --ink: #16161a;
-          --line: #e2e0da; --line2: #d3d0c8; --secondary: #55555e; --faint: #8d8c93;
-          --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
-          --modal-bg: #f2f1ee; --modal-panel: #ffffff; --modal-sunk: #ebe9e4; --modal-line: #e2e0da;
-          --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
-          --dlc: #4756c9; --dlc-rgb: 71, 86, 201;
-          --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
-          color-scheme: light;
-        }
-      }
-      :root[data-theme="light"] {
-        --ground: #f2f1ee; --surface: #ffffff; --sunk: #ebe9e4; --ink: #16161a;
-        --line: #e2e0da; --line2: #d3d0c8; --secondary: #55555e; --faint: #8d8c93;
-        --butter: #ffc23d; --butter-ink: #16161a; --hero: #16161a;
-        --modal-bg: #f2f1ee; --modal-panel: #ffffff; --modal-sunk: #ebe9e4; --modal-line: #e2e0da;
-        --good: #1e8e5a; --pending: #c47c00; --bad: #cc3e34;
-        --dlc: #4756c9; --dlc-rgb: 71, 86, 201;
-        --good-rgb: 30, 142, 90; --bad-rgb: 204, 62, 52; --shadow-rgb: 22, 22, 26;
-        color-scheme: light;
-      }
+      __THEME_CSS__
       :root {
         --font-body: "Inter", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
@@ -152,24 +118,6 @@
       .pop-list a:hover, .pop-list a:focus-visible { background: var(--sunk); outline: none; }
       .pop-list a svg { width: 16px; height: 16px; color: var(--secondary); }
       .pop-list #logout-link, .pop-list #logout-link svg { color: var(--bad); }
-      /* theme: one row in the menu with a switch; on means dark */
-      .pop-list .menu-toggle {
-        display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; border-radius: 9px; cursor: pointer;
-        background: transparent; color: var(--ink); font: 600 14px var(--font-body); text-align: left;
-      }
-      .pop-list .menu-toggle:hover, .pop-list .menu-toggle:focus-visible { background: var(--sunk); outline: none; }
-      .pop-list .menu-toggle svg { width: 16px; height: 16px; color: var(--secondary); }
-      .menu-toggle .switch {
-        position: relative; flex: none; width: 34px; height: 20px; margin-left: auto; border-radius: 100px;
-        background: var(--line2); transition: background 0.15s;
-      }
-      .menu-toggle .switch::after {
-        content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
-        background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.15s;
-      }
-      .menu-toggle[aria-checked="true"] .switch { background: var(--ink); }
-      .menu-toggle[aria-checked="true"] .switch::after { transform: translateX(14px); }
-      @media (prefers-reduced-motion: reduce) { .menu-toggle .switch, .menu-toggle .switch::after { transition: none; } }
       .pop-list .menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
 
       /* TABS: a pill group beside the wordmark, the open view filled */
@@ -1398,7 +1346,7 @@
             <a role="menuitem" id="inbox-link" href="#share" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span data-i18n="share.open"></span></a>
             <a role="menuitem" id="admin-link" href="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg><span data-i18n="action.admin"></span></a>
             <div class="menu-sep" role="separator"></div>
-            <button type="button" role="menuitemcheckbox" class="menu-toggle" id="theme-toggle" aria-checked="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span data-i18n="theme.dark"></span><span class="switch" aria-hidden="true"></span></button>
+            __THEME_PICKER__
             <a role="menuitem" id="logout-link" href="/login" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span data-i18n="action.logout"></span></a>
             </div>
             __ACTIVITY_HTML__
@@ -1844,7 +1792,6 @@
           "action.copy": "복사",
           "action.language": "언어",
           "action.menu": "메뉴",
-          "theme.dark": "어두운 테마",
           "share.open": "임시 공유",
           "share.title": "임시 공유",
           "share.lead": "관리자에게 전할 파일, 메모, 링크를 남깁니다. 관리자가 확인한 뒤 패치, 세이브, 홈브류로 정리합니다.",
@@ -2200,7 +2147,6 @@
           "action.copy": "Copy",
           "action.language": "Language",
           "action.menu": "Menu",
-          "theme.dark": "Dark theme",
           "share.open": "Share with admin",
           "share.title": "Share with admin",
           "share.lead": "Leave files, a note or links for the admin. They will look at it and sort it into patches, saves or homebrew.",
@@ -2559,7 +2505,6 @@
           "action.copy": "コピー",
           "action.language": "言語",
           "action.menu": "メニュー",
-          "theme.dark": "ダークテーマ",
           "share.open": "一時共有",
           "share.title": "一時共有",
           "share.lead": "管理者に渡したいファイル、メモ、リンクを残します。管理者が確認してパッチ、セーブ、自作アプリに整理します。",
@@ -2918,7 +2863,6 @@
           "action.copy": "複製",
           "action.language": "語言",
           "action.menu": "菜单",
-          "theme.dark": "深色主题",
           "share.open": "临时分享",
           "share.title": "临时分享",
           "share.lead": "给管理员留下文件、备注或链接。管理员查看后会整理到补丁、存档或自制程序里。",
@@ -3133,6 +3077,8 @@
           "retro.versionsCount": (n) => `版本 ${n}`,
         },
       };
+
+      for (const [code, words] of Object.entries(__THEME_WORDS__)) Object.assign(I18N[code], words);
 
       const LANG_KEY = "cookingfoil:lang";
       // The four languages the server labels genres and reviews in.
@@ -3572,7 +3518,7 @@
         "</svg>"
       );
       function coverPlaceholder() {
-        return currentTheme() === "light" ? COVER_PLACEHOLDER_LIGHT : COVER_PLACEHOLDER_DARK;
+        return getComputedStyle(document.documentElement).colorScheme === "light" ? COVER_PLACEHOLDER_LIGHT : COVER_PLACEHOLDER_DARK;
       }
 
       // Pick the display name for the current UI language. The server name
@@ -6984,27 +6930,14 @@
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !acctList.hidden) { setAcctMenu(false); $("acct-btn").focus(); } });
 
       // ─── theme ────────────────────────────────────────────────────────────
-      // The system setting until the switch in the account menu is used; the choice is kept
-      // under one key with the admin pages. The head script applies it before paint and keeps
-      // the address-bar colour in step.
-      const THEME_KEY = "cookingfoil:theme";
-      const systemLight = window.matchMedia("(prefers-color-scheme: light)");
-      const currentTheme = () => document.documentElement.dataset.theme || (systemLight.matches ? "light" : "dark");
-      function syncThemeChrome() {
-        $("theme-toggle").setAttribute("aria-checked", String(currentTheme() === "dark"));
-        // covers already showing the no-image card take the one drawn for this theme
+      // The picker in the account menu (src/views/themes.js), shared with the admin pages. Covers
+      // already showing the no-image card take the one drawn for the theme in use.
+      __THEME_PICKER_SCRIPT__
+      document.addEventListener("cookingfoil:theme", () => {
         for (const img of document.querySelectorAll("img")) {
           if (img.src === COVER_PLACEHOLDER_LIGHT || img.src === COVER_PLACEHOLDER_DARK) img.src = coverPlaceholder();
         }
-      }
-      function setTheme(choice) {
-        document.documentElement.dataset.theme = choice;
-        try { localStorage.setItem(THEME_KEY, choice); } catch { /* storage blocked: keep it for this visit */ }
-        syncThemeChrome();
-      }
-      $("theme-toggle").addEventListener("click", () => setTheme(currentTheme() === "dark" ? "light" : "dark"));
-      systemLight.addEventListener("change", syncThemeChrome);
-      syncThemeChrome();
+      });
 
       // ─── scroll progress ──────────────────────────────────────────────────
       let scrollTicking = false;
