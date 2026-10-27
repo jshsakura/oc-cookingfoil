@@ -76,3 +76,23 @@ test("automation tokens may list but not write or download", () => {
   assert.equal(tokenBlocked("GET", "/api/files/download"), true);
   for (const op of ["mkdir", "rename", "move", "trash"]) assert.equal(tokenBlocked("POST", `/api/files/${op}`), true, op);
 });
+
+test("a file downloads even when the root's own path has a dot folder in it", async () => {
+  const dotted = { key: "games", dir: path.join(base, ".hidden-parent", "games") };
+  fs.mkdirSync(dotted.dir, { recursive: true });
+  fs.writeFileSync(path.join(dotted.dir, "x.nsp"), "xyz");
+  const app2 = express();
+  mountFilesApi(app2, () => true, createFileRoots({ roots: () => [dotted], refresh: () => {}, fences: () => [] }));
+  const s2 = app2.listen(0);
+  try {
+    const r = await fetch(`http://127.0.0.1:${s2.address().port}/api/files/download?root=games&path=x.nsp`);
+    assert.equal(r.status, 200);
+    assert.equal(await r.text(), "xyz");
+  } finally {
+    s2.close();
+  }
+});
+
+test("a HEAD of a download is blocked for tokens like its GET", () => {
+  assert.equal(tokenBlocked("HEAD", "/api/files/download"), true);
+});

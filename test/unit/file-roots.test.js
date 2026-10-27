@@ -161,3 +161,52 @@ test("open gives a file to send and refuses a folder", async () => {
   assert.equal(path.resolve(f.abs), path.join(games.dir, "D", "a.nsp"));
   assert.equal(await code(fr.open("games", "D")), "not-a-file");
 });
+
+// Review 2026-10-27: in the old layout incoming, patches and the data folder can sit inside the games folder.
+function nested() {
+  const base = path.join(tmp, `n${n++}`);
+  const games = { key: "games", dir: path.join(base, "games") };
+  const incoming = { key: "incoming", dir: path.join(games.dir, "incoming") };
+  const patches = { key: "patches", dir: path.join(games.dir, "patches") };
+  const data = path.join(games.dir, "data");
+  for (const d of [incoming.dir, patches.dir, data]) fs.mkdirSync(d, { recursive: true });
+  put(data, "accounts.json", "secret");
+  put(games.dir, "g/a.nsp");
+  const fr = createFileRoots({ roots: () => [games, incoming, patches], refresh: () => {}, fences: () => [data] });
+  return { fr, games, incoming, patches, data };
+}
+
+test("another root or the server's data folder inside a root is neither listed nor touched from it", async () => {
+  const { fr, games, incoming } = nested();
+  assert.deepEqual((await fr.list("games", "")).items.map((i) => i.name), ["g"]);
+  for (const rel of ["incoming", "patches", "data", "data/accounts.json"]) {
+    assert.equal(await code(fr.list("games", rel)), "bad-path", rel);
+    assert.equal(await code(fr.open("games", rel)), "bad-path", rel);
+    assert.equal(await code(fr.rename("games", rel, "x")), "bad-path", rel);
+    assert.equal(await code(fr.trash("games", [rel])), "bad-path", rel);
+  }
+  assert.equal(await code(fr.move("games", ["g/a.nsp"], "games", "patches")), "bad-path");
+  assert.equal(await code(fr.move("games", ["g/a.nsp"], "games", "data")), "bad-path");
+  assert.ok(has(games.dir, "g/a.nsp"));
+  // The nested root is still reachable as itself.
+  put(incoming.dir, "drop.nsp");
+  assert.deepEqual((await fr.list("incoming", "")).items.map((i) => i.name), ["drop.nsp"]);
+});
+
+test("a link to a hidden folder inside the root is neither listed nor followed", async () => {
+  const { fr, games } = setup();
+  put(games.dir, ".cookingfoil-trash/x/f.nsp");
+  put(games.dir, "g/a.nsp");
+  fs.symlinkSync(path.join(games.dir, ".cookingfoil-trash"), path.join(games.dir, "tl"));
+  assert.deepEqual((await fr.list("games", "")).items.map((i) => i.name), ["g"]);
+  assert.equal(await code(fr.list("games", "tl")), "bad-path");
+  assert.equal(await code(fr.open("games", "tl/x/f.nsp")), "bad-path");
+  assert.equal(await code(fr.move("games", ["g/a.nsp"], "games", "tl")), "bad-path");
+  assert.ok(has(games.dir, "g/a.nsp"));
+});
+
+test("a name with a control character is refused", async () => {
+  const { fr, games } = setup();
+  put(games.dir, "a.nsp");
+  for (const bad of ["a\nb", "a\rb", "a\tb", "a\x7fb"]) assert.equal(await code(fr.mkdir("games", "", bad)), "bad-name", JSON.stringify(bad));
+});

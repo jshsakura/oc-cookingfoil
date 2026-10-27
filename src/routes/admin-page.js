@@ -173,7 +173,9 @@ export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:(?:tokens|2fa|access-history|co
  * so what the registry offers tokens never drifts from what the server allows.
  */
 export function tokenBlocked(method, path) {
-  return (method.toUpperCase() === "GET" ? TOKEN_BLOCKED_READ_RE : TOKEN_BLOCKED_RE).test(path);
+  // Express answers a HEAD with the GET handler, so it is read like one.
+  const m = method.toUpperCase();
+  return (m === "GET" || m === "HEAD" ? TOKEN_BLOCKED_READ_RE : TOKEN_BLOCKED_RE).test(path);
 }
 
 /** The path as the route handlers see it, or null when its percent-encoding is malformed. */

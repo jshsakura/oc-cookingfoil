@@ -16,6 +16,8 @@
 import path from "path";
 import { createFileRoots, FileError } from "../../library/file-roots.js";
 import { actorOf } from "../../library/trash-service.js";
+import { TrashError } from "../../library/trash.js";
+import { requestLang } from "../../meta/langs.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
 
@@ -29,7 +31,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots())
       await fn(req, res);
     } catch (err) {
       if (err instanceof FileError) return res.status(err.status).json({ error: apiWord(req, `files.${err.code}`), code: err.code });
-      if (err?.status && err?.message) return res.status(err.status).json({ error: err.message, code: err.key ?? "failed" });
+      if (err instanceof TrashError) return res.status(err.status).json({ error: err.textIn(requestLang(req)), code: err.key ?? "failed" });
       debug.error("admin: files: %s", err.message);
       res.status(500).json({ error: apiWord(req, "failed"), code: "failed" });
     }
@@ -51,7 +53,8 @@ export function mountFilesApi(router, requireSession, files = createFileRoots())
 
   router.get("/api/files/download", handle(async (req, res) => {
     const f = await files.open(str(req.query.root), str(req.query.path));
-    res.download(f.abs, f.name, { dotfiles: "deny" });
+    // resolve() already refused dot folders inside the root; one above it (the root's own path) is fine.
+    res.download(f.abs, f.name, { dotfiles: "allow" });
   }));
 
   router.post("/api/files/mkdir", handle(async (req, res) => {

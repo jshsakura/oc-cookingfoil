@@ -11,7 +11,9 @@
  *
  * A path is refused (FileError "bad-path") when it climbs out of the root, has a
  * segment that starts with a dot (the server's trash, staging and partials live
- * there), or resolves through a link to somewhere outside the root. Nothing is
+ * there), resolves through a link to somewhere outside the root or to a dot
+ * folder in it, or lies in another root or a fenced folder (the server's data
+ * and keys) that sits inside this one, as in the old layout. Nothing is
  * ever overwritten: a taken name is "exists". After a write the root is read
  * again (`refresh`), so the library, the shop and the catalogs see the change.
  */
@@ -22,6 +24,7 @@ import { moveAcross, withLocks } from "./safe-move.js";
 import { trashItems } from "./trash.js";
 import { recordMove } from "./journal.js";
 import { libraryRoots, refresh as refreshRoots } from "./trash-service.js";
+import * as env from "../helpers/envs.js";
 
 /** The roots the browser shows. The server's own data folder (keys, tokens) is never one of them. */
 export const FILE_ROOT_KEYS = Object.freeze(["games", "incoming", "retro", "homebrew", "patches", "saves"]);
@@ -53,7 +56,7 @@ export function cleanPath(rel) {
 /** A name for a new or renamed entry, or null: one segment, no dot start, at most 255 bytes. */
 export function cleanName(name) {
   const s = String(name ?? "").trim();
-  if (!s || s.startsWith(".") || /[\\/\0]/.test(s) || Buffer.byteLength(s) > MAX_NAME_BYTES) return null;
+  if (!s || s.startsWith(".") || /[\\/\x00-\x1f\x7f]/.test(s) || Buffer.byteLength(s) > MAX_NAME_BYTES) return null;
   return s;
 }
 
@@ -65,7 +68,8 @@ const inside = (root, real) => {
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /** The browser over `roots` (default: the server's library folders), reading a root again after it changed. */
-export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots } = {}) {
+/** The browser over `roots` (default: the server's library folders), reading a root again after it changed. */
+export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, fences = () => [env.dataDir, env.keysDir] } = {}) {
   function rootOf(key) {
     if (!FILE_ROOT_KEYS.includes(key)) fail("no-root", 404);
     const root = roots().find((r) => r.key === key);
@@ -73,32 +77,61 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots }
     return root;
   }
 
-  /** { root, rel, abs } for a path that exists and stays inside its root once links are followed. */
+  /**
+   * The real root folder and the real folders inside it the browser never enters from it: every
+   * other root and every fence that sits within it. One that holds the root itself is no fence here.
+   */
+  async function walls(root) {
+    const real = await fsp.realpath(root.dir).catch(() => fail("no-root", 404));
+    const others = [...roots().filter((r) => r.key !== root.key).map((r) => r.dir), ...fences().filter(Boolean)];
+    const reals = await Promise.all(others.map((d) => fsp.realpath(d).catch(() => path.resolve(d))));
+    return { real, fenced: reals.filter((d) => d !== real && inside(real, d)) };
+  }
+
+  /** Whether a real path is a place of this root the browser may show: inside it, no dot folder, no fenced folder. */
+  const allowed = (w, real) => inside(w.real, real) && cleanPath(path.relative(w.real, real)) !== null && !w.fenced.some((f) => inside(f, real));
+
+  /**
+   * { root, rel, abs, real, walls } for a path that exists and passes `allowed` both as itself
+   * (`abs`, the entry in its real parent, a link left as the link) and once links are followed (`real`).
+   * Writes act on `abs`, reads on `real`.
+   */
   async function resolve(key, rel, { mayBeRoot = true } = {}) {
     const root = rootOf(key);
     const clean = cleanPath(rel);
     if (clean === null || (!clean && !mayBeRoot)) fail("bad-path");
-    const abs = path.join(root.dir, ...(clean ? clean.split("/") : []));
-    const realRoot = await fsp.realpath(root.dir).catch(() => fail("no-root", 404));
-    const real = await fsp.realpath(abs).catch((err) => fail(err.code === "ENOENT" ? "not-found" : "bad-path", err.code === "ENOENT" ? 404 : 400));
-    if (!inside(realRoot, real)) fail("bad-path");
-    return { root, rel: clean, abs };
+    const w = await walls(root);
+    if (!clean) return { root, rel: clean, abs: w.real, real: w.real, walls: w };
+    const parts = clean.split("/");
+    const missing = (err) => fail(err.code === "ENOENT" ? "not-found" : "bad-path", err.code === "ENOENT" ? 404 : 400);
+    const parent = await fsp.realpath(path.join(root.dir, ...parts.slice(0, -1))).catch(missing);
+    const abs = path.join(parent, parts[parts.length - 1]);
+    const real = await fsp.realpath(abs).catch(missing);
+    if (!allowed(w, abs) || !allowed(w, real)) fail("bad-path");
+    return { root, rel: clean, abs, real, walls: w };
   }
 
-  /** A folder to write into: it must exist, be a folder and stay inside the root. */
+  /** A folder to write into: it must exist, be a folder and pass `resolve`. */
   async function folder(key, rel) {
     const at = await resolve(key, rel);
-    if (!(await fsp.stat(at.abs)).isDirectory()) fail("not-a-folder");
+    if (!(await fsp.stat(at.real)).isDirectory()) fail("not-a-folder");
     return at;
   }
 
-  async function entryOf(dir, relDir, realRoot, dirent) {
+  /** Just before a write: the folder is still where `resolve` saw it (no link swapped in since). */
+  async function still(at) {
+    const now = await fsp.realpath(at.real).catch(() => null);
+    if (now !== at.real || !allowed(at.walls, now)) fail("bad-path");
+  }
+
+  async function entryOf(dir, relDir, w, dirent) {
     const abs = path.join(dir, dirent.name);
+    if (!allowed(w, abs)) return null;
     let st = await fsp.lstat(abs).catch(() => null);
     if (!st) return null;
     if (st.isSymbolicLink()) {
       const real = await fsp.realpath(abs).catch(() => null);
-      if (!real || !inside(realRoot, real)) return null;
+      if (!real || !allowed(w, real)) return null;
       st = await fsp.stat(abs).catch(() => null);
       if (!st) return null;
     }
@@ -118,13 +151,12 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots }
     const at = await folder(key, rel);
     if (!SORTS.has(sort)) fail("bad-param");
     const size = Math.min(Math.max(1, Number(perPage) || PER_PAGE), MAX_PER_PAGE);
-    const realRoot = await fsp.realpath(at.root.dir);
-    const dirents = (await fsp.readdir(at.abs, { withFileTypes: true })).filter((d) => !d.name.startsWith("."));
+    const dirents = (await fsp.readdir(at.real, { withFileTypes: true })).filter((d) => !d.name.startsWith("."));
     const needle = String(q ?? "").trim().toLowerCase();
     const wanted = needle ? dirents.filter((d) => d.name.toLowerCase().includes(needle)) : dirents;
     const entries = [];
     for (let i = 0; i < wanted.length; i += STAT_BATCH) {
-      const got = await Promise.all(wanted.slice(i, i + STAT_BATCH).map((d) => entryOf(at.abs, at.rel, realRoot, d)));
+      const got = await Promise.all(wanted.slice(i, i + STAT_BATCH).map((d) => entryOf(at.real, at.rel, at.walls, d)));
       entries.push(...got.filter(Boolean));
     }
     const dir = order === "desc" ? -1 : 1;
@@ -150,17 +182,18 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots }
 
   async function open(key, rel) {
     const at = await resolve(key, rel, { mayBeRoot: false });
-    const st = await fsp.stat(at.abs);
+    const st = await fsp.stat(at.real);
     if (!st.isFile()) fail("not-a-file");
-    return { abs: at.abs, name: path.basename(at.abs), size: st.size, mtime: Math.round(st.mtimeMs) };
+    return { abs: at.real, name: path.basename(at.abs), size: st.size, mtime: Math.round(st.mtimeMs) };
   }
 
   async function mkdir(key, rel, name) {
     const clean = cleanName(name);
     if (!clean) fail("bad-name");
     const at = await folder(key, rel);
+    await still(at);
     try {
-      await fsp.mkdir(path.join(at.abs, clean));
+      await fsp.mkdir(path.join(at.real, clean));
     } catch (err) {
       if (err.code === "EEXIST") fail("exists", 409);
       throw err;
@@ -177,7 +210,10 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots }
     const toRel = parentRel ? `${parentRel}/${clean}` : clean;
     if (toRel === at.rel) return { root: key, rel: toRel };
     const to = path.join(path.dirname(at.abs), clean);
-    const placed = await withLocks([at.root.dir], () => moveAcross(at.abs, to));
+    const placed = await withLocks([at.root.dir], async () => {
+      await still({ real: path.dirname(at.abs), walls: at.walls });
+      return moveAcross(at.abs, to);
+    });
     if (!placed) fail("exists", 409);
     await recordMove({ action: "rename", by, fromRoot: at.root, from: at.rel, toRoot: at.root, to: toRel });
     refresh([key]);
@@ -186,7 +222,6 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots }
 
   async function move(key, rels, toKey, toRel, { by = null } = {}) {
     const dest = await folder(toKey, toRel);
-    const realDest = await fsp.realpath(dest.abs);
     const moved = [];
     const skipped = [];
     for (const rel of rels) {
@@ -198,8 +233,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots }
         skipped.push({ rel, code: err.code });
         continue;
       }
-      const real = await fsp.realpath(at.abs);
-      if (inside(real, realDest)) {
+      if (inside(at.real, dest.real)) {
         skipped.push({ rel, code: "into-itself" });
         continue;
       }
@@ -209,7 +243,10 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots }
         skipped.push({ rel, code: "same-place" });
         continue;
       }
-      const placed = await withLocks([at.root.dir, dest.root.dir], () => moveAcross(at.abs, path.join(dest.abs, name)));
+      const placed = await withLocks([at.root.dir, dest.root.dir], async () => {
+        await still(dest);
+        return moveAcross(at.abs, path.join(dest.real, name));
+      });
       if (!placed) {
         skipped.push({ rel, code: "exists" });
         continue;
