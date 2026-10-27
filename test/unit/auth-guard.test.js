@@ -31,8 +31,8 @@ const PROBE = `
     ip: process.env.PROBE_IP,
     socket: { remoteAddress: process.env.PROBE_SOCKET || process.env.PROBE_IP },
     method: "GET",
-    originalUrl: "/",
-    path: "/",
+    originalUrl: "/api/library/sections",
+    path: "/api/library/sections",
     headers: {
       ...(process.env.PROBE_AUTH ? { authorization: process.env.PROBE_AUTH } : {}),
       ...(process.env.PROBE_XFF ? { "x-forwarded-for": process.env.PROBE_XFF } : {}),
