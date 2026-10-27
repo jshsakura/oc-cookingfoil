@@ -59,8 +59,8 @@ export const PATCHES_CSS = `
 .pt-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}.pt-tools input{flex:1 1 240px;min-width:0}
 .pt-tools button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 .pt-game{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:6px 14px;margin:0 0 10px}
-.pt-game>header{display:flex;align-items:center;gap:12px;padding:10px 0 6px}
-.pt-game>header>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pt-game>header{display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:10px 0 6px;text-align:left}
+.pt-game>header>div{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1}
 .pt-game>header b{font-size:var(--fs-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pt-game>header span{font-size:var(--fs-xs);color:var(--muted);font-family:ui-monospace,monospace}
 .pt-ico{width:44px;height:44px;border-radius:var(--r-md);background:var(--sunk);object-fit:cover;flex:none}
 .pt-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}

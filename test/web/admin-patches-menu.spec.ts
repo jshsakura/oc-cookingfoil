@@ -10,3 +10,16 @@ test('the sidebar has a 패치 page that opens the game patches, and its upload 
   await expect(page).toHaveURL(/\/admin\/upload\?kind=patch/);
   await expect(page.locator('#up-hint')).toContainText('atmosphere/contents');
 });
+
+test('the library and patch pages open without a script error or a failed-load toast', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await signIn(page);
+  for (const path of ['/admin/games', '/admin/patches']) {
+    await page.goto(path);
+    await expect(page.locator('#lib-patches, #lib-cards').first()).toBeAttached();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#toast')).not.toContainText('is not defined');
+  }
+  expect(errors).toEqual([]);
+});
