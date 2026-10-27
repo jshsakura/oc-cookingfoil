@@ -244,11 +244,15 @@ export async function extractNro(zip, repo, dest, maxBytes = MAX_NRO_BYTES) {
   return path.posix.basename(entry);
 }
 
-/** Name, author and version from an NRO's NACP, or null when it is not an NRO. */
+/**
+ * Name, author and version from an NRO's NACP, or null when it is not an NRO. Its supported-language
+ * flags are not read: the homebrew tools set every slot by default, so an app would claim languages it
+ * never has. Homebrew (NRO or NSP) lists no languages.
+ */
 export async function readNro(file) {
   const assets = await parseAssets(file).catch(() => null);
   const meta = assets?.nacp ? decodeNacp(assets.nacp) : null;
-  return meta ? { name: meta.name || null, author: meta.publisher || null, version: meta.version, languages: meta.languages ?? null } : null;
+  return meta ? { name: meta.name || null, author: meta.publisher || null, version: meta.version } : null;
 }
 
 // abs path → { key, hash }, so a rescan only reads changed files. Kept in the
@@ -459,7 +463,7 @@ async function readNspFacts(abs, st) {
   if (known?.key === key && (known.meta || Date.now() < known.retryAt)) return known.meta;
   const r = await nspReader(abs).catch(() => null);
   const meta = r ? { titleId: r.titleId ?? null, metaType: r.metaType ?? null, name: r.name ?? null, publisher: r.publisher ?? null, version: r.version ?? null,
-    languages: r.languages ?? null, requiredFirmware: r.requiredSystemVersion ? firmwareString(r.requiredSystemVersion) : null, iconBuffer: r.iconBuffer ?? null } : null;
+    requiredFirmware: r.requiredSystemVersion ? firmwareString(r.requiredSystemVersion) : null, iconBuffer: r.iconBuffer ?? null } : null;
   nspFacts.set(abs, { key, meta, retryAt: meta ? 0 : Date.now() + NSP_RETRY_MS });
   return meta;
 }
@@ -509,7 +513,6 @@ async function readManualNsp(dir, folder, file, seen, held) {
     version: meta.version ?? file.match(/v(\d+(?:\.\d+)+)/i)?.[1] ?? null,
     nacp_version: meta.version ?? null,
     author: meta.publisher ?? null,
-    languages: meta.languages ?? null,
     required_firmware: meta.requiredFirmware ?? null,
     size: st.size,
     hash,
@@ -631,7 +634,6 @@ async function readManual(root, folder, seen = null, held = null) {
     version: meta.version,
     nacp_version: meta.version ?? null,
     author: meta.author,
-    languages: meta.languages ?? null,
     size: st.size,
     hash: entryHash,
     file_name: safeFileName(file, folder),
@@ -1089,7 +1091,6 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
         description: s.repo_description ?? null,
         released_at: s.released_at,
         repo_url: `https://github.com/${repo}`,
-        languages: s.cached.languages ?? null,
         release_notes: fresh ? s.release_notes ?? null : null,
         stars: s.stars ?? null,
         license: s.license ?? null,
