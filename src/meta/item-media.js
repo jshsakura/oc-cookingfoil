@@ -18,6 +18,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { jsonFile } from "../helpers/json-file.js";
 import debug from "../debug.js";
 import * as artCrop from "./art-crop.js";
 import * as sidecar from "./art-sidecar.js";
@@ -64,29 +65,10 @@ const shrink = async (raw) => {
  * item's own folder, or null for one kept under `dir`.
  */
 export function createMediaStore({ dir, file, idRe, urlBase, label = "media", homeOf = () => null }) {
-  let saved = null;
-  function all() {
-    if (saved) return saved;
-    try {
-      saved = JSON.parse(fs.readFileSync(file, "utf8"));
-    } catch (err) {
-      if (err.code && err.code !== "ENOENT") throw err;
-      // A file that no longer parses is kept aside, not left to break every listing.
-      if (!err.code) {
-        debug.error("%s: %s does not parse (%s); kept as .corrupt, starting empty", label, file, err.message);
-        try { fs.renameSync(file, `${file}.corrupt`); } catch { /* gone already */ }
-      }
-      saved = {};
-    }
-    return saved;
-  }
-
-  function persist(next) {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(`${file}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
-    fs.renameSync(`${file}.tmp`, file);
-    saved = next;
-  }
+  // Read again whenever the file changes on disk; one that does not parse keeps the last good values.
+  const json = jsonFile(file, { label });
+  const all = json.read;
+  const persist = json.write;
 
   /** Sets one part ("icon" | "banner" | "shots") of an item's record. */
   function put(id, part, value) {
@@ -434,6 +416,6 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     /** Where the item's own files live on the server (kept originals, and pictures of an item without a folder). */
     ownDir,
     /** Test seam. */
-    resetForTests() { saved = null; settled.clear(); failedTidy.clear(); },
+    resetForTests() { json.forget(); settled.clear(); failedTidy.clear(); },
   };
 }

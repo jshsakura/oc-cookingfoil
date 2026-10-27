@@ -6,33 +6,18 @@
  * text when there is one. An app the admin never edited shows its GitHub
  * repository's description; one the admin cleared shows none (null).
  */
-import fs from "fs";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
+import { jsonFile } from "../helpers/json-file.js";
 
 const FILE = path.join(dataDir, "homebrew", "descriptions.json");
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const MAX = 2000;
 
-let saved = null;
+const file = jsonFile(FILE);
+const all = file.read;
 
-function all() {
-  if (saved) return saved;
-  try {
-    saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-    saved = {};
-  }
-  return saved;
-}
-
-function persist(next) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
-  fs.renameSync(`${FILE}.tmp`, FILE);
-  saved = next;
-}
+const persist = file.write;
 
 const clean = (v) => {
   const s = String(v ?? "").replace(/\r\n/g, "\n").trim().slice(0, MAX);

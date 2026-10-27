@@ -6,26 +6,16 @@
  * A patch's or save's id carries its game's title id: moving one to another
  * game or deleting it forgets the mark (routes/admin/content-api.js).
  */
-import fs from "fs";
 import path from "path";
+import { jsonFile } from "../helpers/json-file.js";
 import { dataDir } from "../helpers/envs.js";
 
 const FILE = path.join(dataDir, "verified-items.json");
 export const KINDS = ["retro", "game", "patch", "save"];
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
-let saved = null;
-
-function all() {
-  if (saved) return saved;
-  try {
-    saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-    saved = {};
-  }
-  return saved;
-}
+const file = jsonFile(FILE);
+const all = file.read;
 
 const keyOf = (kind, id) => `${kind}:${id}`;
 
@@ -46,14 +36,11 @@ export function set(kind, id, on, now = Date.now()) {
   if (!KINDS.includes(kind) || !ID_RE.test(String(id))) return false;
   const { [keyOf(kind, id)]: had, ...rest } = all();
   const next = on ? { ...rest, [keyOf(kind, id)]: Number.isFinite(had) ? had : now } : rest;
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next, null, 1)}\n`);
-  fs.renameSync(`${FILE}.tmp`, FILE);
-  saved = next;
+  file.write(next);
   return true;
 }
 
 /** For tests. */
 export function reset() {
-  saved = null;
+  file.forget();
 }

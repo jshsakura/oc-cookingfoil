@@ -7,8 +7,8 @@
  * (voterOf). Callers check that the item exists; removing one forgets its votes.
  */
 import crypto from "crypto";
-import fs from "fs";
 import path from "path";
+import { jsonFile } from "../helpers/json-file.js";
 import { dataDir } from "../helpers/envs.js";
 
 const FILE = path.join(dataDir, "item-votes.json");
@@ -17,24 +17,11 @@ export const VALUES = ["up", "down"];
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const VOTER_RE = /^(acct|google|dev):.{1,128}$/;
 
-let saved = null;
-
-function all() {
-  if (saved) return saved;
-  try {
-    saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
-  } catch (err) {
-    if (err.code !== "ENOENT") throw err;
-    saved = {};
-  }
-  return saved;
-}
+const file = jsonFile(FILE, { indent: 0 });
+const all = file.read;
 
 function write(next) {
-  fs.mkdirSync(path.dirname(FILE), { recursive: true });
-  fs.writeFileSync(`${FILE}.tmp`, `${JSON.stringify(next)}\n`);
-  fs.renameSync(`${FILE}.tmp`, FILE);
-  saved = next;
+  file.write(next);
 }
 
 const keyOf = (kind, id) => `${kind}:${id}`;
@@ -102,5 +89,5 @@ export function forget(kind, id) {
 
 /** For tests. */
 export function reset() {
-  saved = null;
+  file.forget();
 }
