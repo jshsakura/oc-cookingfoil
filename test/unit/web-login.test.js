@@ -137,6 +137,14 @@ test("people sign in with a form; a password alone opens nothing else; Google is
     assert.equal(home.status, 302);
     assert.equal(home.headers.get("location"), "/login?next=%2F");
     assert.equal(home.headers.get("www-authenticate"), null);
+    // A link preview (Accept: */*, no keys) follows the same way to the page that carries the share card,
+    // while a console's request with a key still gets its 401.
+    const preview = await get("/", { "User-Agent": "kakaotalk-scrap/1.0", Accept: "*/*" });
+    assert.equal(preview.status, 302);
+    assert.equal(preview.headers.get("location"), "/login?next=%2F");
+    assert.match(await (await get("/login?next=%2F", { Accept: "*/*" })).text(), /<meta property="og:image" content="[^"]*\/assets\/og-image\.png">/);
+    assert.equal((await get("/", { "X-Device-Key": "E2".repeat(32) })).status, 401);
+    assert.equal((await get("/api/library/sections", { Accept: "*/*" })).status, 401, "only the address itself, not the API");
     const xhr = await get("/api/library/sections", { "Sec-Fetch-Mode": "cors" });
     assert.equal(xhr.status, 401);
     assert.equal(xhr.headers.get("www-authenticate"), null);

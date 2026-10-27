@@ -83,6 +83,7 @@ export function consoleSendsRouter() {
   router.get("/", (req, res) => {
     res.set("Cache-Control", "private, no-cache");
     if (!deviceOf(req)) return res.status(403).json({ error: "a paired console only" });
+    sends.markRead(deviceOf(req));
     const items = consoleItems(req);
     const etag = `"${crypto.createHash("sha1").update(items.map((i) => i.id).join(",")).digest("base64url")}"`;
     res.set("ETag", etag);

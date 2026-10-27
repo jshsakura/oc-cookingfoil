@@ -79,3 +79,13 @@ test("a path is relative to the library and never climbs out of it", () => {
     assert.equal(cleanRelPath(bad), null, String(bad));
   }
 });
+
+test("a console that read its list once can receive; revoking it forgets that", () => {
+  sends.resetForTests();
+  assert.equal(sends.canReceive(KEY_A), false, "a client that never asked is not offered");
+  sends.markRead(KEY_A);
+  assert.equal(sends.canReceive(KEY_A), true);
+  assert.equal(sends.canReceive(KEY_B), false);
+  sends.forget(KEY_A);
+  assert.equal(sends.canReceive(KEY_A), false);
+});

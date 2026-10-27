@@ -82,6 +82,12 @@ export default function authGuard() {
       return next();
     }
     if (isBrowser(req)) return toLogin(req, res);
+    // A link preview (KakaoTalk, Discord, Slack...) asks for the address with Accept: */* and no keys:
+    // it goes where a browser goes, to /login, whose head carries the share card.
+    if ((req.method === "GET" || req.method === "HEAD") && req.path === "/" && unsignedReason(req) === "no-credentials") {
+      res.set("Cache-Control", "no-store");
+      return res.redirect(302, "/login?next=%2F");
+    }
 
     if (!trustedHere(req) && store.isLocked(ip)) {
       const lock = store.snapshot().lockouts.find((l) => l.ip === ip);

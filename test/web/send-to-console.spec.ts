@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
 // against canned answers so no account has to exist on the test server.
 const GAME = 'Test Game [0100000000010000][v0].nsp';
 
-async function signedIn(page, consoles: { deviceKey: string; label: string }[]) {
+async function signedIn(page, consoles: { deviceKey: string; label: string; sends?: boolean }[]) {
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   // The page's other signed-in checks (the inbox tray) would otherwise get the test server's 401 and leave for /login.
   await page.route('**/api/inbox**', (route) => route.fulfill({ json: { items: [] } }));
@@ -13,8 +13,8 @@ async function signedIn(page, consoles: { deviceKey: string; label: string }[]) 
   await page.route('**/pair/api/mine', (route) => route.fulfill({ json: { devices: consoles, clients: [] } }));
 }
 
-test('the button sends the game to the only console and offers a cancel while it waits', async ({ page }) => {
-  await signedIn(page, [{ deviceKey: 'a'.repeat(64), label: '거실 스위치' }]);
+test('even with one console the button asks first, sends, and offers a cancel while it waits', async ({ page }) => {
+  await signedIn(page, [{ deviceKey: 'a'.repeat(64), label: '거실 스위치', sends: true }]);
   let waiting: object[] = [];
   let posted: { deviceKey: string; path: string } | null = null;
   await page.route('**/pair/api/sends', async (route) => {
@@ -33,6 +33,8 @@ test('the button sends the game to the only console and offers a cancel while it
   await expect(send).toBeVisible();
   await expect(send).toHaveText('내 기기로 보내기');
   await send.click();
+  expect(posted).toBeNull();
+  await page.locator('#modal-send-box .send-pick button', { hasText: '거실 스위치' }).click();
   await expect(page.locator('.toast')).toContainText('거실 스위치에 보냈습니다');
   expect(posted!.deviceKey).toBe('a'.repeat(64));
   expect(posted!.path).toBe(GAME);
@@ -43,7 +45,7 @@ test('the button sends the game to the only console and offers a cancel while it
 });
 
 test('with several consoles the button asks which one first', async ({ page }) => {
-  await signedIn(page, [{ deviceKey: 'a'.repeat(64), label: '거실' }, { deviceKey: 'b'.repeat(64), label: '침실' }]);
+  await signedIn(page, [{ deviceKey: 'a'.repeat(64), label: '거실', sends: true }, { deviceKey: 'b'.repeat(64), label: '침실', sends: true }]);
   let posted: { deviceKey: string } | null = null;
   await page.route('**/pair/api/sends', (route) => {
     if (route.request().method() === 'POST') { posted = route.request().postDataJSON(); return route.fulfill({ json: { ok: true, item: {}, existing: false } }); }
@@ -56,6 +58,32 @@ test('with several consoles the button asks which one first', async ({ page }) =
   await page.locator('#modal-send-box .send-pick button', { hasText: '침실' }).click();
   await expect(page.locator('.toast')).toContainText('침실에 보냈습니다');
   expect(posted!.deviceKey).toBe('b'.repeat(64));
+});
+
+test('a console whose CookingFoil has never read its list is offered greyed, with why', async ({ page }) => {
+  await signedIn(page, [{ deviceKey: 'a'.repeat(64), label: '거실', sends: true }, { deviceKey: 'b'.repeat(64), label: '침실', sends: false }]);
+  await page.route('**/pair/api/sends', (route) => route.fulfill({ json: { consoles: [] } }));
+  await page.goto('/');
+  await page.locator('.game').first().click();
+  await page.locator('#modal-send').click();
+  const old = page.locator('#modal-send-box .send-pick button', { hasText: '침실' });
+  await expect(old).toBeDisabled();
+  await expect(page.locator('#modal-send-box .send-pick small')).toHaveText('흐린 기기는 CookingFoil 을 업데이트하면 받을 수 있습니다.');
+  await expect(page.locator('#modal-send-box .send-pick button', { hasText: '거실' })).toBeEnabled();
+});
+
+test('on a PC the actions are as wide as their words; on a phone they fill the row', async ({ page }) => {
+  await signedIn(page, [{ deviceKey: 'a'.repeat(64), label: '거실', sends: true }]);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.locator('.game').first().click();
+  await expect(page.locator('#modal-send')).toBeVisible();
+  const wide = await page.locator('#modal-download').boundingBox();
+  expect(wide!.width).toBeLessThan(220);
+  expect(wide!.height).toBeLessThan(48);
+  await page.setViewportSize({ width: 390, height: 800 });
+  const phone = await page.locator('#modal-download').boundingBox();
+  expect(phone!.width).toBeGreaterThan(90);
 });
 
 test('the button is absent when the account has no approved console', async ({ page }) => {

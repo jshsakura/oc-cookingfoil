@@ -66,11 +66,15 @@ test("send, list, ack, and who may do which", async () => {
     for (const k of Object.keys(sessions)) delete sessions[k];
     const consoleA = await pairAs("alice", key("1"), secret("a"));
     const consoleB = await pairAs("bob", key("2"), secret("b"));
+    // A console is offered as a target once its client has read its list.
+    const offered = async () => (await (await fetch(`${BASE}/pair/api/mine`, { headers: await signedIn("alice") })).json()).devices.map((d) => [d.deviceKey, d.sends]);
+    assert.deepEqual(await offered(), [[key("1"), false]], "never read: the web greys it");
 
     // Ownership: bob cannot send to alice's console, and cannot tell it from a console that does not exist.
     assert.equal((await send("bob", key("1"), GAME)).code, 404);
     assert.equal((await send("alice", key("9"), GAME)).code, 404);
     assert.equal((await queue(consoleA)).body.items.length, 0, "nothing was queued by the refused tries");
+    assert.deepEqual(await offered(), [[key("1"), true]], "its first read makes it a target");
 
     // Paths: only what the library holds, and nothing that climbs out of it.
     assert.equal((await send("alice", key("1"), "Game/Nope.nsp")).code, 404);
