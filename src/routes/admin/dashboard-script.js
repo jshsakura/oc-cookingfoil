@@ -95,8 +95,9 @@ async function loadStats(){
   const d=await api('/admin/api/stats');
   me=d.me||null;
   acctAvatar(me?.avatar);
-  $('ts').textContent=topFill('overview.asOf',{at:fmt(d.generatedAt)});
-  renderWarnings(d.warnings||[]);renderLanes(d.lanes);renderCards(d);renderUsers(d.users||[]);renderSecurity(d);loadHealth();}
+  renderUsers(d.users||[]);renderSecurity(d);
+  // The overview's own call draws its part (to-do, lanes, what was added, health).
+  if(typeof loadOverview==='function')loadOverview();}
 
 // The users, Google accounts, devices and issued-clients behaviour lives in
 // The one-time credential dialog lives in people-script.js.
