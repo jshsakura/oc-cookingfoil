@@ -5,6 +5,7 @@ import { OVERVIEW_CSS, OVERVIEW_HTML } from "./overview-page.js";
 import { UPLOAD_HTML } from "./upload-page.js";
 import { GOOGLE_SETTINGS_HTML, ADMIN_SECURITY_HTML } from "./security-pages.js";
 import { FEATURED_HTML } from "./featured-page.js";
+import { CHAT_WIDGET_CSS, CHAT_WIDGET_HTML, CHAT_WIDGET_SCRIPT } from "./chat-widget.js";
 /**
  * The operator dashboard.
  *
@@ -348,7 +349,7 @@ export function dashboardPage(page = ADMIN_PAGE_BY_PATH.get("/admin"), view = ""
   const current = { path: page.path, view, countId: page.count ?? "" };
   return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${OVERVIEW_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${CHAT_WIDGET_CSS}${OVERVIEW_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ORGANIZE_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
 ${LIST_HELPERS_CSS}
 tr.group td{font-weight:var(--fw-bold);color:var(--muted);padding-top:14px}
 ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
@@ -413,6 +414,7 @@ ${IP_DIALOG_HTML}
 ${CRED_DIALOG_HTML}
 ${HOMEBREW_DIALOG_HTML}
 ${CONTENT_DIALOG_HTML}
+${CHAT_WIDGET_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
+<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${ORGANIZE_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${CHAT_WIDGET_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
 }

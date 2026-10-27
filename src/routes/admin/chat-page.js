@@ -8,11 +8,12 @@
 import { icon } from "../../views/icons.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
 
-export const CHAT_HTML = /* html */ `<section id="tab-chat" hidden>
-  <div class="ch-top ch-col">
+/** The chat itself: the page puts it in a section, the floating widget in a panel. */
+export const CHAT_INNER_HTML = /* html */ `  <div class="ch-top ch-col">
     <select id="ch-pick" ${topLabel("ch.conv")}></select>
     <button type="button" class="icon-btn" id="ch-new" ${topLabel("ch.new")}>${icon("plus")}</button>
     <button type="button" class="icon-btn" id="ch-gear" ${topLabel("ch.settings")}>${icon("sliders")}</button>
+    <button type="button" class="icon-btn" id="ch-close" hidden ${topLabel("ch.close")}>${icon("x")}</button>
   </div>
   <div class="ch-log" id="ch-log" aria-live="polite"><div class="ch-col" id="ch-col"></div></div>
   <div class="ch-dock" id="ch-dock">
@@ -44,7 +45,10 @@ export const CHAT_HTML = /* html */ `<section id="tab-chat" hidden>
       <div class="actions"><button type="submit" class="primary">${top("fp.save")}</button></div>
     </form>
     <div class="ch-danger"><button type="button" class="danger" id="ch-del">${top("ch.delete")}</button></div>
-  </dialog>
+  </dialog>`;
+
+export const CHAT_HTML = /* html */ `<section id="tab-chat" hidden>
+${CHAT_INNER_HTML}
 </section>`;
 
 export const CHAT_CSS = /* css */ `
@@ -52,6 +56,8 @@ export const CHAT_CSS = /* css */ `
 .wrap:has(#tab-chat){padding-bottom:12px}
 #tab-chat{display:flex;flex-direction:column;min-height:320px;height:calc(100dvh - 140px)}
 #tab-chat[hidden]{display:none}
+/* A control with a display of its own would otherwise ignore the hidden attribute. */
+#tab-chat [hidden],.ch-widget [hidden]{display:none!important}
 .ch-top{display:flex;gap:8px;align-items:center;flex:none;padding-bottom:10px}
 .ch-top select{flex:1;min-width:0}
 .ch-log{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
@@ -122,20 +128,20 @@ function chEmpty(){const c=chCol();c.classList.add('ch-empty');c.replaceChildren
     h.append(chips);}
   c.append(h);}
 function chLeaveEmpty(){const c=chCol();if(c.classList.contains('ch-empty')){c.classList.remove('ch-empty');c.replaceChildren();}}
-const BT=String.fromCharCode(96),FENCE=BT+BT+BT;
+const CH_BT=String.fromCharCode(96),CH_FENCE=CH_BT+CH_BT+CH_BT;
 // Bold and inline code only; everything else stays text. Nodes are built, never parsed from HTML.
 function chInline(parent,s){let i=0;
-  while(i<s.length){const b=s.indexOf('**',i),c=s.indexOf(BT,i);let n=-1,k=null;
+  while(i<s.length){const b=s.indexOf('**',i),c=s.indexOf(CH_BT,i);let n=-1,k=null;
     if(b>=0&&(c<0||b<c)){n=b;k='b';}else if(c>=0){n=c;k='c';}
     if(n<0){parent.append(s.slice(i));return;}
-    const mark=k==='b'?'**':BT,end=s.indexOf(mark,n+mark.length);
+    const mark=k==='b'?'**':CH_BT,end=s.indexOf(mark,n+mark.length);
     if(end<0){parent.append(s.slice(i));return;}
     if(n>i)parent.append(s.slice(i,n));
     parent.append(el(k==='b'?'strong':'code',s.slice(n+mark.length,end)));i=end+mark.length;}}
 // Paragraphs, bullet and numbered lists, fenced code. A fence still open (the answer is streaming) shows as code.
 function chRender(box,text){box.replaceChildren();let list=null,code=null;
   for(const line of text.split('\\n')){
-    if(line.trim().startsWith(FENCE)){if(code){box.append(code);code=null;}else{code=el('pre');list=null;}continue;}
+    if(line.trim().startsWith(CH_FENCE)){if(code){box.append(code);code=null;}else{code=el('pre');list=null;}continue;}
     if(code){code.textContent+=(code.dataset.n?'\\n':'')+line;code.dataset.n='1';continue;}
     const m=/^\\s*([-*]|\\d+\\.)\\s+(.*)$/.exec(line);
     if(m){const tag=/\\d/.test(m[1])?'ol':'ul';if(!list||list.tagName.toLowerCase()!==tag){list=el(tag);box.append(list);}

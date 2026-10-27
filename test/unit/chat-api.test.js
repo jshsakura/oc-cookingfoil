@@ -103,3 +103,15 @@ test("settling a call that is not waiting says denied", async () => {
   assert.equal(out.status, "denied");
   s.close();
 });
+
+test("the status query tells whether the chat is on and its model set, without listing conversations", async () => {
+  const on = await start();
+  assert.deepEqual(await (await fetch(`${on.base}?status=1`)).json(), { configured: true });
+  on.close();
+  const unset = await start({ llmConfig: () => ({ baseUrl: "", model: "", apiKey: "" }) });
+  assert.deepEqual(await (await fetch(`${unset.base}?status=1`)).json(), { configured: false });
+  unset.close();
+  const off = await start({ enabled: false });
+  assert.equal((await fetch(`${off.base}?status=1`)).status, 404);
+  off.close();
+});
