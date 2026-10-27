@@ -1226,7 +1226,6 @@
   "There is not enough memory to connect. Try again once the downloads finish.": "メモリが足りないため接続できません。ダウンロードが終わってからもう一度お試しください。",
   "USB could not be opened. Close other apps that use USB and try again.": "USBを開けませんでした。USBを使う他のアプリを閉じてもう一度お試しください。",
   "Opened from the Album there is too little memory to connect to a PC. Opened from a HOME Menu shortcut, it can.": "アルバムから開くとメモリが足りずPCに接続できません。HOMEメニューのショートカットから開けば接続できます。",
-  "Added a game sent from the web to the download queue.": "Webから送られたゲームをダウンロードに追加しました。",
-  "Added {0} games sent from the web to the download queue.": "Webから送られたゲーム{0}本をダウンロードに追加しました。",
-  "A game sent from the web waits until the console has room.": "Webから送られたゲームは、本体に空きができたら受け取ります。"
+  "A game sent from the web waits until the console has room.": "Webから送られたゲームは、本体に空きができたら受け取ります。",
+  "Sent from the web. Goes to the download queue unless cancelled.": "Webから送られたゲームです。キャンセルしなければダウンロードに追加します。"
 }
