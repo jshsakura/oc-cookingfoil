@@ -218,7 +218,6 @@ function loadChat(){chIcon();chSendState();chFit();chRefresh().catch((err)=>toas
 addEventListener('resize',chFit);if(window.visualViewport)window.visualViewport.addEventListener('resize',chFit);
 $('ch-gear').addEventListener('click',chOpenSheet);
 $('ch-sheet-x').addEventListener('click',()=>$('ch-sheet').close());
-$('ch-sheet').addEventListener('click',(ev)=>{if(ev.target===$('ch-sheet'))$('ch-sheet').close();});
 $('ch-on').addEventListener('change',async()=>{const want=$('ch-on').checked;
   try{if(want&&!chState.ready){$('ch-on').checked=false;toast(topText('ch.needSetup'));return;}
     await api('/admin/api/server-settings',{method:'POST',body:{chatEnabled:want}});await chRefresh();

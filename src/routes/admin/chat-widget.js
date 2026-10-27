@@ -7,7 +7,7 @@ import { icon } from "../../views/icons.js";
 import { topLabel } from "./top-i18n.js";
 import { CHAT_CSS, CHAT_INNER_HTML, CHAT_SCRIPT } from "./chat-page.js";
 
-export const CHAT_WIDGET_HTML = /* html */ `<button type="button" class="primary ch-launch" id="ch-launch" hidden aria-expanded="false" ${topLabel("m.chat")}>${icon("sparkle")}</button>
+export const CHAT_WIDGET_HTML = /* html */ `<button type="button" class="primary ch-launch" id="ch-launch" hidden aria-expanded="false" ${topLabel("m.chat")}>${icon("chat")}</button>
 <div class="ch-widget" id="ch-widget" hidden role="region" ${topLabel("m.chat")}>
 ${CHAT_INNER_HTML}
 </div>`;
@@ -39,5 +39,5 @@ $('ch-close').addEventListener('click',()=>chWidgetShow(false));
 $('ch-launch').addEventListener('click',chWidgetOpen);
 addEventListener('keydown',(ev)=>{if(ev.key==='Escape'&&!$('ch-widget').hidden&&!$('ch-sheet').open)chWidgetShow(false);});
 // Shown only while the chat is on and its model is set; a 404 (off) or a sign-out leaves it hidden.
-fetch('/admin/api/chat?status=1',{headers:{Accept:'application/json'}}).then((r)=>r.ok?r.json():null).then((d)=>{if(d&&d.configured)$('ch-launch').hidden=false;}).catch(()=>{});
+fetch('/admin/api/chat?status=1',{headers:{Accept:'application/json'}}).then((r)=>r.json().catch(()=>null)).then((d)=>{if(d?.configured===true)$('ch-launch').hidden=false;}).catch(()=>{});
 `;

@@ -35,6 +35,11 @@ test('the chat is a full-height chat screen: off state, settings sheet, greeting
   await setUp(page);
   await page.locator('#ch-on').check();
   await expect(page.locator('#ch-dock')).toBeVisible();
+  // Only the close button closes it: a click on its padding or on the dimmed page leaves it open.
+  const box = (await page.locator('#ch-sheet').boundingBox())!;
+  await page.mouse.click(box.x + 4, box.y + box.height / 2);
+  await page.mouse.click(4, 4);
+  await expect(page.locator('#ch-sheet')).toBeVisible();
   await page.locator('#ch-sheet-x').click();
   await expect(page.locator('#ch-sheet')).toBeHidden();
 

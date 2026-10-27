@@ -68,8 +68,8 @@ for (const [path, own, foreign, api] of SPLIT) {
     await expect(page.locator(own)).toBeVisible();
     for (const f of foreign) await expect(page.locator(f), f).toHaveCount(0);
     await page.waitForTimeout(800);
-    // The activity menu is part of the shared shell every page carries.
-    const strays = asked.filter((u) => !api.test(u) && !/^\/admin\/api\/activity/.test(u));
+    // The activity menu and the chat button are part of the shared shell every page carries.
+    const strays = asked.filter((u) => !api.test(u) && !/^\/admin\/api\/(activity|chat)(\?|$|\/)/.test(u));
     expect(strays, `asked ${asked.join(', ')}`).toEqual([]);
   });
 }
