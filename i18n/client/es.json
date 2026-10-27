@@ -1230,5 +1230,6 @@
   "Sent from the web. Goes to the download queue unless cancelled.": "Enviado desde la web. Se añade a la cola de descargas si no lo cancelas.",
   "Downloads start once the console is online.": "Las descargas empiezan cuando la consola tenga conexión.",
   "Cleaning up files": "Limpiando archivos",
-  "Removed {0} unfinished copies.": "Se eliminaron {0} copias sin terminar."
+  "Removed {0} unfinished copies.": "Se eliminaron {0} copias sin terminar.",
+  "Deleting unfinished copies and files a Mac left.": "Eliminando copias sin terminar y archivos que dejó un Mac."
 }

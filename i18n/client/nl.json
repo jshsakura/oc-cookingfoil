@@ -1230,5 +1230,6 @@
   "Sent from the web. Goes to the download queue unless cancelled.": "Verstuurd via het web. Gaat naar de downloadwachtrij tenzij je annuleert.",
   "Downloads start once the console is online.": "Downloads starten zodra de console online is.",
   "Cleaning up files": "Bestanden opruimen",
-  "Removed {0} unfinished copies.": "{0} onvoltooide kopieën verwijderd."
+  "Removed {0} unfinished copies.": "{0} onvoltooide kopieën verwijderd.",
+  "Deleting unfinished copies and files a Mac left.": "Onvoltooide kopieën en door een Mac achtergelaten bestanden worden verwijderd."
 }

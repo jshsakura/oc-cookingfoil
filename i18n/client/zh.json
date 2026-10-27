@@ -1230,5 +1230,6 @@
   "Sent from the web. Goes to the download queue unless cancelled.": "这是从网页发送的游戏。不取消就会加入下载队列。",
   "Downloads start once the console is online.": "连接到互联网后才能下载。",
   "Cleaning up files": "正在整理文件",
-  "Removed {0} unfinished copies.": "已删除 {0} 个未完成的复制文件。"
+  "Removed {0} unfinished copies.": "已删除 {0} 个未完成的复制文件。",
+  "Deleting unfinished copies and files a Mac left.": "正在删除未完成的复制文件和 Mac 留下的文件。"
 }
