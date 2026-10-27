@@ -61,7 +61,7 @@ export const UPLOAD_HTML = /* html */ `<section id="tab-upload" hidden>
 
 export const UPLOAD_SCRIPT = /* js */ `
 const upQuery=new URLSearchParams(location.search);
-let upPending=['patch','save'].includes(upQuery.get('kind'))&&upQuery.get('app')?{kind:upQuery.get('kind'),app:upQuery.get('app')}:null;
+let upPending=['patch','save'].includes(upQuery.get('kind'))?{kind:upQuery.get('kind'),app:upQuery.get('app')||''}:null;
 // The page opens on the file chooser. What the names say is a suggestion shown next to it; the
 // kinds and consoles only appear once files are picked, and only as many as the suggestion needs.
 const upT=(k,v)=>{let s=topText('u.'+k);if(v)for(const x in v)s=s.split('{'+x+'}').join(v[x]);return s;};

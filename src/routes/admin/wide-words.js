@@ -9,7 +9,7 @@ export const WIDE_WORDS = {
   "zh-Hant": {
     title: "CookingFoil 伺服器管理", loading: "載入中", web: "儀表板", guide: "操作指南", dark: "深色主題",
     logout: "登出", language: "語言", nav: "伺服器管理選單", subnav: "子選單",
-    "m.overview": "伺服器概況", "m.library": "收藏庫", "m.upload": "上傳", "m.nsz": "檔案壓縮", "m.inbox": "收件匣",
+    "m.overview": "伺服器概況", "m.library": "收藏庫", "m.patches": "修補程式", "pt.upload": "上傳修補程式", "m.upload": "上傳", "m.nsz": "檔案壓縮", "m.inbox": "收件匣",
     "m.featured": "首頁畫面構成", "m.trash": "回收站", "m.retro": "復古遊戲", "m.people": "帳戶與裝置",
     "m.alerts": "通知設定", "m.client": "用戶端發布", "m.xfer": "下載記錄", "m.clients": "用戶端日誌", "m.deny": "封鎖與拒絕",
     "m.grpGames": "遊戲", "m.grpOps": "記錄與維運", "m.grpSet": "設定", "m.menu": "選單",
@@ -287,7 +287,7 @@ export const WIDE_WORDS = {
   es: {
     title: "Administración del servidor CookingFoil", loading: "Cargando", web: "Panel", guide: "Guía", dark: "Tema oscuro",
     logout: "Cerrar sesión", language: "Idioma", nav: "Menú de administración", subnav: "Submenú",
-    "m.overview": "Estado del servidor", "m.library": "Biblioteca", "m.upload": "Subir", "m.nsz": "Compresión de archivos", "m.inbox": "Bandeja",
+    "m.overview": "Estado del servidor", "m.library": "Biblioteca", "m.patches": "Parches", "pt.upload": "Subir un parche", "m.upload": "Subir", "m.nsz": "Compresión de archivos", "m.inbox": "Bandeja",
     "m.featured": "Pantalla de inicio", "m.trash": "Papelera", "m.retro": "Juegos retro", "m.people": "Cuentas y dispositivos",
     "m.alerts": "Ajustes de alertas", "m.client": "Publicaciones del cliente", "m.xfer": "Historial de descargas", "m.clients": "Registros del cliente", "m.deny": "Bloqueos y rechazos",
     "m.grpGames": "Juegos", "m.grpOps": "Registros y operaciones", "m.grpSet": "Ajustes", "m.menu": "Menú",
@@ -567,7 +567,7 @@ export const WIDE_WORDS = {
   fr: {
     title: "Administration du serveur CookingFoil", loading: "Chargement", web: "Tableau de bord", guide: "Guide", dark: "Thème sombre",
     logout: "Se déconnecter", language: "Langue", nav: "Menu d'administration", subnav: "Sous-menu",
-    "m.overview": "État du serveur", "m.library": "Bibliothèque", "m.upload": "Téléverser", "m.nsz": "Compression des fichiers", "m.inbox": "Boîte de réception",
+    "m.overview": "État du serveur", "m.library": "Bibliothèque", "m.patches": "Correctifs", "pt.upload": "Téléverser un correctif", "m.upload": "Téléverser", "m.nsz": "Compression des fichiers", "m.inbox": "Boîte de réception",
     "m.featured": "Écran d'accueil", "m.trash": "Corbeille", "m.retro": "Jeux rétro", "m.people": "Comptes et appareils",
     "m.alerts": "Paramètres des alertes", "m.client": "Publications du client", "m.xfer": "Historique des téléchargements", "m.clients": "Journaux du client", "m.deny": "Blocages et refus",
     "m.grpGames": "Jeux", "m.grpOps": "Journaux et opérations", "m.grpSet": "Paramètres", "m.menu": "Menu",
@@ -847,7 +847,7 @@ export const WIDE_WORDS = {
   de: {
     title: "CookingFoil-Serververwaltung", loading: "Lädt", web: "Übersicht", guide: "Anleitung", dark: "Dunkles Design",
     logout: "Abmelden", language: "Sprache", nav: "Verwaltungsmenü", subnav: "Untermenü",
-    "m.overview": "Serverstatus", "m.library": "Bibliothek", "m.upload": "Hochladen", "m.nsz": "Dateikomprimierung", "m.inbox": "Eingang",
+    "m.overview": "Serverstatus", "m.library": "Bibliothek", "m.patches": "Patches", "pt.upload": "Patch hochladen", "m.upload": "Hochladen", "m.nsz": "Dateikomprimierung", "m.inbox": "Eingang",
     "m.featured": "Startbildschirm", "m.trash": "Papierkorb", "m.retro": "Retro-Spiele", "m.people": "Konten und Geräte",
     "m.alerts": "Benachrichtigungseinstellungen", "m.client": "Client-Veröffentlichungen", "m.xfer": "Download-Verlauf", "m.clients": "Client-Protokolle", "m.deny": "Sperrungen und Ablehnungen",
     "m.grpGames": "Spiele", "m.grpOps": "Protokolle und Betrieb", "m.grpSet": "Einstellungen", "m.menu": "Menü",
@@ -1127,7 +1127,7 @@ export const WIDE_WORDS = {
   it: {
     title: "Amministrazione del server CookingFoil", loading: "Caricamento", web: "Pannello", guide: "Guida", dark: "Tema scuro",
     logout: "Esci", language: "Lingua", nav: "Menu di amministrazione", subnav: "Sottomenu",
-    "m.overview": "Stato del server", "m.library": "Libreria", "m.upload": "Carica", "m.nsz": "Compressione dei file", "m.inbox": "Posta in arrivo",
+    "m.overview": "Stato del server", "m.library": "Libreria", "m.patches": "Patch", "pt.upload": "Carica una patch", "m.upload": "Carica", "m.nsz": "Compressione dei file", "m.inbox": "Posta in arrivo",
     "m.featured": "Schermata iniziale", "m.trash": "Cestino", "m.retro": "Giochi retrò", "m.people": "Account e dispositivi",
     "m.alerts": "Impostazioni avvisi", "m.client": "Pubblicazioni del client", "m.xfer": "Storico dei download", "m.clients": "Registri del client", "m.deny": "Blocchi e rifiuti",
     "m.grpGames": "Giochi", "m.grpOps": "Registri e operazioni", "m.grpSet": "Impostazioni", "m.menu": "Menu",
@@ -1407,7 +1407,7 @@ export const WIDE_WORDS = {
   pt: {
     title: "Administração do servidor CookingFoil", loading: "Carregando", web: "Painel", guide: "Guia", dark: "Tema escuro",
     logout: "Sair", language: "Idioma", nav: "Menu de administração", subnav: "Submenu",
-    "m.overview": "Estado do servidor", "m.library": "Biblioteca", "m.upload": "Enviar", "m.nsz": "Compressão de arquivos", "m.inbox": "Caixa de entrada",
+    "m.overview": "Estado do servidor", "m.library": "Biblioteca", "m.patches": "Patches", "pt.upload": "Enviar um patch", "m.upload": "Enviar", "m.nsz": "Compressão de arquivos", "m.inbox": "Caixa de entrada",
     "m.featured": "Tela inicial", "m.trash": "Lixeira", "m.retro": "Jogos retrô", "m.people": "Contas e dispositivos",
     "m.alerts": "Configurações de alertas", "m.client": "Publicações do cliente", "m.xfer": "Histórico de downloads", "m.clients": "Registros do cliente", "m.deny": "Bloqueios e recusas",
     "m.grpGames": "Jogos", "m.grpOps": "Registros e operações", "m.grpSet": "Configurações", "m.menu": "Menu",
@@ -1687,7 +1687,7 @@ export const WIDE_WORDS = {
   nl: {
     title: "CookingFoil serverbeheer", loading: "Laden", web: "Dashboard", guide: "Handleiding", dark: "Donker thema",
     logout: "Afmelden", language: "Taal", nav: "Beheermenu", subnav: "Submenu",
-    "m.overview": "Serverstatus", "m.library": "Bibliotheek", "m.upload": "Uploaden", "m.nsz": "Bestandscompressie", "m.inbox": "Inbox",
+    "m.overview": "Serverstatus", "m.library": "Bibliotheek", "m.patches": "Patches", "pt.upload": "Patch uploaden", "m.upload": "Uploaden", "m.nsz": "Bestandscompressie", "m.inbox": "Inbox",
     "m.featured": "Startscherm", "m.trash": "Prullenbak", "m.retro": "Retro-spellen", "m.people": "Accounts en apparaten",
     "m.alerts": "Meldingsinstellingen", "m.client": "Clientpublicaties", "m.xfer": "Downloadgeschiedenis", "m.clients": "Clientlogboeken", "m.deny": "Blokkades en weigeringen",
     "m.grpGames": "Spellen", "m.grpOps": "Logboeken en beheer", "m.grpSet": "Instellingen", "m.menu": "Menu",
@@ -1967,7 +1967,7 @@ export const WIDE_WORDS = {
   ru: {
     title: "Управление сервером CookingFoil", loading: "Загрузка", web: "Панель", guide: "Руководство", dark: "Тёмная тема",
     logout: "Выйти", language: "Язык", nav: "Меню управления", subnav: "Подменю",
-    "m.overview": "Состояние сервера", "m.library": "Библиотека", "m.upload": "Загрузить", "m.nsz": "Сжатие файлов", "m.inbox": "Входящие",
+    "m.overview": "Состояние сервера", "m.library": "Библиотека", "m.patches": "Патчи", "pt.upload": "Загрузить патч", "m.upload": "Загрузить", "m.nsz": "Сжатие файлов", "m.inbox": "Входящие",
     "m.featured": "Главный экран", "m.trash": "Корзина", "m.retro": "Ретро-игры", "m.people": "Аккаунты и устройства",
     "m.alerts": "Настройки уведомлений", "m.client": "Публикации клиента", "m.xfer": "История загрузок", "m.clients": "Журналы клиента", "m.deny": "Блокировки и отказы",
     "m.grpGames": "Игры", "m.grpOps": "Журналы и управление", "m.grpSet": "Настройки", "m.menu": "Меню",

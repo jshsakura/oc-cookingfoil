@@ -18,6 +18,7 @@ export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 패치 이름" aria-label="패치 찾기">
     <button type="button" id="pt-only" aria-pressed="false">필수만 보기</button>
+    <button type="button" class="primary" id="pt-upload" data-top="pt.upload">${top("pt.upload")}</button>
   </div>
   <p class="muted" id="pt-count"></p>
   <div id="lib-patches" data-skel></div>`;
@@ -137,6 +138,7 @@ function ptGame(){const m=$('gd-patches');if(!m)return;
 async function loadPatches(){let p,s;try{[p,s]=await Promise.all([api('/admin/api/patches'),api('/admin/api/saves')]);}catch(err){toast(err.message);return;}
   ptData=p.patches||[];svData=s.saves||[];ptRender();svRender();ptGame();}
 $('pt-q').addEventListener('input',ptRender);
+$('pt-upload').addEventListener('click',()=>{location.href='/admin/upload?kind=patch';});
 $('pt-only').addEventListener('click',(e)=>{const b=e.currentTarget;b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));ptRender();});
 
 ${CONTENT_EDITOR_SCRIPT}
