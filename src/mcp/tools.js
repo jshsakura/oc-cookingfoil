@@ -38,7 +38,7 @@ export function areaTools() {
   return [...areas].map(([name, caps]) => ({ name, caps }));
 }
 
-const CONFIRM = { type: "string", enum: ["approve"], description: "Omit to preview a writing action; approve only after the user agrees" };
+const CONFIRM = { type: "string", enum: ["approve"], description: "Omit to preview; approve only after the user agrees" };
 
 /** An area tool's input: which action, its arguments, and confirm when any action writes. */
 export function areaInput({ caps }) {
@@ -58,7 +58,7 @@ export function areaDescription({ name, caps }) {
   // The action names are already in the input's enum.
   return [
     AREA_TEXT[name] ?? "",
-    writes.length ? `Writes (${writes.join(", ")}): preview without confirm, then confirm='approve' once the user agrees.` : "",
+    writes.length ? `Writes (${writes.join(", ")}): preview first, then confirm='approve' after the user agrees.` : "",
   ].filter(Boolean).join(" ");
 }
 

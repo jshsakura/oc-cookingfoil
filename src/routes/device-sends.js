@@ -32,6 +32,8 @@ import express from "express";
 
 import * as store from "../security/store.js";
 import * as sends from "../security/device-sends.js";
+import * as sendHistory from "../security/send-history.js";
+import { baseTitleIdOf } from "../meta/image-cache.js";
 import * as downloadLinks from "../security/download-links.js";
 import { normalizeDeviceKey } from "../security/pairing.js";
 import { serverId } from "../security/server-id.js";
@@ -61,6 +63,11 @@ export function queueFile(deviceKey, rawPath, sentBy) {
   if (!file) throw fail(404, "not in the library");
   const out = sends.add(deviceKey, { path: rel, name: file.name, titleId: file.titleId, size: file.size }, sentBy);
   if (out.refused) throw fail(409, "that console already has the most it can hold");
+  try {
+    sendHistory.record(sentBy, baseTitleIdOf(file.titleId));
+  } catch (err) {
+    debug.error("sends: could not note the send for recommendations: %s", err.message);
+  }
   return { item: out.item, existing: out.existing };
 }
 

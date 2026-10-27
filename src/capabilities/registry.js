@@ -22,6 +22,7 @@ import { serverCapabilities } from "./server.js";
 import { trashCapabilities } from "./trash.js";
 import { devicesCapabilities } from "./devices.js";
 import { wishlistCapabilities } from "./wishlist.js";
+import { chatGamesCapabilities } from "./chat-games.js";
 import { accountsCapabilities } from "./accounts.js";
 import { serverAdminCapabilities } from "./server-admin.js";
 import { alertsCapabilities } from "./alerts.js";
@@ -29,7 +30,7 @@ import { integrationsCapabilities } from "./integrations.js";
 import { pluginsCapabilities } from "./plugins.js";
 
 // Area modules, each exporting an array of defineCapability() results.
-const ENTRIES = [...pluginsCapabilities, ...serverCapabilities, ...gamesCapabilities, ...gameArtCapabilities, ...patchesCapabilities, ...libraryCapabilities, ...libraryFilesCapabilities, ...filesCapabilities, ...retroCapabilities, ...retroGamesCapabilities, ...retroArtCapabilities, ...trashCapabilities, ...devicesCapabilities, ...wishlistCapabilities, ...accountsCapabilities, ...serverAdminCapabilities, ...alertsCapabilities, ...integrationsCapabilities];
+const ENTRIES = [...pluginsCapabilities, ...serverCapabilities, ...gamesCapabilities, ...gameArtCapabilities, ...patchesCapabilities, ...libraryCapabilities, ...libraryFilesCapabilities, ...filesCapabilities, ...retroCapabilities, ...retroGamesCapabilities, ...retroArtCapabilities, ...trashCapabilities, ...devicesCapabilities, ...wishlistCapabilities, ...chatGamesCapabilities, ...accountsCapabilities, ...serverAdminCapabilities, ...alertsCapabilities, ...integrationsCapabilities];
 
 /** A registry over checked capabilities. Throws listing every duplicate. */
 export function buildRegistry(entries) {

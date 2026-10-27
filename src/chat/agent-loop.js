@@ -7,11 +7,16 @@
  *   runTurn({ llm, host, messages, ctx, onEvent, maxSteps, maxToolChars, signal })
  *     -> { added, steps, usage: { prompt_tokens, completion_tokens, context_tokens }, error?, aborted? }
  *
+ * A tool result may carry `cards` (chat/cards.js). They go to the screen as a `cards` event and are
+ * kept on the stored tool message, so a reload shows them again; the model is given the ids and
+ * names instead, and told the person already sees the cards.
+ *
  * `added` is what this turn appended to the conversation (assistant and tool messages); the
  * `messages` given in are not changed. A call that waits for an approval is told to the screen as an
  * `approval` event and to the model as "waiting", so the model says so and does not call it again.
  */
 import debug from "../debug.js";
+import { cleanCards } from "./cards.js";
 
 export const MAX_STEPS = 8;
 export const MAX_TOOL_CHARS = 12_000;
@@ -24,6 +29,15 @@ const WAITING = JSON.stringify({ status: "waiting_for_approval", note: "A person
 const RUN_RE = /[A-Za-z0-9+/=_-]{512,}/g;
 const isBlob = (run) => (/[A-Z]/.test(run) && /[a-z]/.test(run) && /[0-9+/]/.test(run)) || (/^[0-9a-fA-F]+$/.test(run) && /[0-9]/.test(run) && /[a-fA-F]/.test(run));
 export const scrubBlobs = (text) => text.replace(RUN_RE, (m) => (isBlob(m) ? `[${m.length} characters of file data left out]` : m));
+
+/** A tool result's cards as the page may draw them, and the result the model is given in their place. */
+function splitCards(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.cards)) return { cards: [], rest: value };
+  const cards = cleanCards(value.cards);
+  const { cards: _drawn, ...rest } = value;
+  if (!cards.length) return { cards, rest };
+  return { cards, rest: { ...rest, shown: cards.map(({ id, name, platform }) => ({ id, name, platform })), note: "The person already sees these as cards; do not list their details again." } };
+}
 
 const cutTo = (text, max) => (text.length > max ? `${text.slice(0, max)}…[cut ${text.length - max} characters; ask for less, with a filter or a limit]` : text);
 
@@ -43,7 +57,7 @@ export async function runTurn({ llm, host, messages, ctx, onEvent = () => {}, ma
       args = JSON.parse(call.arguments || "{}");
       if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error("not an object");
     } catch {
-      return JSON.stringify({ error: "arguments were not valid JSON; send one JSON object" });
+      return { content: JSON.stringify({ error: "arguments were not valid JSON; send one JSON object" }) };
     }
     onEvent({ type: "tool_start", id: call.id, name: call.name, action: args.action ?? null });
     let result;
@@ -56,11 +70,13 @@ export async function runTurn({ llm, host, messages, ctx, onEvent = () => {}, ma
     onEvent({ type: "tool_end", id: call.id, status: result?.status ?? "done" });
     if (result?.status === "pending" || result?.status === "requested") {
       onEvent({ type: "approval", id: result.id, status: result.status, preview: result.preview, tool: call.name, action: args.action ?? null });
-      return WAITING;
+      return { content: WAITING };
     }
-    if (result?.status === "denied") return JSON.stringify({ error: result.message });
-    if (result?.status === "error") return JSON.stringify({ error: result.error });
-    return cutTo(scrubBlobs(JSON.stringify(result?.result ?? null)), maxToolChars);
+    if (result?.status === "denied") return { content: JSON.stringify({ error: result.message }) };
+    if (result?.status === "error") return { content: JSON.stringify({ error: result.error }) };
+    const { cards, rest } = splitCards(result?.result ?? null);
+    if (cards.length) onEvent({ type: "cards", id: call.id, cards });
+    return { content: cutTo(scrubBlobs(JSON.stringify(rest ?? null)), maxToolChars), ...(cards.length ? { cards } : {}) };
   }
 
   try {
@@ -102,7 +118,7 @@ export async function runTurn({ llm, host, messages, ctx, onEvent = () => {}, ma
       if (!calls.length) break;
 
       const results = await Promise.all(calls.map(runCall));
-      calls.forEach((c, i) => push({ role: "tool", tool_call_id: c.id, content: results[i] }));
+      calls.forEach((c, i) => push({ role: "tool", tool_call_id: c.id, content: results[i].content, ...(results[i].cards ? { cards: results[i].cards } : {}) }));
     }
   } catch (err) {
     out.error = err;
