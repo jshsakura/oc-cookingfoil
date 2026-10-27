@@ -38,7 +38,7 @@ import { applyServerSettings, SettingsRefusal, startTitledbRefresh, titledbFetch
 export const TOKEN_LOCKED = [
   "devicePairing", "passwordLogin", "deviceApproval", "deviceLimit", "enrollPerHour", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl",
   "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset",
-  "nszKeepHours", "nszKeepGb", "nszDiskFloorGb", "mcpEnabled", "chatEnabled",
+  "nszKeepHours", "nszKeepGb", "nszDiskFloorGb", "mcpEnabled", "chatEnabled", "chatName", "chatPersona", "chatContextTokens",
 ];
 
 export function mountServerSettingsApi(router, requireSession) {

@@ -35,9 +35,10 @@ test("a turn without a configured model is refused before anything is stored", a
 
 test("a message that is empty or too long is refused", async () => {
   const chat = createChatService({ dir: tmp(), llmConfig: () => cfg, stream: saying("x"), makeHost: noHost });
-  for (const message of ["", "   ", undefined, "a".repeat(8001)]) {
+  for (const message of ["", "   ", undefined]) {
     await assert.rejects(chat.turn({ ...WHO, message, onEvent() {} }), (e) => e.code === "bad_message");
   }
+  await assert.rejects(chat.turn({ ...WHO, message: "a".repeat(4001), onEvent() {} }), (e) => e.code === "too_long" && e.status === 413);
 });
 
 test("a turn stores the question and the answer and a second turn sends the history", async () => {
@@ -89,7 +90,7 @@ test("a failing model ends the turn with an error event and still stores the que
 
 test("deciding with no parked call says denied, and approve and refuse go to the host", async () => {
   const calls = [];
-  const host = { tools: async () => [], call: async () => ({ status: "done", result: null }), pending: () => [{ id: "p1" }], approve: async (id) => (calls.push(["approve", id]), { status: "done", result: { ok: 1 } }), refuse: (id) => (calls.push(["refuse", id]), true) };
+  const host = { tools: async () => [], call: async () => ({ status: "done", result: null }), pending: () => [{ id: "p1" }], owner: (id) => ({ account: "admin", conversation: null, capId: "x", status: "pending", id }), approve: async (id) => (calls.push(["approve", id]), { status: "done", result: { ok: 1 } }), refuse: (id) => (calls.push(["refuse", id]), true) };
   const chat = createChatService({ dir: tmp(), llmConfig: () => cfg, stream: saying("ok"), makeHost: async () => host });
   assert.equal((await chat.decide({ ...WHO, id: "p1", approve: true })).status, "denied");
   const { conversation } = await chat.turn({ ...WHO, message: "hi", onEvent() {} });

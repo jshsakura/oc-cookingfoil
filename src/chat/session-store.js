@@ -49,6 +49,24 @@ export function createChatStore({ dir }) {
     }
   };
 
+  const writeRow = (account, id, row) => {
+    const file = fileOf(account, id);
+    if (!file || !fs.existsSync(file)) throw fail("no such conversation");
+    const size = fs.statSync(file).size;
+    let lead = "";
+    if (size > 0) {
+      const fd = fs.openSync(file, "r");
+      try {
+        const last = Buffer.alloc(1);
+        fs.readSync(fd, last, 0, 1, size - 1);
+        if (last[0] !== 0x0a) lead = "\n";
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+    fs.appendFileSync(file, `${lead}${JSON.stringify(row)}\n`);
+  };
+
   return {
     /** A new, empty conversation owned by `account`; returns its id. */
     create(account, { now = Date.now() } = {}) {
@@ -60,22 +78,19 @@ export function createChatStore({ dir }) {
 
     /** Adds one message. Throws when `account` has no conversation `id`. */
     append(account, id, entry, { now = Date.now() } = {}) {
+      writeRow(account, id, { ...checkedEntry(entry), at: now });
+    },
+
+    /** Notes facts about a conversation (how full the model's context is); later notes win. */
+    mark(account, id, meta) {
+      writeRow(account, id, { meta });
+    },
+
+    /** The conversation's notes merged, or null when `account` has no conversation `id`. */
+    meta(account, id) {
       const file = fileOf(account, id);
-      if (!file || !fs.existsSync(file)) throw fail("no such conversation");
-      const row = { ...checkedEntry(entry), at: now };
-      const size = fs.statSync(file).size;
-      let lead = "";
-      if (size > 0) {
-        const fd = fs.openSync(file, "r");
-        try {
-          const last = Buffer.alloc(1);
-          fs.readSync(fd, last, 0, 1, size - 1);
-          if (last[0] !== 0x0a) lead = "\n";
-        } finally {
-          fs.closeSync(fd);
-        }
-      }
-      fs.appendFileSync(file, `${lead}${JSON.stringify(row)}\n`);
+      const rows = file ? readRows(file) : null;
+      return rows ? Object.assign({}, ...rows.filter((r) => r.meta).map((r) => r.meta)) : null;
     },
 
     /** The messages in order, or null when `account` has no conversation `id`. */

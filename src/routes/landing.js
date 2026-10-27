@@ -19,6 +19,7 @@ import { promisify } from "node:util";
 import pkg from "../app-info.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, activityScript } from "./admin/activity-panel.js";
 import { SCALE } from "./admin/styles.js";
+import { CHAT_WIDGET_CSS, WEB_CHAT_WIDGET_HTML, WEB_CHAT_WIDGET_SCRIPT, WEB_CHAT_WORDS } from "./admin/chat-widget.js";
 import { THEME_HEAD_SCRIPT, THEME_PICKER_CSS, THEME_PICKER_SCRIPT, THEME_WORDS, siteVars, themeCss, themePickerHtml } from "../views/themes.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -29,6 +30,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // The names the page's buttons may use (landing.html, BTN_ICON_FOR and data-icon), and the retro preview's row icons.
 const BUTTON_ICON_NAMES = ["download", "x", "refresh", "file", "folder", "upload", "save", "undo", "arrowright", "chevleft", "chevright", "trash", "check", ...ROW_ICON_NAMES];
 const TEMPLATE_PATH = path.join(__dirname, "../views/landing.html");
+// The chat widget is drawn with the admin page's token names; here they map to the web page's.
+const WEB_CHAT_CSS = `${CHAT_WIDGET_CSS}
+.ch-launch,.ch-widget{--accent:var(--butter);--accent-rgb:var(--butter-rgb);--accent-ink:var(--butter-ink);--text:var(--ink);--bg:var(--ground);--panel:var(--surface);--muted:var(--secondary)}
+.ch-widget{color:var(--text);font-family:var(--font-body)}
+.ch-launch,.ch-widget .ch-go{background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.ch-launch .ico,.ch-widget .ico{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;width:18px;height:18px}
+.ch-launch .ico{width:24px;height:24px}
+.ch-widget .muted{color:var(--muted);font-size:var(--fs-sm)}
+.ch-widget select{min-height:32px;padding:4px 8px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);color:var(--text);font:inherit;font-size:var(--fs-sm)}
+.ch-card-ask{display:grid;gap:6px}
+`;
 // The languages landing.html has dictionaries for.
 const SITE_LANGS = ["ko", "en", "ja", "zh"];
 
@@ -70,7 +82,10 @@ export function fillTemplate(raw) {
     .replace("__THEME_PICKER__", () => themePickerHtml((key) => `<span data-i18n="${key}"></span>`))
     .replace("__THEME_WORDS__", () => JSON.stringify(Object.fromEntries(SITE_LANGS.map((code) => [code, THEME_WORDS[code]]))))
     .replace("__THEME_PICKER_SCRIPT__", () => THEME_PICKER_SCRIPT)
-    .replace("__ACTIVITY_CSS__", () => ACTIVITY_CSS + THEME_PICKER_CSS)
+    .replace("__ACTIVITY_CSS__", () => ACTIVITY_CSS + THEME_PICKER_CSS + WEB_CHAT_CSS)
+    .replace("__CHAT_WORDS__", () => JSON.stringify(WEB_CHAT_WORDS))
+    .replace("__CHAT_WIDGET_HTML__", () => WEB_CHAT_WIDGET_HTML)
+    .replace("__CHAT_WIDGET_SCRIPT__", () => WEB_CHAT_WIDGET_SCRIPT)
     .replace("__ACTIVITY_BUTTON__", () => ACTIVITY_BUTTON_HTML)
     .replace("__ACTIVITY_HTML__", () => ACTIVITY_HTML)
     .replace("__ACTIVITY_SCRIPT__", () => activityScript({ web: true }));

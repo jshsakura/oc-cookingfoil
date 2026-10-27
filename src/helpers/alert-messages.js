@@ -28,6 +28,19 @@ const M = {
     ja: "プラグインが起動に失敗し続けて自動でオフになったとき、サーバーを止める原因となってオフになったとき、呼び出しが失敗し続けて休止に入ったときに知らせます。",
     zh: "插件因连续启动失败被自动关闭、因导致服务器停止被关闭，或调用持续失败而暂停时通知。",
   },
+  "event.chat": { ko: "채팅 승인 요청", en: "Chat approval request", ja: "チャットの承認リクエスト", zh: "聊天批准请求" },
+  "eventDesc.chat": {
+    ko: "웹 페이지의 AI 채팅에서 사용자가 라이브러리 변경을 요청하면 알립니다. 관리 페이지의 AI 채팅에서 승인하거나 거절합니다.",
+    en: "Tells you when someone asks the web page's AI chat for a library change. Approve or refuse it in the admin page's AI chat.",
+    ja: "Web ページの AI チャットで利用者がライブラリの変更を依頼したときに知らせます。管理画面の AI チャットで承認または拒否します。",
+    zh: "有人通过网页的 AI 聊天请求更改资料库时通知。请在管理页面的 AI 聊天中批准或拒绝。",
+  },
+  chatRequestHint: {
+    ko: "관리 페이지의 AI 채팅에서 승인하거나 거절합니다. 서버를 다시 시작하면 요청은 사라집니다.",
+    en: "Approve or refuse it in the admin page's AI chat. Restarting the server drops the request.",
+    ja: "管理画面の AI チャットで承認または拒否します。サーバーを再起動するとリクエストは消えます。",
+    zh: "请在管理页面的 AI 聊天中批准或拒绝。重启服务器会丢失该请求。",
+  },
   "event.damaged": { ko: "손상 파일", en: "Damaged files", ja: "破損ファイル", zh: "损坏文件" },
   "eventDesc.damaged": {
     ko: "파일 검사에서 새로 손상된 게임 파일을 찾았을 때 알립니다. 한 번의 검사에서 찾은 것을 모아 한 통으로 보내고, 같은 파일은 다시 정상으로 확인되기 전까지 다시 알리지 않습니다.",

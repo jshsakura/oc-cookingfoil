@@ -41,8 +41,9 @@ function outcome(result) {
   return { status: "done", result: value };
 }
 
-export function createMcpHost({ client, tiers = {}, now = Date.now, ttlMs = PENDING_TTL_MS }) {
-  const table = { ...DEFAULT_TIERS, ...tiers };
+/** `base` is the table this host runs under (policy.tiersFor); `tiers` overrides single entries. */
+export function createMcpHost({ client, base = DEFAULT_TIERS, tiers = {}, now = Date.now, ttlMs = PENDING_TTL_MS }) {
+  const table = { ...base, ...tiers };
   const parked = new Map();
   let confirmable = null; // tool names whose schema takes confirm
 
@@ -85,7 +86,7 @@ export function createMcpHost({ client, tiers = {}, now = Date.now, ttlMs = PEND
       return out;
     },
 
-    /** One call from the model, for `ctx` = { account, admin }. */
+    /** One call from the model, for `ctx` = { account, admin, conversation? }. */
     async call(ctx, { tool, arguments: args }) {
       purge();
       const capId = capabilityOf(tool, args);
@@ -102,8 +103,15 @@ export function createMcpHost({ client, tiers = {}, now = Date.now, ttlMs = PEND
       if (!value || typeof value !== "object" || !("preview" in value)) return denied(`${capId} gave no preview, so it cannot be approved`);
       const id = crypto.randomBytes(16).toString("base64url");
       const status = decision === "preview" ? "pending" : "requested";
-      parked.set(id, { id, account: ctx.account, tool, capId, arguments: clone(args), preview: clone(value.preview), status, createdAt: now() });
+      parked.set(id, { id, account: ctx.account, conversation: ctx.conversation ?? null, by: ctx.name ?? null, tool, capId, arguments: clone(args), preview: clone(value.preview), status, createdAt: now() });
       return { status, id, preview: clone(value.preview) };
+    },
+
+    /** Who parked call `id` came from, or null when this host holds no such call. */
+    owner(id) {
+      purge();
+      const rec = parked.get(id);
+      return rec ? { account: rec.account, conversation: rec.conversation, capId: rec.capId, tool: rec.tool, status: rec.status } : null;
     },
 
     /** Runs a parked call as stored. A pending call is settled by its own admin, a requested one by any admin. */
@@ -133,7 +141,7 @@ export function createMcpHost({ client, tiers = {}, now = Date.now, ttlMs = PEND
     /** Requests from people that an admin can answer. */
     awaiting() {
       purge();
-      return [...parked.values()].filter((r) => r.status === "requested").map((r) => ({ ...view(r), account: r.account }));
+      return [...parked.values()].filter((r) => r.status === "requested").map((r) => ({ ...view(r), account: r.account, by: r.by }));
     },
   };
 }

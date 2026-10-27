@@ -47,6 +47,7 @@ export const EVENTS = {
   server: { label: "서버 시작", desc: "서버가 켜질 때 알립니다. 업데이트 뒤나 예상하지 못한 재시작을 알 수 있고, 외부 다운로드 전용 주소의 상태도 함께 적습니다.", on: true },
   plugin: { label: translator("ko")("event.plugin"), desc: translator("ko")("eventDesc.plugin"), on: true },
   damaged: { label: translator("ko")("event.damaged"), desc: translator("ko")("eventDesc.damaged"), on: true },
+  chat: { label: translator("ko")("event.chat"), desc: translator("ko")("eventDesc.chat"), on: true },
 };
 export const DEDUPE_MS = 30 * 60 * 1000;
 export const DIGEST_MS = 10 * 60 * 1000;
@@ -170,7 +171,7 @@ export async function recentChats(botToken) {
 
 const link = () => (publicBaseUrl ? `\n\n🔗 ${publicBaseUrl.replace(/\/$/, "")}/admin` : "");
 // Each kind of alert leads with its own emoji, so the chat reads at a glance.
-const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", plugin: "🧩", damaged: "🩹", test: "🔔" };
+const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", plugin: "🧩", damaged: "🩹", chat: "💬", test: "🔔" };
 
 /** Sends now and records how it went. Resolves to the history entry. */
 async function deliver(event, text, now, title = translator(alertLang())(`event.${event}`), extra = {}) {

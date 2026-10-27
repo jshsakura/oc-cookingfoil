@@ -16,7 +16,7 @@ export const STANDALONE = new Set(["help"]);
 
 /** What each area tool covers. Every area with a served capability needs a line. */
 export const AREA_TEXT = {
-  games: "Switch games in the library: search, details, art and patches.",
+  games: "Switch games in the library: search, details, art, patches and the wishlist.",
   library: "Library folders and files, and the trash.",
   retro: "Retro (RetroArch) games, cores, Korean names, ROM patches and box art.",
   jobs: "Background jobs and their progress.",
@@ -58,7 +58,7 @@ export function areaDescription({ name, caps }) {
   // The action names are already in the input's enum.
   return [
     AREA_TEXT[name] ?? "",
-    writes.length ? `Writing (${writes.join(", ")}): call without confirm to preview, then with confirm='approve' once the user agrees.` : "",
+    writes.length ? `Writes (${writes.join(", ")}): preview without confirm, then confirm='approve' once the user agrees.` : "",
   ].filter(Boolean).join(" ");
 }
 

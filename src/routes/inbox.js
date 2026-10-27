@@ -37,6 +37,7 @@ import * as envs from "../helpers/envs.js";
 import { alert } from "../helpers/alerts.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { csrfOk, webUser } from "../security/user-session.js";
+import { createKeyRate } from "../security/key-rate.js";
 import debug from "../debug.js";
 import { isMetaCode, metaText } from "../meta/meta-messages.js";
 import { requestLang } from "../meta/langs.js";
@@ -55,14 +56,7 @@ function signedIn(req) {
   return { name: who.email, label: "구글 계정 사용자", slug: `google-${String(who.sub).replace(/[^A-Za-z0-9]/g, "").slice(0, 10)}` };
 }
 
-const recent = new Map(); // slug → [timestamps]
-function overRate(key, now = Date.now()) {
-  const times = (recent.get(key) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  const over = times.length >= RATE_MAX;
-  if (!over) times.push(now);
-  recent.set(key, times);
-  return over;
-}
+const uploadRate = createKeyRate({ max: RATE_MAX, windowMs: RATE_WINDOW_MS });
 
 /** Answers `code` (what the page branches on) with message `key` in the request's language; origin and csrf say plain English. */
 const fail = (req, res, status, code, key, vars) => res.status(status).json({ error: isMetaCode(key) ? metaText(requestLang(req), key, vars) : key, code });
@@ -166,7 +160,7 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
       res.set("Connection", "close");
       return fail(req, res, 507, "full", "inbox.full");
     }
-    if (overRate(user.slug)) {
+    if (!uploadRate.hit(user.slug).ok) {
       res.set("Connection", "close");
       return fail(req, res, 429, "rate", "inbox.rate");
     }
