@@ -38,6 +38,8 @@ export const OPT_OUT = {
   "POST /admin/api/files/rename": "token-blocked",
   "POST /admin/api/files/move": "token-blocked",
   "POST /admin/api/files/trash": "token-blocked",
+  "POST /admin/api/files/upload/chunks": "token-blocked",
+  "POST /admin/api/files/upload": "token-blocked",
   // A bulk export for the scraper, not an unbounded MCP tool response.
   "GET /games.json": "catalog-export",
   // The link-preview share images, one per language: static files fetched without signing in.

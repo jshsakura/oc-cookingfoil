@@ -8,6 +8,8 @@
  *   rename(key, rel, name)                             in the same folder, journaled
  *   move(key, rels, toKey, toRel)                      into a folder, across roots too, journaled
  *   trash(key, rels, { by })                           into the root's trash, never a plain delete
+ *   uploadTarget(key, rel, sub)                        where an upload `sub` ("a.nsp", "Pack/a.nsp") would land, checked
+ *   place(key, rel, sub, src)                          a finished upload moved there; a taken name is "exists"
  *
  * A path is refused (FileError "bad-path") when it climbs out of the root, has a
  * segment that starts with a dot (the server's trash, staging and partials live
@@ -67,7 +69,6 @@ const inside = (root, real) => {
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
-/** The browser over `roots` (default: the server's library folders), reading a root again after it changed. */
 /** The browser over `roots` (default: the server's library folders), reading a root again after it changed. */
 export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, fences = () => [env.dataDir, env.keysDir] } = {}) {
   function rootOf(key) {
@@ -258,6 +259,41 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return { moved, skipped };
   }
 
+  /**
+   * Where an upload `sub` lands in the folder `rel`: its own folders (a dropped folder keeps its shape) may
+   * be new, the file itself must not be there yet. Nothing is made here, so a refusal costs no upload.
+   */
+  async function uploadTarget(key, rel, sub) {
+    const dest = await folder(key, rel);
+    const parts = String(sub ?? "").split("/");
+    if (parts.some((p) => cleanName(p) !== p)) fail("bad-name");
+    let at = dest.real;
+    for (const [i, p] of parts.entries()) {
+      at = path.join(at, p);
+      const st = await fsp.lstat(at).catch(() => null);
+      if (i === parts.length - 1) {
+        if (st) fail("exists", 409);
+      } else if (st && !st.isDirectory()) {
+        fail("not-a-folder");
+      }
+    }
+    return { dest, abs: at, rel: dest.rel ? `${dest.rel}/${sub}` : sub };
+  }
+
+  async function place(key, rel, sub, src) {
+    const t = await uploadTarget(key, rel, sub);
+    const placed = await withLocks([t.dest.root.dir], async () => {
+      await still(t.dest);
+      await fsp.mkdir(path.dirname(t.abs), { recursive: true });
+      // A folder of the upload that was a link elsewhere by now is refused like any other path.
+      if (!allowed(t.dest.walls, await fsp.realpath(path.dirname(t.abs)))) fail("bad-path");
+      return moveAcross(src, t.abs);
+    });
+    if (!placed) fail("exists", 409);
+    refresh([key]);
+    return { root: key, rel: t.rel };
+  }
+
   async function trash(key, rels, { by = null } = {}) {
     const root = rootOf(key);
     const items = [];
@@ -268,5 +304,5 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return out;
   }
 
-  return { list, open, mkdir, rename, move, trash, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
+  return { list, open, mkdir, rename, move, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
 }

@@ -17,9 +17,12 @@ const games = { key: "games", dir: path.join(base, "games") };
 fs.mkdirSync(path.join(games.dir, "Folder"), { recursive: true });
 fs.writeFileSync(path.join(games.dir, "Folder", "a.nsp"), "abc");
 
+const chunks = await import("../../src/meta/upload-chunks.js");
+const dropDir = path.join(base, "drop-chunks");
+
 const app = express();
 app.use(express.json());
-mountFilesApi(app, () => true, createFileRoots({ roots: () => [games], refresh: () => {} }));
+mountFilesApi(app, () => true, createFileRoots({ roots: () => [games], refresh: () => {} }), { dropDir: () => dropDir });
 const server = app.listen(0);
 after(() => server.close());
 const url = (p) => `http://127.0.0.1:${server.address().port}${p}`;
@@ -95,4 +98,56 @@ test("a file downloads even when the root's own path has a dot folder in it", as
 
 test("a HEAD of a download is blocked for tokens like its GET", () => {
   assert.equal(tokenBlocked("HEAD", "/api/files/download"), true);
+});
+
+// Upload into the open folder: the file goes up in pieces (meta/upload-chunks.js), then one call places it.
+const ME = "admin:admin";
+async function sendFile(rel, body, at = "") {
+  const r = await post("/api/files/upload/chunks", { root: "games", path: at, rel, size: body.length, lastModified: 1 });
+  if (r.status !== 200) return r;
+  const { id, kind } = await r.json();
+  assert.equal(kind, "drop-games");
+  await chunks.append(dropDir, id, ME, 0, Buffer.from(body));
+  return post("/api/files/upload", { root: "games", path: at, items: [{ id, rel }] });
+}
+
+test("a dropped file lands in the open folder, a dropped folder keeps its shape", async () => {
+  fs.mkdirSync(path.join(games.dir, "Drop"), { recursive: true });
+  let r = await sendFile("one.nsp", "1111", "Drop");
+  assert.equal(r.status, 200, await r.clone().text());
+  assert.deepEqual(await r.json(), { placed: ["Drop/one.nsp"], skipped: [] });
+  assert.equal(fs.readFileSync(path.join(games.dir, "Drop", "one.nsp"), "utf8"), "1111");
+  r = await sendFile("Pack/sub/two.nsp", "22", "Drop");
+  assert.deepEqual((await r.json()).placed, ["Drop/Pack/sub/two.nsp"]);
+  assert.equal(fs.readFileSync(path.join(games.dir, "Drop", "Pack", "sub", "two.nsp"), "utf8"), "22");
+  assert.deepEqual(fs.readdirSync(dropDir), [], "no partial is left");
+});
+
+test("a name already in the folder is refused before a byte goes up, and never overwritten after", async () => {
+  fs.mkdirSync(path.join(games.dir, "Taken"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Taken", "x.nsp"), "old");
+  const r = await post("/api/files/upload/chunks", { root: "games", path: "Taken", rel: "x.nsp", size: 3, lastModified: 1 });
+  assert.equal(r.status, 409);
+  assert.equal((await r.json()).code, "exists");
+  // Taken while the bytes were going up: skipped, the old file stays, the partial waits for the sweep.
+  const begun = await (await post("/api/files/upload/chunks", { root: "games", path: "Taken", rel: "y.nsp", size: 3, lastModified: 1 })).json();
+  await chunks.append(dropDir, begun.id, ME, 0, Buffer.from("new"));
+  fs.writeFileSync(path.join(games.dir, "Taken", "y.nsp"), "old");
+  const done = await (await post("/api/files/upload", { root: "games", path: "Taken", items: [{ id: begun.id, rel: "y.nsp" }] })).json();
+  assert.deepEqual(done, { placed: [], skipped: [{ rel: "y.nsp", code: "exists" }] });
+  assert.equal(fs.readFileSync(path.join(games.dir, "Taken", "y.nsp"), "utf8"), "old");
+});
+
+test("an upload path that climbs out, hides in a dot folder or has a bad name is refused", async () => {
+  for (const rel of ["../out.nsp", ".hidden/x.nsp", "a/../../x.nsp", "bad\\name.nsp", ""]) {
+    const r = await post("/api/files/upload/chunks", { root: "games", path: "", rel, size: 1, lastModified: 1 });
+    assert.ok([400, 404].includes(r.status), `${rel}: ${r.status}`);
+  }
+  const r = await post("/api/files/upload/chunks", { root: "games", path: "../", rel: "x.nsp", size: 1, lastModified: 1 });
+  assert.equal(r.status, 400);
+});
+
+test("automation tokens may not upload into the file browser", () => {
+  assert.equal(tokenBlocked("POST", "/api/files/upload/chunks"), true);
+  assert.equal(tokenBlocked("POST", "/api/files/upload"), true);
 });
