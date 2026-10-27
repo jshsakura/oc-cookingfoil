@@ -1112,18 +1112,20 @@
         display: grid; place-items: center; color: #fff; background: rgba(12, 12, 14, 0.5);
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background .15s ease, transform .15s ease;
       }
-      .modal-x:hover, .modal-gear:hover { background: rgba(12, 12, 14, 0.72); }
+      .modal-x:hover, .modal-gear:hover, .modal-wish:hover { background: rgba(12, 12, 14, 0.72); }
       /* The admin's gear, left of the X: it swaps the detail for the edit page and back. */
-      .modal-gear {
+      .modal-gear, .modal-wish {
         margin: 12px 0 0; width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
         display: grid; place-items: center; color: #fff; background: rgba(12, 12, 14, 0.5);
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: background .15s ease, transform .15s ease;
       }
-      .modal-gear[hidden] { display: none; }
-      .modal-gear:active { transform: scale(.92); }
-      .modal-gear:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
-      .modal-gear svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .modal-gear[hidden], .modal-wish[hidden] { display: none; }
+      .modal-gear:active, .modal-wish:active { transform: scale(.92); }
+      .modal-gear:focus-visible, .modal-wish:focus-visible { outline: 2px solid var(--butter); outline-offset: 2px; }
+      .modal-gear svg, .modal-wish svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .modal-gear[aria-pressed="true"], .modal-gear[aria-pressed="true"]:hover { background: var(--butter); color: var(--butter-ink, #1a1a1a); }
+      .modal-wish[aria-pressed="true"], .modal-wish[aria-pressed="true"]:hover { background: rgba(12, 12, 14, 0.72); color: #ff5a6e; }
+      .modal-wish[aria-pressed="true"] svg { fill: currentColor; }
       /* Editing: the header stays, the detail under it gives way to the edit page. */
       .modal.editing .body > :not(.modal-head):not(.edit-pane):not(.modal-actions) { display: none !important; }
       .modal.editing #modal-download, .modal.editing #xm-download { display: none; }
@@ -1439,6 +1441,7 @@
             <button class="chip"        data-kind="update" type="button" data-i18n="chip.update"></button>
             <button class="chip"        data-kind="dlc"    type="button" data-i18n="chip.dlc"></button>
             <button class="chip"        data-kind="custom" type="button" data-i18n="chip.custom"></button>
+            <button class="chip"        data-kind="wish"   type="button" data-i18n="chip.wish" hidden></button>
           </div>
           <select class="sort-select" id="sort">
             <option value="added-desc"   data-i18n="sort.added_desc"></option>
@@ -1562,7 +1565,7 @@
 
     <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-hidden="true">
       <div class="modal" onclick="event.stopPropagation()"><div class="modal-scroll">
-        <div class="modal-x-bar"><button class="modal-gear" type="button" aria-pressed="false" hidden></button><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="modal-x-bar"><button class="modal-gear" type="button" aria-pressed="false" hidden></button><button class="modal-wish" id="modal-wish" type="button" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button><button class="modal-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
         <div class="banner" id="modal-banner">
           <div class="bezel-stage" id="modal-stage"><div class="bezel-screen"><img id="modal-screen" alt="" decoding="async"></div><img class="bezel-frame" id="modal-bezel" alt="" decoding="async"></div>
           <div class="banner-empty" aria-hidden="true">
@@ -1889,6 +1892,11 @@
           "chart.genres": "장르",
           "chart.total": (n) => `총 ${n}`,
           "chip.custom": "커스텀",
+          "chip.wish": "찜",
+          "wish.add": "찜하기",
+          "wish.remove": "찜 해제",
+          "wish.failed": "찜을 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
+          "wish.empty": "찜한 게임이 없습니다.<br>게임 창의 하트를 누르면 여기에 모입니다.",
           "pill.update": "업데이트",
           "pill.needPatch": "필수 패치",
           "pill.patch": "패치",
@@ -2240,6 +2248,11 @@
           "chart.genres": "Genres",
           "chart.total": (n) => `${n} total`,
           "chip.custom": "Custom",
+          "chip.wish": "Wishlist",
+          "wish.add": "Add to wishlist",
+          "wish.remove": "Remove from wishlist",
+          "wish.failed": "Could not change the wishlist. Try again in a moment.",
+          "wish.empty": "No wished games yet.<br>Tap the heart in a game window to keep it here.",
           "pill.update": "Update",
           "pill.needPatch": "Required mod",
           "pill.patch": "Mod",
@@ -2594,6 +2607,11 @@
           "chart.genres": "ジャンル",
           "chart.total": (n) => `合計 ${n}`,
           "chip.custom": "カスタム",
+          "chip.wish": "お気に入り",
+          "wish.add": "お気に入りに追加",
+          "wish.remove": "お気に入りから外す",
+          "wish.failed": "お気に入りを変更できませんでした。少し待ってからもう一度お試しください。",
+          "wish.empty": "お気に入りのゲームはまだありません。<br>ゲーム画面のハートを押すとここに集まります。",
           "pill.update": "アップデート",
           "pill.needPatch": "必須パッチ",
           "pill.patch": "パッチ",
@@ -2948,6 +2966,11 @@
           "chart.genres": "类型",
           "chart.total": (n) => `共 ${n}`,
           "chip.custom": "自訂",
+          "chip.wish": "收藏",
+          "wish.add": "加入收藏",
+          "wish.remove": "取消收藏",
+          "wish.failed": "無法變更收藏，請稍後再試。",
+          "wish.empty": "尚未收藏任何遊戲。<br>在遊戲視窗按下愛心即可收藏到這裡。",
           "pill.update": "更新",
           "pill.needPatch": "必需补丁",
           "pill.patch": "补丁",
@@ -3633,7 +3656,7 @@
           acctAvatar(d?.avatar);
           // Only admin accounts can open the admin page; don't offer it to the others.
           if (d && !d.admin) $("admin-link").hidden = true;
-          if (d) { share.check(); checks.repaint(); }
+          if (d) { share.check(); checks.repaint(); wish.load(); }
         })
         .catch(() => {});
       $("logout-link").addEventListener("click", async (e) => {
@@ -3647,6 +3670,51 @@
         if (r.status === 401 && session && !String(args[0]).startsWith("/auth/")) location.href = "/login?next=" + encodeURIComponent(location.pathname + location.hash);
         return r;
       };
+
+      // "찜": the signed-in account's wished games by base title id. The heart in the game window
+      // adds and removes; the chip lists them. The account's consoles read the same list.
+      const wish = (() => {
+        let ids = new Set();
+        const btn = $("modal-wish"), chip = document.querySelector('#chips [data-kind="wish"]');
+        let current = null;
+        const key = (tid) => String(tid || "").toUpperCase();
+        function paint() {
+          const on = current && ids.has(current.tid);
+          btn.setAttribute("aria-pressed", String(Boolean(on)));
+          btn.setAttribute("aria-label", t(on ? "wish.remove" : "wish.add"));
+          btn.title = t(on ? "wish.remove" : "wish.add");
+        }
+        async function load() {
+          // Past the page's 401 redirect: a list the server will not give is no reason to leave the page.
+          const r = await pageFetch("/pair/api/wishlist", { headers: { Accept: "application/json" } }).catch(() => null);
+          if (!r?.ok) return;
+          ids = new Set((await r.json()).items.map((w) => w.titleId));
+          chip.hidden = false;
+          paint();
+          if (state.kind === "wish") applyFilters();
+        }
+        btn.addEventListener("click", async () => {
+          if (!current) return;
+          const { tid, name } = current, on = ids.has(tid);
+          const r = await fetch(on ? "/pair/api/wishlist/remove" : "/pair/api/wishlist", {
+            method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": session?.csrf ?? "" },
+            body: JSON.stringify({ titleId: tid, name }),
+          }).catch(() => null);
+          if (!r?.ok) { toast(t("wish.failed")); return; }
+          if (on) ids.delete(tid); else ids.add(tid);
+          paint();
+          if (state.kind === "wish") applyFilters();
+        });
+        return {
+          load,
+          has: (tid) => ids.has(key(tid)),
+          show(tid, name) {
+            current = /^[0-9A-F]{16}$/.test(key(tid)) ? { tid: key(tid), name } : null;
+            btn.hidden = !session || !current;
+            paint();
+          },
+        };
+      })();
 
       // ─── state ─────────────────────────────────────────────────────────────
       let catalogData = null;
@@ -3929,13 +3997,13 @@
 
       function visibleSet() {
         const matched = renderedItems.filter(r => {
-          if (r.kind !== state.kind) return false;
+          if (state.kind === "wish" ? r.kind !== "base" || !wish.has(r.item.baseTitleId || r.item.titleId) : r.kind !== state.kind) return false;
           if (state.genre && !(genreOf.get((r.item.baseTitleId || r.item.titleId || "").toUpperCase()) || []).includes(state.genre)) return false;
           if (state.steam && scoreFor(r)?.label !== state.steam) return false;
           if (state.q && !r.search.includes(state.q) && !r.tid.includes(state.q)) return false;
           return true;
         });
-        const list = state.kind === "base" ? oneCardPerTitle(matched) : matched;
+        const list = state.kind === "base" || state.kind === "wish" ? oneCardPerTitle(matched) : matched;
         list.sort((a, b) => {
           switch (state.sort) {
             case "name-desc":    return b.item.name.localeCompare(a.item.name);
@@ -3981,7 +4049,7 @@
         grid.innerHTML = "";
         grid.setAttribute("aria-busy", "false");
         if (list.length === 0) {
-          grid.innerHTML = `<div class="empty">${t(renderedItems.length ? "empty.none" : "empty.library")}</div>`;
+          grid.innerHTML = `<div class="empty">${t(!renderedItems.length ? "empty.library" : state.kind === "wish" && !state.q && !state.genre && !state.steam ? "wish.empty" : "empty.none")}</div>`;
           return;
         }
         const frag = document.createDocumentFragment();
@@ -6259,6 +6327,7 @@
         $("modal-download").removeAttribute("download");
         $("modal-download").textContent = t("action.download");
         sendPanel.show(f.url);
+        wish.show(baseId, f.name);
         openSheet("modal");
         loadVideos(validBase ? "title/" + baseId : null);
 

@@ -45,6 +45,7 @@ import { zipStore } from "../helpers/zip-store.js";
 import fs from "node:fs";
 import { mountWebSends } from "./device-sends.js";
 import * as deviceSends from "../security/device-sends.js";
+import { mountWebWishlist } from "./wishlist.js";
 
 const JSQR_PATH = createRequire(import.meta.url).resolve("jsqr/dist/jsQR.js");
 const TOKEN_RE = /^[a-f0-9]{32}$/;
@@ -146,6 +147,7 @@ function mountMineApi(router) {
   });
 
   mountWebSends(router, { guardWrite, approverOf, ownsApproval });
+  mountWebWishlist(router, { guardWrite, approverOf });
 
   router.post("/api/devices/revoke", json, (req, res) => {
     const approver = guardWrite(req, res);
