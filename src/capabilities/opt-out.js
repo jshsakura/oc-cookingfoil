@@ -32,6 +32,12 @@ export const OPT_OUT = {
   "GET /api/library/info": "token-blocked",
   "GET /api/library/screenshot/:titleId/:idx": "token-blocked",
   "GET /api/library/sections": "token-blocked",
+  // The admin file browser's writes and downloads: a person picks them in the browser (routes/admin/files-api.js).
+  "GET /admin/api/files/download": "token-blocked",
+  "POST /admin/api/files/mkdir": "token-blocked",
+  "POST /admin/api/files/rename": "token-blocked",
+  "POST /admin/api/files/move": "token-blocked",
+  "POST /admin/api/files/trash": "token-blocked",
   // A bulk export for the scraper, not an unbounded MCP tool response.
   "GET /games.json": "catalog-export",
   // The link-preview share images, one per language: static files fetched without signing in.
