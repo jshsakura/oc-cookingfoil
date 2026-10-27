@@ -36,8 +36,7 @@ const SHEET_HTML = /* html */ `
       <label>${top("ch.baseUrl")}<input id="ch-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://"></label>
       <label>${top("ch.model")}<input id="ch-model" type="text" autocomplete="off" spellcheck="false"></label>
       <label>${top("ch.apiKey")}<input id="ch-key" type="password" autocomplete="new-password"></label>
-      <p class="muted" id="ch-keystate"></p>
-      <p class="muted">${top("ch.keyMoves")}</p>
+      <p class="muted ch-hint">${top("ch.keyMoves")}</p>
       <div class="actions"><button type="submit" class="primary">${top("fp.save")}</button></div>
     </form>
     <form id="ch-persona-form" class="ch-form">
@@ -143,6 +142,15 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-form{display:grid;gap:10px;margin-top:6px}
 .ch-form h4{margin:8px 0 0}
 .ch-form label{display:grid;gap:4px;font-weight:var(--fw-bold)}
+.ch-form p{margin:0}
+.ch-form .ch-hint{margin-top:-4px;font-size:var(--fs-sm)}
+/* The assistant is writing: three dots in its own row until the first words or the end of the turn. */
+.ch-typing{display:flex;gap:5px;align-items:center;height:22px}
+.ch-typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:ch-dot 1.2s infinite ease-in-out}
+.ch-typing i:nth-child(2){animation-delay:.15s}
+.ch-typing i:nth-child(3){animation-delay:.3s}
+@keyframes ch-dot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.ch-typing i{animation:none;opacity:.6}}
 .ch-danger{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
 @media (max-width:640px){
 .ch-sheet{width:100%;max-width:100%;margin:auto 0 0;box-sizing:border-box;border-radius:var(--r-2xl) var(--r-2xl) 0 0}
@@ -222,6 +230,11 @@ function chMsg(who,text){chLeaveEmpty();
   const d=el('div',null,'ch-msg'+(who==='me'?' me':''));
   const body=el('div',null,'ch-body'+(who==='me'?' plain':''));if(who==='me')body.textContent=text;else chRender(body,text);d.append(body);chCol().append(d);chScroll();return body;}
 function chNote(text,cls){chLeaveEmpty();chCol().append(el('div',text,'ch-note'+(cls?' '+cls:'')));chScroll();}
+let chDots=null;
+function chTypingOff(){if(chDots){chDots.remove();chDots=null;}}
+// Kept as the last row while the model has not written yet, so a tool note goes above it.
+function chTypingOn(){chTypingOff();chLeaveEmpty();chDots=el('div',null,'ch-typing');chDots.setAttribute('role','status');chDots.setAttribute('aria-label',topText('ch.typing'));
+  chDots.append(el('i'),el('i'),el('i'));chCol().append(chDots);chScroll();}
 function chMark(){chLeaveEmpty();chCol().append(el('div',topText('ch.compacted'),'ch-mark'));chScroll();}
 // What a person is told about a request, phrased for what approving it does.
 const CH_REQ={change:'ch.req_change',register:'ch.req_register'};
@@ -269,7 +282,7 @@ async function chCompact(){if(!chConv||chBusy)return;chBusyUi(true);chNote(topTe
   catch(err){chNote(topFill('ch.error',{msg:err.message}),'ch-err');}
   finally{chBusyUi(false);}}
 async function chSend(text){
-  chMsg('me',text);let bot=null,botText='';chAbort=new AbortController();chBusyUi(true);
+  chMsg('me',text);let bot=null,botText='';chAbort=new AbortController();chBusyUi(true);chTypingOn();
   try{
     const r=await fetch(CH_API,{method:'POST',signal:chAbort.signal,headers:{'Content-Type':'application/json','Accept-Language':chLang(),...chWriteHeaders()},body:JSON.stringify({message:text,conversation:chConv||undefined})});
     if(r.status===401){location.reload();return;}
@@ -279,15 +292,16 @@ async function chSend(text){
       let i;while((i=buf.indexOf('\\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line)continue;
         let e;try{e=JSON.parse(line);}catch{continue;}
         if(e.conversation&&!chConv){chConv=e.conversation;}
-        if(e.type==='text'){if(!bot){bot=chMsg('bot','');botText='';}botText+=e.delta;chRender(bot,botText);chScroll();}
+        if(e.type==='text'){chTypingOff();if(!bot){bot=chMsg('bot','');botText='';}botText+=e.delta;chRender(bot,botText);chScroll();}
         else if(e.type==='tool_end'&&e.status!=='pending'&&e.status!=='requested'){bot=null;}
-        else if(e.type==='tool_start'){bot=null;chNote(topFill('ch.tool',{name:e.action||e.name}));}
+        else if(e.type==='tool_start'){bot=null;chNote(topFill('ch.tool',{name:e.action||e.name}));chTypingOn();}
         else if(e.type==='approval'){chCard({id:e.id,action:e.action,preview:e.preview,kind:e.kind});if(!CH_ADMIN||e.status==='requested')chNote(chReqText(e.kind));}
         else if(e.type==='compacting'){chNote(topText('ch.compacting'));}
         else if(e.type==='context'){chCtx(e);if(e.compacted)chMark();}
-        else if(e.type==='error'){chNote(topFill('ch.error',{msg:e.message||''}),'ch-err');}}}
+        else if(e.type==='error'){chTypingOff();chNote(topFill('ch.error',{msg:e.message||''}),'ch-err');}
+        if(chDots)chTypingOn();}}
   }catch(err){if(err.name!=='AbortError')chNote(topFill('ch.error',{msg:err.message}),'ch-err');}
-  finally{chAbort=null;chBusyUi(false);}
+  finally{chTypingOff();chAbort=null;chBusyUi(false);}
   try{await chPickList(chConv,true);}catch{}}
 async function chRefresh(){
   if(!CH_ADMIN){
@@ -297,7 +311,7 @@ async function chRefresh(){
     chState.enabled=set.settings.chatEnabled?.value===true;
     const f=integ.chat?.fields||{};
     $('ch-url').value=f.baseUrl?.value||'';$('ch-model').value=f.model?.value||'';$('ch-key').value='';
-    const keySet=f.apiKey?.set===true;$('ch-keystate').textContent=topText(keySet?'ch.keySet':'ch.keyNone');
+    const keySet=f.apiKey?.set===true;$('ch-key').placeholder=topText(keySet?'ch.keySet':'ch.keyNone');
     chState.ready=Boolean(f.baseUrl?.value&&f.model?.value&&keySet);
     $('ch-on').checked=chState.enabled;
     $('ch-name-in').value=set.settings.chatName?.value||'';$('ch-persona-in').value=set.settings.chatPersona?.value||'';

@@ -74,3 +74,49 @@ test('the chat button stays hidden while the chat is off', async ({ page }) => {
   await expect(page.locator('#ch-widget')).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test('three dots show while the model has not written yet, and go as soon as text arrives', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await signedIn(page, { chatOn: true });
+  let release!: () => void;
+  const held = new Promise<void>((r) => { release = r; });
+  await page.route('**/api/chat', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    await held;
+    const lines = [{ type: 'text', delta: '찾았습니다.', conversation: 'c2' }, { type: 'done', conversation: 'c2' }].map((e) => JSON.stringify(e)).join('\n') + '\n';
+    return route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: lines });
+  });
+  await page.goto('/');
+  await page.locator('#ch-launch').click();
+  await page.locator('#ch-text').fill('마리오 있나요?');
+  await page.keyboard.press('Enter');
+  const dots = page.locator('#ch-widget .ch-typing');
+  await expect(dots).toBeVisible();
+  await expect(dots).toHaveAttribute('role', 'status');
+  await expect(dots).toHaveAttribute('aria-label', '답을 쓰는 중입니다');
+  await expect(dots.locator('i')).toHaveCount(3);
+  expect(await dots.locator('i').first().evaluate((e) => getComputedStyle(e).animationName)).toBe('ch-dot');
+  release();
+  await expect(page.locator('#ch-widget .ch-msg:not(.me)').last()).toHaveText('찾았습니다.');
+  await expect(dots).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('with reduced motion the dots stand still', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await signedIn(page, { chatOn: true });
+  await page.route('**/api/chat', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    await new Promise(() => {});
+  });
+  await page.goto('/');
+  await page.locator('#ch-launch').click();
+  await page.locator('#ch-text').fill('hi');
+  await page.keyboard.press('Enter');
+  const dot = page.locator('#ch-widget .ch-typing i').first();
+  await expect(dot).toBeVisible();
+  expect(await dot.evaluate((e) => getComputedStyle(e).animationName)).toBe('none');
+  await page.locator('#ch-go').click();
+  await expect(page.locator('#ch-widget .ch-typing')).toHaveCount(0);
+});

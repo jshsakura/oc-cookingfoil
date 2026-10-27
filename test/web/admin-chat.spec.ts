@@ -2,11 +2,17 @@ import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
 async function setUp(page) {
+  await expect(page.locator('#ch-key')).toHaveAttribute('placeholder', 'API 키를 넣습니다');
+  await expect(page.locator('#ch-keystate')).toHaveCount(0);
+  // The address warning sits right under the key, without an empty paragraph between.
+  const key = (await page.locator('#ch-key').boundingBox())!;
+  const hint = (await page.locator('#ch-form .ch-hint').boundingBox())!;
+  expect(hint.y - (key.y + key.height)).toBeLessThan(16);
   await page.locator('#ch-url').fill('https://llm.example.com/v1');
   await page.locator('#ch-model').fill('test-model');
   await page.locator('#ch-key').fill('sk-test-0000-0000');
   await page.locator('#ch-form button[type=submit]').click();
-  await expect(page.locator('#ch-keystate')).toContainText('저장된 키가 있습니다');
+  await expect(page.locator('#ch-key')).toHaveAttribute('placeholder', '저장된 키가 있습니다. 비워 두면 그대로 둡니다.');
   await expect(page.locator('#ch-key')).toHaveValue('');
   await expect(page.content()).resolves.not.toContain('sk-test-0000-0000');
 }
