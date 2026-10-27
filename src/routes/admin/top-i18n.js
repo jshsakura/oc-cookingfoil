@@ -1538,7 +1538,7 @@ const PEOPLE_WORDS = {
     "pp.devCode": "기기 코드", "pp.approvedList": "승인된 기기", "pp.issuedClients": "내려받은 클라이언트",
     "pp.tabPending": "승인 대기", "pp.tabApproved": "승인된 기기", "pp.tabClients": "웹에서 받은 클라이언트",
     "pp.cancelClientAsk": "이 내려받은 클라이언트의 키를 취소할까요? 이 키를 쓰는 연결은 즉시 막힙니다.", "pp.cancelled": "클라이언트 키를 취소했습니다.",
-    "pp.dismissAsk": "{code}의 연결 요청을 버릴까요? 주기억하면 다시 요청할 수 있습니다.", "pp.dismissed": "연결 요청을 버렸습니다.",
+    "pp.dismissAsk": "{code}의 연결 요청을 버릴까요? 본체가 다시 요청할 수 있습니다.", "pp.dismissed": "연결 요청을 버렸습니다.",
     "pp.noDevices": "승인된 기기가 없습니다.", "pp.noPending": "대기 중인 연결 요청이 없습니다.",
     "pp.reissueAsk": "이 기기에 새 키를 발급할까요?", "pp.revokeAsk": "이 기기의 키를 취소할까요? 다시 연결하려면 새로 승인받아야 합니다.",
   },
