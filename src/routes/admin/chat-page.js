@@ -9,7 +9,7 @@ import { icon } from "../../views/icons.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
 
 export const CHAT_HTML = /* html */ `<section id="tab-chat" hidden>
-  <div class="ch-top">
+  <div class="ch-top ch-col">
     <select id="ch-pick" ${topLabel("ch.conv")}></select>
     <button type="button" class="icon-btn" id="ch-new" ${topLabel("ch.new")}>${icon("plus")}</button>
     <button type="button" class="icon-btn" id="ch-gear" ${topLabel("ch.settings")}>${icon("sliders")}</button>
@@ -53,10 +53,12 @@ export const CHAT_CSS = /* css */ `
 #tab-chat{display:flex;flex-direction:column;min-height:320px;height:calc(100dvh - 140px)}
 #tab-chat[hidden]{display:none}
 .ch-top{display:flex;gap:8px;align-items:center;flex:none;padding-bottom:10px}
-.ch-top select{flex:1;min-width:0;max-width:420px}
+.ch-top select{flex:1;min-width:0}
 .ch-log{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
 .ch-col{width:100%;max-width:760px;margin:0 auto;box-sizing:border-box}
-#ch-col{display:grid;gap:14px;align-content:start;padding:8px 2px 16px}
+/* The toast clears the message box here instead of covering it. */
+body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
+#ch-col{display:grid;gap:14px;align-content:start;padding:8px 0 16px}
 #ch-col.ch-empty{min-height:100%;align-content:center;justify-items:center;text-align:center}
 .ch-hello{display:grid;gap:16px;justify-items:center}
 .ch-hello h3{margin:0;font-size:var(--fs-xl)}
@@ -105,12 +107,13 @@ const chCol=()=>$('ch-col');
 function chScroll(){const l=$('ch-log');l.scrollTop=l.scrollHeight;}
 // The section takes the height left under the header, also when a phone keyboard shrinks the screen.
 function chFit(){const s=$('tab-chat');if(!s||s.hidden)return;const vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
-  s.style.height=Math.max(320,vh-s.getBoundingClientRect().top-12)+'px';}
+  s.style.height=Math.max(320,vh-s.getBoundingClientRect().top-12)+'px';
+  const d=$('ch-dock');document.documentElement.style.setProperty('--ch-dock',(d.hidden?0:d.offsetHeight)+'px');}
 function chGrow(){const t=$('ch-text');t.style.height='auto';const cs=getComputedStyle(t),line=parseFloat(cs.lineHeight)||22,pad=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
-  const max=line*8+pad;t.style.height=Math.min(t.scrollHeight,max)+'px';t.style.overflowY=t.scrollHeight>max?'auto':'hidden';chSendState();}
+  const max=line*8+pad;t.style.height=Math.min(t.scrollHeight,max)+'px';t.style.overflowY=t.scrollHeight>max?'auto':'hidden';chSendState();chFit();}
 function chSendState(){const b=$('ch-go');b.disabled=!chBusy&&!$('ch-text').value.trim();}
 function chIcon(){const b=$('ch-go');b.innerHTML=chBusy?CH_ICON.stop:CH_ICON.send;b.setAttribute('aria-label',topText(chBusy?'ch.stop':'ch.send'));}
-function chEmpty(){const c=chCol();c.className='ch-empty';c.replaceChildren();const h=el('div',null,'ch-hello');
+function chEmpty(){const c=chCol();c.classList.add('ch-empty');c.replaceChildren();const h=el('div',null,'ch-hello');
   if(!chState.enabled||!chState.ready){h.append(el('p',topText('ch.isOff'),'muted'));
     const b=el('button',topText('ch.settings'),'primary');b.type='button';b.addEventListener('click',chOpenSheet);h.append(b);}
   else{h.append(el('h3',topText('ch.hello')));const chips=el('div',null,'ch-chips');
@@ -118,7 +121,7 @@ function chEmpty(){const c=chCol();c.className='ch-empty';c.replaceChildren();co
       b.addEventListener('click',()=>{const t=$('ch-text');t.value=topText(k);chGrow();t.focus();});chips.append(b);}
     h.append(chips);}
   c.append(h);}
-function chLeaveEmpty(){const c=chCol();if(c.classList.contains('ch-empty')){c.className='';c.replaceChildren();}}
+function chLeaveEmpty(){const c=chCol();if(c.classList.contains('ch-empty')){c.classList.remove('ch-empty');c.replaceChildren();}}
 const BT=String.fromCharCode(96),FENCE=BT+BT+BT;
 // Bold and inline code only; everything else stays text. Nodes are built, never parsed from HTML.
 function chInline(parent,s){let i=0;
@@ -151,7 +154,7 @@ function chCard(a){const box=$('ch-pending-list');const c=el('div',null,'ch-card
   const ok=el('button',topText('ch.approve'),'primary'),no=el('button',topText('ch.refuse'));ok.type=no.type='button';
   ok.addEventListener('click',()=>chDecide(a.id,true,c));no.addEventListener('click',()=>chDecide(a.id,false,c));
   row.append(ok,no);c.append(row);box.append(c);$('ch-pending').hidden=false;chFit();}
-function chPendingGone(c){c.remove();if(!$('ch-pending-list').children.length)$('ch-pending').hidden=true;}
+function chPendingGone(c){c.remove();if(!$('ch-pending-list').children.length)$('ch-pending').hidden=true;chFit();}
 async function chDecide(id,approve,card){
   try{const r=await api('/admin/api/chat/decision',{method:'POST',body:{id,approve,conversation:chConv||undefined}});
     chPendingGone(card);

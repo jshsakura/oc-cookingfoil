@@ -75,6 +75,17 @@ test('the chat is a full-height chat screen: off state, settings sheet, greeting
   await expect(bot).toContainText('<b>태그</b>');
   expect(await bot.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   expect(await mine.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  // One column: the bubble, the box and the top row end on the same right edge, and the answer starts on the left edge.
+  const right = async (sel: string) => { const b = await page.locator(sel).first().boundingBox(); return b!.x + b!.width; };
+  const left = async (sel: string) => (await page.locator(sel).first().boundingBox())!.x;
+  expect(Math.abs((await right('#ch-col .ch-msg.me')) - (await right('#ch-send')))).toBeLessThan(2);
+  expect(Math.abs((await right('.ch-top')) - (await right('#ch-send')))).toBeLessThan(2);
+  expect(Math.abs((await left('#ch-col .ch-msg:not(.me)')) - (await left('#ch-send')))).toBeLessThan(2);
+  // The toast rises above the box instead of covering it.
+  await page.evaluate(() => toast('x'));
+  const toastBox = await page.locator('#toast').boundingBox();
+  const sendBox = await page.locator('#ch-send').boundingBox();
+  expect(toastBox!.y + toastBox!.height).toBeLessThanOrEqual(sendBox!.y + 1);
   await expect(page.locator('#ch-pending-list .ch-card-ask')).toContainText('would restart');
   await expect(page.locator('#ch-pending')).toContainText('다시 시작하면');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
