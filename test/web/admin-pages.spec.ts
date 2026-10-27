@@ -11,7 +11,7 @@ const PAGES: [string, string, string][] = [
   ['/admin/upload', 'tab-upload', '올리기'],
   // Stage B first bundle: these pages carry only their own panel.
   ['/admin/convert', 'tab-nsz', '파일 압축'],
-  ['/admin/inbox', 'tab-inbox', '수신함'],
+  ['/admin/inbox', 'tab-inbox', '임시 공유'],
   ['/admin/featured', 'tab-featured', '홈 화면 구성'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
@@ -172,7 +172,7 @@ test.describe('on a phone', () => {
     const drawer = page.locator('#adm-drawer');
     await expect(drawer).toBeVisible();
     // The dialog holds the focus, so Escape (its own close) is reachable.
-    await expect(drawer.locator('a[href="/admin/upload"]')).toBeVisible();
+    await expect(drawer.locator('a[href="/admin/patches"]')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(drawer).toBeHidden();
   });

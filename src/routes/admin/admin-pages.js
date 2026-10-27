@@ -17,16 +17,12 @@ import { top } from "./top-i18n.js";
 /** A page: the section (tab) it opens, the sub-view inside it when there is one, and its sidebar icon. */
 export const ADMIN_PAGES = [
   { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
-  { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "sparkle" },
-  // games group
+  { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat" },
+  // games: the Switch library and what the console's home screen shows
   { path: "/admin/games", tab: "library", label: "m.library", group: "games", icon: "folder" },
   { path: "/admin/patches", tab: "library", sub: "patches", label: "m.patches", group: "games", icon: "package" },
-  { path: "/admin/files", tab: "files", label: "m.files", group: "games", icon: "layers" },
-  { path: "/admin/upload", tab: "upload", label: "m.upload", group: "games", icon: "upload" },
-  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "games", icon: "shrink" },
-  { path: "/admin/inbox", tab: "inbox", label: "m.inbox", group: "games", icon: "inbox", count: "inbox-count" },
   { path: "/admin/featured", tab: "featured", label: "m.featured", group: "games", icon: "star" },
-  { path: "/admin/trash", tab: "trash", label: "m.trash", group: "games", icon: "trash" },
+  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "games", icon: "shrink" },
   // retro: the eight jobs are items of their own, not a hidden tab row
   {
     path: "/admin/retro", tab: "retro", group: "retro", tasks: [
@@ -39,23 +35,29 @@ export const ADMIN_PAGES = [
   { path: "/admin/homebrew", tab: "homebrew", group: "homebrew", param: "tab", tasks: [
     { view: "apps", label: "ht.apps", icon: "grid" }, { view: "reco", label: "ht.reco", icon: "sparkle" }, { view: "sources", label: "ht.sources", icon: "globe" },
   ] },
+  // files: what comes in, where it sits, what was thrown away
+  { path: "/admin/upload", tab: "upload", label: "m.upload", group: "files", icon: "upload" },
+  { path: "/admin/inbox", tab: "inbox", label: "m.inbox", group: "files", icon: "inbox", count: "inbox-count" },
+  { path: "/admin/files", tab: "files", label: "m.files", group: "files", icon: "layers" },
+  { path: "/admin/trash", tab: "trash", label: "m.trash", group: "files", icon: "trash" },
   // people
   { path: "/admin/users", tab: "users", label: "s.users", group: "people", icon: "users", count: "account-count" },
   { path: "/admin/devices", tab: "devices", label: "s.devices", group: "people", icon: "device", count: "pending-count" },
-  // records and operations
+  // records
   { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops", icon: "download" },
   { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops", icon: "device" },
   { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", icon: "lock", count: "lock-count" },
-  // settings
+  // settings: how the server runs
   { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", group: "set", icon: "sliders" },
   { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", group: "set", icon: "package" },
-  // login and admin security still share the old "security" area until Stage B splits it.
-  { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", group: "set", icon: "login", shared: true },
-  { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", group: "set", icon: "lock", shared: true },
-  { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "set", icon: "key" },
   { path: "/admin/settings/plugins", tab: "settings", sub: "plugins", label: "m.setPlugins", group: "set", icon: "puzzle" },
   { path: "/admin/settings/notifications", tab: "alerts", label: "m.alerts", group: "set", icon: "bell" },
   { path: "/admin/client", tab: "overview", label: "m.client", anchor: "client-release", group: "set", icon: "download" },
+  // security: who may sign in, how the admin signs in, the tokens automation uses.
+  // Login and admin security still share the old "security" area until Stage B splits it.
+  { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", group: "sec", icon: "login", shared: true },
+  { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", group: "sec", icon: "lock", shared: true },
+  { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "sec", icon: "key" },
 ];
 
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
@@ -64,9 +66,11 @@ const GROUPS = {
   games: { label: "m.grpGames", sum: "games", icon: "grid" },
   retro: { label: "m.retro", icon: "joystick" },
   homebrew: { label: "g.homebrew", icon: "package" },
+  files: { label: "m.grpFiles", sum: "files", icon: "layers" },
   people: { label: "m.people", sum: "people", icon: "users" },
   ops: { label: "m.grpOps", sum: "ops", icon: "log" },
   set: { label: "m.grpSet", icon: "sliders" },
+  sec: { label: "m.grpSec", icon: "lock" },
 };
 
 /** The page a legacy "#tab" hash belongs to, so old links land on real paths. */
@@ -170,7 +174,7 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-side>.adm-hdr{display:contents}
 .adm-side .brand{order:0;flex:none;display:flex;align-items:center;height:var(--adm-hdr-h);margin:0;padding:0 22px;box-sizing:border-box;border-bottom:1px solid var(--line)}
 .adm-side .brand a{gap:10px}.adm-side .brand img{width:32px;height:32px}.adm-side .brand .wm{font-size:var(--fs-2xl)}
-.adm-side>.adm-side-in{order:1;display:grid;align-content:start;gap:6px;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px 14px 24px}
+.adm-side>.adm-side-in{order:1;display:grid;align-content:start;grid-auto-rows:min-content;gap:6px;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px 14px 24px}
 .adm-side .hdr-right{position:fixed;top:0;left:260px;right:0;z-index:40;height:var(--adm-hdr-h);box-sizing:border-box;
   display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 24px 0 32px;background:var(--panel);border-bottom:1px solid var(--line)}
 .adm-side .adm-crumb{margin-right:auto;font-size:var(--fs-lg)}
@@ -188,16 +192,15 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-grp[open] summary .chev{transform:rotate(180deg)}
 .adm-item:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .adm-grp summary .count{margin-left:auto}
-.adm-grp-in{display:grid;gap:4px;margin:6px 0 10px;padding-left:20px}
+.adm-grp-in{display:grid;gap:2px;margin:4px 0 8px;padding-left:20px}
 .adm-grp-in .ico{width:17px;height:17px}
-.adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:11px 14px;border-radius:var(--r-lg);position:relative;
+.adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:9px 14px;border-radius:var(--r-lg);position:relative;
   color:var(--text);font-weight:var(--fw-bold);font-size:var(--fs-sm);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adm-item:not([aria-current]):hover{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
 .adm-side-in>.adm-item{font-size:var(--fs-md);font-weight:700}
 .adm-item[aria-current="page"]{background:var(--text);color:var(--bg)}
 .adm-item[aria-current="page"] .count{background:var(--bg);color:var(--text)}
 .adm-item .count{margin-left:auto}
-.adm-task{font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--muted);padding:9px 14px}
 /* The drawer is as tall as what the phone shows (dvh leaves out the browser bars) and square, so nothing at
    the top or the foot hides under a bar or a rounded corner; only the menu scrolls. */
 .adm-drawer{position:fixed;left:0;top:0;width:min(320px,86vw);height:100vh;height:100dvh;max-height:none;margin:0;border:0;
