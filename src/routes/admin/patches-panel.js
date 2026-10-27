@@ -68,7 +68,7 @@ export const PATCHES_CSS = `
 .pt-row .pt-name{flex:1;min-width:0;overflow-wrap:anywhere}.pt-row .pt-name small{display:block;color:var(--muted);font-size:var(--fs-xs)}
 .pt-row .pt-size{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
 .pt-req{height:34px;min-width:92px;padding:0 10px 0 12px;gap:8px;justify-content:space-between;color:var(--muted)}
-.pt-req[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
+.pt-req[aria-checked="true"]{color:var(--text)}
 .pt-req:disabled{opacity:.6;cursor:progress}
 .pt-edit{width:34px;height:34px;padding:0;position:relative}.pt-edit>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #gd-patches .pt-row{border-top:1px solid var(--line)}#gd-patches .pt-row:first-child{border-top:0}
