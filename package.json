@@ -20,6 +20,7 @@
     "hooks:install": "node scripts/install-hooks.cjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "^2.3.1",
     "@modelcontextprotocol/server": "^2.3.1",
     "@noble/ciphers": "2.4.0",
     "@noble/curves": "2.4.0",
@@ -42,7 +43,6 @@
     "yazl": "3.3.1"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.3.1",
     "@playwright/test": "^1.45.1",
     "@types/node": "^20.14.10",
     "acorn": "^8.18.0",

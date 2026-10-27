@@ -9,6 +9,7 @@
  * file uses discard().
  */
 export const DIRECT_DELETES = Object.freeze({
+  "src/chat/session-store.js": { count: 1, why: "a chat log, when its owner deletes that conversation" },
   "src/db/backup.js": { count: 4, why: "backup rotation and its work folders" },
   "src/db/database.js": { count: 1, why: "the database's own files" },
   "src/library/safe-move.js": { count: 8, why: "a copy's source after it verified, and half-written copies" },
