@@ -1193,5 +1193,13 @@
   "File status": "파일 상태",
   "This file is not signed, so it cannot be installed.": "서명이 존재하지 않아 설치할 수 없습니다.",
   "This file is not signed, so the console may refuse to install it.": "서명이 없는 파일이라 본체가 설치를 거부할 수 있습니다.",
-  "The server could not prepare this file.": "서버가 이 파일을 준비하지 못했습니다."
+  "The server could not prepare this file.": "서버가 이 파일을 준비하지 못했습니다.",
+  "Theme": "테마",
+  "Beige|theme": "베이지",
+  "Black|theme": "블랙",
+  "Navy|theme": "네이비",
+  "Purple|theme": "퍼플",
+  "Green|theme": "그린",
+  "Pink|theme": "핑크",
+  "Same as the console": "본체 설정대로"
 }

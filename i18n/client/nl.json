@@ -1193,5 +1193,13 @@
   "File status": "Bestandsstatus",
   "This file is not signed, so it cannot be installed.": "Dit bestand is niet ondertekend en kan daarom niet worden geïnstalleerd.",
   "This file is not signed, so the console may refuse to install it.": "Dit bestand is niet ondertekend, dus de console kan de installatie weigeren.",
-  "The server could not prepare this file.": "De server kon dit bestand niet voorbereiden."
+  "The server could not prepare this file.": "De server kon dit bestand niet voorbereiden.",
+  "Theme": "Thema",
+  "Beige|theme": "Beige",
+  "Black|theme": "Zwart",
+  "Navy|theme": "Marineblauw",
+  "Purple|theme": "Paars",
+  "Green|theme": "Groen",
+  "Pink|theme": "Roze",
+  "Same as the console": "Zoals de console"
 }
