@@ -1228,5 +1228,7 @@
   "Opened from the Album there is too little memory to connect to a PC. Opened from a HOME Menu shortcut, it can.": "Si se abre desde el Álbum, no hay memoria suficiente para conectar a un PC. Si se abre desde un acceso directo del menú HOME, sí se puede.",
   "A game sent from the web waits until the console has room.": "Un juego enviado desde la web espera hasta que la consola tenga espacio.",
   "Sent from the web. Goes to the download queue unless cancelled.": "Enviado desde la web. Se añade a la cola de descargas si no lo cancelas.",
-  "Downloads start once the console is online.": "Las descargas empiezan cuando la consola tenga conexión."
+  "Downloads start once the console is online.": "Las descargas empiezan cuando la consola tenga conexión.",
+  "Cleaning up files": "Limpiando archivos",
+  "Removed {0} unfinished copies.": "Se eliminaron {0} copias sin terminar."
 }
