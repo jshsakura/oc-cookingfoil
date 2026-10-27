@@ -13,7 +13,7 @@ test("the chat has its own page and a menu entry", () => {
   assert.ok(page, "/admin/chat is in ADMIN_PAGES");
   const html = splitPageFor(page);
   assert.ok(html.includes('id="tab-chat"') && !html.includes('id="tab-chat" hidden'), "the section opens on its own page");
-  for (const id of ["ch-switch", "ch-form", "ch-key", "ch-log", "ch-send", "ch-pending-list"]) assert.ok(html.includes(`id="${id}"`), id);
+  for (const id of ["ch-gear", "ch-sheet", "ch-form", "ch-key", "ch-log", "ch-send", "ch-pending-list"]) assert.ok(html.includes(`id="${id}"`), id);
 });
 
 test("the page's script is valid JavaScript", () => {
