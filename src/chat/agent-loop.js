@@ -5,7 +5,7 @@
  * so a screen waiting on the turn is always released.
  *
  *   runTurn({ llm, host, messages, ctx, onEvent, maxSteps, maxToolChars, signal })
- *     -> { added, steps, usage, error?, aborted? }
+ *     -> { added, steps, usage: { prompt_tokens, completion_tokens, context_tokens }, error?, aborted? }
  *
  * `added` is what this turn appended to the conversation (assistant and tool messages); the
  * `messages` given in are not changed. A call that waits for an approval is told to the screen as an
@@ -18,12 +18,20 @@ export const MAX_TOOL_CHARS = 12_000;
 
 const WAITING = JSON.stringify({ status: "waiting_for_approval", note: "A person must approve this before it runs. Tell them it is waiting; do not call it again." });
 
+// A long run that reads as base64 (mixed case with digits or +/) or as hex is file content, not
+// something to read; it is dropped before the result enters the conversation, so a tool that hands
+// back a file cannot fill the context with it.
+const RUN_RE = /[A-Za-z0-9+/=_-]{512,}/g;
+const isBlob = (run) => (/[A-Z]/.test(run) && /[a-z]/.test(run) && /[0-9+/]/.test(run)) || (/^[0-9a-fA-F]+$/.test(run) && /[0-9]/.test(run) && /[a-fA-F]/.test(run));
+export const scrubBlobs = (text) => text.replace(RUN_RE, (m) => (isBlob(m) ? `[${m.length} characters of file data left out]` : m));
+
 const cutTo = (text, max) => (text.length > max ? `${text.slice(0, max)}…[cut ${text.length - max} characters; ask for less, with a filter or a limit]` : text);
 
 export async function runTurn({ llm, host, messages, ctx, onEvent = () => {}, maxSteps = MAX_STEPS, maxToolChars = MAX_TOOL_CHARS, signal, llmOptions = {} }) {
   const history = [...messages];
   const added = [];
-  const out = { added, steps: 0, usage: { prompt_tokens: 0, completion_tokens: 0 } };
+  // context_tokens is the last request's prompt size: how full the model's context is now.
+  const out = { added, steps: 0, usage: { prompt_tokens: 0, completion_tokens: 0, context_tokens: 0 } };
   const push = (m) => {
     history.push(m);
     added.push(m);
@@ -52,7 +60,7 @@ export async function runTurn({ llm, host, messages, ctx, onEvent = () => {}, ma
     }
     if (result?.status === "denied") return JSON.stringify({ error: result.message });
     if (result?.status === "error") return JSON.stringify({ error: result.error });
-    return cutTo(JSON.stringify(result?.result ?? null), maxToolChars);
+    return cutTo(scrubBlobs(JSON.stringify(result?.result ?? null)), maxToolChars);
   }
 
   try {
@@ -78,6 +86,7 @@ export async function runTurn({ llm, host, messages, ctx, onEvent = () => {}, ma
           } else if (e.type === "tool_calls") calls = e.calls;
           else if (e.type === "usage") {
             out.usage.prompt_tokens += e.usage.prompt_tokens ?? 0;
+            out.usage.context_tokens = (e.usage.prompt_tokens ?? 0) + (e.usage.completion_tokens ?? 0);
             out.usage.completion_tokens += e.usage.completion_tokens ?? 0;
           }
         }

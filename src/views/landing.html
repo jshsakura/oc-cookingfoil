@@ -1638,6 +1638,7 @@
       </div>
     </div>
 
+    __CHAT_WIDGET_HTML__
     <div class="toast-rack" id="toasts"></div>
     <div class="restart-banner" id="restart-banner" role="status" aria-live="polite" hidden></div>
 
@@ -3079,6 +3080,7 @@
       };
 
       for (const [code, words] of Object.entries(__THEME_WORDS__)) Object.assign(I18N[code], words);
+      for (const [code, words] of Object.entries(__CHAT_WORDS__)) Object.assign(I18N[code], words);
 
       const LANG_KEY = "cookingfoil:lang";
       // The four languages the server labels genres and reviews in.
@@ -3128,6 +3130,7 @@
         for (const el of document.querySelectorAll("[data-i18n]"))      el.textContent = t(el.dataset.i18n);
         for (const el of document.querySelectorAll("[data-i18n-html]")) el.innerHTML  = t(el.dataset.i18nHtml);
         for (const el of document.querySelectorAll("[data-i18n-label]")) el.setAttribute("aria-label", t(el.dataset.i18nLabel));
+        for (const el of document.querySelectorAll("[data-i18n-ph]")) el.setAttribute("placeholder", t(el.dataset.i18nPh));
         $("search").placeholder = t("search.placeholder");
         $("retro-search").placeholder = t("retro.search");
         $("patches-search").placeholder = t("extras.search");
@@ -7086,6 +7089,9 @@
         .catch(() => { /* off for this visit */ });
 
       __ACTIVITY_SCRIPT__
+
+      // ─── AI chat: the floating button for a signed-in person (routes/chat.js) ───
+      __CHAT_WIDGET_SCRIPT__
 
       // ─── realtime: WebSocket library push ─────────────────────────────────
       // The dashboard re-fetches /api/library/sections on every library-updated event so

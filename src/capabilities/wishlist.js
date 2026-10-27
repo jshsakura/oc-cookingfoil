@@ -20,6 +20,8 @@ export const wishlistCapabilities = [
     input: { type: "object", properties: {} },
     output: obj({ items: arr(WISH) }),
     safety: "read",
+    // Served over MCP for the chat, where a person reads their own list (chat/policy.js).
+    mcp: true,
     http: { method: "GET", path: "/pair/api/wishlist" },
     handler: async (ctx) => ({ items: wishlist.list(owner(ctx)) }),
   }),
@@ -39,6 +41,12 @@ export const wishlistCapabilities = [
     },
     output: obj({ done: str(), changed: bool("false when the list already was so"), item: WISH }),
     safety: "write",
+    mcp: true,
+    preview: async (ctx, input) => ({
+      op: input.op, titleId: wishlist.cleanTitleId(input.titleId) || input.titleId,
+      changes: input.op === "remove" ? "Takes the game off the caller's own wishlist." : "Puts the game on the caller's own wishlist.",
+    }),
+    previewOutput: obj({ op: str(), titleId: str(), changes: str() }),
     http: { method: "POST", path: "/pair/api/wishlist" },
     also: ["POST /pair/api/wishlist/remove"],
     handler: async (ctx, input) => {

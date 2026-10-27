@@ -1,34 +1,34 @@
 /**
- * The admin chat page, drawn like a chat app: a thin top row (conversation, new, settings), the
- * conversation filling the rest of the height, and the message box docked at the bottom. The
- * switch, the model form and deleting a conversation live in the sheet the gear opens. Talks to
- * /admin/api/chat (chat-api.js), /admin/api/integrations/chat (the model) and
- * /admin/api/server-settings (chatEnabled). Everything from the model or a tool goes in as text.
+ * The chat, drawn like a chat app: a thin top row (the assistant's name, conversation, context
+ * meter, new, settings), the conversation filling the rest of the height, and the message box
+ * docked at the bottom. Two builds of the same markup and script:
+ *   admin  the admin page and its floating widget. Talks to /admin/api/chat (chat-api.js),
+ *          /admin/api/integrations/chat (the model) and /admin/api/server-settings (chatEnabled and
+ *          the persona); the switch, the model and persona forms and deleting a conversation live in
+ *          the sheet the gear opens, and waiting calls carry approve and refuse.
+ *   web    the floating chat on the web page (landing.html), for any signed-in person. Talks to
+ *          /api/chat with the page's CSRF token; no settings sheet, and a request shows that it
+ *          waits for an admin.
+ * Everything from the model or a tool goes in as text.
+ *
+ * Files (the paperclip, a drop on the chat, or a paste) go into the share inbox first: /api/inbox
+ * for a person, /admin/api/chat/attach for the admin. The message then carries one line per file
+ * (name, size, where it is in the inbox); the model never gets the file.
  */
 import { icon } from "../../views/icons.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
+import { CHAT_WORDS } from "./chat-words.js";
+import { MESSAGE_MAX } from "../../chat/service.js";
 
-/** The chat itself: the page puts it in a section, the floating widget in a panel. */
-export const CHAT_INNER_HTML = /* html */ `  <div class="ch-top ch-col">
-    <select id="ch-pick" ${topLabel("ch.conv")}></select>
-    <button type="button" class="icon-btn" id="ch-new" ${topLabel("ch.new")}>${icon("plus")}</button>
-    <button type="button" class="icon-btn" id="ch-gear" ${topLabel("ch.settings")}>${icon("sliders")}</button>
-    <button type="button" class="icon-btn" id="ch-close" hidden ${topLabel("ch.close")}>${icon("x")}</button>
-  </div>
-  <div class="ch-log" id="ch-log" aria-live="polite"><div class="ch-col" id="ch-col"></div></div>
-  <div class="ch-dock" id="ch-dock">
-    <div class="ch-col">
-      <div class="ch-pending" id="ch-pending" hidden>
-        <b>${top("ch.pendingH")}</b>
-        <p class="muted">${top("ch.lost")}</p>
-        <div id="ch-pending-list"></div>
-      </div>
-      <form class="ch-card" id="ch-send">
-        <textarea id="ch-text" rows="1" maxlength="8000" ${topPh("ch.placeholder")}></textarea>
-        <button type="submit" class="primary ch-go" id="ch-go" ${topLabel("ch.send")}>${icon("send")}</button>
-      </form>
-    </div>
-  </div>
+// How each build names its words: the admin page's data-top swap, or the web page's data-i18n.
+const ADMIN_WORDS = { text: top, label: topLabel, ph: topPh };
+const WEB_WORDS = {
+  text: (k) => `<span data-i18n="${k}">${CHAT_WORDS.ko[k]}</span>`,
+  label: (k) => `data-i18n-label="${k}" aria-label="${CHAT_WORDS.ko[k]}"`,
+  ph: (k) => `data-i18n-ph="${k}" placeholder="${CHAT_WORDS.ko[k]}"`,
+};
+
+const SHEET_HTML = /* html */ `
   <dialog id="ch-sheet" class="ch-sheet" aria-labelledby="ch-sheet-h">
     <div class="ch-sheet-hd"><h3 id="ch-sheet-h">${top("ch.settings")}</h3>
       <button type="button" class="icon-btn" id="ch-sheet-x" ${topLabel("ch.close")}>${icon("x")}</button></div>
@@ -40,12 +40,53 @@ export const CHAT_INNER_HTML = /* html */ `  <div class="ch-top ch-col">
       <label>${top("ch.baseUrl")}<input id="ch-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://"></label>
       <label>${top("ch.model")}<input id="ch-model" type="text" autocomplete="off" spellcheck="false"></label>
       <label>${top("ch.apiKey")}<input id="ch-key" type="password" autocomplete="new-password"></label>
-      <p class="muted" id="ch-keystate"></p>
-      <p class="muted">${top("ch.keyMoves")}</p>
+      <p class="muted ch-hint">${top("ch.keyMoves")}</p>
+      <div class="actions"><button type="submit" class="primary">${top("fp.save")}</button></div>
+    </form>
+    <form id="ch-persona-form" class="ch-form">
+      <h4>${top("ch.personaH")}</h4>
+      <p class="muted">${top("ch.personaLead")}</p>
+      <label>${top("ch.name")}<input id="ch-name-in" type="text" maxlength="24" autocomplete="off"></label>
+      <label>${top("ch.persona")}<textarea id="ch-persona-in" rows="5" maxlength="600"></textarea></label>
+      <label>${top("ch.window")}<input id="ch-window-in" type="number" min="4096" max="2000000" step="1024"></label>
       <div class="actions"><button type="submit" class="primary">${top("fp.save")}</button></div>
     </form>
     <div class="ch-danger"><button type="button" class="danger" id="ch-del">${top("ch.delete")}</button></div>
   </dialog>`;
+
+/** The chat's markup for one build: the page puts it in a section, the floating widget in a panel. */
+export function chatInnerHtml({ web = false } = {}) {
+  const w = web ? WEB_WORDS : ADMIN_WORDS;
+  return /* html */ `  <div class="ch-top ch-col">
+    <b class="ch-name" id="ch-name"></b>
+    <select id="ch-pick" ${w.label("ch.conv")}></select>
+    <button type="button" class="ch-ctx" id="ch-ctx" hidden><span class="ch-ctx-bar"><i id="ch-ctx-fill"></i></span></button>
+    <button type="button" class="icon-btn" id="ch-new" ${w.label("ch.new")}>${icon("plus")}</button>
+    ${web ? "" : `<button type="button" class="icon-btn" id="ch-gear" ${w.label("ch.settings")}>${icon("sliders")}</button>`}
+    <button type="button" class="icon-btn" id="ch-close" hidden ${w.label("ch.close")}>${icon("x")}</button>
+  </div>
+  <div class="ch-log" id="ch-log" aria-live="polite"><div class="ch-col" id="ch-col"></div></div>
+  <div class="ch-dock" id="ch-dock">
+    <div class="ch-col">
+      <div class="ch-pending" id="ch-pending" hidden>
+        <b>${w.text("ch.pendingH")}</b>
+        <p class="muted">${w.text("ch.lost")}</p>
+        <div id="ch-pending-list"></div>
+      </div>
+      <div class="ch-files" id="ch-files" hidden></div>
+      <div class="ch-up" id="ch-up" hidden><span class="ch-up-bar"><i id="ch-up-fill"></i></span><span id="ch-up-txt"></span></div>
+      <form class="ch-card" id="ch-send">
+        <button type="button" class="icon-btn ch-clip" id="ch-clip" ${w.label("ch.attach")}>${icon("paperclip")}</button>
+        <input type="file" id="ch-file" multiple hidden>
+        <textarea id="ch-text" rows="1" maxlength="${MESSAGE_MAX}" ${w.ph("ch.placeholder")}></textarea>
+        <span class="ch-count" id="ch-count" hidden></span>
+        <button type="submit" class="primary ch-go" id="ch-go" ${w.label("ch.send")}>${icon("send")}</button>
+      </form>
+    </div>
+  </div>${web ? "" : SHEET_HTML}`;
+}
+
+export const CHAT_INNER_HTML = chatInnerHtml();
 
 export const CHAT_HTML = /* html */ `<section id="tab-chat" hidden>
 ${CHAT_INNER_HTML}
@@ -67,7 +108,17 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 #ch-col{display:grid;gap:14px;align-content:start;padding:8px 0 16px}
 #ch-col.ch-empty{min-height:100%;align-content:center;justify-items:center;text-align:center}
 .ch-hello{display:grid;gap:16px;justify-items:center}
-.ch-hello h3{margin:0;font-size:var(--fs-xl)}
+.ch-hello h3{margin:0;max-width:34em;font-size:var(--fs-lg);line-height:1.5}
+.ch-name{flex:none;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The context meter: how full the model's context is for this conversation; a click compacts it. */
+.ch-ctx{flex:none;display:grid;place-items:center;width:44px;height:32px;padding:0;border:0;background:transparent;cursor:pointer}
+.ch-ctx-bar{display:block;width:36px;height:6px;border-radius:var(--r-pill);background:var(--sunk);overflow:hidden}
+.ch-ctx-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.ch-ctx.full .ch-ctx-bar i{background:var(--bad)}
+.ch-count{flex:none;align-self:center;color:var(--muted);font-size:var(--fs-sm)}
+.ch-count.over{color:var(--bad)}
+.ch-mark{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:var(--fs-sm)}
+.ch-mark::before,.ch-mark::after{content:"";flex:1;border-top:1px dashed var(--line)}
 .ch-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .ch-chip{border:0;border-radius:var(--r-pill);background:var(--sunk);color:var(--text);font:inherit;font-size:var(--fs-sm);padding:9px 14px;cursor:pointer}
 .ch-chip:hover{background:var(--panel)}
@@ -86,7 +137,18 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-pending p{margin:2px 0 6px}
 .ch-card-ask{background:var(--sunk);border-radius:var(--r-xl);padding:10px 12px;margin:8px 0;display:grid;gap:8px}
 .ch-card-ask pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--fs-sm)}
-.ch-card{display:flex;align-items:flex-end;gap:8px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-2xl);padding:8px 8px 8px 16px}
+.ch-card{display:flex;align-items:flex-end;gap:8px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-2xl);padding:8px}
+.ch-clip{flex:none;width:36px;height:36px;padding:0;display:grid;place-items:center;border:0;background:transparent}
+.ch-clip .ico{width:18px;height:18px}
+.ch-files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.ch-file{display:inline-flex;align-items:center;gap:6px;max-width:100%;background:var(--sunk);border-radius:var(--r-pill);padding:4px 6px 4px 12px;font-size:var(--fs-sm)}
+.ch-file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ch-file button{flex:none;width:24px;height:24px;padding:0;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.ch-file button .ico{width:14px;height:14px}
+.ch-up{display:flex;align-items:center;gap:10px;margin-bottom:6px;color:var(--muted);font-size:var(--fs-sm)}
+.ch-up-bar{flex:1;height:6px;border-radius:var(--r-pill);background:var(--sunk);overflow:hidden}
+.ch-up-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.ch-drop{outline:2px dashed var(--accent);outline-offset:-6px}
 .ch-card:focus-within{box-shadow:0 0 0 3px rgba(var(--accent-rgb),.45)}
 .ch-card textarea{flex:1;min-width:0;box-sizing:border-box;border:0;outline:0;resize:none;background:transparent;color:var(--text);font:inherit;font-size:var(--fs-md);line-height:22px;padding:7px 0;max-height:none;overflow-y:hidden}
 .ch-go{flex:none;display:grid;place-items:center;width:36px;height:36px;padding:0;border-radius:50%;border:0}
@@ -99,6 +161,15 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-form{display:grid;gap:10px;margin-top:6px}
 .ch-form h4{margin:8px 0 0}
 .ch-form label{display:grid;gap:4px;font-weight:var(--fw-bold)}
+.ch-form p{margin:0}
+.ch-form .ch-hint{margin-top:-4px;font-size:var(--fs-sm)}
+/* The assistant is writing: three dots in its own row until the first words or the end of the turn. */
+.ch-typing{display:flex;gap:5px;align-items:center;height:22px}
+.ch-typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:ch-dot 1.2s infinite ease-in-out}
+.ch-typing i:nth-child(2){animation-delay:.15s}
+.ch-typing i:nth-child(3){animation-delay:.3s}
+@keyframes ch-dot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.ch-typing i{animation:none;opacity:.6}}
 .ch-danger{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
 @media (max-width:640px){
 .ch-sheet{width:100%;max-width:100%;margin:auto 0 0;box-sizing:border-box;border-radius:var(--r-2xl) var(--r-2xl) 0 0}
@@ -106,24 +177,78 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 }
 `;
 
-export const CHAT_SCRIPT = /* js */ `
-const CH_ICON={send:${JSON.stringify(icon("send"))},stop:${JSON.stringify(icon("stop"))}};
-let chConv=null,chAbort=null,chBusy=false,chState={enabled:false,ready:false};
+// The web page has no admin helpers; these stand in for el, api, topText, topFill and the language.
+const WEB_SHIMS = /* js */ `
+const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;};
+const topText=(k)=>t(k);
+const topFill=(k,v)=>String(t(k)).replace(/\\{(\\w+)\\}/g,(m,x)=>v[x]!=null?String(v[x]):m);
+const chLang=()=>lang;
+const chWriteHeaders=()=>({'X-CSRF-Token':(session&&session.csrf)||''});
+async function api(url,o={}){const method=o.method||'GET';
+  const r=await fetch(url,{method,headers:{Accept:'application/json',...(o.body?{'Content-Type':'application/json'}:{}),...(method==='GET'?{}:chWriteHeaders())},body:o.body?JSON.stringify(o.body):undefined});
+  const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||('HTTP '+r.status));e.status=r.status;throw e;}return d;}
+`;
+
+/** The chat's script for one build (see the top of this file). */
+export function chatScript({ web = false } = {}) {
+  const body = /* js */ `
+const CH_ADMIN=${web ? "false" : "true"},CH_API='${web ? "/api/chat" : "/admin/api/chat"}',CH_MAX=${MESSAGE_MAX};
+${web ? "" : "const chLang=()=>typeof adminLang==='string'?adminLang:'ko';const chWriteHeaders=()=>({});"}
+const CH_ATTACH='${web ? "/api/inbox" : "/admin/api/chat/attach"}';
+const CH_ICON={send:${JSON.stringify(icon("send"))},stop:${JSON.stringify(icon("stop"))},x:${JSON.stringify(icon("x"))}};
+let chConv=null,chAbort=null,chBusy=false,chState={enabled:false,ready:false,name:''};
+let chFiles=[],chUp=false; // files already in the inbox, waiting to go with the next message; an upload running
 const chCol=()=>$('ch-col');
 function chScroll(){const l=$('ch-log');l.scrollTop=l.scrollHeight;}
 // The section takes the height left under the header, also when a phone keyboard shrinks the screen.
 function chFit(){const s=$('tab-chat');if(!s||s.hidden)return;const vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
   s.style.height=Math.max(320,vh-s.getBoundingClientRect().top-12)+'px';
   const d=$('ch-dock');document.documentElement.style.setProperty('--ch-dock',(d.hidden?0:d.offsetHeight)+'px');}
+function chCount(){const n=$('ch-text').value.length,c=$('ch-count');c.hidden=n<CH_MAX*0.8;c.textContent=n+'/'+CH_MAX;c.classList.toggle('over',n>CH_MAX);
+  if(n>CH_MAX)c.title=topFill('ch.tooLong',{max:CH_MAX});}
 function chGrow(){const t=$('ch-text');t.style.height='auto';const cs=getComputedStyle(t),line=parseFloat(cs.lineHeight)||22,pad=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
-  const max=line*8+pad;t.style.height=Math.min(t.scrollHeight,max)+'px';t.style.overflowY=t.scrollHeight>max?'auto':'hidden';chSendState();chFit();}
-function chSendState(){const b=$('ch-go');b.disabled=!chBusy&&!$('ch-text').value.trim();}
+  const max=line*8+pad;t.style.height=Math.min(t.scrollHeight,max)+'px';t.style.overflowY=t.scrollHeight>max?'auto':'hidden';chCount();chSendState();chFit();}
+function chSendState(){const b=$('ch-go'),v=$('ch-text').value;b.disabled=!chBusy&&(chUp||(!v.trim()&&!chFiles.length)||v.length>CH_MAX);}
+function chSize(n){const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++;}return (i?n.toFixed(1):String(n))+' '+u[i];}
+function chChips(){const box=$('ch-files');box.replaceChildren();
+  chFiles.forEach((f,i)=>{const c=el('span',null,'ch-file');c.append(el('span',f.name+' · '+chSize(f.size)));
+    const x=el('button');x.type='button';x.innerHTML=CH_ICON.x;x.setAttribute('aria-label',topText('ch.unattach'));
+    x.addEventListener('click',()=>{chFiles.splice(i,1);chChips();});c.append(x);box.append(c);});
+  box.hidden=!chFiles.length;chSendState();chFit();}
+function chUpShow(pct){const u=$('ch-up');u.hidden=pct===null;if(pct===null){chFit();return;}
+  $('ch-up-fill').style.width=pct+'%';$('ch-up-txt').textContent=topFill('ch.uploading',{pct});chFit();}
+// What the message says about each file: the inbox entry and its name there, never the file itself.
+function chFileLines(){return chFiles.map((f)=>topText('ch.attachTag')+' '+f.name+' ('+chSize(f.size)+') inbox/'+f.id+'/'+f.name).join('\\n');}
+const chStamp=()=>new Date().toISOString().replace(/[-:]/g,'').replace('T','-').replace(/\\..*$/,'');
+// A pasted screenshot comes as image.png or with no name; it is named for when it was pasted.
+function chPasteName(f,i){if(f.name&&!/^image\\.\\w+$/i.test(f.name))return f;
+  const ext=(f.type.split('/')[1]||'bin').replace(/[^a-z0-9]/gi,'');return new File([f],'paste-'+chStamp()+(i?'-'+i:'')+'.'+ext,{type:f.type});}
+function chUpload(list){const files=[...list].filter(Boolean);if(!files.length||chUp)return;
+  const fd=new FormData();for(const f of files)fd.append('files',f,f.name);
+  chUp=true;chSendState();chUpShow(0);
+  const x=new XMLHttpRequest();x.open('POST',CH_ATTACH);
+  for(const [k,v] of Object.entries({Accept:'application/json','Accept-Language':chLang(),...chWriteHeaders()}))x.setRequestHeader(k,v);
+  x.upload.onprogress=(e)=>{if(e.lengthComputable)chUpShow(Math.round(e.loaded/e.total*100));};
+  const end=(err)=>{chUp=false;chUpShow(null);if(err)chNote(topFill('ch.attachFail',{msg:err}),'ch-err');chSendState();};
+  x.onload=()=>{let d={};try{d=JSON.parse(x.responseText||'{}');}catch{}
+    if(x.status===401&&!CH_ADMIN){location.reload();return;}
+    if(x.status!==201)return end(d.error||('HTTP '+x.status));
+    for(const it of d.items||[])chFiles.push({id:d.id,name:it.name,size:it.size});chChips();end(null);};
+  x.onerror=()=>end('network');
+  x.send(fd);}
 function chIcon(){const b=$('ch-go');b.innerHTML=chBusy?CH_ICON.stop:CH_ICON.send;b.setAttribute('aria-label',topText(chBusy?'ch.stop':'ch.send'));}
-function chEmpty(){const c=chCol();c.classList.add('ch-empty');c.replaceChildren();const h=el('div',null,'ch-hello');
+function chName(){return chState.name||topText('ch.defaultName');}
+function chShowName(){$('ch-name').textContent=chName();}
+// How full the model's context is: a thin bar that turns red near the point where the chat compacts by itself.
+function chCtx(c){const b=$('ch-ctx');const used=c&&Number(c.used)||0,win=c&&Number(c.window)||0;
+  if(!used||!win||!chConv){b.hidden=true;return;}
+  const pct=Math.min(100,Math.round(used/win*100));$('ch-ctx-fill').style.width=pct+'%';b.classList.toggle('full',pct>=80);
+  const label=topFill('ch.ctx',{pct});b.setAttribute('aria-label',label);b.title=label;b.hidden=false;}
+function chEmpty(){const c=chCol();c.classList.add('ch-empty');c.replaceChildren();const h=el('div',null,'ch-hello');chCtx(null);
   if(!chState.enabled||!chState.ready){h.append(el('p',topText('ch.isOff'),'muted'));
-    const b=el('button',topText('ch.settings'),'primary');b.type='button';b.addEventListener('click',chOpenSheet);h.append(b);}
-  else{h.append(el('h3',topText('ch.hello')));const chips=el('div',null,'ch-chips');
-    for(const k of ['ch.ex1','ch.ex2','ch.ex3']){const b=el('button',topText(k),'ch-chip');b.type='button';b.setAttribute('data-noicon','');
+    if(CH_ADMIN){const b=el('button',topText('ch.settings'),'primary');b.type='button';b.addEventListener('click',chOpenSheet);h.append(b);}}
+  else{h.append(el('h3',topFill('ch.greet',{name:chName()})));const chips=el('div',null,'ch-chips');
+    for(const k of CH_ADMIN?['ch.ex1','ch.ex2','ch.ex3']:['ch.uex1','ch.uex2','ch.uex3']){const b=el('button',topText(k),'ch-chip');b.type='button';b.setAttribute('data-noicon','');
       b.addEventListener('click',()=>{const t=$('ch-text');t.value=topText(k);chGrow();t.focus();});chips.append(b);}
     h.append(chips);}
   c.append(h);}
@@ -153,69 +278,102 @@ function chMsg(who,text){chLeaveEmpty();
   const d=el('div',null,'ch-msg'+(who==='me'?' me':''));
   const body=el('div',null,'ch-body'+(who==='me'?' plain':''));if(who==='me')body.textContent=text;else chRender(body,text);d.append(body);chCol().append(d);chScroll();return body;}
 function chNote(text,cls){chLeaveEmpty();chCol().append(el('div',text,'ch-note'+(cls?' '+cls:'')));chScroll();}
+let chDots=null;
+function chTypingOff(){if(chDots){chDots.remove();chDots=null;}}
+// Kept as the last row while the model has not written yet, so a tool note goes above it.
+function chTypingOn(){chTypingOff();chLeaveEmpty();chDots=el('div',null,'ch-typing');chDots.setAttribute('role','status');chDots.setAttribute('aria-label',topText('ch.typing'));
+  chDots.append(el('i'),el('i'),el('i'));chCol().append(chDots);chScroll();}
+function chMark(){chLeaveEmpty();chCol().append(el('div',topText('ch.compacted'),'ch-mark'));chScroll();}
+// What a person is told about a request, phrased for what approving it does.
+const CH_REQ={change:'ch.req_change',register:'ch.req_register'};
+function chReqText(kind){return topText(CH_REQ[kind]||'ch.requested');}
 function chPreview(p){try{return JSON.stringify(p,null,2);}catch{return String(p);}}
-function chCard(a){const box=$('ch-pending-list');const c=el('div',null,'ch-card-ask');c.dataset.id=a.id;
-  c.append(el('b',a.action||a.capId||a.tool||''),el('pre',chPreview(a.preview)));
-  const row=el('div',null,'actions');
-  const ok=el('button',topText('ch.approve'),'primary'),no=el('button',topText('ch.refuse'));ok.type=no.type='button';
-  ok.addEventListener('click',()=>chDecide(a.id,true,c));no.addEventListener('click',()=>chDecide(a.id,false,c));
-  row.append(ok,no);c.append(row);box.append(c);$('ch-pending').hidden=false;chFit();}
+function chCard(a){const box=$('ch-pending-list');if(box.querySelector('[data-id="'+CSS.escape(a.id)+'"]'))return;
+  const c=el('div',null,'ch-card-ask');c.dataset.id=a.id;
+  c.append(el('b',a.action||a.capId||a.tool||''));
+  if(a.by)c.append(el('span',topFill('ch.by',{name:a.by}),'muted'));
+  c.append(el('pre',chPreview(a.preview)));
+  if(CH_ADMIN){const row=el('div',null,'actions');
+    const ok=el('button',topText('ch.approve'),'primary'),no=el('button',topText('ch.refuse'));ok.type=no.type='button';
+    ok.addEventListener('click',()=>chDecide(a.id,true,c));no.addEventListener('click',()=>chDecide(a.id,false,c));
+    row.append(ok,no);c.append(row);}
+  else c.append(el('span',chReqText(a.kind),'muted'));
+  box.append(c);$('ch-pending').hidden=false;chFit();}
 function chPendingGone(c){c.remove();if(!$('ch-pending-list').children.length)$('ch-pending').hidden=true;chFit();}
 async function chDecide(id,approve,card){
-  try{const r=await api('/admin/api/chat/decision',{method:'POST',body:{id,approve,conversation:chConv||undefined}});
+  try{const r=await api(CH_API+'/decision',{method:'POST',body:{id,approve,conversation:chConv||undefined}});
     chPendingGone(card);
     if(r.status==='done')chNote(topText('ch.approved'));else if(r.status==='refused')chNote(topText('ch.refused'));
     else if(r.status==='denied')chNote(topText('ch.gone'));else chNote((r.error&&r.error.message)||topText('ch.gone'),'ch-err');
   }catch(err){toast(err.message);}}
 async function chPickList(select,keepPending){
-  const d=await api('/admin/api/chat');
+  const d=await api(CH_API);
+  chState.name=d.name||'';chShowName();
   const pick=$('ch-pick');pick.replaceChildren(el('option',topText('ch.new')));pick.firstChild.value='';
   for(const c of d.conversations){const o=el('option',c.title||topText('ch.untitled'));o.value=c.id;pick.append(o);}
   pick.value=select&&d.conversations.some((c)=>c.id===select)?select:'';
   if(!keepPending){$('ch-pending-list').replaceChildren();$('ch-pending').hidden=true;
     for(const p of d.pending)chCard({...p,action:p.capId});}
   return d;}
+const CH_NOTES={approved:'ch.adminApproved',refused:'ch.adminRefused',failed:'ch.adminFailed'};
 async function chOpen(id){
   chConv=id||null;chEmpty();
   if(!id)return;
-  try{const d=await api('/admin/api/chat?id='+encodeURIComponent(id));
-    for(const m of d.messages){if(m.role==='user')chMsg('me',m.content);else if(m.role==='assistant'&&m.content)chMsg('bot',m.content);}
+  try{const d=await api(CH_API+'?id='+encodeURIComponent(id));
+    for(const m of d.messages){if(m.role==='user')chMsg('me',m.content);else if(m.role==='assistant'&&m.content)chMsg('bot',m.content);
+      else if(m.compact)chMark();else if(m.note&&CH_NOTES[m.note])chNote(topText(CH_NOTES[m.note]));}
+    chCtx(d.context);
   }catch(err){toast(err.message);}}
 function chBusyUi(on){chBusy=on;chIcon();chSendState();}
+async function chCompact(){if(!chConv||chBusy)return;chBusyUi(true);chNote(topText('ch.compacting'));
+  try{chCtx(await api(CH_API+'/compact',{method:'POST',body:{conversation:chConv}}));chMark();}
+  catch(err){chNote(topFill('ch.error',{msg:err.message}),'ch-err');}
+  finally{chBusyUi(false);}}
 async function chSend(text){
-  chMsg('me',text);let bot=null,botText='';chAbort=new AbortController();chBusyUi(true);
+  chMsg('me',text);let bot=null,botText='';chAbort=new AbortController();chBusyUi(true);chTypingOn();
   try{
-    const r=await fetch('/admin/api/chat',{method:'POST',signal:chAbort.signal,headers:{'Content-Type':'application/json','Accept-Language':typeof adminLang==='string'?adminLang:'ko'},body:JSON.stringify({message:text,conversation:chConv||undefined})});
+    const r=await fetch(CH_API,{method:'POST',signal:chAbort.signal,headers:{'Content-Type':'application/json','Accept-Language':chLang(),...chWriteHeaders()},body:JSON.stringify({message:text,conversation:chConv||undefined})});
     if(r.status===401){location.reload();return;}
-    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||('HTTP '+r.status));}
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.code==='too_long'?topFill('ch.tooLong',{max:CH_MAX}):(e.error||('HTTP '+r.status)));}
     const reader=r.body.getReader(),dec=new TextDecoder();let buf='';
     for(;;){const {done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});
       let i;while((i=buf.indexOf('\\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line)continue;
         let e;try{e=JSON.parse(line);}catch{continue;}
         if(e.conversation&&!chConv){chConv=e.conversation;}
-        if(e.type==='text'){if(!bot){bot=chMsg('bot','');botText='';}botText+=e.delta;chRender(bot,botText);chScroll();}
+        if(e.type==='text'){chTypingOff();if(!bot){bot=chMsg('bot','');botText='';}botText+=e.delta;chRender(bot,botText);chScroll();}
         else if(e.type==='tool_end'&&e.status!=='pending'&&e.status!=='requested'){bot=null;}
-        else if(e.type==='tool_start'){bot=null;chNote(topFill('ch.tool',{name:e.action||e.name}));}
-        else if(e.type==='approval'){chCard({id:e.id,action:e.action,preview:e.preview});}
-        else if(e.type==='error'){chNote(topFill('ch.error',{msg:e.message||''}),'ch-err');}}}
+        else if(e.type==='tool_start'){bot=null;chNote(topFill('ch.tool',{name:e.action||e.name}));chTypingOn();}
+        else if(e.type==='approval'){chCard({id:e.id,action:e.action,preview:e.preview,kind:e.kind});if(!CH_ADMIN||e.status==='requested')chNote(chReqText(e.kind));}
+        else if(e.type==='compacting'){chNote(topText('ch.compacting'));}
+        else if(e.type==='context'){chCtx(e);if(e.compacted)chMark();}
+        else if(e.type==='error'){chTypingOff();chNote(topFill('ch.error',{msg:e.message||''}),'ch-err');}
+        if(chDots)chTypingOn();}}
   }catch(err){if(err.name!=='AbortError')chNote(topFill('ch.error',{msg:err.message}),'ch-err');}
-  finally{chAbort=null;chBusyUi(false);}
+  finally{chTypingOff();chAbort=null;chBusyUi(false);}
   try{await chPickList(chConv,true);}catch{}}
 async function chRefresh(){
-  const [set,integ]=await Promise.all([api('/admin/api/server-settings'),api('/admin/api/integrations')]);
-  chState.enabled=set.settings.chatEnabled?.value===true;
-  const f=integ.chat?.fields||{};
-  $('ch-url').value=f.baseUrl?.value||'';$('ch-model').value=f.model?.value||'';$('ch-key').value='';
-  const keySet=f.apiKey?.set===true;$('ch-keystate').textContent=topText(keySet?'ch.keySet':'ch.keyNone');
-  chState.ready=Boolean(f.baseUrl?.value&&f.model?.value&&keySet);
-  $('ch-on').checked=chState.enabled;
+  if(!CH_ADMIN){
+    try{const d=await api(CH_API);chState.enabled=true;chState.ready=d.configured===true;}catch{chState.enabled=false;chState.ready=false;}}
+  else{
+    const [set,integ]=await Promise.all([api('/admin/api/server-settings'),api('/admin/api/integrations')]);
+    chState.enabled=set.settings.chatEnabled?.value===true;
+    const f=integ.chat?.fields||{};
+    $('ch-url').value=f.baseUrl?.value||'';$('ch-model').value=f.model?.value||'';$('ch-key').value='';
+    const keySet=f.apiKey?.set===true;$('ch-key').placeholder=topText(keySet?'ch.keySet':'ch.keyNone');
+    chState.ready=Boolean(f.baseUrl?.value&&f.model?.value&&keySet);
+    $('ch-on').checked=chState.enabled;
+    $('ch-name-in').value=set.settings.chatName?.value||'';$('ch-persona-in').value=set.settings.chatPersona?.value||'';
+    $('ch-window-in').value=set.settings.chatContextTokens?.value||'';
+    chState.name=set.settings.chatName?.value||'';}
+  chShowName();
   const live=chState.enabled&&chState.ready;
   $('ch-dock').hidden=!live;$('ch-pick').hidden=!live;$('ch-new').hidden=!live;
   if(live){await chPickList(chConv);if(!chConv)chEmpty();}else{chConv=null;chEmpty();}
-  $('ch-del').disabled=!chConv;chFit();}
-function chOpenSheet(){$('ch-del').disabled=!chConv;$('ch-sheet').showModal();}
+  if(CH_ADMIN)$('ch-del').disabled=!chConv;chFit();}
+function chOpenSheet(){if(!CH_ADMIN)return;$('ch-del').disabled=!chConv;$('ch-sheet').showModal();}
 function loadChat(){chIcon();chSendState();chFit();chRefresh().catch((err)=>toast(err.message));}
 addEventListener('resize',chFit);if(window.visualViewport)window.visualViewport.addEventListener('resize',chFit);
+if(CH_ADMIN){
 $('ch-gear').addEventListener('click',chOpenSheet);
 $('ch-sheet-x').addEventListener('click',()=>$('ch-sheet').close());
 $('ch-on').addEventListener('change',async()=>{const want=$('ch-on').checked;
@@ -225,14 +383,36 @@ $('ch-on').addEventListener('change',async()=>{const want=$('ch-on').checked;
 $('ch-form').addEventListener('submit',async(ev)=>{ev.preventDefault();
   try{await api('/admin/api/integrations/chat',{method:'POST',body:{baseUrl:$('ch-url').value,model:$('ch-model').value,apiKey:$('ch-key').value}});
     toast(topText('ch.saved'));await chRefresh();}catch(err){toast(err.message);}});
-$('ch-pick').addEventListener('change',()=>chOpen($('ch-pick').value));
-$('ch-new').addEventListener('click',()=>{$('ch-pick').value='';chOpen(null);$('ch-text').focus();});
+$('ch-persona-form').addEventListener('submit',async(ev)=>{ev.preventDefault();const win=$('ch-window-in').value.trim();
+  try{await api('/admin/api/server-settings',{method:'POST',body:{chatName:$('ch-name-in').value,chatPersona:$('ch-persona-in').value,chatContextTokens:win?win:null}});
+    toast(topText('ch.saved'));await chRefresh();if(chConv)await chOpen(chConv);}catch(err){toast(err.message);}});
 $('ch-del').addEventListener('click',async()=>{if(!chConv)return;
   if(!await ask(topText('ch.deleteAsk'),{danger:true}))return;
-  try{await api('/admin/api/chat?id='+encodeURIComponent(chConv),{method:'DELETE'});toast(topText('ch.deleted'));chConv=null;chEmpty();await chPickList(null);$('ch-del').disabled=true;$('ch-sheet').close();}catch(err){toast(err.message);}});
+  try{await api(CH_API+'?id='+encodeURIComponent(chConv),{method:'DELETE'});toast(topText('ch.deleted'));chConv=null;chEmpty();await chPickList(null);$('ch-del').disabled=true;$('ch-sheet').close();}catch(err){toast(err.message);}});
+}
+$('ch-ctx').addEventListener('click',chCompact);
+$('ch-pick').addEventListener('change',()=>chOpen($('ch-pick').value));
+$('ch-new').addEventListener('click',()=>{$('ch-pick').value='';chOpen(null);$('ch-text').focus();});
 $('ch-send').addEventListener('submit',(ev)=>{ev.preventDefault();
   if(chBusy){if(chAbort)chAbort.abort();return;}
-  const t=$('ch-text').value.trim();if(!t)return;$('ch-text').value='';chGrow();chSend(t);});
+  if(chUp)return;
+  const typed=$('ch-text').value.trim(),files=chFileLines();
+  const t=files&&typed?files+'\\n'+typed:files||typed;if(!t)return;
+  if(t.length>CH_MAX){chNote(topFill('ch.tooLong',{max:CH_MAX}),'ch-err');return;}
+  $('ch-text').value='';chFiles=[];chChips();chGrow();chSend(t);});
+$('ch-clip').addEventListener('click',()=>$('ch-file').click());
+$('ch-file').addEventListener('change',()=>{const f=[...$('ch-file').files];$('ch-file').value='';chUpload(f);});
+$('ch-text').addEventListener('paste',(ev)=>{const items=[...((ev.clipboardData&&ev.clipboardData.items)||[])].filter((i)=>i.kind==='file');
+  const files=items.map((i)=>i.getAsFile()).filter(Boolean);if(!files.length)return;
+  ev.preventDefault();chUpload(files.map(chPasteName));});
+{const zone=$('ch-log').parentElement,hasFiles=(e)=>[...((e.dataTransfer&&e.dataTransfer.types)||[])].includes('Files');
+  zone.addEventListener('dragover',(e)=>{if(!hasFiles(e)||$('ch-dock').hidden)return;e.preventDefault();zone.classList.add('ch-drop');});
+  zone.addEventListener('dragleave',(e)=>{if(!zone.contains(e.relatedTarget))zone.classList.remove('ch-drop');});
+  zone.addEventListener('drop',(e)=>{if(!hasFiles(e))return;e.preventDefault();zone.classList.remove('ch-drop');if(!$('ch-dock').hidden)chUpload(e.dataTransfer.files);});}
 $('ch-text').addEventListener('input',chGrow);
 $('ch-text').addEventListener('keydown',(ev)=>{if(ev.key==='Enter'&&!ev.shiftKey&&!ev.isComposing){ev.preventDefault();if(!chBusy)$('ch-send').requestSubmit();}});
 `;
+  return web ? `${WEB_SHIMS}${body}` : body;
+}
+
+export const CHAT_SCRIPT = chatScript();

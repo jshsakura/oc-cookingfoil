@@ -37,6 +37,30 @@ export const DEFAULT_TIERS = Object.freeze(Object.fromEntries([
   ...blocked("library_files_remove", "patches_remove", "game_art_remove", "trash_release", "job_cancel"),
 ]));
 
+/**
+ * A signed-in person who is not the admin gets only these; every other capability is not offered
+ * to them and is refused if called. Reads about the library and their own wishlist run at once
+ * (the wishlist action works on the token owner's list, which is the caller's own). The writes
+ * here are library edits that become a request: an admin approves it before it runs. A kind of
+ * "register" is worded for adding something new; none is served to people yet. Not here on
+ * purpose: game_art_set (its preview downloads whatever address it is given) and every admin area
+ * (accounts, devices, integrations, settings, server, agents, plugins, trash, jobs, alerts, cores).
+ */
+export const USER_READS = Object.freeze(["help", "games_search", "game_get", "retro_games_search", "retro_game_get", "games_wishlist", "games_wishlist_set"]);
+/** Each request with what approving it does (register, change), which picks the words the person is told. */
+export const USER_REQUESTS = Object.freeze({
+  retro_cover_set: "change",
+  retro_art_match: "change",
+});
+
+export const USER_TIERS = Object.freeze(Object.fromEntries([...auto(...USER_READS), ...approve(...Object.keys(USER_REQUESTS))]));
+
+/** What approving request `capId` does, or null for the generic words. */
+export const requestKind = (capId) => (Object.hasOwn(USER_REQUESTS, capId) ? USER_REQUESTS[capId] : null);
+
+/** The table a chat runs under: the admin's, or the allowlist of a person who is not the admin. */
+export const tiersFor = (admin) => (admin === true ? DEFAULT_TIERS : USER_TIERS);
+
 const TIERS = new Set(["auto", "approve", "blocked"]);
 
 /** The tier of a capability id; anything the table does not list is blocked. */

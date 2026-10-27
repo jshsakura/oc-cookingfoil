@@ -374,6 +374,11 @@ let nszEnabled = envBool("COOK_NSZ_ENABLED", false);
 let mcpEnabled = envBool("COOK_MCP_ENABLED", false);
 // The admin chat (src/chat). Off until an admin turns it on; the model it talks to is the "chat" integration.
 let chatEnabled = envBool("COOK_CHAT_ENABLED", false);
+// The chat assistant's name and a few lines of persona (chat/persona.js); empty is the built-in one.
+let chatName = envString("COOK_CHAT_NAME", "").trim();
+let chatPersona = envString("COOK_CHAT_PERSONA", "").trim();
+// How many tokens the chat model's context holds; the chat's meter and its compaction measure against it.
+let chatContextTokens = envNumber("COOK_CHAT_CONTEXT_TOKENS", 128000, { min: 4096, max: 2000000, integer: true });
 // New .nsp files the library finds are queued by themselves while the queue is on.
 let nszAutoQueue = envBool("COOK_NSZ_AUTO_QUEUE", true);
 // nsz -l (zstd level) and -t (threads); workers is how many files at once.
@@ -446,6 +451,9 @@ const ENV_SETTINGS = Object.freeze({
   restartGrace,
   mcpEnabled,
   chatEnabled,
+  chatName,
+  chatPersona,
+  chatContextTokens,
   nszEnabled,
   nszAutoQueue,
   nszLevel,
@@ -503,6 +511,9 @@ function applyServerSettings(saved = {}) {
   restartGrace = v.restartGrace;
   mcpEnabled = v.mcpEnabled;
   chatEnabled = v.chatEnabled;
+  chatName = v.chatName;
+  chatPersona = v.chatPersona;
+  chatContextTokens = v.chatContextTokens;
   nszEnabled = v.nszEnabled;
   nszAutoQueue = v.nszAutoQueue;
   nszLevel = v.nszLevel;
@@ -535,6 +546,9 @@ export {
   restartGrace,
   mcpEnabled,
   chatEnabled,
+  chatName,
+  chatPersona,
+  chatContextTokens,
   nszEnabled,
   nszAutoQueue,
   nszLevel,

@@ -1,16 +1,24 @@
 /**
- * The chat as a floating widget on every admin page but its own: a round button at the lower
- * right opens a panel (full screen on a phone) holding the same chat as /admin/chat, with the same
- * conversations. The button shows itself only once the chat is on and its model is set.
+ * The chat as a floating widget: a round button at the lower right opens a panel (full screen on a
+ * phone) holding the same chat as /admin/chat. The admin build sits on every admin page but the
+ * chat's own; the web build sits on the web page for anyone signed in there (routes/chat.js). The
+ * button shows itself only once the chat is on and its model is set, and on the web page only for
+ * someone signed in (the status call answers 401 otherwise).
  */
 import { icon } from "../../views/icons.js";
 import { topLabel } from "./top-i18n.js";
-import { CHAT_CSS, CHAT_INNER_HTML, CHAT_SCRIPT } from "./chat-page.js";
+import { CHAT_CSS, chatInnerHtml, chatScript } from "./chat-page.js";
+import { CHAT_WORDS } from "./chat-words.js";
 
-export const CHAT_WIDGET_HTML = /* html */ `<button type="button" class="primary ch-launch" id="ch-launch" hidden aria-expanded="false" ${topLabel("m.chat")}>${icon("chat")}</button>
-<div class="ch-widget" id="ch-widget" hidden role="region" ${topLabel("m.chat")}>
-${CHAT_INNER_HTML}
+const webLabel = (k) => `data-i18n-label="${k}" aria-label="${CHAT_WORDS.ko[k]}"`;
+
+function widgetHtml({ web = false } = {}) {
+  const label = web ? webLabel : topLabel;
+  return /* html */ `<button type="button" class="primary ch-launch" id="ch-launch" hidden aria-expanded="false" ${label("m.chat")}>${icon("chat")}</button>
+<div class="ch-widget" id="ch-widget" hidden role="region" ${label("m.chat")}>
+${chatInnerHtml({ web })}
 </div>`;
+}
 
 export const CHAT_WIDGET_CSS = /* css */ `${CHAT_CSS}
 .ch-launch{position:fixed;right:20px;bottom:20px;z-index:60;display:grid;place-items:center;width:52px;height:52px;padding:0;border-radius:50%;border:0}
@@ -28,16 +36,33 @@ body:has(.ch-launch:not([hidden])) .wrap{padding-bottom:104px}
 }
 `;
 
-export const CHAT_WIDGET_SCRIPT = /* js */ `${CHAT_SCRIPT}
+function widgetScript({ web = false } = {}) {
+  const body = /* js */ `${chatScript({ web })}
 function chWidgetShow(on){$('ch-widget').hidden=!on;$('ch-launch').setAttribute('aria-expanded',String(on));}
 async function chWidgetOpen(){
-  if($('ch-widget').hidden){chWidgetShow(true);if(!chWidgetOpen.loaded){chWidgetOpen.loaded=true;chIcon();chSendState();try{await chRefresh();}catch(err){toast(err.message);}}
+  if($('ch-widget').hidden){chWidgetShow(true);
+    // Opened again: read the conversation anew, so an admin's answer to a request shows.
+    if(chWidgetOpen.loaded&&chConv&&!chBusy){try{await chPickList(chConv);await chOpen(chConv);}catch(err){toast(err.message);}}
+    if(!chWidgetOpen.loaded){chWidgetOpen.loaded=true;chIcon();chSendState();try{await chRefresh();}catch(err){toast(err.message);}}
     $('ch-text').focus();}
   else chWidgetShow(false);}
 $('ch-close').hidden=false;
 $('ch-close').addEventListener('click',()=>chWidgetShow(false));
 $('ch-launch').addEventListener('click',chWidgetOpen);
-addEventListener('keydown',(ev)=>{if(ev.key==='Escape'&&!$('ch-widget').hidden&&!$('ch-sheet').open)chWidgetShow(false);});
-// Shown only while the chat is on and its model is set; a 404 (off) or a sign-out leaves it hidden.
-fetch('/admin/api/chat?status=1',{headers:{Accept:'application/json'}}).then((r)=>r.json().catch(()=>null)).then((d)=>{if(d?.configured===true)$('ch-launch').hidden=false;}).catch(()=>{});
+addEventListener('keydown',(ev)=>{if(ev.key==='Escape'&&!$('ch-widget').hidden&&!($('ch-sheet')&&$('ch-sheet').open))chWidgetShow(false);});
+// Shown only while the chat is on and its model is set; a 404 (off), a 401 (signed out) or a sign-out leaves it hidden.
+// The body is read even on a 404, so the request ends and the page counts as idle.
+fetch(CH_API+'?status=1',{headers:{Accept:'application/json'}}).then((r)=>r.json().catch(()=>null)).then((d)=>{if(d&&d.configured){chState.name=d.name||'';$('ch-launch').hidden=false;}}).catch(()=>{});
 `;
+  // On the web page the chat's names stay inside one scope, clear of the page's own.
+  return web ? `(()=>{${body}})();` : body;
+}
+
+export const CHAT_WIDGET_HTML = widgetHtml();
+export const CHAT_WIDGET_SCRIPT = widgetScript();
+
+/** The web page's build (landing.html): its words come from the page's own dictionary. */
+export const WEB_CHAT_WIDGET_HTML = widgetHtml({ web: true });
+export const WEB_CHAT_WIDGET_SCRIPT = widgetScript({ web: true });
+/** The chat's words in the web page's four languages, merged into its dictionary. */
+export const WEB_CHAT_WORDS = Object.fromEntries(["ko", "en", "ja", "zh"].map((code) => [code, CHAT_WORDS[code]]));

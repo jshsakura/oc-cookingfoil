@@ -83,6 +83,10 @@ export const SETTINGS = {
   mcpEnabled: bool,
   // The chat on the admin page (chat/service.js).
   chatEnabled: bool,
+  // The chat assistant's name and persona; empty is the built-in one (chat/persona.js).
+  chatName: { parse: (v) => String(v ?? "").trim(), check: (v) => typeof v === "string" && v.length <= 24 && !/[\u0000-\u001f\u007f<>]/.test(v) },
+  chatPersona: { parse: (v) => String(v ?? "").trim(), check: (v) => typeof v === "string" && v.length <= 600 && !/[\u0000-\u0009\u000b-\u001f\u007f]/.test(v) },
+  chatContextTokens: whole(4096, 2000000),
   // The NSZ conversion queue (meta/nsz-queue.js).
   nszEnabled: bool,
   nszAutoQueue: bool,

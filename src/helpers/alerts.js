@@ -13,7 +13,8 @@
  *     APPROVAL_BURST of each APPROVAL_WINDOW_MS at once, buttons and all; the
  *     rest are counted and told in one summary without buttons when the window
  *     ends, so a flood of strangers can neither bury the chat nor use up the
- *     buttons a real console needs.
+ *     buttons a real console needs. A chat request (`burst`) is held the same
+ *     way, without buttons.
  * Every alert, sent or not, lands in a short history the alerts tab shows.
  *
  * Alerts carry no passwords, keys, addresses or e-mail: only enough to know
@@ -47,6 +48,7 @@ export const EVENTS = {
   server: { label: "서버 시작", desc: "서버가 켜질 때 알립니다. 업데이트 뒤나 예상하지 못한 재시작을 알 수 있고, 외부 다운로드 전용 주소의 상태도 함께 적습니다.", on: true },
   plugin: { label: translator("ko")("event.plugin"), desc: translator("ko")("eventDesc.plugin"), on: true },
   damaged: { label: translator("ko")("event.damaged"), desc: translator("ko")("eventDesc.damaged"), on: true },
+  chat: { label: translator("ko")("event.chat"), desc: translator("ko")("eventDesc.chat"), on: true },
 };
 export const DEDUPE_MS = 30 * 60 * 1000;
 export const DIGEST_MS = 10 * 60 * 1000;
@@ -170,7 +172,7 @@ export async function recentChats(botToken) {
 
 const link = () => (publicBaseUrl ? `\n\n🔗 ${publicBaseUrl.replace(/\/$/, "")}/admin` : "");
 // Each kind of alert leads with its own emoji, so the chat reads at a glance.
-const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", plugin: "🧩", damaged: "🩹", test: "🔔" };
+const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", plugin: "🧩", damaged: "🩹", chat: "💬", test: "🔔" };
 
 /** Sends now and records how it went. Resolves to the history entry. */
 async function deliver(event, text, now, title = translator(alertLang())(`event.${event}`), extra = {}) {
@@ -235,9 +237,10 @@ function burstAllows(event, now) {
  * Raises an alert. `subject` tells repeats apart (a device key, an address) and
  * is never sent. `digest: { path }` gathers the event as described at the top.
  * `approval: { kind, ref }` names the request the buttons approve or refuse.
+ * `burst` holds the alert like an approval alert, without buttons.
  * Fire and forget; returns whether a message is on its way.
  */
-export function alert(event, message, { subject = "", now = Date.now(), digest = null, approval = null } = {}) {
+export function alert(event, message, { subject = "", now = Date.now(), digest = null, approval = null, burst = false } = {}) {
   if (!(event in EVENTS)) return false;
   if (!integrations.configured("telegram")) return false;
   const text = render(message, alertLang());
@@ -266,7 +269,7 @@ export function alert(event, message, { subject = "", now = Date.now(), digest =
     lastSent.set(key, now);
     pruneLastSent(now);
   }
-  if (approval && !burstAllows(event, now)) {
+  if ((approval || burst) && !burstAllows(event, now)) {
     remember({ at: now, event, text, status: "held", detail: "승인 요청이 몰려 창이 끝날 때 한 번에 알립니다" });
     return false;
   }

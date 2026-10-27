@@ -45,6 +45,7 @@ const PATHS = {
   chevleft: '<path d="m15 18-6-6 6-6"/>',
   chevright: '<path d="m9 18 6-6-6-6"/>',
   arrowright: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  paperclip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
   file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
   undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>',
   play: '<polygon points="6 3 20 12 6 21 6 3"/>',

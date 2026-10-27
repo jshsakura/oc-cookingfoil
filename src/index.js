@@ -25,6 +25,7 @@ import webAssets from "./routes/web-assets.js";
 import adminRouter, { adminEnabled } from "./routes/admin.js";
 import uploadsRouter from "./routes/uploads.js";
 import inboxRouter from "./routes/inbox.js";
+import userChatRouter from "./routes/chat.js";
 import adminItemsRouter from "./routes/admin-items.js";
 import votesRouter from "./routes/votes.js";
 import artRouter from "./routes/art.js";
@@ -320,6 +321,9 @@ expressApp.use("/api/votes", sameOriginWrites(), votesRouter());
 // prod.keys sealed from an admin device, same lane.
 // The temporary share inbox: files, a memo and links from people signed in on the web page.
 expressApp.use("/api/inbox", inboxRouter());
+// The AI chat for people signed in on the web page: their own conversations and a narrow set of tools.
+expressApp.use("/api/chat", sameOriginWrites());
+expressApp.use(userChatRouter());
 // Authenticated title-artwork overrides; pictures are not library uploads, so the upload setting does not hold them.
 expressApp.use("/api/art", sameOriginWrites(), adminOnly(), artRouter());
 

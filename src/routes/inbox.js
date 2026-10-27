@@ -9,7 +9,10 @@
  *                       paths   JSON list of folder-relative paths, one per file, when a folder was picked
  *                       memo    text, up to 10,000 characters
  *                       links   http/https addresses, one per line, up to 20
- *                     → 201 { ok, id, files, bytes }
+ *                     → 201 { ok, id, files, bytes, items: [{ name, size }] }
+ *
+ * The admin chat's attach button posts the same form to /admin/api/chat/attach (inboxUpload,
+ * mounted by routes/admin/chat-api.js) under the admin session, with no alert to the admin.
  *
  *   400 { code: empty | bad-link | too-many-links | memo-too-long }  nothing given, or a field that doesn't fit
  *   401 not signed in on the web (a console's keys don't count)
@@ -37,6 +40,7 @@ import * as envs from "../helpers/envs.js";
 import { alert } from "../helpers/alerts.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import { csrfOk, webUser } from "../security/user-session.js";
+import { createKeyRate } from "../security/key-rate.js";
 import debug from "../debug.js";
 import { isMetaCode, metaText } from "../meta/meta-messages.js";
 import { requestLang } from "../meta/langs.js";
@@ -55,14 +59,7 @@ function signedIn(req) {
   return { name: who.email, label: "구글 계정 사용자", slug: `google-${String(who.sub).replace(/[^A-Za-z0-9]/g, "").slice(0, 10)}` };
 }
 
-const recent = new Map(); // slug → [timestamps]
-function overRate(key, now = Date.now()) {
-  const times = (recent.get(key) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
-  const over = times.length >= RATE_MAX;
-  if (!over) times.push(now);
-  recent.set(key, times);
-  return over;
-}
+const uploadRate = createKeyRate({ max: RATE_MAX, windowMs: RATE_WINDOW_MS });
 
 /** Answers `code` (what the page branches on) with message `key` in the request's language; origin and csrf say plain English. */
 const fail = (req, res, status, code, key, vars) => res.status(status).json({ error: isMetaCode(key) ? metaText(requestLang(req), key, vars) : key, code });
@@ -133,29 +130,21 @@ function countedStorage(work, money, onOver) {
 }
 const tooBigVars = () => ({ size: inbox.fmtBytes(envs.inboxMaxBytes) });
 
-export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => alert("inbox", text, { subject: id }) } = {}) {
-  const router = express.Router();
-  // A server stopped mid-upload left its staging folder behind.
-  inbox.clearStaging();
+const tellAdmin = (text, id) => alert("inbox", text, { subject: id });
 
-  router.use((req, res, next) => {
+/**
+ * The upload itself, as one handler: `whoOf(req)` names the uploader ({ name, label, slug }) or
+ * null, `csrf(req)` checks the request's token, `notify(text, id)` tells the admin.
+ */
+export function inboxUpload({ whoOf = signedIn, notify = tellAdmin, csrf = csrfOk } = {}) {
+  return async (req, res) => {
     res.set("Cache-Control", "no-store");
-    req.inboxUser = whoOf(req);
-    if (!req.inboxUser) return fail(req, res, 401, "signin", "inbox.signin");
-    next();
-  });
-
-  router.get("/", async (_req, res) => {
-    const used = envs.inboxEnabled ? await inbox.usage() : 0;
-    res.json({ enabled: envs.inboxEnabled, maxBytes: envs.inboxMaxBytes, freeBytes: Math.max(0, envs.inboxQuotaBytes - used) });
-  });
-
-  router.post("/", async (req, res) => {
+    const user = whoOf(req);
+    if (!user) return fail(req, res, 401, "signin", "inbox.signin");
     const origin = req.get("Origin");
     if (origin && origin !== resolveOrigin(req, envs.publicBaseUrl)) return fail(req, res, 403, "origin", "origin mismatch");
-    if (!csrfOk(req)) return fail(req, res, 403, "csrf", "csrf token missing or wrong");
+    if (!csrf(req)) return fail(req, res, 403, "csrf", "csrf token missing or wrong");
     if (!envs.inboxEnabled) return fail(req, res, 404, "off", "inbox.off");
-    const user = req.inboxUser;
     // Refused before a byte is read: an announced size that can't fit.
     const announced = Number(req.get("content-length")) || 0;
     if (announced > envs.inboxMaxBytes + FORM_OVERHEAD) {
@@ -166,7 +155,7 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
       res.set("Connection", "close");
       return fail(req, res, 507, "full", "inbox.full");
     }
-    if (overRate(user.slug)) {
+    if (!uploadRate.hit(user.slug).ok) {
       res.set("Connection", "close");
       return fail(req, res, 429, "rate", "inbox.rate");
     }
@@ -210,7 +199,7 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
       const note = await inbox.create({ user: user.name, slug: user.slug, work, files, memo, links });
       debug.log("inbox: %s left %d files (%d bytes), %d links", user.slug, files.length, bytes, links.length);
       notify(inbox.alertText({ ...note, user: user.label }), note.id);
-      res.status(201).json({ ok: true, id: note.id, files: note.files.length, bytes });
+      res.status(201).json({ ok: true, id: note.id, files: note.files.length, bytes, items: note.files.map(({ name, size }) => ({ name, size })) });
     } catch (err) {
       await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
       if (res.headersSent) return;
@@ -222,7 +211,20 @@ export default function inboxRouter({ whoOf = signedIn, notify = (text, id) => a
     } finally {
       money.release();
     }
-  });
+  };
+}
 
+export default function inboxRouter({ whoOf = signedIn, notify = tellAdmin } = {}) {
+  const router = express.Router();
+  // A server stopped mid-upload left its staging folder behind.
+  inbox.clearStaging();
+
+  router.get("/", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!whoOf(req)) return fail(req, res, 401, "signin", "inbox.signin");
+    const used = envs.inboxEnabled ? await inbox.usage() : 0;
+    res.json({ enabled: envs.inboxEnabled, maxBytes: envs.inboxMaxBytes, freeBytes: Math.max(0, envs.inboxQuotaBytes - used) });
+  });
+  router.post("/", inboxUpload({ whoOf, notify }));
   return router;
 }
