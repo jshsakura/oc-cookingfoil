@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -359,4 +360,29 @@ test('a file goes up in several pieces and a lost piece is picked up again from 
   expect(answers).toContain(409);
   expect(offsets.slice(0, 2)).toEqual(['0', '300']);
   expect(fs.readFileSync(path.join(GAMES, name)).equals(Buffer.alloc(size, 7))).toBe(true);
+});
+
+test('a patch zip goes up with no game and no name picked: its own title folder names the game, its file name the patch', async ({ page }) => {
+  const PATCHES = process.env.COOK_PATCHES_DIR!;
+  const tid = '0100152000022000';
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cf-patch-'));
+  fs.mkdirSync(path.join(dir, '한글', 'contents', tid, 'romfs'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '한글', 'contents', tid, 'romfs', 'text.bin'), 'KO');
+  fs.writeFileSync(path.join(dir, '한글', '설치방법.txt'), 'note');
+  const zip = path.join(dir, 'E2E 대충 패치.zip');
+  execFileSync('zip', ['-qr', zip, '한글'], { cwd: dir });
+  const landed = path.join(PATCHES, tid, 'E2E 대충 패치');
+  fs.rmSync(landed, { recursive: true, force: true });
+  try {
+    await signIn(page);
+    await page.goto('/admin#upload');
+    await page.locator('#up-file').setInputFiles(zip);
+    await page.locator('#up-kinds [data-kind="patch"]').click();
+    await page.locator('#up-go').click();
+    await expect.poll(() => fs.existsSync(path.join(landed, 'atmosphere', 'contents', tid, 'romfs', 'text.bin')), { timeout: 15000 }).toBe(true);
+    expect(fs.readdirSync(landed)).toEqual(['atmosphere']);
+  } finally {
+    fs.rmSync(landed, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

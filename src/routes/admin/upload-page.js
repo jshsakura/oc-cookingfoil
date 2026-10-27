@@ -300,7 +300,7 @@ async function upSend(u,label){
   const k=u.f.kind;const fields={};
   if(k==='retro')fields.system=u.f.system;
   if(k==='patch'||k==='save'){const app=u.f.app;
-    if(app)fields.homebrew=app;else fields.titleId=u.f.titleId;fields.name=$('up-name').value.trim();
+    if(app)fields.homebrew=app;else if(u.f.titleId)fields.titleId=u.f.titleId;fields.name=$('up-name').value.trim()||u.label.replace(/\\.zip$/i,'').replace(/[\\/]/g,' ').trim();
     fields.description=$('up-desc').value.trim();fields.descriptionKo=$('up-desc-ko').value.trim();
     if(k==='save'&&!app&&$('up-savetype').value)fields.saveType=$('up-savetype').value;
     if(k==='patch'&&!app&&$('up-required').checked)fields.required='true';}
@@ -316,7 +316,8 @@ async function upSubmit(only){
   if(!upFiles.length){toast(upT('tFiles'));return;}
   if(!upKind){toast(upT('tKind'));return;}
   if(upKind==='retro'&&!$('up-system').value){toast(upT('tSys'));return;}
-  if(upKind==='patch'||upKind==='save'){
+  // A patch names its own game and takes its file's name when none is typed; a save needs both.
+  if(upKind==='save'){
     if(!$('up-target').value&&!upTitleId()){toast(upT('tTarget'));return;}
     if(!$('up-name').value.trim()){toast(upT('tName'));return;}}
   if(!upUnits.length){
