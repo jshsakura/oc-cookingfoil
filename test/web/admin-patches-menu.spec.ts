@@ -23,3 +23,18 @@ test('the library and patch pages open without a script error or a failed-load t
   }
   expect(errors).toEqual([]);
 });
+
+test('on a phone a patch row puts its name on a line of its own and the game title stays inside the card', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page);
+  await page.goto('/admin/patches');
+  const row = page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' });
+  await expect(row).toBeVisible();
+  const [rowBox, nameBox, editBox] = await Promise.all([row.boundingBox(), row.locator('.pt-name').boundingBox(), row.locator('.pt-edit').boundingBox()]);
+  expect(nameBox!.width).toBeGreaterThan(rowBox!.width * 0.9);
+  expect(editBox!.y).toBeGreaterThan(nameBox!.y + nameBox!.height - 1);
+  const card = page.locator('#lib-patches .pt-game').first();
+  const title = card.locator('header b');
+  const [cardBox, titleBox] = await Promise.all([card.boundingBox(), title.boundingBox()]);
+  expect(titleBox!.x + titleBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width);
+});
