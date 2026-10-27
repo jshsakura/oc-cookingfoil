@@ -30,7 +30,7 @@ test('the chat page opens, needs its model before it turns on, and shows a strea
     if (route.request().method() !== 'POST') return route.continue();
     const lines = [
       { type: 'text', delta: '안녕', conversation: 'c' },
-      { type: 'text', delta: '하세요', conversation: 'c' },
+      { type: 'text', delta: '하세요 **굵게** 와 `코드` <b>태그</b>\n- 하나\n- 둘\n```\nA\nB\n```', conversation: 'c' },
       { type: 'approval', id: 'p1', status: 'pending', preview: { changes: 'would restart' }, tool: 'admin', action: 'server_restart', conversation: 'c' },
       { type: 'done', conversation: 'c' },
     ].map((e) => JSON.stringify(e)).join('\n') + '\n';
@@ -39,6 +39,14 @@ test('the chat page opens, needs its model before it turns on, and shows a strea
   await page.locator('#ch-text').fill('hi');
   await page.locator('#ch-go').click();
   await expect(page.locator('#ch-log .ch-msg').last()).toContainText('안녕하세요');
+  const last = page.locator('#ch-log .ch-msg').last();
+  await expect(last.locator('strong')).toHaveText('굵게');
+  await expect(last.locator('code')).toHaveText('코드');
+  await expect(last.locator('li')).toHaveCount(2);
+  await expect(last.locator('pre')).toHaveText('A\nB');
+  await expect(last).not.toContainText('**');
+  await expect(last.locator('b')).toHaveCount(1); // only the speaker label; the model's tag stayed text
+  await expect(last).toContainText('<b>태그</b>');
   await expect(page.locator('#ch-pending-list .ch-card')).toContainText('would restart');
   await expect(page.locator('#ch-pending')).toContainText('다시 시작하면');
 
