@@ -38,7 +38,7 @@ export const PLUGINS_CSS = `
 .pl-main .err{color:var(--bad)}
 .pl-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:var(--fs-sm)}
 .pl-sw{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-width:92px;padding:9px 12px 9px 16px;color:var(--muted)}
-.pl-sw[aria-checked="true"]{color:var(--text);border-color:var(--accent)}
+.pl-sw[aria-checked="true"]{color:var(--text)}
 .pl-sw:disabled{opacity:.6;cursor:not-allowed}
 .pl-ag{display:grid;gap:6px}
 .pl-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
