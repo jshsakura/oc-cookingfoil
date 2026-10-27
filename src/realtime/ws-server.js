@@ -11,12 +11,14 @@
  *     { type: "restarting", restart_id, retry_after, back_by, message }   // safe restart began
  *     { type: "activity", running: [...], recent: [...] }   // read-only task status
  *     { type: "ping" }                                    // hb keepalive
+ *     { type: "event", topic, payload }                   // a hint that something changed, live; nothing is replayed
  *   client → server
  *     { type: "pong" }                                    // optional ack
  *
  * Endpoint: `/admin/ws` (the admin page; under /admin so its 2FA cookie rides along)
  *   server → client
  *     { type: "activity", running: [...], recent: [...] }   // on connect, then after each change
+ *     { type: "event" ... } as above, with the admin-only parts of each event
  *     { type: "ping" }
  *   Only this site's own page (an Origin is required), signed in as an admin
  *   account and past the admin's second step. No Basic: scripts poll the API.
@@ -45,6 +47,7 @@ import drainer from "../security/drain.js";
 import { hasValidSession } from "../security/admin-session.js";
 import { mayAdminister } from "../security/admin-actor.js";
 import * as activity from "../tasks/activity.js";
+import { bus } from "./events.js";
 import { recordDeny, DENY } from "../security/deny.js";
 
 const HEARTBEAT_MS = 30_000;
@@ -113,7 +116,10 @@ function send(ws, obj) {
   }
 }
 
-export function attach(server) {
+/** Gives one open page the bus events meant for `who`, as they happen. A page reads current state when it connects, so nothing is replayed. */
+const serveEvents = (ws, who) => bus.subscribe(who, (event) => send(ws, { type: "event", ...event }));
+
+export function attach(server, { heartbeatMs = HEARTBEAT_MS } = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
   const adminWss = new WebSocketServer({ noServer: true, maxPayload: 1024 });
@@ -164,15 +170,19 @@ export function attach(server) {
     ws.stillAllowed = () => { try { return authorizeAdmin(req); } catch { return false; } };
     send(ws, { type: "activity", ...activity.list() });
     const off = activity.subscribe((snap) => send(ws, { type: "activity", ...snap }));
+    const offEvents = serveEvents(ws, { account: webUser(req)?.approver ?? null, admin: true });
     ws.on("pong", () => { ws.isAlive = true; });
     ws.on("message", () => {});
-    ws.on("close", off);
+    ws.on("close", () => { off(); offEvents(); });
     ws.on("error", (err) => debug.error("ws: admin client error: %s", err.message));
   });
 
   wss.on("connection", (ws, req) => {
     const ip = clientIp(req);
     ws.isAlive = true;
+    // Checked again on every heartbeat, like the admin channel: a signed-out page, a changed password
+    // or a revoked account stops receiving the hints addressed to that account.
+    ws.stillAllowed = () => { try { return authorize(req) === "ok"; } catch { return false; } };
     debug.log("ws: connect %s (clients=%d)", ip, wss.clients.size + 1);
 
     // Snapshot greeting so the client can fast-path re-render without
@@ -192,6 +202,8 @@ export function attach(server) {
     send(ws, { type: "activity", ...activity.list() });
     const offActivity = activity.subscribe((snap) => send(ws, { type: "activity", ...snap }));
     ws.on("close", offActivity);
+    // A page is never an admin here, whoever signed in: admin-only parts of an event go to /admin/ws.
+    ws.on("close", serveEvents(ws, { account: webUser(req)?.approver ?? null, admin: false }));
 
     ws.on("pong", () => { ws.isAlive = true; });
     ws.on("message", (raw) => {
@@ -218,7 +230,7 @@ export function attach(server) {
       ws.isAlive = false;
       try { ws.ping(); } catch {}
     }
-  }, HEARTBEAT_MS);
+  }, heartbeatMs);
   if (hbTimer.unref) hbTimer.unref();
 
   // Fan library-cache updates out to every connected client. Cheap — payload
