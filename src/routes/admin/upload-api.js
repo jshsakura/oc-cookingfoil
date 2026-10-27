@@ -278,9 +278,11 @@ export function mountUploadApi(router, guard) {
     if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
     const kind = req.params.kind;
     if (!(await ready(req, res, kind))) return;
-    // No size cap: a body the disk cannot hold is the only refusal.
+    // No size cap: a body the disk cannot hold is the only refusal, so its length must be known first.
+    const length = Number(req.headers["content-length"]);
+    if (!Number.isSafeInteger(length) || length < 0) return res.status(411).json({ error: apiWord(req, "upload.failed"), code: "length-required" });
     const free = await chunks.freeBytes(rootOf(kind)).catch(() => Infinity);
-    if ((Number(req.headers["content-length"]) || 0) + chunks.FREE_MARGIN_BYTES > free) return res.status(507).json({ error: apiWord(req, "upload.noSpace", { need: gib(Number(req.headers["content-length"])), free: gib(free) }) });
+    if (length + chunks.FREE_MARGIN_BYTES > free) return res.status(507).json({ error: apiWord(req, "upload.noSpace", { need: gib(Number(req.headers["content-length"])), free: gib(free) }) });
     const work = await newWork(kind);
     let n = 0;
     const upload = multer({
@@ -356,7 +358,7 @@ async function handleUpload(req, kind, work, receive) {
 
 const chunkBody = (req, err) => ({ error: apiWord(req, err.key, err.vars), code: err.key, ...err.extra });
 const chunksDir = (kind) => (kind === chunks.FILE_KIND ? chunks.fileChunksDir() : path.join(stagingOf(kind), "chunks"));
-const accountOf = (req) => { const a = actorOf(req); return `${a.type}:${a.name}`; };
+const { accountOf } = chunks;
 
 /** The raw body of a request, at most `max` bytes; it is held in memory so a piece lands whole or not at all. */
 async function rawBody(req, max) {
@@ -393,11 +395,18 @@ function mountChunkRoutes(router, guard) {
     if (!KINDS.includes(kind) && kind !== chunks.FILE_KIND) return void res.status(404).json({ error: "unknown kind" });
     return kind;
   };
+  /** A kind an automation token may not upload (client, homebrew, patch) is closed to it in every chunk route too. */
+  const tokenRefused = async (req, kind) => {
+    if (!req.apiToken || kind === chunks.FILE_KIND) return false;
+    const { tokenBlocked } = await import("../admin-page.js");
+    return tokenBlocked("POST", `/api/upload/${kind}`);
+  };
   /** Wraps a chunk route: admin only, the kind checked, a refusal said in the request's language. */
   const route = (handler) => async (req, res) => {
     if (!guard(req, res)) return;
     const kind = kindOf(req, res);
     if (!kind) return;
+    if (await tokenRefused(req, kind)) return void res.status(403).json({ error: apiWord(req, "upload.failed"), code: "token-blocked" });
     res.set("Cache-Control", "no-store");
     try {
       await handler(req, res, kind, chunksDir(kind));
@@ -417,7 +426,7 @@ function mountChunkRoutes(router, guard) {
   }));
 
   router.get("/api/upload/chunks/:id", route(async (req, res, _kind, dir) => {
-    const have = await chunks.offsetOf(dir, req.params.id);
+    const have = await chunks.offsetOf(dir, req.params.id, accountOf(req));
     if (!have) throw new chunks.ChunkError(404, "upload.unknownChunk");
     res.json({ offset: have.offset, size: have.size });
   }));
@@ -425,11 +434,12 @@ function mountChunkRoutes(router, guard) {
   router.put("/api/upload/chunks/:id", route(async (req, res, _kind, dir) => {
     const offset = Number(req.query.offset);
     if (!Number.isSafeInteger(offset) || offset < 0) throw new chunks.ChunkError(400, "upload.badOffset");
-    res.json({ offset: await chunks.append(dir, req.params.id, offset, await rawBody(req, chunks.MAX_CHUNK_BYTES)) });
+    res.json({ offset: await chunks.append(dir, req.params.id, accountOf(req), offset, await rawBody(req, chunks.MAX_CHUNK_BYTES)) });
   }));
 
   router.delete("/api/upload/chunks/:id", route(async (req, res, _kind, dir) => {
-    await chunks.discard(dir, req.params.id);
+    if (!(await chunks.offsetOf(dir, req.params.id, accountOf(req)))) throw new chunks.ChunkError(404, "upload.unknownChunk");
+    await chunks.discard(dir, req.params.id, accountOf(req));
     res.json({ ok: true });
   }));
 
@@ -439,14 +449,21 @@ function mountChunkRoutes(router, guard) {
     if (!Array.isArray(ids) || !ids.length || ids.length > MAX_FILES || new Set(ids).size !== ids.length) throw new chunks.ChunkError(400, "upload.badName");
     // Everything is checked before anything moves, so a short file leaves the others in place to resume.
     const parts = [];
-    for (const id of ids) parts.push(await chunks.completed(dir, String(id)));
+    for (const id of ids) parts.push(await chunks.completed(dir, String(id), accountOf(req)));
     const work = await newWork(kind);
     const files = [];
-    for (const [i, part] of parts.entries()) {
-      const dest = path.join(work, "in", `f${i}`);
-      await fsp.rename(part.path, dest);
-      await chunks.discard(dir, ids[i]);
-      files.push({ path: dest, originalname: part.name, size: part.size });
+    try {
+      for (const [i, part] of parts.entries()) {
+        const dest = path.join(work, "in", `f${i}`);
+        await fsp.rename(part.path, dest);
+        await chunks.discard(dir, ids[i], accountOf(req));
+        files.push({ path: dest, originalname: part.name, size: part.size });
+      }
+    } catch (err) {
+      // A part another finish took first: nothing is placed, and the work folder does not stay behind.
+      await dropWork(work);
+      if (err.code === "ENOENT") throw new chunks.ChunkError(404, "upload.unknownChunk");
+      throw err;
     }
     const body = {};
     for (const key of FIELD_NAMES) if (typeof fields?.[key] === "string") body[key] = fields[key];

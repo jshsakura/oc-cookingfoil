@@ -14,7 +14,7 @@ import { adminApprover } from "../../security/admin-actor.js";
 import { keysChanged } from "../../meta/keys-refresh.js";
 import { apiWord } from "./api-words.js";
 import { actorOf } from "../../library/trash-service.js";
-import { ChunkError, takeFile } from "../../meta/upload-chunks.js";
+import { accountOf, ChunkError, takeFile } from "../../meta/upload-chunks.js";
 
 const REFUSED = {
   format: "keys.format",
@@ -29,7 +29,7 @@ export function mountKeysApi(router, requireSession) {
     try {
       // The file may have gone up in pieces first (meta/upload-chunks.js); the request then names it.
       const id = req.get("X-Chunk-Id");
-      const text = id ? (await takeFile(id, { limit: 1024 * 1024 })).bytes.toString("utf8") : req.body?.text;
+      const text = id ? (await takeFile(id, { account: accountOf(req), limit: 1024 * 1024 })).bytes.toString("utf8") : req.body?.text;
       const keys = prodKeys.install(text, { actor: adminApprover(req), via: "dashboard" });
       keysChanged();
       res.json({ ok: true, keys });

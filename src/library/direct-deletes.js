@@ -26,7 +26,7 @@ export const DIRECT_DELETES = Object.freeze({
   "src/meta/inbox.js": { count: 3, why: "the upload staging folder, work folders and an entry's done mark" },
   "src/meta/library-organize.js": { count: 1, why: "a move's source after its copy verified" },
   "src/meta/library-upload.js": { count: 3, why: "half-written uploads" },
-  "src/meta/upload-chunks.js": { count: 3, why: "partial chunked uploads, handed on or swept after a day" },
+  "src/meta/upload-chunks.js": { count: 5, why: "partial chunked uploads and their info, handed on (a claimed part once read or moved) or swept after a day" },
   "src/meta/nacp-extractor.js": { count: 1, why: "temporary extraction folders" },
   "src/meta/nsz-queue.js": { count: 5, why: "work folders; the original of a verified NSZ conversion (owner's decision: the NSZ is the copy, freeing disk is the point)" },
   "src/meta/patch-info.js": { count: 1, why: "test reset of the store" },

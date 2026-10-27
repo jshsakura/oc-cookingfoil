@@ -136,6 +136,32 @@ test("chunked uploads: pieces, resume, space, names, access, one place for every
     assert.equal((await r.json()).reason, "format");
     assert.equal((await fetch(`${BASE}/admin/api/keys`, { method: "PUT", headers: { ...admin, "X-Chunk-Id": kid } })).status, 404, "taken once: the id is gone");
 
+    // Review 2026-10-27: an automation token never reaches another account's partial, nor a kind it may not upload.
+    const made = await (await json("POST", `${BASE}/admin/api/tokens`, { label: "bot" })).json();
+    const bot = { Authorization: `Bearer ${made.token}` };
+    const cid = (await (await create("client", file("client.nro", 64))).json()).id;
+    for (const method of ["GET", "PUT", "DELETE"]) {
+      r = await fetch(`${API}/chunks/${cid}?kind=client&offset=0`, { method, headers: { ...bot, "Content-Type": "application/octet-stream" }, body: method === "PUT" ? Buffer.alloc(32) : undefined });
+      assert.equal(r.status, 403, `token ${method} on a client partial`);
+    }
+    const gid = (await (await create("game", file("Mine [0100000000020000][v0].nsp", 64))).json()).id;
+    for (const method of ["GET", "PUT", "DELETE"]) {
+      r = await fetch(`${API}/chunks/${gid}?kind=game&offset=0`, { method, headers: { ...bot, "Content-Type": "application/octet-stream" }, body: method === "PUT" ? Buffer.alloc(32) : undefined });
+      assert.equal(r.status, 404, `token ${method} on the admin's game partial`);
+    }
+    r = await fetch(`${API}/chunks/${gid}?kind=game`, { headers: admin });
+    assert.deepEqual(await r.json(), { offset: 0, size: 64 }, "the admin's partial is untouched");
+    // A route that takes a finished "file" upload by id takes only the asker's own.
+    const fid = (await (await create("file", file("cover.png", 4))).json()).id;
+    await fetch(`${API}/chunks/${fid}?kind=file&offset=0`, { method: "PUT", headers: { ...admin, "Content-Type": "application/octet-stream" }, body: "\x89PNG" });
+    r = await fetch(`${BASE}/admin/api/retro-art/cover/upload?game=x`, { method: "POST", headers: { ...bot, "X-Chunk-Id": fid } });
+    assert.notEqual(r.status, 200);
+    r = await fetch(`${API}/chunks/${fid}?kind=file`, { headers: admin });
+    assert.equal(r.status, 200, "the admin's finished file is still there");
+    // A multipart body with no length is refused before anything is written.
+    r = await fetch(`${API}/game`, { method: "POST", headers: { ...admin, "Content-Type": "multipart/form-data; boundary=x" }, body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode("--x--")); c.close(); } }), duplex: "half" });
+    assert.equal(r.status, 411);
+
     // Not an admin: a console, or nobody.
     r = await json("POST", `${API}/game/chunks`, file(NAME, 1), CONSOLE);
     assert.equal(r.status, 403);
@@ -162,10 +188,53 @@ test("stale partials are swept after a day and fresh ones stay", async () => {
     const past = new Date(Date.now() - 25 * 3600_000);
     for (const ext of ["part", "json"]) fs.utimesSync(path.join(dir, `${old.id}.${ext}`), past, past);
     await sweep(dir);
-    assert.equal(await offsetOf(dir, old.id), null);
-    assert.equal((await offsetOf(dir, fresh.id)).offset, 0);
+    assert.equal(await offsetOf(dir, old.id, "admin:a"), null);
+    assert.equal((await offsetOf(dir, fresh.id, "admin:a")).offset, 0);
     assert.deepEqual(fs.readdirSync(dir).sort(), [`${fresh.id}.json`, `${fresh.id}.part`]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a partial belongs to the account that started it", async () => {
+  const { begin, offsetOf, append, completed, discard } = await import("../../src/meta/upload-chunks.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cf-own-"));
+  try {
+    const { id } = await begin(dir, { account: "admin:a", kind: "game", name: "a.nsp", size: 4, lastModified: 1 });
+    assert.equal(await offsetOf(dir, id, "token:bot"), null);
+    await assert.rejects(append(dir, id, "token:bot", 0, Buffer.from("evil")), { status: 404 });
+    await discard(dir, id, "token:bot");
+    assert.equal(await append(dir, id, "admin:a", 0, Buffer.from("good")), 4);
+    await assert.rejects(completed(dir, id, "token:bot"), { status: 404 });
+    assert.equal((await completed(dir, id, "admin:a")).size, 4);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a piece is refused when it would eat the disk's margin, and a file-kind upload has a ceiling", async () => {
+  const chunks = await import("../../src/meta/upload-chunks.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cf-free-"));
+  try {
+    const { id } = await chunks.begin(dir, { account: "admin:a", kind: "game", name: "a.nsp", size: 8, lastModified: 1 });
+    chunks._setFreeBytes(async () => chunks.FREE_MARGIN_BYTES + 3);
+    await assert.rejects(chunks.append(dir, id, "admin:a", 0, Buffer.from("12345678")), { status: 507 });
+    assert.equal((await chunks.offsetOf(dir, id, "admin:a")).offset, 0);
+    chunks._setFreeBytes(null);
+    await assert.rejects(chunks.begin(dir, { account: "admin:a", kind: chunks.FILE_KIND, name: "big.zip", size: chunks.FILE_MAX_BYTES + 1, lastModified: 1 }), { status: 413 });
+  } finally {
+    chunks._setFreeBytes(null);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a finished file is taken once even when three requests ask at the same time", async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cf-take-"));
+  const chunks = await import("../../src/meta/upload-chunks.js");
+  const dir = chunks.fileChunksDir();
+  const { id } = await chunks.begin(dir, { account: "admin:a", kind: chunks.FILE_KIND, name: "k.keys", size: 2, lastModified: Date.now() });
+  await chunks.append(dir, id, "admin:a", 0, Buffer.from("ok"));
+  const got = await Promise.allSettled([1, 2, 3].map(() => chunks.takeFile(id, { account: "admin:a" })));
+  assert.equal(got.filter((g) => g.status === "fulfilled").length, 1);
+  fs.rmSync(dataDir, { recursive: true, force: true });
 });

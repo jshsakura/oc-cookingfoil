@@ -18,7 +18,7 @@ import crypto from "crypto";
 import fsp from "fs/promises";
 import path from "path";
 import multer from "multer";
-import { ChunkError, takeFile } from "../../meta/upload-chunks.js";
+import { accountOf, ChunkError, takeFile } from "../../meta/upload-chunks.js";
 import debug from "../../debug.js";
 import { retroDir, uploadMaxBytes } from "../../helpers/envs.js";
 import { requestLang } from "../../meta/langs.js";
@@ -72,7 +72,7 @@ async function receive(req, res) {
   if (chunkId) {
     try {
       const dest = path.join(work, "patch");
-      const { name } = await takeFile(chunkId, { dest });
+      const { name } = await takeFile(chunkId, { account: accountOf(req), dest });
       return { work, file: dest, name };
     } catch (err) {
       await fsp.rm(work, { recursive: true, force: true });
