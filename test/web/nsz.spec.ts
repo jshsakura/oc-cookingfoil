@@ -47,9 +47,9 @@ test('the conversion queue is off by default, turns on from its settings and que
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#tab-nsz').screenshot({ path: 'out/web/admin-nsz.png' });
 
-  await page.locator('#nz-filter').getByRole('button', { name: '완료', exact: true }).click();
+  await page.locator('#nz-filter').getByRole('tab', { name: '완료', exact: true }).click();
   await expect(page.locator('#nz-list')).toContainText('이 상태의 파일이 없습니다');
-  await page.locator('#nz-filter').getByRole('button', { name: '전체', exact: true }).click();
+  await page.locator('#nz-filter').getByRole('tab', { name: '전체', exact: true }).click();
   await row.getByRole('button', { name: '빼기', exact: true }).click();
   await expect(page.locator('#toast')).toContainText('대기열에서 뺐습니다');
   await expect(page.locator('#nz-list')).toContainText('대기열이 비어 있습니다');
