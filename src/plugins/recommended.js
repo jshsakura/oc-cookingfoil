@@ -4,16 +4,14 @@
  *   RECOMMENDED                                   [{ id, repo, asset, name }] (the page words each one's description as pl.r.<id>)
  *   downloadRecommended(id, { fetchImpl, token }) -> { zip: Buffer, tag, sha256 }
  *   installRecommended(id, { registry, installer, overwrite, ... }) -> registry view, installed switched off
- *   installDefaults({ registry, installer, lang, stateFile, ... })  the ones marked `defaultFor` the server's
- *                                                 language, fetched and switched on once per server (see there)
+ *   installChosen(ids, { registry, installer, ... }) -> [{ id, ok, error? }]   what first-run setup picked:
+ *                                                 each fetched (unless already in) and switched on
  *
  * The zip is checked against the sha256 GitHub publishes for the asset before anything reads it, and
  * then goes through the same staging as an upload (installer.js), so the admin sees the same
  * question and the plugin still arrives switched off. Only ids on this list can be fetched.
  */
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import { digestHex } from "../meta/client-release.js";
 import { PluginError } from "./registry.js";
 import { UNPACK_LIMITS } from "./unpack.js";
@@ -28,8 +26,6 @@ export const RECOMMENDED = Object.freeze([
     repo: "jshsakura/oc-retro-database",
     asset: /^oc-retro-db-\d+\.\d+\.\d+\.zip$/,
     name: "OC Retro Database",
-    // Korean names are what it adds, so a server that reads Korean first gets it without asking.
-    defaultFor: ["ko"],
   }),
 ]);
 
@@ -69,33 +65,23 @@ export async function installRecommended(id, { registry, installer, overwrite = 
   }
 }
 
-function readState(file) {
-  try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return {}; }
-}
-
 /**
- * Installs and switches on the recommended plugins meant for `lang`, once per server: an id is
- * written to `stateFile` when it is done (or found already there), so a plugin the admin deleted
- * or switched off is never brought back. A failed download is tried again on the next start.
- * -> [{ id, ok, error? }]
+ * Installs and switches on the recommended plugins the admin picked in first-run setup. One that is
+ * already installed is only switched on. A failure is reported for that id and the rest go on; the
+ * admin page's plugin screen fetches it again later.
  */
-export async function installDefaults({ registry, installer, lang, stateFile, fetchImpl, token, log = () => {} }) {
-  const done = readState(stateFile);
+export async function installChosen(ids, { registry, installer, fetchImpl, token, log = () => {} }) {
   const results = [];
-  for (const r of RECOMMENDED.filter((x) => x.defaultFor?.includes(lang) && !done[x.id])) {
+  for (const id of new Set(ids)) {
     try {
-      if (!registry.list().some((p) => p.id === r.id)) {
-        await installRecommended(r.id, { registry, installer, fetchImpl, token });
-        await registry.setEnabled(r.id, true);
-      }
-      done[r.id] = { at: new Date().toISOString() };
-      fs.mkdirSync(path.dirname(stateFile), { recursive: true });
-      fs.writeFileSync(stateFile, JSON.stringify(done));
-      log(`installed the default plugin ${r.id}`);
-      results.push({ id: r.id, ok: true });
+      if (!recommendedOf(id)) throw new PluginError("not-found", 404);
+      if (!registry.list().some((p) => p.id === id)) await installRecommended(id, { registry, installer, fetchImpl, token });
+      await registry.setEnabled(id, true);
+      log(`installed the recommended plugin ${id}`);
+      results.push({ id, ok: true });
     } catch (err) {
-      log(`the default plugin ${r.id} was not installed: ${err.message}`);
-      results.push({ id: r.id, ok: false, error: err.message });
+      log(`the recommended plugin ${id} was not installed: ${err.message}`);
+      results.push({ id, ok: false, error: err.code ?? err.message });
     }
   }
   return results;

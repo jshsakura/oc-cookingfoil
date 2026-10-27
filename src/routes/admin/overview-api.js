@@ -21,7 +21,8 @@ import verifyQueue from "../../meta/verify-service.js";
 import transferLog from "../../helpers/transfer-log.js";
 import * as alerts from "../../helpers/alerts.js";
 import { pluginRegistry } from "../../plugins/instance.js";
-import { romsDirPath, dataDir } from "../../helpers/envs.js";
+import { romsDirPath, dataDir, langPriority } from "../../helpers/envs.js";
+import { koreanNameSources } from "../../retro/ko-names.js";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
 import { gameOf } from "../../meta/game-info.js";
@@ -88,6 +89,8 @@ export function createOverview({
   nameOf = (titleId) => gameOf(titleId)?.name ?? null,
   patchRevision = () => patchInfo.revision(),
   disks = () => Promise.all([diskOf("games", romsDirPath), diskOf("data", dataDir)]),
+  // Korean names come only from a plugin: a server that reads Korean first is told when none is on.
+  namesMissing = () => langPriority[0] === "ko" && koreanNameSources() === 0,
   now = Date.now,
 } = {}) {
   let kept = null;
@@ -107,6 +110,7 @@ export function createOverview({
       { code: "inbox", n: c.inbox ?? 0 },
       { code: "plugins-failing", n: failing.length, ids: failing.map((p) => p.id) },
       { code: "lockouts", n: c.lockouts ?? 0 },
+      ...(namesMissing() ? [{ code: "no-names-plugin" }] : []),
     ].filter((t) => t.n === undefined || t.n > 0);
     return {
       generatedAt: now(),

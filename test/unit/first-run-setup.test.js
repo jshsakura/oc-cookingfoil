@@ -97,7 +97,10 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
 
     assert.equal((await post("/setup/api/account", { name: "boss", password: "short" })).status, 400);
     r = await post("/setup/api/account", { name: "boss", password: "long-enough-pass" });
-    assert.deepEqual(await r.json(), { ok: true, next: "otp" });
+    assert.deepEqual(await r.json(), { ok: true, next: "plugins" });
+    // No plugin ships in the image: setup offers them, and a pick it does not know is reported, not fetched.
+    assert.deepEqual(await (await post("/setup/api/plugins", { ids: ["not-listed"] })).json(), { ok: true, results: [{ id: "not-listed", ok: false, error: "not-found" }], next: "otp" });
+    assert.deepEqual(await (await post("/setup/api/plugins", { ids: [] })).json(), { ok: true, results: [], next: "otp" });
     const users = records(data, "user");
     assert.equal(users.boss.role, "admin");
     assert.ok(!JSON.stringify(users).includes("long-enough-pass"), "only a hash is stored");

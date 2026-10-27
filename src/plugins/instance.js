@@ -23,7 +23,6 @@ import { createAgentRunner } from "./agent-runner.js";
 import path from "node:path";
 import * as libraryCache from "../meta/library-cache.js";
 import { setNameSources } from "../retro/ko-names.js";
-import { installDefaults } from "./recommended.js";
 
 let shared = null;
 
@@ -98,14 +97,7 @@ export function startPlugins() {
   // Retro name dictionaries (provides "names") are data the core reads itself, never a hook call per game.
   setNameSources(() => registry.activeProviding("names").map((id) => ({ id, version: registry.versionOf(id), file: path.join(registry.paths.root, id, "names.json") })));
   registry.init()
-    .then(() => {
-      registry.startWatching();
-      if (!env.defaultPlugins || registry.safeMode) return;
-      installDefaults({
-        registry, installer: pluginInstaller(), lang: env.langPriority[0], stateFile: path.join(env.dataDir, "plugin-defaults.json"),
-        token: env.githubToken || null, log: (m) => debug.log("plugins: %s", m),
-      });
-    })
+    .then(() => registry.startWatching())
     .catch((err) => debug.error("plugins: start failed: %s", err.message));
   return registry;
 }

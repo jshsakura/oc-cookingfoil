@@ -4,6 +4,8 @@
  *   GET  /setup                   the setup page
  *   POST /setup/api/unlock        { code }            the code from the container log → setup cookie
  *   POST /setup/api/account       { name, password }  the first admin account; signs it in
+ *   POST /setup/api/plugins       { ids }             fetches and switches on the recommended plugins picked
+ *                                                     (none ship inside the image); [] skips
  *   POST /setup/api/otp/start     → { secret, uri, qr } a candidate authenticator secret
  *   POST /setup/api/otp/confirm   { code }            registers it and opens /admin
  *
@@ -26,8 +28,11 @@ import * as twoFactorSkip from "../security/admin-2fa-skip.js";
 import { recordFailure } from "../security/auth-guard.js";
 import { clientIp } from "../security/deny.js";
 import { resolveOrigin } from "../helpers/origin.js";
-import { publicBaseUrl } from "../helpers/envs.js";
+import { githubToken, publicBaseUrl } from "../helpers/envs.js";
 import { setupPage } from "./setup-page.js";
+import { RECOMMENDED, installChosen } from "../plugins/recommended.js";
+import { pluginInstaller, pluginRegistry } from "../plugins/instance.js";
+
 import debug from "../debug.js";
 
 const COOKIE = "cf_setup";
@@ -76,7 +81,10 @@ export default function setupRouter() {
     res.set({ "Cache-Control": "no-store", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer" });
     if (!setup.setupOpen()) return res.redirect(302, "/admin");
     const step = !hasToken(req) ? "code" : setup.needsSetup() ? "account" : "otp";
-    res.type("html").send(setupPage({ step, lang: req.acceptsLanguages("ko", "en", "ja", "zh") || "en" }));
+    const lang = req.acceptsLanguages("ko", "en", "ja", "zh") || "en";
+    // Every server is offered them, ticked: a Korean name shows to Korean readers and English stays for the rest.
+    const plugins = RECOMMENDED.map((r) => ({ id: r.id, name: r.name, picked: true }));
+    res.type("html").send(setupPage({ step, lang, plugins }));
   });
 
   router.use("/setup/api", express.json({ limit: "4kb" }));
@@ -109,12 +117,23 @@ export default function setupRouter() {
     }
     debug.log("setup: first admin account %s created", name);
     issuePasswordSession(req, res, name);
-    const next = setup.needsAuthenticator() ? "otp" : "done";
+    // The plugins step sits before the authenticator, while setup is still open to this cookie.
+    const next = setup.needsAuthenticator() ? (RECOMMENDED.length ? "plugins" : "otp") : "done";
     if (next === "done") {
       setup.finish();
       issueSession(res);
     }
     res.json({ ok: true, next });
+  });
+
+  router.post("/setup/api/plugins", async (req, res) => {
+    if (!guard(req, res)) return;
+    if (setup.needsSetup() || !setup.needsAuthenticator()) return res.status(409).json({ error: "not-now" });
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter((id) => typeof id === "string").slice(0, RECOMMENDED.length + 1) : [];
+    const results = ids.length
+      ? await installChosen(ids, { registry: pluginRegistry(), installer: pluginInstaller(), token: githubToken || null, log: (m) => debug.log("setup: %s", m) })
+      : [];
+    res.json({ ok: true, results, next: "otp" });
   });
 
   router.post("/setup/api/otp/start", async (req, res) => {

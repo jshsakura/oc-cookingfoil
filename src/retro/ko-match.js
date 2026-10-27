@@ -1,5 +1,5 @@
 /**
- * A retro game's Korean title from the bundled dictionary (ko-names.js):
+ * A retro game's Korean title from the names plugins' dictionary (ko-names.js):
  *
  *   confirmed  the ROM's content hash (rom-index.js) is in the dictionary. Shown
  *              as the game's Korean name without asking; the only kind anything

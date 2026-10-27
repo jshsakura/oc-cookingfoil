@@ -22,6 +22,7 @@ function overviewWith(over = {}) {
     disks: async () => [{ key: "games", free: 5, size: 10 }, null],
     patches: () => [],
     nameOf: () => null,
+    namesMissing: () => false,
     now: () => t,
     ...over,
   });
@@ -44,6 +45,12 @@ test("a hint about the setup, like the admin page opening with the password, is 
   ] });
   const { todo } = await o.read();
   assert.deepEqual(todo.filter((t) => t.severity).map((t) => t.code), ["proxy-collapse"]);
+});
+
+test("a Korean server with no names plugin on is told to fetch one", async () => {
+  const { o } = overviewWith({ namesMissing: () => true });
+  const { todo } = await o.read();
+  assert.ok(todo.some((t) => t.code === "no-names-plugin"));
 });
 
 test("the status counts games by title, sums their size and keeps the disks it could read", async () => {
