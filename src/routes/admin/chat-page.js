@@ -60,7 +60,7 @@ export function chatInnerHtml({ web = false } = {}) {
   return /* html */ `  <div class="ch-top ch-col">
     <b class="ch-name" id="ch-name"></b>
     <select id="ch-pick" ${w.label("ch.conv")}></select>
-    <button type="button" class="ch-ctx" id="ch-ctx" hidden><span class="ch-ctx-bar"><i id="ch-ctx-fill"></i></span></button>
+    <button type="button" class="ch-ctx" id="ch-ctx" hidden><span id="ch-ctx-pct"></span></button>
     <button type="button" class="icon-btn" id="ch-new" ${w.label("ch.new")}>${icon("plus")}</button>
     ${web ? "" : `<button type="button" class="icon-btn" id="ch-gear" ${w.label("ch.settings")}>${icon("sliders")}</button>`}
     <button type="button" class="icon-btn" id="ch-close" hidden ${w.label("ch.close")}>${icon("x")}</button>
@@ -108,13 +108,16 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 #ch-col{display:grid;gap:14px;align-content:start;padding:8px 0 16px}
 #ch-col.ch-empty{min-height:100%;align-content:center;justify-items:center;text-align:center}
 .ch-hello{display:grid;gap:16px;justify-items:center}
-.ch-hello h3{margin:0;max-width:34em;font-size:var(--fs-lg);line-height:1.5}
+.ch-hello h3{display:grid;gap:8px;margin:0;max-width:30em;line-height:1.5;text-wrap:balance;word-break:keep-all}
+.ch-hi{font-size:var(--fs-xl,var(--fs-lg))}
+.ch-sub{font-size:var(--fs-md);font-weight:400;color:var(--muted)}
 .ch-name{flex:none;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The context meter: how full the model's context is for this conversation; a click compacts it. */
-.ch-ctx{flex:none;display:grid;place-items:center;width:44px;height:32px;padding:0;border:0;background:transparent;cursor:pointer}
-.ch-ctx-bar{display:block;width:36px;height:6px;border-radius:var(--r-pill);background:var(--sunk);overflow:hidden}
-.ch-ctx-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
-.ch-ctx.full .ch-ctx-bar i{background:var(--bad)}
+.ch-ctx{--p:0;position:relative;flex:none;display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p) * 1%),var(--sunk) 0);cursor:pointer;color:var(--text);font:inherit;font-size:var(--fs-2xs);font-weight:var(--fw-bold);line-height:1}
+.ch-ctx::before{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--bg)}
+.ch-ctx span{position:relative}
+.ch-ctx.full{background:conic-gradient(var(--bad) calc(var(--p) * 1%),var(--sunk) 0)}
+.ch-ctx.full span{color:var(--bad)}
 .ch-count{flex:none;align-self:center;color:var(--muted);font-size:var(--fs-sm)}
 .ch-count.over{color:var(--bad)}
 .ch-mark{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:var(--fs-sm)}
@@ -131,6 +134,17 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-msg.me{justify-self:end;max-width:85%;background:rgba(var(--accent-rgb),.12);border-radius:var(--r-2xl);padding:8px 14px}
 .ch-msg.me .ch-body p:last-child{margin-bottom:0}
 .ch-note{color:var(--muted);font-size:var(--fs-sm)}
+.ch-cards{display:grid;gap:8px}
+.ch-gcard{display:grid;grid-template-columns:56px minmax(0,1fr);gap:4px 12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:10px}
+.ch-gcard img,.ch-gcard .ch-noimg{width:56px;height:56px;border-radius:var(--r-md);object-fit:cover;background:var(--sunk)}
+.ch-gcard .ch-gname{font-weight:var(--fw-bold);overflow-wrap:anywhere}
+.ch-gcard .ch-gmeta{color:var(--muted);font-size:var(--fs-sm)}
+@media (min-width:641px){.ch-gcard{grid-template-columns:56px minmax(0,1fr) auto}.ch-gcard .ch-gact:not(.ch-pickrow){grid-column:auto;margin-top:0}}
+.ch-gtags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.ch-tag{border-radius:var(--r-pill);background:rgba(var(--accent-rgb),.14);padding:1px 8px;font-size:var(--fs-sm)}
+.ch-gact{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
+.ch-gact .ch-x{width:28px;height:28px;padding:0;display:grid;place-items:center;border:0;background:transparent;cursor:pointer;color:var(--muted)}
+.ch-gact .ch-x .ico{width:14px;height:14px}
 .ch-err{color:var(--bad)}
 .ch-dock{flex:none;padding-top:8px}
 .ch-pending{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:10px 14px;margin-bottom:8px;max-height:34vh;overflow:auto}
@@ -168,6 +182,7 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:ch-dot 1.2s infinite ease-in-out}
 .ch-typing i:nth-child(2){animation-delay:.15s}
 .ch-typing i:nth-child(3){animation-delay:.3s}
+.ch-wait{margin-left:6px;color:var(--muted);font-size:var(--fs-sm)}
 @keyframes ch-dot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
 @media (prefers-reduced-motion:reduce){.ch-typing i{animation:none;opacity:.6}}
 .ch-danger{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
@@ -242,12 +257,13 @@ function chShowName(){$('ch-name').textContent=chName();}
 // How full the model's context is: a thin bar that turns red near the point where the chat compacts by itself.
 function chCtx(c){const b=$('ch-ctx');const used=c&&Number(c.used)||0,win=c&&Number(c.window)||0;
   if(!used||!win||!chConv){b.hidden=true;return;}
-  const pct=Math.min(100,Math.round(used/win*100));$('ch-ctx-fill').style.width=pct+'%';b.classList.toggle('full',pct>=80);
+  const pct=Math.min(100,Math.round(used/win*100));b.style.setProperty('--p',pct);$('ch-ctx-pct').textContent=pct+'%';b.classList.toggle('full',pct>=80);
   const label=topFill('ch.ctx',{pct});b.setAttribute('aria-label',label);b.title=label;b.hidden=false;}
 function chEmpty(){const c=chCol();c.classList.add('ch-empty');c.replaceChildren();const h=el('div',null,'ch-hello');chCtx(null);
   if(!chState.enabled||!chState.ready){h.append(el('p',topText('ch.isOff'),'muted'));
     if(CH_ADMIN){const b=el('button',topText('ch.settings'),'primary');b.type='button';b.addEventListener('click',chOpenSheet);h.append(b);}}
-  else{h.append(el('h3',topFill('ch.greet',{name:chName()})));const chips=el('div',null,'ch-chips');
+  else{const g=topText('ch.greet'),cut=g.search(/[.。!！]/),hi=el('h3'),fill=(t)=>t.split('{name}').join(chName());
+    hi.append(el('span',fill(cut<0?g:g.slice(0,cut+1)),'ch-hi'));if(cut>=0&&g.slice(cut+1).trim())hi.append(' ',el('span',fill(g.slice(cut+1).trim()),'ch-sub'));h.append(hi);const chips=el('div',null,'ch-chips');
     for(const k of CH_ADMIN?['ch.ex1','ch.ex2','ch.ex3']:['ch.uex1','ch.uex2','ch.uex3']){const b=el('button',topText(k),'ch-chip');b.type='button';b.setAttribute('data-noicon','');
       b.addEventListener('click',()=>{const t=$('ch-text');t.value=topText(k);chGrow();t.focus();});chips.append(b);}
     h.append(chips);}
@@ -279,10 +295,22 @@ function chMsg(who,text){chLeaveEmpty();
   const body=el('div',null,'ch-body'+(who==='me'?' plain':''));if(who==='me')body.textContent=text;else chRender(body,text);d.append(body);chCol().append(d);chScroll();return body;}
 function chNote(text,cls){chLeaveEmpty();chCol().append(el('div',text,'ch-note'+(cls?' '+cls:'')));chScroll();}
 let chDots=null;
-function chTypingOff(){if(chDots){chDots.remove();chDots=null;}}
-// Kept as the last row while the model has not written yet, so a tool note goes above it.
-function chTypingOn(){chTypingOff();chLeaveEmpty();chDots=el('div',null,'ch-typing');chDots.setAttribute('role','status');chDots.setAttribute('aria-label',topText('ch.typing'));
-  chDots.append(el('i'),el('i'),el('i'));chCol().append(chDots);chScroll();}
+// Kept as the last row while the model has not written yet, so a tool note goes above it. Beside the dots a short
+// phrase says what is going on, changing every few seconds so a long wait reads as progress; what is running picks the set.
+const CH_WAIT={think:'ch.wThink',look:'ch.wLook',pick:'ch.wPick',send:'ch.wSend'};
+const CH_WAIT_OF={games_search:'look',game_get:'look',retro_games_search:'look',retro_game_get:'look',games_show:'look',games_recommend:'pick',my_send:'send'};
+let chWaitKind='think',chWaitLast='',chWaitTimer=null,chWaitText=null;
+function chWaitPhrase(){const list=topText(CH_WAIT[chWaitKind]).split('|');let p;
+  do{p=list[Math.floor(Math.random()*list.length)];}while(list.length>1&&p===chWaitLast);chWaitLast=p;return p;}
+function chWaitShow(){if(chWaitText)chWaitText.textContent=chWaitPhrase();}
+function chTypingOff(){if(chWaitTimer){clearInterval(chWaitTimer);chWaitTimer=null;}if(chDots){chDots.remove();chDots=null;chWaitText=null;}}
+function chTypingOn(kind){chLeaveEmpty();
+  if(kind&&kind!==chWaitKind){chWaitKind=kind;chWaitLast='';}
+  if(!chDots){chDots=el('div',null,'ch-typing');chDots.setAttribute('role','status');chDots.setAttribute('aria-label',topText('ch.typing'));
+    chDots.append(el('i'),el('i'),el('i'));chWaitText=el('span',null,'ch-wait');chWaitText.setAttribute('aria-hidden','true');chDots.append(chWaitText);
+    chWaitShow();chWaitTimer=setInterval(chWaitShow,2800);}
+  else if(kind)chWaitShow();
+  chCol().append(chDots);chScroll();}
 function chMark(){chLeaveEmpty();chCol().append(el('div',topText('ch.compacted'),'ch-mark'));chScroll();}
 // What a person is told about a request, phrased for what approving it does.
 const CH_REQ={change:'ch.req_change',register:'ch.req_register'};
@@ -321,7 +349,7 @@ async function chOpen(id){
   if(!id)return;
   try{const d=await api(CH_API+'?id='+encodeURIComponent(id));
     for(const m of d.messages){if(m.role==='user')chMsg('me',m.content);else if(m.role==='assistant'&&m.content)chMsg('bot',m.content);
-      else if(m.compact)chMark();else if(m.note&&CH_NOTES[m.note])chNote(topText(CH_NOTES[m.note]));}
+      else if(m.role==='tool'&&m.cards)chCards(m.cards);else if(m.compact)chMark();else if(m.note&&CH_NOTES[m.note])chNote(topText(CH_NOTES[m.note]));}
     chCtx(d.context);
   }catch(err){toast(err.message);}}
 function chBusyUi(on){chBusy=on;chIcon();chSendState();}
@@ -329,8 +357,41 @@ async function chCompact(){if(!chConv||chBusy)return;chBusyUi(true);chNote(topTe
   try{chCtx(await api(CH_API+'/compact',{method:'POST',body:{conversation:chConv}}));chMark();}
   catch(err){chNote(topFill('ch.error',{msg:err.message}),'ch-err');}
   finally{chBusyUi(false);}}
+// Game cards: drawn from the fields the server built (chat/cards.js), all as text. The button queues the game for
+// one of the person's own consoles through CH_API/send, which the server checks again.
+let chDevices=null;
+async function chConsoles(){if(chDevices)return chDevices;
+  try{chDevices=(await api(CH_API+'/consoles')).consoles;}catch{return [];}return chDevices;}
+async function chAddTo(c,code,btn){btn.disabled=true;
+  try{const r=await api(CH_API+'/send',{method:'POST',body:{game:c.id,device:code}});
+    toast(topFill(r.existing?'ch.cardAlready':'ch.cardAdded',{name:r.label}));}
+  catch(err){toast(topFill('ch.cardFail',{msg:err.message}));}
+  finally{btn.disabled=false;}}
+function chPickConsole(c,act,btn,list){const box=act.parentNode;box.querySelector('.ch-pickrow')?.remove();
+  const row=el('div',null,'ch-gact ch-pickrow');row.style.margin='0';row.append(el('span',topText('ch.cardPick'),'muted'));
+  for(const d of list){const b=el('button',d.label,'ch-chip');b.type='button';b.addEventListener('click',()=>{row.remove();chAddTo(c,d.code,btn);});row.append(b);}
+  const x=el('button',null,'ch-x');x.type='button';x.setAttribute('aria-label',topText('ch.close'));x.innerHTML=CH_ICON.x;x.addEventListener('click',()=>row.remove());row.append(x);
+  box.append(row);chScroll();}
+function chGameCard(c){const box=el('div',null,'ch-gcard');
+  if(c.icon){const img=el('img');img.alt='';img.loading='lazy';img.width=img.height=56;img.src=c.icon;box.append(img);}else box.append(el('div',null,'ch-noimg'));
+  const info=el('div');info.append(el('div',c.name,'ch-gname'));
+  info.append(el('div',[c.platform,c.size?chSize(c.size):''].filter(Boolean).join(' · '),'ch-gmeta'));
+  const tags=el('div',null,'ch-gtags');
+  if(c.korean&&c.korean.patch)tags.append(el('span',topText('ch.cardKoPatch'),'ch-tag'));
+  if(c.korean&&c.korean.ui)tags.append(el('span',topText('ch.cardKoUi'),'ch-tag'));
+  if(tags.childElementCount)info.append(tags);
+  box.append(info);
+  if(c.sendable){const act=el('div',null,'ch-gact');const add=el('button',topText('ch.cardAdd'));add.type='button';
+    add.addEventListener('click',async()=>{const list=await chConsoles();
+      if(!list.length){toast(topText('ch.cardNoDevice'));return;}
+      if(list.length===1){chAddTo(c,list[0].code,add);return;}
+      chPickConsole(c,act,add,list);});
+    act.append(add);box.append(act);}
+  return box;}
+function chCards(cards){if(!Array.isArray(cards)||!cards.length)return;chLeaveEmpty();
+  const w=el('div',null,'ch-cards');for(const c of cards)w.append(chGameCard(c));chCol().append(w);chScroll();}
 async function chSend(text){
-  chMsg('me',text);let bot=null,botText='';chAbort=new AbortController();chBusyUi(true);chTypingOn();
+  chMsg('me',text);let bot=null,botText='';chAbort=new AbortController();chBusyUi(true);chTypingOn('think');
   try{
     const r=await fetch(CH_API,{method:'POST',signal:chAbort.signal,headers:{'Content-Type':'application/json','Accept-Language':chLang(),...chWriteHeaders()},body:JSON.stringify({message:text,conversation:chConv||undefined})});
     if(r.status===401){location.reload();return;}
@@ -342,7 +403,8 @@ async function chSend(text){
         if(e.conversation&&!chConv){chConv=e.conversation;}
         if(e.type==='text'){chTypingOff();if(!bot){bot=chMsg('bot','');botText='';}botText+=e.delta;chRender(bot,botText);chScroll();}
         else if(e.type==='tool_end'&&e.status!=='pending'&&e.status!=='requested'){bot=null;}
-        else if(e.type==='tool_start'){bot=null;chNote(topFill('ch.tool',{name:e.action||e.name}));chTypingOn();}
+        else if(e.type==='tool_start'){bot=null;chNote(topFill('ch.tool',{name:e.action||e.name}));chTypingOn(CH_WAIT_OF[e.action]||'think');}
+        else if(e.type==='cards'){chCards(e.cards);}
         else if(e.type==='approval'){chCard({id:e.id,action:e.action,preview:e.preview,kind:e.kind});if(!CH_ADMIN||e.status==='requested')chNote(chReqText(e.kind));}
         else if(e.type==='compacting'){chNote(topText('ch.compacting'));}
         else if(e.type==='context'){chCtx(e);if(e.compacted)chMark();}

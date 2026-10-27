@@ -16,6 +16,9 @@
  *   POST   <base>/compact       { conversation }  sums the conversation up for the model → { used, window }
  *   POST   <base>/decision      { id, approve, conversation? }  settle a call that waits for approval (admin only)
  *   DELETE <base>?id=<id>       delete one conversation
+ *   GET    <base>/consoles      { consoles: [{ code, label, sends }] }   only the consoles the caller approved themselves
+ *   POST   <base>/send          { game, device? }  a game card's "add to my console": queues the Switch base game for one of the
+ *                               caller's own consoles → { ok, code, label, existing }; 404 for any console that is not theirs
  *   POST   /admin/api/chat/attach   the admin's attach button: files into the share inbox, as /api/inbox takes
  *                               them (routes/inbox.js), answered { id, items: [{ name, size }] }. People attach
  *                               through /api/inbox itself.
@@ -28,6 +31,7 @@ import { personaFromSettings } from "../../chat/persona.js";
 import { tooManyRequests } from "../../security/retry-after.js";
 import debug from "../../debug.js";
 import { inboxUpload } from "../inbox.js";
+import { approverOf, ownConsoles, sendGame } from "../../chat/own-consoles.js";
 
 // There is one admin session and no account behind it, so the chat's account is fixed.
 const ADMIN = { account: "admin", owner: "admin", admin: true, name: "admin" };
@@ -104,6 +108,22 @@ export function mountChatRoutes(router, { path, whoOf, service, enabled, limit =
     const { id, approve, conversation } = req.body ?? {};
     if (typeof id !== "string" || typeof approve !== "boolean") throw new ChatError("bad_request", "id and approve are needed");
     res.json(await chat.decide({ account: who.account, admin: who.admin, id, approve, conversation: typeof conversation === "string" ? conversation : undefined }));
+  }));
+
+  router.get(`${path}/consoles`, handle(async (req, res, chat, who) => {
+    res.json({ consoles: ownConsoles(approverOf(who.owner), { admin: who.admin === true }).map(({ code, label, sends }) => ({ code, label, sends })) });
+  }));
+
+  router.post(`${path}/send`, handle(async (req, res, chat, who) => {
+    const { game, device } = req.body ?? {};
+    if (typeof game !== "string" || (device !== undefined && typeof device !== "string")) throw new ChatError("bad_request", "game is needed");
+    try {
+      const { code, label, existing } = sendGame(approverOf(who.owner), { game, device, admin: who.admin === true });
+      res.json({ ok: true, code, label, existing });
+    } catch (err) {
+      if (!err.status) throw err;
+      res.status(err.status).json({ error: err.message, code: "send_failed" });
+    }
   }));
 
   router.delete(path, handle(async (req, res, chat, who) => {
