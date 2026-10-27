@@ -1225,5 +1225,8 @@
   "Could not connect to the PC": "Kan geen verbinding maken met de pc",
   "There is not enough memory to connect. Try again once the downloads finish.": "Er is niet genoeg geheugen om te verbinden. Probeer het opnieuw als de downloads klaar zijn.",
   "USB could not be opened. Close other apps that use USB and try again.": "USB kan niet worden geopend. Sluit andere apps die USB gebruiken en probeer het opnieuw.",
-  "Opened from the Album there is too little memory to connect to a PC. Opened from a HOME Menu shortcut, it can.": "Geopend vanuit het Album is er te weinig geheugen om met een pc te verbinden. Geopend via een snelkoppeling in het HOME-menu lukt het wel."
+  "Opened from the Album there is too little memory to connect to a PC. Opened from a HOME Menu shortcut, it can.": "Geopend vanuit het Album is er te weinig geheugen om met een pc te verbinden. Geopend via een snelkoppeling in het HOME-menu lukt het wel.",
+  "Added a game sent from the web to the download queue.": "Een via het web verstuurde game is aan de downloadwachtrij toegevoegd.",
+  "Added {0} games sent from the web to the download queue.": "{0} via het web verstuurde games zijn aan de downloadwachtrij toegevoegd.",
+  "A game sent from the web waits until the console has room.": "Een via het web verstuurde game wacht tot er ruimte is op de console."
 }

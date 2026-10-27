@@ -1225,5 +1225,8 @@
   "Could not connect to the PC": "Impossibile connettersi al PC",
   "There is not enough memory to connect. Try again once the downloads finish.": "Memoria insufficiente per la connessione. Riprova al termine dei download.",
   "USB could not be opened. Close other apps that use USB and try again.": "Impossibile aprire l'USB. Chiudi le altre app che usano l'USB e riprova.",
-  "Opened from the Album there is too little memory to connect to a PC. Opened from a HOME Menu shortcut, it can.": "Se aperta dall'Album, la memoria non basta per connettersi a un PC. Se aperta da un collegamento nel menu HOME, è possibile."
+  "Opened from the Album there is too little memory to connect to a PC. Opened from a HOME Menu shortcut, it can.": "Se aperta dall'Album, la memoria non basta per connettersi a un PC. Se aperta da un collegamento nel menu HOME, è possibile.",
+  "Added a game sent from the web to the download queue.": "Un gioco inviato dal web è stato aggiunto alla coda dei download.",
+  "Added {0} games sent from the web to the download queue.": "{0} giochi inviati dal web sono stati aggiunti alla coda dei download.",
+  "A game sent from the web waits until the console has room.": "Un gioco inviato dal web attende che la console abbia spazio."
 }
