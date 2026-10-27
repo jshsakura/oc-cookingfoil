@@ -182,10 +182,10 @@ const M = {
   "place.home": { ko: "집 안", en: "home network", ja: "家庭内", zh: "家庭网络" },
   "place.outside": { ko: "집 밖", en: "outside", ja: "外部", zh: "外部" },
   moreWaiting: {
-    ko: ({ count, kind }) => `⏳ ${count}개 ${kind === "account" ? "계정이" : "기기가"} 더 승인을 기다립니다. 관리 페이지에서 확인합니다.`,
-    en: ({ count, kind }) => `⏳ ${count} more ${kind === "account" ? "accounts" : "consoles"} are waiting for approval. Check the admin page.`,
-    ja: ({ count, kind }) => `⏳ さらに ${count} 件の${kind === "account" ? "アカウント" : "本体"}が承認を待っています。管理画面で確認します。`,
-    zh: ({ count, kind }) => `⏳ 还有 ${count} 个${kind === "account" ? "账号" : "主机"}在等待批准，请在管理页面查看。`,
+    ko: ({ count, kind }) => `⏳ ${count}개 ${{ account: "계정이", chat: "채팅 요청이" }[kind] ?? "기기가"} 더 승인을 기다립니다. 관리 페이지에서 확인합니다.`,
+    en: ({ count, kind }) => `⏳ ${count} more ${{ account: "accounts", chat: "chat requests" }[kind] ?? "consoles"} are waiting for approval. Check the admin page.`,
+    ja: ({ count, kind }) => `⏳ さらに ${count} 件の${{ account: "アカウント", chat: "チャットのリクエスト" }[kind] ?? "本体"}が承認を待っています。管理画面で確認します。`,
+    zh: ({ count, kind }) => `⏳ 还有 ${count} 个${{ account: "账号", chat: "聊天请求" }[kind] ?? "主机"}在等待批准，请在管理页面查看。`,
   },
 
   inbox: {

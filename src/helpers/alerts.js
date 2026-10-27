@@ -13,7 +13,8 @@
  *     APPROVAL_BURST of each APPROVAL_WINDOW_MS at once, buttons and all; the
  *     rest are counted and told in one summary without buttons when the window
  *     ends, so a flood of strangers can neither bury the chat nor use up the
- *     buttons a real console needs.
+ *     buttons a real console needs. A chat request (`burst`) is held the same
+ *     way, without buttons.
  * Every alert, sent or not, lands in a short history the alerts tab shows.
  *
  * Alerts carry no passwords, keys, addresses or e-mail: only enough to know
@@ -236,9 +237,10 @@ function burstAllows(event, now) {
  * Raises an alert. `subject` tells repeats apart (a device key, an address) and
  * is never sent. `digest: { path }` gathers the event as described at the top.
  * `approval: { kind, ref }` names the request the buttons approve or refuse.
+ * `burst` holds the alert like an approval alert, without buttons.
  * Fire and forget; returns whether a message is on its way.
  */
-export function alert(event, message, { subject = "", now = Date.now(), digest = null, approval = null } = {}) {
+export function alert(event, message, { subject = "", now = Date.now(), digest = null, approval = null, burst = false } = {}) {
   if (!(event in EVENTS)) return false;
   if (!integrations.configured("telegram")) return false;
   const text = render(message, alertLang());
@@ -267,7 +269,7 @@ export function alert(event, message, { subject = "", now = Date.now(), digest =
     lastSent.set(key, now);
     pruneLastSent(now);
   }
-  if (approval && !burstAllows(event, now)) {
+  if ((approval || burst) && !burstAllows(event, now)) {
     remember({ at: now, event, text, status: "held", detail: "승인 요청이 몰려 창이 끝날 때 한 번에 알립니다" });
     return false;
   }

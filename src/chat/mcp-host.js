@@ -14,12 +14,22 @@
  * shows no preview is refused: nothing runs that nobody has seen.
  *
  * One host serves one account (the server behind it was built for that account's ctx). Parked
- * calls live in memory and lapse after ttlMs.
+ * calls live in memory and lapse after ttlMs. A person who is not the admin has at most
+ * MAX_OPEN_REQUESTS waiting at once, so one message cannot fill the admin's list.
  */
 import crypto from "node:crypto";
 import { DEFAULT_TIERS, decide, tierOf } from "./policy.js";
 
 export const PENDING_TTL_MS = 30 * 60 * 1000;
+export const MAX_OPEN_REQUESTS = 3;
+// The model relays this to the person in their language, so it is given in each.
+const TOO_MANY_WORDS = {
+  ko: "이미 관리자 승인을 기다리는 요청이 있습니다. 처리된 뒤에 다시 요청해 주세요.",
+  en: "There are already requests waiting for the admin's approval. Please ask again once they are handled.",
+  ja: "管理者の承認を待っているリクエストがすでにあります。処理されたあとで、もう一度お願いします。",
+  zh: "已有请求在等待管理员批准。请在处理完成后再提出请求。",
+};
+const TOO_MANY_REQUESTS = `${MAX_OPEN_REQUESTS} requests are already waiting for the admin. Tell the person, in their language: ${Object.values(TOO_MANY_WORDS).join(" / ")}`;
 const STANDALONE = new Set(["help"]);
 
 const clone = (value) => structuredClone(value);
@@ -93,6 +103,7 @@ export function createMcpHost({ client, base = DEFAULT_TIERS, tiers = {}, now = 
       const tier = tierOf(capId, table);
       const decision = decide(tier, { admin: ctx.admin === true });
       if (decision === "deny") return denied(`${capId ?? tool} is not available in chat`);
+      if (decision === "request" && [...parked.values()].filter((r) => r.account === ctx.account).length >= MAX_OPEN_REQUESTS) return denied(TOO_MANY_REQUESTS);
       if (confirmable === null) await listed();
 
       if (decision === "run") return outcome(await execute(tool, args, confirmable.has(tool) && !STANDALONE.has(tool)));

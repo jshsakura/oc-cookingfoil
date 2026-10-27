@@ -306,3 +306,73 @@ test("the meter's numbers come back with a conversation, and compaction answers 
   assert.ok(after.messages.some((m) => m.compact === true));
   s.close();
 });
+
+const asking = (n, then = "ok") => [...Array.from({ length: n }, (_, i) => ({ tool: "retro", args: { action: "retro_cover_set", args: { id: `gba-${i}` } } })), { text: then }];
+const toolReplies = (seen) => seen.at(-1).filter((m) => m.role === "tool").map((m) => m.content);
+
+test("a person has at most MAX_OPEN_REQUESTS waiting; past that the model is told to wait and the admin hears nothing more", async () => {
+  const { MAX_OPEN_REQUESTS } = await import("../../src/chat/mcp-host.js");
+  assert.equal(MAX_OPEN_REQUESTS, 3);
+  const told = [];
+  const seen = [];
+  const chat = createChatService({ dir: tmp(), llmConfig: () => cfg, notify: (n) => told.push(n), makeHost: (who) => fakeHost(who, []), stream: scriptedModel([...asking(5), ...asking(1)], seen) });
+  await chat.turn({ ...ALICE, message: "change five covers", onEvent() {} });
+  const waiting = await chat.requests("admin");
+  assert.equal(waiting.length, MAX_OPEN_REQUESTS);
+  assert.equal(told.length, MAX_OPEN_REQUESTS);
+  const refused = toolReplies(seen).filter((c) => c.includes("이미 관리자 승인을 기다리는 요청이 있습니다. 처리된 뒤에 다시 요청해 주세요."));
+  assert.equal(refused.length, 2, "the model gets words it can pass on");
+  assert.ok(refused.every((c) => c.includes("Please ask again once they are handled.")));
+
+  const bob = createChatService({ dir: tmp(), llmConfig: () => cfg, notify() {}, makeHost: (who) => fakeHost(who, []), stream: scriptedModel(asking(1)) });
+  const bobEvents = [];
+  await bob.turn({ ...BOB, message: "one cover", onEvent: (e) => bobEvents.push(e) });
+  assert.equal(bobEvents.find((e) => e.type === "approval")?.status, "requested", "the cap is per person");
+
+  assert.equal((await chat.decide({ ...ADMIN, id: waiting[0].id, approve: false })).status, "refused");
+  const again = [];
+  await chat.turn({ ...ALICE, message: "one more", onEvent: (e) => again.push(e) });
+  assert.equal(again.find((e) => e.type === "approval")?.status, "requested", "a settled request frees a place");
+});
+
+test("the admin's own waiting calls are not capped", async () => {
+  const host = await fakeHost({ owner: "admin", admin: true }, []);
+  const out = [];
+  for (let i = 0; i < 5; i++) out.push(await host.call({ account: "admin", admin: true }, { tool: "admin", arguments: { action: "settings_set", args: { i } } }));
+  assert.deepEqual(out.map((r) => r.status), Array(5).fill("pending"));
+});
+
+test("two admins settling the same request at once: one runs it, the other is told it is gone", async () => {
+  const ran = [];
+  const chat = createChatService({ dir: tmp(), llmConfig: () => cfg, notify() {}, makeHost: (who) => fakeHost(who, ran), stream: scriptedModel(asking(1)) });
+  const events = [];
+  await chat.turn({ ...ALICE, message: "change", onEvent: (e) => events.push(e) });
+  const id = events.find((e) => e.type === "approval").id;
+  const both = await Promise.all([chat.decide({ ...ADMIN, id, approve: true }), chat.decide({ ...ADMIN, id, approve: true })]);
+  assert.deepEqual(both.map((r) => r.status).sort(), ["denied", "done"]);
+  assert.equal(ran.length, 1);
+});
+
+test("a burst of chat requests sends the first few to Telegram and the rest in one summary", async () => {
+  const integrations = await import("../../src/security/integrations.js");
+  const alerts = await import("../../src/helpers/alerts.js");
+  integrations.save("telegram", { botToken: "123456789:" + "A".repeat(35), chatId: "-100123", events: "" });
+  const sent = [];
+  alerts.setFetchForTests(async (_url, opts) => (sent.push(JSON.parse(opts.body)), { json: async () => ({ ok: true }) }));
+  const settle = () => new Promise((r) => setImmediate(r));
+  try {
+    for (const who of [ALICE, BOB]) {
+      const chat = createChatService({ dir: tmp(), llmConfig: () => cfg, makeHost: (w) => fakeHost(w, []), stream: scriptedModel(asking(3)) });
+      await chat.turn({ ...who, message: "covers", onEvent() {} });
+    }
+    await settle();
+    assert.equal(sent.length, alerts.APPROVAL_BURST, "six requests, a few messages");
+    alerts.flushForTests("chat");
+    await settle();
+    assert.equal(sent.length, alerts.APPROVAL_BURST + 1);
+    assert.match(sent.at(-1).text, new RegExp(`${6 - alerts.APPROVAL_BURST}개 채팅 요청이 더 승인을 기다립니다`));
+  } finally {
+    integrations.save("telegram", { botToken: "", chatId: "" });
+    alerts.setFetchForTests((...a) => fetch(...a));
+  }
+});

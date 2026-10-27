@@ -87,7 +87,7 @@ function notifyAdmin({ name, capId, area, id }) {
   alert("chat", (t, lang) => {
     const card = buildNotice({ actor: { name }, capId, area, outcome: "requested", change: true, requestId: id, lang });
     return `${card.body}\n${t("chatRequestHint")}`;
-  }, { subject: id });
+  }, { subject: id, burst: true });
 }
 
 async function inMemoryHost({ owner, name, admin }) {
@@ -281,6 +281,8 @@ export function createChatService({
       if (!made) return { status: "denied", message: "no such request" };
       const host = await made;
       const from = host.owner(id);
+      // Settled by another admin or lapsed since holderOf looked.
+      if (!from) return { status: "denied", message: "no such request" };
       const ctx = { account, admin: admin === true };
       const where = from.account === account ? [account, conversation] : [from.account, from.conversation];
       if (!approve) {
