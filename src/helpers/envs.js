@@ -368,6 +368,8 @@ let restartGrace = envNumber("COOK_RESTART_GRACE", 25, { min: 1, max: 35, intege
 let nszEnabled = envBool("COOK_NSZ_ENABLED", false);
 // The MCP endpoint for AI assistants (src/mcp/route.js). Off until an admin turns it on.
 let mcpEnabled = envBool("COOK_MCP_ENABLED", false);
+// The admin chat (src/chat). Off until an admin turns it on; the model it talks to comes from COOK_CHAT_LLM_* only.
+let chatEnabled = envBool("COOK_CHAT_ENABLED", false);
 // New .nsp files the library finds are queued by themselves while the queue is on.
 let nszAutoQueue = envBool("COOK_NSZ_AUTO_QUEUE", true);
 // nsz -l (zstd level) and -t (threads); workers is how many files at once.
@@ -439,6 +441,7 @@ const ENV_SETTINGS = Object.freeze({
   restartRetryAfter,
   restartGrace,
   mcpEnabled,
+  chatEnabled,
   nszEnabled,
   nszAutoQueue,
   nszLevel,
@@ -495,6 +498,7 @@ function applyServerSettings(saved = {}) {
   restartRetryAfter = v.restartRetryAfter;
   restartGrace = v.restartGrace;
   mcpEnabled = v.mcpEnabled;
+  chatEnabled = v.chatEnabled;
   nszEnabled = v.nszEnabled;
   nszAutoQueue = v.nszAutoQueue;
   nszLevel = v.nszLevel;
@@ -526,6 +530,7 @@ export {
   restartRetryAfter,
   restartGrace,
   mcpEnabled,
+  chatEnabled,
   nszEnabled,
   nszAutoQueue,
   nszLevel,
