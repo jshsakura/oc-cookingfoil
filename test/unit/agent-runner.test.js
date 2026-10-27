@@ -21,6 +21,7 @@ export default { async metadata(a) {
   (globalThis.__asked[${JSON.stringify(id)}] ??= []).push(a);
   const answers = ${JSON.stringify(answers)};
   if (answers[a.titleId] === "throw") throw new Error("boom");
+  if (answers[a.titleId] === "none") return null;
   return answers[a.titleId] ?? { fields: {} };
 } };`;
 const asked = (id) => globalThis.__asked?.[id] ?? [];
@@ -185,4 +186,22 @@ test("the queue is bounded", async () => {
   for (const id of [A, B, C, "0100000000040000", "0100000000050000"]) runner.want(id);
   await settle();
   assert.equal(asked("eshop").length, 3, "the rest wait for the next scan");
+});
+
+test("null from the hook means the plugin knows nothing of the title: kept as a miss, not a failure", async () => {
+  // 2026-10-27: eshop answers null for a game no store sells. Counted as an unusable answer it put the plugin
+  // in its cooling pause, and the title was asked again after every restart.
+  const { runner, registry, store, clock, settle } = await boot({ eshop: { [A]: "none", [B]: "none", [C]: { fields: { name: "Found" } } } });
+  runner.track([{ titleId: A }, { titleId: B }, { titleId: C }]);
+  await settle();
+  assert.equal(registry.list().find((p) => p.id === "eshop").state, "on", "no cooling");
+  assert.equal(store.get("eshop", A).miss, true);
+  assert.equal(store.get("eshop", C).fields.name, "Found");
+  assert.equal(runner.stats("eshop").failed, 0);
+  // A new runner (a restart) does not ask about a miss again while it is fresh.
+  const again = createAgentRunner({ registry, store, now: () => clock.t });
+  globalThis.__asked = {};
+  again.track([{ titleId: A }, { titleId: B }, { titleId: C }]);
+  await settle();
+  assert.deepEqual(asked("eshop"), []);
 });
