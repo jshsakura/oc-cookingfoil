@@ -63,11 +63,11 @@ test("the status counts games by title, sums their size and keeps the disks it c
   assert.equal(status.verify.counts.damaged, 2);
 });
 
-test("recent shows the eight newest alerts, first line only", async () => {
+test("recent shows the eight newest alerts: the first line for the list, the whole message for its detail", async () => {
   const { o } = overviewWith();
   const { recent } = await o.read();
   assert.equal(recent.length, 8);
-  assert.deepEqual(recent[0], { at: 100, event: "device", text: "line 0", status: "sent" });
+  assert.deepEqual(recent[0], { at: 100, event: "device", text: "line 0", body: "\nline 0\nmore", status: "sent", detail: null });
 });
 
 test("the answer is kept for ten seconds, then read again", async () => {

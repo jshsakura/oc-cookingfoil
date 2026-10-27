@@ -21,15 +21,17 @@ export const ADMIN_PAGES = [
   // games: the Switch library and what the console's home screen shows
   { path: "/admin/games", tab: "library", label: "m.library", group: "games", icon: "folder" },
   { path: "/admin/patches", tab: "library", sub: "patches", label: "m.patches", group: "games", icon: "package" },
+  { path: "/admin/saves", tab: "library", sub: "saves", label: "m.saves", group: "games", icon: "save" },
+  { path: "/admin/titles", tab: "library", sub: "info", label: "m.titles", group: "games", icon: "book" },
+  { path: "/admin/integrity", tab: "library", sub: "verify", label: "m.integrity", group: "games", icon: "check" },
   { path: "/admin/featured", tab: "featured", label: "m.featured", group: "games", icon: "star" },
-  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "games", icon: "shrink" },
   // retro: the eight jobs are items of their own, not a hidden tab row
   {
     path: "/admin/retro", tab: "retro", group: "retro", tasks: [
       { view: "art", label: "rt.art", icon: "image" }, { view: "ratings", label: "rt.ratings", icon: "thumbs-up" },
       { view: "cores", label: "rt.cores", icon: "monitor" }, { view: "names", label: "rt.names", icon: "tag" },
       { view: "patch", label: "rt.patch", icon: "globe" }, { view: "dups", label: "rt.dups", icon: "copy" },
-      { view: "sets", label: "rt.sets", icon: "layers" }, { view: "trash", label: "rt.rtrash", icon: "trash" },
+      { view: "sets", label: "rt.sets", icon: "layers" },
     ],
   },
   { path: "/admin/homebrew", tab: "homebrew", group: "homebrew", param: "tab", tasks: [
@@ -37,8 +39,10 @@ export const ADMIN_PAGES = [
   ] },
   // files: what comes in, where it sits, what was thrown away
   { path: "/admin/upload", tab: "upload", label: "m.upload", group: "files", icon: "upload" },
+  { path: "/admin/organize", tab: "library", sub: "organize", label: "m.organize", group: "files", icon: "inbox" },
   { path: "/admin/inbox", tab: "inbox", label: "m.inbox", group: "files", icon: "inbox", count: "inbox-count" },
   { path: "/admin/files", tab: "files", label: "m.files", group: "files", icon: "layers" },
+  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "files", icon: "shrink" },
   { path: "/admin/trash", tab: "trash", label: "m.trash", group: "files", icon: "trash" },
   // people
   { path: "/admin/users", tab: "users", label: "s.users", group: "people", icon: "users", count: "account-count" },
@@ -47,6 +51,7 @@ export const ADMIN_PAGES = [
   { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops", icon: "download" },
   { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops", icon: "device" },
   { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", icon: "lock", count: "lock-count" },
+  { path: "/admin/logs/alerts", tab: "alerts", sub: "history", label: "m.alertLog", group: "ops", icon: "bell" },
   // settings: how the server runs
   { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", group: "set", icon: "sliders" },
   { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", group: "set", icon: "package" },

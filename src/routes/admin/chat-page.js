@@ -37,8 +37,8 @@ const SHEET_HTML = /* html */ `
     <form id="ch-form" class="ch-form">
       <h4>${top("ch.setupH")}</h4>
       <p class="muted">${top("ch.setupLead")}</p>
-      <label>${top("ch.baseUrl")}<input id="ch-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://"></label>
-      <label>${top("ch.model")}<input id="ch-model" type="text" autocomplete="off" spellcheck="false"></label>
+      <label>${top("ch.baseUrl")}<input id="ch-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://api.z.ai/api/coding/paas/v4"></label>
+      <label>${top("ch.model")}<input id="ch-model" type="text" autocomplete="off" spellcheck="false" placeholder="glm-4.6"></label>
       <label>${top("ch.apiKey")}<input id="ch-key" type="password" autocomplete="new-password"></label>
       <p class="muted ch-hint">${top("ch.keyMoves")}</p>
       <div class="actions"><button type="submit" class="primary">${top("fp.save")}</button></div>

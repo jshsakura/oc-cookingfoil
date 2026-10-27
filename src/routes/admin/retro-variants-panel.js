@@ -1,7 +1,7 @@
 /**
  * The retro tab's versions block: files that are one game (a patch beside an
  * official release, an arcade parent and its clones), the file each group
- * shows, arcade sets that can't run, and the trash. Talks to
+ * shows and arcade sets that can't run; a file sent away goes to the shared trash. Talks to
  * /admin/api/retro-variants.
  */
 
@@ -29,8 +29,7 @@ let rvView='dups',rvData={},rvSeq=0;
 const rvT=(v)=>typeof v==='function'?v():v;
 const RV_HELP={
   dups:()=>topText('rv.helpDups'),
-  sets:()=>topText('rv.helpSets'),
-  trash:()=>topText('rv.helpTrash')};
+  sets:()=>topText('rv.helpSets')};
 const RV_TAGS={bootleg:()=>topText('rv.tag.bootleg'),hack:()=>topText('rv.tag.hack'),prototype:()=>topText('rv.tag.prototype'),demo:()=>topText('rv.tag.demo'),decrypted:()=>topText('rv.tag.decrypted'),'cps-changer':()=>topText('rv.tag.cps'),'4p':()=>topText('rv.tag.p4'),'3p':()=>topText('rv.tag.p3'),resale:()=>topText('rv.tag.resale'),mvs:'MVS',aes:'AES'};
 const RV_REGION={kr:()=>topText('rv.reg.kr'),world:()=>topText('rv.reg.world'),us:()=>topText('rv.reg.us'),eu:()=>topText('rv.reg.eu'),jp:()=>topText('rv.reg.jp'),asia:()=>topText('rv.reg.asia'),hisp:()=>topText('rv.reg.hisp'),br:()=>topText('rv.reg.br')};
 const RV_HIDDEN={missing:()=>topText('rv.hid.missing'),bootleg:()=>topText('rv.tag.bootleg'),hack:()=>topText('rv.tag.hack'),prototype:()=>topText('rv.tag.prototype'),demo:()=>topText('rv.tag.demo')};
@@ -57,18 +56,11 @@ function rvMemberRow(g,m,withSize){const tr=el('tr');
   if(withSize)tr.append(td(rvMb(m.size),'rv-nw'),td(rvDate(m.addedAt),'rv-nw'));
   tr.append(raCell(acts));return tr;}
 function rvMatch(g,q){return !q||g.members.some((m)=>(m.name+' '+m.file).toLowerCase().includes(q));}
-const RV_TITLE={dups:()=>topText('rv.title'),sets:()=>topText('rt.sets'),trash:()=>topText('s.trash')};
+const RV_TITLE={dups:()=>topText('rv.title'),sets:()=>topText('rt.sets')};
 function rvShow(){
   $('rv-title').textContent=rvT(RV_TITLE[rvView]);
   $('rv-help').textContent=rvT(RV_HELP[rvView]);$('rv-broken-wrap').hidden=rvView!=='sets';
   const q=$('rv-filter').value.trim().toLowerCase();
-  if(rvView==='trash'){
-    const items=(rvData.trash?.items||[]).filter((i)=>!q||(i.name+' '+i.file).toLowerCase().includes(q));
-    $('rv-summary').textContent=items.length?topFill('rv.trashN',{n:items.length}):'';
-    table('rv-list',[topText('pp.name'),topText('rv.colSystem'),topText('rv.colSize'),topText('lo.colAt'),''],items.map((i)=>{const tr=el('tr');
-      const n=td();n.append(i.name);n.append(el('div',topFill('rv.filesN',{n:i.files.length}),'muted'));
-      tr.append(n,td(i.system==='core'?topText('rv.coreItem'):i.system),td(rvMb(i.size)),td(fmt(i.trashedAt)),raCell(tbtn('restore','rv.restoreBtn',()=>rvRestore(i))));return tr;}),topText('rv.trashEmpty'));
-    return;}
   if(rvView==='sets'){
     const d=rvData.sets;if(!d){$('rv-list').replaceChildren();return;}
     const s=d.summary;const hid=Object.entries(s.hidden).map(([k,v])=>(rvT(RV_HIDDEN[k])||k)+' '+v).join(', ');
@@ -86,7 +78,7 @@ function rvShow(){
 }
 async function loadRetroVariants(){
   const n=++rvSeq;
-  try{const url=rvView==='sets'?'/admin/api/retro-variants/sets':rvView==='trash'?'/admin/api/retro-variants/trash':'/admin/api/retro-variants';
+  try{const url=rvView==='sets'?'/admin/api/retro-variants/sets':'/admin/api/retro-variants';
     const d=await api(url);if(n!==rvSeq)return;rvData[rvView]=d;rvShow();}catch(err){toast(err.message);}
 }
 async function rvPick(g,m){
@@ -99,11 +91,6 @@ async function rvTrash(m,force=false){
       if(await ask(topText('rv.askForce'),{danger:true}))rvTrash(m,true);return;}
     toast(err.message);}
 }
-async function rvRestore(i){
-  try{const r=await api('/admin/api/retro-variants/restore',{method:'POST',body:{entry:i.entry,home:i.home}});
-    toast(r.renamed&&r.renamed.length?topFill('t.restoredRenamed',{names:r.renamed.map((x)=>x.to.split('/').pop()).join(', ')}):topText('rv.restored'));rvData={};loadRetroVariants();}catch(err){toast(err.message);}
-}
-
 let rvFilterT=0;$('rv-filter').addEventListener('input',()=>{clearTimeout(rvFilterT);rvFilterT=setTimeout(rvShow,200);});
 $('rv-broken').addEventListener('change',rvShow);
 `;

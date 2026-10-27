@@ -43,6 +43,22 @@ test('a removed file is listed in the trash and comes back with 되돌리기', a
   expect(fs.readFileSync(FILE, 'utf8')).toBe('TRASH ME');
 });
 
+test('a folder card narrows the list to that folder, ?root opens it narrowed, and the total card shows all again', async ({ page }) => {
+  await signIn(page);
+  await emptyAll(page);
+  await removeFromLibrary(page);
+  await page.goto('/admin/trash?root=retro');
+  const row = page.locator('#tr-list .tr-row', { hasText: NAME });
+  await expect(page.locator('#tr-cards .card[aria-pressed=true]')).toHaveCount(1);
+  await expect(row).toBeHidden();
+  await page.locator('#tr-cards .card[data-root=games]').click();
+  await expect(row).toBeVisible();
+  await expect(page).toHaveURL(/root=games/);
+  await page.locator('#tr-cards .card[data-root=""]').click();
+  await expect(row).toBeVisible();
+  await expect(page).not.toHaveURL(/root=/);
+});
+
 test('emptying asks for the word: a wrong one keeps everything, the right one deletes for good', async ({ page }) => {
   await signIn(page);
   await emptyAll(page);

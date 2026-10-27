@@ -6,7 +6,8 @@
  *       todo:   [{ code, n?, severity?, ...warning }]   only what needs doing; config warnings first, hints left out
  *       status: { games: { titles, files, bytes }, disk: [{ key, free, size }],
  *                 verify: { status, total, counts }, transfers: { active }, plugins: { on, total } }
- *       recent: [{ at, event, text, status }]           the newest alerts, sent or not, first line only
+ *       recent: [{ at, event, text, body, status, detail }]  the newest alerts, sent or not: text is the first
+ *                                                       line, body the whole message (capped) for the detail view
  *       added:  { games: [{ name, kind, titleId, version, at }],
  *                 patches: [{ id, name, game, titleId, at, ...what the patch edit dialog fills and posts back }] }
  *               the newest game files and patches in the library, newest first }
@@ -30,6 +31,7 @@ import { gameOf } from "../../meta/game-info.js";
 const FRESH_MS = 10_000;
 const RECENT_MAX = 8;
 const TEXT_MAX = 140;
+const BODY_MAX = 4000;
 const ADDED_GAMES = 8;
 const ADDED_PATCHES = 6;
 // A plugin in one of these states was turned on and is not running as asked.
@@ -123,7 +125,7 @@ export function createOverview({
         transfers: { active: activeTransfers() },
         plugins: { on: pl.filter((p) => p.state === "on" || p.state === "cooling").length, total: pl.length },
       },
-      recent: recentAlerts().slice(0, RECENT_MAX).map((e) => ({ at: e.at, event: e.event, text: firstLine(e.text), status: e.status })),
+      recent: recentAlerts().slice(0, RECENT_MAX).map((e) => ({ at: e.at, event: e.event, text: firstLine(e.text), body: String(e.text ?? "").slice(0, BODY_MAX), status: e.status, detail: e.detail ?? null })),
       added: addedOf(all, await Promise.resolve(patches()).catch(() => []), nameOf),
     };
   }

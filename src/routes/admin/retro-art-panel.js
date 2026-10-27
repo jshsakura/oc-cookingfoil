@@ -4,7 +4,7 @@
  * libretro names or SteamGridDB covers. Talks to /admin/api/retro-art.
  * The tab is split by a bar of sub-tabs: covers and bezels, ratings, the cores
  * in the RetroArch pack (/admin/api/retro-cores), patches applied to ROMs
- * (retro-patch-panel.js), and the versions block (retro-variants-panel.js: duplicates, arcade sets, trash),
+ * (retro-patch-panel.js), and the versions block (retro-variants-panel.js: duplicates and arcade sets),
  * one shown at a time.
  */
 import { icon } from "../../views/icons.js";
@@ -23,7 +23,6 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
     <button type="button" role="tab" data-sub="patch">${icon("upload")}${top("rpt.tab")}</button>
     <button type="button" role="tab" data-sub="dups">${icon("copy")}중복 버전</button>
     <button type="button" role="tab" data-sub="sets">${icon("monitor")}아케이드 세트</button>
-    <button type="button" role="tab" data-sub="trash">${icon("trash")}휴지통</button>
   </nav>
   <div data-sub-panel="art">
   <div class="hd"><h2 class="first">${top("ra.title")}</h2><button type="button" class="primary" id="ra-sync">${top("ra.syncAll")}</button></div>
@@ -153,7 +152,7 @@ export const RETRO_ART_SCRIPT = /* js */ `
 let raData=null,raGame=null,raTimer=null;
 // One sub-tab at a time; the choice is remembered in this browser only.
 // var, not let: the tab can open while the page's script is still being read.
-var RETRO_SUBS=['art','ratings','cores','names','patch','dups','sets','trash'];
+var RETRO_SUBS=['art','ratings','cores','names','patch','dups','sets'];
 var retroSub=(()=>{try{const v=localStorage.getItem('cf-retro-sub');return RETRO_SUBS.includes(v)?v:'art';}catch{return 'art';}})();
 function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
   try{localStorage.setItem('cf-retro-sub',retroSub);}catch{}
@@ -165,8 +164,11 @@ function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
   if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});}
   if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}}
 for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEventListener('click',()=>retroShowSub(b.dataset.sub));
-function retroOpen(){if(window.__admRetro){if(RETRO_SUBS.includes(window.__admRetro))retroSub=window.__admRetro;window.__admRetro=null;}
-  loadRetroArt();if(['dups','sets','trash'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
+function retroOpen(){
+  // Retro's trash is the shared one now, filtered to the retro folder; old links land there.
+  if(window.__admRetro==='trash'){location.replace('/admin/trash?root=retro');return;}
+  if(window.__admRetro){if(RETRO_SUBS.includes(window.__admRetro))retroSub=window.__admRetro;window.__admRetro=null;}
+  loadRetroArt();if(['dups','sets'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
 function raCell(node){const c=el('td');c.append(node);return c;}
 const rcWord=(w)=>typeof w==='function'?w():w;
 const RC_ORIGIN={official:[()=>topText('rc.official'),'on'],modified:[()=>topText('rc.modified'),'warn'],extra:[()=>topText('rc.extra'),'']};

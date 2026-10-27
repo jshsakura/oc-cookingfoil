@@ -196,3 +196,18 @@ test('an upload the inbox refuses says why and attaches nothing', async ({ page 
   await expect(page.locator('#ch-files .ch-file')).toHaveCount(0);
   await expect(page.locator('#ch-go')).toBeDisabled();
 });
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('opening the chat neither pops the keyboard nor zooms: the box waits for a tap and its text is 16px', async ({ page }) => {
+    await signedIn(page, { chatOn: true });
+    await page.goto('/');
+    await page.locator('#ch-launch').tap();
+    await expect(page.locator('#ch-widget')).toBeVisible();
+    expect(await page.evaluate(() => matchMedia('(pointer:coarse)').matches)).toBe(true);
+    await expect(page.locator('#ch-text')).not.toBeFocused();
+    expect(await page.locator('#ch-text').evaluate((e) => getComputedStyle(e).fontSize)).toBe('16px');
+    expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe('hidden');
+  });
+});

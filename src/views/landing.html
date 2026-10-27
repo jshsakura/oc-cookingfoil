@@ -32,6 +32,8 @@
       __THEME_HEAD__
     </script>
     <style>
+      /* iOS zooms the page into any field under 16px when it takes the focus. */
+      @media (pointer:coarse){input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px!important}}
       /* The client app's six palettes, filled in from src/views/themes.js,
          each with the butter accent. The admin's sizes come first: the activity
          menu borrowed from it reads them, and the palettes override its --ground. */

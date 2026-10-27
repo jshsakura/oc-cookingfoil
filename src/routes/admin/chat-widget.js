@@ -33,7 +33,11 @@ body:has(.ch-launch:not([hidden])) .wrap{padding-bottom:104px}
 .ch-launch{right:16px;bottom:16px}
 .ch-widget{inset:0;width:auto;height:auto;border:0;border-radius:0;box-shadow:none}
 .ch-widget:not([hidden])~.ch-launch,.ch-launch[aria-expanded="true"]{display:none}
+/* The chat covers the phone: the page under it stays put instead of scrolling along. */
+body:has(.ch-widget:not([hidden])){overflow:hidden}
 }
+/* iOS zooms into a field whose text is under 16px when it takes the focus. */
+@media (pointer:coarse){.ch-card textarea{font-size:var(--fs-lg)}}
 `;
 
 function widgetScript({ web = false } = {}) {
@@ -44,7 +48,8 @@ async function chWidgetOpen(){
     // Opened again: read the conversation anew, so an admin's answer to a request shows.
     if(chWidgetOpen.loaded&&chConv&&!chBusy){try{await chPickList(chConv);await chOpen(chConv);}catch(err){toast(err.message);}}
     if(!chWidgetOpen.loaded){chWidgetOpen.loaded=true;chIcon();chSendState();try{await chRefresh();}catch(err){toast(err.message);}}
-    $('ch-text').focus();}
+    // On a touch screen the keyboard waits for a tap on the box; opening it at once covers the chat.
+    if(!matchMedia('(pointer:coarse)').matches)$('ch-text').focus();}
   else chWidgetShow(false);}
 $('ch-close').hidden=false;
 $('ch-close').addEventListener('click',()=>chWidgetShow(false));
