@@ -114,7 +114,7 @@ function hbSourceCard(s){const card=el('article',null,'src-card');
     if(s.install.rules?.length){const d=el('details');d.append(el('summary',topText('hb.whySummary')),el('div',s.install.rules.join(' · '),'muted'));st.append(d);}}
   card.append(st);
   const foot=el('div',null,'src-foot');
-  foot.append(hbKind(s.id,s.kind),tbtn('info','hb.descBtn',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),tbtn('retry','hb.checkBtn',()=>checkHb(s.repo)),tbtn('delete','pp.delete',()=>removeHb(s.repo),'danger'));
+  foot.append(hbKind(s.id,s.kind),tbtn('info','hb.descBtn',()=>editHbDesc(s.id,s.cached?.name||s.repo,s.description)),tbtn('retry','hb.checkBtn',(e)=>checkHb(s.repo,s.tag,e.currentTarget)),tbtn('delete','pp.delete',()=>removeHb(s.repo),'danger'));
   card.append(foot);return card;}
 let hbManual=[],hbSources=[],hbReco=[];const hbPicked=new Set();
 // Every app with its own patches and saves: upload jumps to the upload tab with the app already chosen.
@@ -170,7 +170,7 @@ function hbAppCard(a,extras){const name=a.name||a.app;const card=el('article',nu
   foot.append(tbtn('info','hb.descBtn',()=>editHbDesc(a.id,name,desc)),tbtn('image','hb.pictureBtn',()=>openHbBanner(a)));
   if(a.replaceable)foot.append(btn(topText('t.hbReplace'),()=>pickHbFile(a,name)));
   if(a.source==='manual')foot.append(tbtn('link','hb.linkBtn',()=>linkHb(a)),tbtn('delete','pp.delete',()=>removeManualHb(a.id,name),'danger'));
-  else if(repo)foot.append(tbtn('retry','hb.checkBtn',()=>checkHb(repo)),tbtn('remove','fp.remove',()=>removeHb(repo),'danger'));
+  else if(repo)foot.append(tbtn('retry','hb.checkBtn',(e)=>checkHb(repo,null,e.currentTarget)),tbtn('remove','fp.remove',()=>removeHb(repo),'danger'));
   card.append(foot);return card;}
 // The picture behind an app's header: SteamGridDB's wide backgrounds, an upload, or none.
 let hbBannerApp=null;
@@ -285,9 +285,15 @@ $('hb-add').addEventListener('submit',async(e)=>{e.preventDefault();const b=e.su
   catch(err){toast(err.message);}finally{if(b)b.disabled=false;}});
 async function setHbAsset(repo,asset){
   try{const s=await api('/admin/api/homebrew/asset',{method:'POST',body:{repo,asset}});toast(s?.error?s.error.message:topText('hb.assetChanged'));loadHomebrew();}catch(err){toast(err.message);}}
-async function checkHb(repo){
-  try{const s=await api('/admin/api/homebrew/check',{method:'POST',body:{repo}});toast(s?.error?s.error.message:topText('hb.checkedToast'));loadHomebrew();}catch(err){toast(err.message);}}
-$('hb-check-all').addEventListener('click',async()=>{const b=$('hb-check-all');b.disabled=true;
+// A check can download a new build, so it may take a while: the button waits, and the toast says whether anything changed.
+async function checkHb(repo,before,b){
+  if(b){if(b.disabled)return;b.disabled=true;b.setAttribute('aria-busy','true');}
+  toast(topText('hb.checking'));
+  try{const s=await api('/admin/api/homebrew/check',{method:'POST',body:{repo}});
+    toast(s?.error?s.error.message:s?.tag&&s.tag!==before?topFill('hb.checkedNew',{tag:s.tag}):s?.tag?topFill('hb.checkedSame',{tag:s.tag}):topText('hb.checkedToast'));loadHomebrew();}
+  catch(err){toast(err.message);}
+  finally{if(b){b.disabled=false;b.removeAttribute('aria-busy');}}}
+$('hb-check-all').addEventListener('click',async()=>{const b=$('hb-check-all');b.disabled=true;toast(topText('hb.checking'));
   try{await api('/admin/api/homebrew/check',{method:'POST',body:{}});toast(topText('hb.checkedAllToast'));loadHomebrew();}catch(err){toast(err.message);}finally{b.disabled=false;}});
 $('hb-rescan').addEventListener('click',async()=>{const b=$('hb-rescan');b.disabled=true;
   try{await api('/admin/api/homebrew/rescan',{method:'POST',body:{}});toast(topText('hb.rescanToast'));}
