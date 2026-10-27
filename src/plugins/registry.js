@@ -43,7 +43,7 @@ export const DEFAULT_LIMITS = Object.freeze({
 });
 
 /** The hook functions each `provides` entry obliges a plugin to export. */
-export const HOOKS_OF = Object.freeze({ metadata: ["metadata"], art: ["art"], variant: ["variants", "plan"], task: ["tasks"], request: ["beforeDownload"], route: [], event: [] });
+export const HOOKS_OF = Object.freeze({ metadata: ["metadata"], art: ["art"], variant: ["variants", "plan"], task: ["tasks"], request: ["beforeDownload"], route: [], event: [], names: [] });
 
 /** Hooks that only decorate a listing: a failure of one does not count toward a pause. */
 const LISTING_HOOKS = new Set(["variants", ...EVENT_KINDS]);
