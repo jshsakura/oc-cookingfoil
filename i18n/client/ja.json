@@ -1193,5 +1193,13 @@
   "File status": "ファイルの状態",
   "This file is not signed, so it cannot be installed.": "このファイルには署名がないため、インストールできません。",
   "This file is not signed, so the console may refuse to install it.": "署名のないファイルのため、本体がインストールを拒否する場合があります。",
-  "The server could not prepare this file.": "サーバーがこのファイルを準備できませんでした。"
+  "The server could not prepare this file.": "サーバーがこのファイルを準備できませんでした。",
+  "Theme": "テーマ",
+  "Beige|theme": "ベージュ",
+  "Black|theme": "ブラック",
+  "Navy|theme": "ネイビー",
+  "Purple|theme": "パープル",
+  "Green|theme": "グリーン",
+  "Pink|theme": "ピンク",
+  "Same as the console": "本体の設定に合わせる"
 }

@@ -1193,5 +1193,13 @@
   "File status": "Stato del file",
   "This file is not signed, so it cannot be installed.": "Questo file non è firmato, quindi non può essere installato.",
   "This file is not signed, so the console may refuse to install it.": "Questo file non è firmato, quindi la console potrebbe rifiutarne l’installazione.",
-  "The server could not prepare this file.": "Il server non è riuscito a preparare questo file."
+  "The server could not prepare this file.": "Il server non è riuscito a preparare questo file.",
+  "Theme": "Tema",
+  "Beige|theme": "Beige",
+  "Black|theme": "Nero",
+  "Navy|theme": "Blu navy",
+  "Purple|theme": "Viola",
+  "Green|theme": "Verde",
+  "Pink|theme": "Rosa",
+  "Same as the console": "Come la console"
 }
