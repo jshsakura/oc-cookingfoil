@@ -91,7 +91,12 @@ export const SPLIT_PAGES = {
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+HOMEBREW_SCRIPT+CONTENT_EDITOR_SCRIPT,
     init: "subtabs('homebrew');SUBTABS.homebrew.show(location.hash.split('/')[1]||'apps');loadHomebrew();",
   }),
-  "/admin": bundle({ css: OVERVIEW_CSS, body: OVERVIEW_HTML, script: OVERVIEW_SCRIPT, init: "admInterval(loadOverview,15000);" }),
+  // The overview's added patches open the patches page's edit dialog.
+  "/admin": bundle({
+    css: OVERVIEW_CSS+PATCHES_CSS+GAME_PICKER_CSS, body: OVERVIEW_HTML+CONTENT_DIALOG_HTML,
+    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+OVERVIEW_SCRIPT+CONTENT_EDITOR_SCRIPT,
+    init: "admInterval(loadOverview,15000);",
+  }),
   "/admin/upload": bundle({ css: GAME_PICKER_CSS, body: UPLOAD_HTML, script: GAME_PICKER_SCRIPT+UPLOAD_SCRIPT, init: "loadUpload();" }),
   "/admin/settings/login": bundle({ body: '<section id="tab-settings">'+GOOGLE_SETTINGS_HTML+'</section>', script: GOOGLE_SETTINGS_SCRIPT, init: "loadGoogleSettings();" }),
   "/admin/settings/admin": bundle({ body: '<section id="tab-settings">'+ADMIN_SECURITY_HTML+'</section>', script: ADMIN_SECURITY_SCRIPT, init: "loadTfa();" }),

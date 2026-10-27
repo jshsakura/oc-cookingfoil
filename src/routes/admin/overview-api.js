@@ -7,12 +7,13 @@
  *       status: { games: { titles, files, bytes }, disk: [{ key, free, size }],
  *                 verify: { status, total, counts }, transfers: { active }, plugins: { on, total } }
  *       recent: [{ at, event, text, status }]           the newest alerts, sent or not, first line only
- *       added:  { games: [{ name, kind, titleId, version, at }], patches: [{ name, game, titleId, at }] }
+ *       added:  { games: [{ name, kind, titleId, version, at }],
+ *                 patches: [{ id, name, game, titleId, at, ...what the patch edit dialog fills and posts back }] }
  *               the newest game files and patches in the library, newest first }
  *
  * Everything here is already kept in memory by its owner, so a read only counts. The answer is kept
- * for a few seconds anyway: the page asks every 15 seconds and several tabs may be open. Counts and
- * names only, no addresses or keys.
+ * for a few seconds anyway: the page asks every 15 seconds and several tabs may be open. A patch edit
+ * drops the kept answer, so the page shows a rename at once. Counts and names only, no addresses or keys.
  */
 import fsp from "node:fs/promises";
 import * as libraryCache from "../../meta/library-cache.js";
@@ -22,6 +23,7 @@ import * as alerts from "../../helpers/alerts.js";
 import { pluginRegistry } from "../../plugins/instance.js";
 import { romsDirPath, dataDir } from "../../helpers/envs.js";
 import * as userPatches from "../../meta/user-patches.js";
+import * as patchInfo from "../../meta/patch-info.js";
 import { gameOf } from "../../meta/game-info.js";
 
 const FRESH_MS = 10_000;
@@ -52,12 +54,18 @@ function gamesOf(files) {
   return { titles: titles.size, files: files.length, bytes };
 }
 
+// The edit dialog posts every field back, so a field left out here would be cleared by a save.
+const editable = ({ homebrew, size, files, ko, description, version, author, game_version, update_version }) => ({
+  ...(homebrew ? { homebrew } : {}), size, files, ko: ko ?? null, description: description ?? null, version: version ?? null,
+  author: author ?? null, game_version: game_version ?? null, update_version: update_version ?? null,
+});
+
 /** The newest game files and patches: what came in lately, at a glance. */
 function addedOf(files, patches, nameOf) {
   const games = files.filter((f) => f.mtime).sort((a, b) => b.mtime - a.mtime).slice(0, ADDED_GAMES)
     .map((f) => ({ name: f.name, kind: f.kind, titleId: f.titleId, version: f.version, at: f.mtime * 1000 }));
   const newest = patches.filter((p) => p.updated_at).sort((a, b) => b.updated_at - a.updated_at).slice(0, ADDED_PATCHES)
-    .map((p) => ({ name: p.name, game: p.title_id ? nameOf(p.title_id) : null, titleId: p.title_id ?? null, at: p.updated_at * 1000 }));
+    .map((p) => ({ id: p.id, name: p.name, game: p.title_id ? nameOf(p.title_id) : null, titleId: p.title_id ?? null, at: p.updated_at * 1000, ...editable(p) }));
   return { games, patches: newest };
 }
 
@@ -78,6 +86,7 @@ export function createOverview({
   recentAlerts = () => alerts.recent(),
   patches = () => userPatches.list(),
   nameOf = (titleId) => gameOf(titleId)?.name ?? null,
+  patchRevision = () => patchInfo.revision(),
   disks = () => Promise.all([diskOf("games", romsDirPath), diskOf("data", dataDir)]),
   now = Date.now,
 } = {}) {
@@ -116,9 +125,10 @@ export function createOverview({
 
   return {
     async read() {
-      if (kept && now() - kept.at < FRESH_MS) return kept.value;
+      const rev = patchRevision();
+      if (kept && kept.rev === rev && now() - kept.at < FRESH_MS) return kept.value;
       const value = await build();
-      kept = { at: now(), value };
+      kept = { at: now(), rev, value };
       return value;
     },
     forget() { kept = null; },

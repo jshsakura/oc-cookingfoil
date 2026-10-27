@@ -47,6 +47,7 @@ export const OVERVIEW_CSS = /* css */ `
 .ov-list .pill{flex:none}
 .ov-list time{flex:none;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ov-list li.none{color:var(--muted)}
+.ov-list .pt-edit{flex:none}
 `;
 
 export const OVERVIEW_SCRIPT = /* js */ `
@@ -126,7 +127,9 @@ function renderAdded(a){
   for(const f of a?.games||[])g.append(ovRow(f.titleId,f.name,null,OV_KIND[f.kind]?topText(OV_KIND[f.kind]):'',f.at));
   if(!g.children.length)g.append(el('li',topText('ov.addedGamesNone'),'none'));
   const p=$('ov-added-patches');p.replaceChildren();
-  for(const x of a?.patches||[])p.append(ovRow(x.titleId,x.name,x.game,null,x.at));
+  for(const x of a?.patches||[]){const li=ovRow(x.titleId,x.name,x.game,null,x.at);
+    const e=tbtn('edit','hb.editBtn',()=>ctOpen('patch',{...x,title_id:x.titleId},loadOverview),'pt-edit');e.setAttribute('aria-label',topFill('hb.editAria',{name:x.name}));
+    li.append(e);p.append(li);}
   if(!p.children.length)p.append(el('li',topText('ov.addedPatchesNone'),'none'));}
 function renderOverview(d){
   $('ts').textContent=topFill('overview.asOf',{at:fmt(d.generatedAt)});
