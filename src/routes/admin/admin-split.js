@@ -39,6 +39,7 @@ import { CHROME_SCRIPT } from "./chrome-script.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
+import { FILES_CSS, FILES_HTML, FILES_SCRIPT } from "./files-panel.js";
 import { PLUGINS_CSS, PLUGINS_HTML, PLUGINS_SCRIPT } from "./plugins-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SCRIPT, LOGS_SECURITY_HTML } from "./logs-pages.js";
@@ -95,6 +96,7 @@ export const SPLIT_PAGES = {
   "/admin/settings/admin": bundle({ body: '<section id="tab-settings">'+ADMIN_SECURITY_HTML+'</section>', script: ADMIN_SECURITY_SCRIPT, init: "loadTfa();" }),
   "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
+  "/admin/files": bundle({ css: FILES_CSS, body: FILES_HTML, script: FILES_SCRIPT, init: "loadFiles();" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
   "/admin/inbox": bundle({ css: INBOX_CSS, body: INBOX_HTML, script: INBOX_SCRIPT, init: "loadInbox();" }),
   "/admin/convert": bundle({ css: NSZ_CSS, body: NSZ_HTML, script: NSZ_SCRIPT, init: "loadNsz();" }),

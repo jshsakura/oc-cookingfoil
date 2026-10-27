@@ -83,7 +83,8 @@ let refresher = (key) => REFRESH[key]?.();
 export function _setRefresh(fn) {
   refresher = fn ?? ((key) => REFRESH[key]?.());
 }
-function refresh(keys) {
+/** Reads the named library folders again, in the background (a failure is logged). */
+export function refresh(keys) {
   for (const key of new Set(keys)) {
     Promise.resolve().then(() => refresher(key)).catch((err) => debug.error("trash: %s not read again: %s", key, err.message));
   }

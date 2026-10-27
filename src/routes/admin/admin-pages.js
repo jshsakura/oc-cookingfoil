@@ -19,6 +19,7 @@ export const ADMIN_PAGES = [
   { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
   // games group
   { path: "/admin/games", tab: "library", label: "m.library", group: "games", icon: "folder" },
+  { path: "/admin/files", tab: "files", label: "m.files", group: "games", icon: "layers" },
   { path: "/admin/upload", tab: "upload", label: "m.upload", group: "games", icon: "upload" },
   { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "games", icon: "shrink" },
   { path: "/admin/inbox", tab: "inbox", label: "m.inbox", group: "games", icon: "inbox", count: "inbox-count" },
