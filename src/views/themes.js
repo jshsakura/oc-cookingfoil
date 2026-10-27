@@ -140,15 +140,13 @@ const BAR = Object.fromEntries(THEMES.map((t) => [t.id, t.ground]));
  */
 export const THEME_HEAD_SCRIPT = `(()=>{const r=document.documentElement,q=matchMedia("(prefers-color-scheme: light)"),m=document.querySelector('meta[name="theme-color"]'),c=${JSON.stringify(BAR)},k=(t)=>Object.hasOwn(c,t);try{const t=localStorage.getItem("cookingfoil:theme");if(k(t))r.dataset.theme=t;}catch{}const s=()=>{if(m)m.content=c[k(r.dataset.theme)?r.dataset.theme:q.matches?"light":"dark"];};s();q.addEventListener("change",s);new MutationObserver(s).observe(r,{attributes:true,attributeFilter:["data-theme"]});})();`;
 
-const CHECK = `<svg class="theme-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
-
 /**
- * The picker in the account menu: a labelled group of six radio items, each with a swatch of the
- * theme's ground and surface. `word(key)` gives the markup for a label (the page's i18n span).
+ * The picker in the account menu: a labelled group of six radio items in one row, each a swatch of
+ * the theme's ground and surface with its name kept for screen readers. `word(key)` gives the markup for a label (the page's i18n span).
  */
 export const themePickerHtml = (word) => `<div class="theme-pick" role="group" aria-labelledby="theme-pick-label">
 <span class="theme-pick-label" id="theme-pick-label">${word("theme.label")}</span>
-<div class="theme-pick-grid">${THEMES.map((t) => `<button type="button" role="menuitemradio" aria-checked="false" data-theme-pick="${t.id}"><span class="theme-swatch" aria-hidden="true"></span><span class="theme-name">${word(`theme.${t.id}`)}</span>${CHECK}</button>`).join("")}</div>
+<div class="theme-pick-grid">${THEMES.map((t) => `<button type="button" role="menuitemradio" aria-checked="false" data-theme-pick="${t.id}"><span class="theme-swatch" aria-hidden="true"></span><span class="theme-name">${word(`theme.${t.id}`)}</span></button>`).join("")}</div>
 </div>`;
 
 // Read inside the account menu on both surfaces, so it uses the admin token names the web page's
@@ -156,16 +154,14 @@ export const themePickerHtml = (word) => `<div class="theme-pick" role="group" a
 export const THEME_PICKER_CSS = `
 .theme-pick{display:grid;gap:6px;padding:6px 6px 4px}
 .theme-pick-label{font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--muted);padding:0 6px}
-.theme-pick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
-.pop-list .theme-pick [data-theme-pick]{display:flex;align-items:center;gap:8px;min-width:0;width:100%;padding:8px;border:0;border-radius:var(--r-md);background:transparent;color:var(--text);font:inherit;font-size:var(--fs-sm);font-weight:var(--fw-bold);line-height:20px;cursor:pointer;text-align:left}
+.theme-pick-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px}
+.pop-list .theme-pick [data-theme-pick]{display:flex;align-items:center;justify-content:center;position:relative;min-width:0;width:100%;padding:8px;border:0;border-radius:var(--r-md);background:transparent;color:var(--text);font:inherit;font-size:var(--fs-sm);font-weight:var(--fw-bold);line-height:20px;cursor:pointer;text-align:left}
 .pop-list .theme-pick [data-theme-pick]:hover{background:var(--sunk)}
 .pop-list .theme-pick [data-theme-pick]:focus-visible{outline:3px solid var(--accent);outline-offset:-1px;background:var(--sunk)}
 .pop-list .theme-pick [data-theme-pick][aria-checked="true"]{background:var(--sunk)}
 .theme-swatch{flex:none;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(127,127,127,.45)}
 .theme-pick [aria-checked="true"] .theme-swatch{outline:2px solid var(--text);outline-offset:2px}
-.theme-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.theme-check{flex:none;width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;visibility:hidden}
-.theme-pick [aria-checked="true"] .theme-check{visibility:visible}
+.theme-name{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 ${THEMES.map((t) => `[data-theme-pick="${t.id}"] .theme-swatch{background:linear-gradient(135deg,${t.ground} 0 50%,${t.surface} 50% 100%)}`).join("\n")}
 `;
 
