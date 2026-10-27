@@ -6,7 +6,7 @@
  *   createAgentRunner({ registry, store, onChange?, log?, now?, retryMs?, queueMax? }) -> { track, want, pending, stats, stop }
  *
  * want(titleId, { name?, hasFile }) asks every active metadata plugin that has no fresh answer for the
- * title. The title may be one the library has no file for: the hook gets { titleId, name, hasFile } and
+ * title. An answer of null (the plugin knows nothing of it) is kept as a miss, like an empty one. The title may be one the library has no file for: the hook gets { titleId, name, hasFile } and
  * nothing else about the library. An answer is cut down to what the core keeps (agent-answer.js) and
  * stored with the time; a plugin that is cooling, off or failing leaves the title unanswered and it is
  * tried again after retryMs (a day), never in a loop. onChange fires after answers were stored (debounced), so
@@ -54,10 +54,11 @@ export function createAgentRunner({ registry, store, onChange = () => {}, log = 
         if (store.fresh(store.get(id, titleId))) continue;
         const s = statOf(id);
         s.asked++;
-        const r = await registry.callHook(id, "metadata", { titleId, name: job.name ?? null, hasFile: job.hasFile === true }, { lang: "en", valid: (v) => parseMetadata(v) !== null });
+        // null is the plugin saying it knows nothing of the title: kept as a miss like an empty answer, not a failure.
+        const r = await registry.callHook(id, "metadata", { titleId, name: job.name ?? null, hasFile: job.hasFile === true }, { lang: "en", valid: (v) => v === null || parseMetadata(v) !== null });
         s.lastAt = now();
         if (r.value !== undefined) {
-          const answer = parseMetadata(r.value);
+          const answer = r.value === null ? { fields: {} } : parseMetadata(r.value);
           await store.put(id, titleId, answer);
           if (Object.keys(answer.fields).length) s.answered++; else s.empty++;
           changed();
