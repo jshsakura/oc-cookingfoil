@@ -277,6 +277,10 @@ const homebrewRepos = envString("COOK_HOMEBREW_REPOS", "")
   .filter(Boolean);
 // Optional; raises GitHub's limit of 60 unauthenticated requests an hour.
 const githubToken = envString("COOK_GITHUB_TOKEN", "").trim();
+// The model the admin chat talks to (any OpenAI-compatible endpoint). Initial values: the admin page can save its own.
+const chatLlmBaseUrl = envString("COOK_CHAT_LLM_BASE_URL", "").trim();
+const chatLlmModel = envString("COOK_CHAT_LLM_MODEL", "").trim();
+const chatLlmApiKey = envString("COOK_CHAT_LLM_API_KEY", "").trim();
 // Operator alerts on Telegram (settings tab, or these as the fallback): the bot's token,
 // the chat it writes to, and which events (comma list; empty means all).
 const telegramBotToken = envString("COOK_TELEGRAM_BOT_TOKEN", "").trim();
@@ -368,7 +372,7 @@ let restartGrace = envNumber("COOK_RESTART_GRACE", 25, { min: 1, max: 35, intege
 let nszEnabled = envBool("COOK_NSZ_ENABLED", false);
 // The MCP endpoint for AI assistants (src/mcp/route.js). Off until an admin turns it on.
 let mcpEnabled = envBool("COOK_MCP_ENABLED", false);
-// The admin chat (src/chat). Off until an admin turns it on; the model it talks to comes from COOK_CHAT_LLM_* only.
+// The admin chat (src/chat). Off until an admin turns it on; the model it talks to is the "chat" integration.
 let chatEnabled = envBool("COOK_CHAT_ENABLED", false);
 // New .nsp files the library finds are queued by themselves while the queue is on.
 let nszAutoQueue = envBool("COOK_NSZ_AUTO_QUEUE", true);
@@ -595,6 +599,9 @@ export {
   homebrewDir,
   homebrewRepos,
   githubToken,
+  chatLlmBaseUrl,
+  chatLlmModel,
+  chatLlmApiKey,
   homebrewCheckHours,
   ratingSync,
   retroMeta,

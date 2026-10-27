@@ -2,14 +2,16 @@
  * The chat for the admin page: one MCP host per account, the stored conversations, and one turn
  * from a message to the model's answer. The route (routes/admin/chat-api.js) only carries these.
  *
- * The model comes from COOK_CHAT_LLM_BASE_URL, COOK_CHAT_LLM_MODEL and COOK_CHAT_LLM_API_KEY. The
- * key is read here, handed to the request and never returned, logged or stored. The host talks to
+ * The model is the "chat" integration (security/integrations.js): what the admin saved on the
+ * page, else COOK_CHAT_LLM_BASE_URL, COOK_CHAT_LLM_MODEL and COOK_CHAT_LLM_API_KEY. The key is read
+ * here, handed to the request and never returned, logged or stored. The host talks to
  * the built-in MCP server in memory, so a call needs no token and no network hop.
  */
 import path from "node:path";
 import { createChatStore } from "./session-store.js";
 import { runTurn } from "./agent-loop.js";
 import { streamChat } from "./llm.js";
+import * as integrations from "../security/integrations.js";
 import debug from "../debug.js";
 
 export const MESSAGE_MAX = 8000;
@@ -31,12 +33,8 @@ const SYSTEM_PROMPT = [
   "Answer in the language the admin writes in, briefly.",
 ].join(" ");
 
-/** The model settings from the environment; any of them empty means the chat is not set up. */
-export const llmFromEnv = (env = process.env) => ({
-  baseUrl: (env.COOK_CHAT_LLM_BASE_URL ?? "").trim(),
-  model: (env.COOK_CHAT_LLM_MODEL ?? "").trim(),
-  apiKey: (env.COOK_CHAT_LLM_API_KEY ?? "").trim(),
-});
+/** The model settings in force; any of them empty means the chat is not set up. */
+export const llmFromSettings = () => integrations.get("chat");
 
 export const isConfigured = (cfg) => Boolean(cfg.baseUrl && cfg.model && cfg.apiKey);
 
@@ -58,7 +56,7 @@ async function inMemoryHost(account, name) {
   return createMcpHost({ client });
 }
 
-export function createChatService({ dir, llmConfig = llmFromEnv, stream = streamChat, makeHost = inMemoryHost } = {}) {
+export function createChatService({ dir, llmConfig = llmFromSettings, stream = streamChat, makeHost = inMemoryHost } = {}) {
   const store = createChatStore({ dir });
   const hosts = new Map(); // account -> Promise of its host
 

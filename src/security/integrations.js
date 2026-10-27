@@ -16,6 +16,14 @@ const URL_RE = /^https?:\/\/[^\s]{3,300}$/;
 
 /** Each service: its fields, which are secret, and the env vars they fall back to. */
 export const SERVICES = {
+  // The model behind the admin chat; any OpenAI-compatible endpoint (chat/service.js).
+  chat: {
+    fields: {
+      baseUrl: { env: () => env.chatLlmBaseUrl, re: URL_RE },
+      model: { env: () => env.chatLlmModel, re: /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/ },
+      apiKey: { env: () => env.chatLlmApiKey, re: TOKEN_RE, secret: true },
+    },
+  },
   igdb: {
     fields: {
       clientId: { env: () => env.igdbClientId, re: /^[A-Za-z0-9]{8,100}$/ },
