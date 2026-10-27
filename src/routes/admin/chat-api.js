@@ -4,6 +4,7 @@
  * is a person's tool and not one an agent may call.
  *
  *   GET    /admin/api/chat               { configured, conversations: [{ id, title, updated }], pending: [...] }
+ *   GET    /admin/api/chat?status=1      { configured }   404 while the chat is off, so a page can tell it is on
  *   GET    /admin/api/chat?id=<id>       { messages }              404 when that conversation is not the admin's
  *   POST   /admin/api/chat               { message, conversation? }  a stream of JSON lines, one event each, ending
  *                                        with { type: "done" }: text, tool_start, tool_end, approval, error
@@ -44,6 +45,8 @@ export function mountChatApi(router, requireSession, { service = () => chatServi
   const idOf = (req) => (typeof req.query.id === "string" ? req.query.id : "");
 
   router.get("/api/chat", handle(async (req, res, chat) => {
+    // The floating chat asks this on every admin page: no listing, only whether it may show itself.
+    if (req.query.status !== undefined) return res.json({ configured: chat.configured() });
     const id = idOf(req);
     if (id) return res.json({ messages: chat.load(ACCOUNT, id) });
     res.json({ configured: chat.configured(), conversations: chat.list(ACCOUNT), pending: await chat.pending(ACCOUNT) });

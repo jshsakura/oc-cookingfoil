@@ -14,6 +14,7 @@ import { GOOGLE_SETTINGS_HTML, ADMIN_SECURITY_HTML, ADMIN_SECURITY_SCRIPT } from
 import { GOOGLE_SETTINGS_SCRIPT } from "./google-settings-script.js";
 import { FEATURED_HTML, FEATURED_SCRIPT } from "./featured-page.js";
 import { CHAT_CSS, CHAT_HTML, CHAT_SCRIPT } from "./chat-page.js";
+import { CHAT_WIDGET_CSS, CHAT_WIDGET_HTML, CHAT_WIDGET_SCRIPT } from "./chat-widget.js";
 /**
  * The split pages of the admin redesign (Stage B, first bundle): trash, inbox,
  * NSZ conversion and the three records pages. Each page carries only its own
@@ -62,7 +63,7 @@ function splitPage(page, { css = "", body = "", script = "", init = "" }, view =
   const open = markup.replace(/(<section id="tab-[a-z-]+") hidden>/, "$1>");
   return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${BRAND_MOTION_CSS}${PAGE_CSS}${POLISH_CSS}${ACTIVITY_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}${css}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
+${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${BRAND_MOTION_CSS}${PAGE_CSS}${POLISH_CSS}${ACTIVITY_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}${css}${page.path === "/admin/chat" ? "" : CHAT_WIDGET_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
 <body class="adm-shell">
 ${adminChrome(current)}
 <div class="wrap">
@@ -71,8 +72,9 @@ ${open}
 </main>
 </div>
 ${ASK_DIALOG_HTML}
+${page.path === "/admin/chat" ? "" : CHAT_WIDGET_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${COMMON_SCRIPT}${CHROME_SCRIPT}${script}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}${init}</script></body></html>`;
+<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${COMMON_SCRIPT}${CHROME_SCRIPT}${script}${page.path === "/admin/chat" ? "" : CHAT_WIDGET_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}${init}</script></body></html>`;
 }
 
 const bundle = (extra) => extra;

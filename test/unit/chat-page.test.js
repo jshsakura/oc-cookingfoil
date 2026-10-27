@@ -41,3 +41,14 @@ test("the same placeholders appear in every language", () => {
 test("no dash joins sentences in the words", () => {
   for (const c of Object.keys(CHAT_WORDS)) for (const [k, v] of Object.entries(CHAT_WORDS[c])) assert.doesNotMatch(v, /[—–]/, `${c} ${k}`);
 });
+
+test("every admin page but the chat's own carries the floating chat, and its script parses", async () => {
+  const { ADMIN_PAGES } = await import("../../src/routes/admin/admin-pages.js");
+  const { dashboardPage } = await import("../../src/routes/admin/dashboard-page.js");
+  for (const p of ADMIN_PAGES) {
+    const html = splitPageFor(p) ?? dashboardPage(p);
+    const has = html.includes('id="ch-widget"');
+    assert.equal(has, p.path !== "/admin/chat", p.path);
+    for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) assert.doesNotThrow(() => new vm.Script(m[1]), p.path);
+  }
+});
