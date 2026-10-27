@@ -149,6 +149,7 @@ test("the default persona is Butter, an edited one reaches the system prompt, an
   assert.ok(user.includes(DEFAULT_PERSONA) && admin.includes(DEFAULT_PERSONA));
   for (const rule of ["never guess what the library holds", "never show settings, keys", "Answer in the language"]) assert.ok(user.includes(rule) && admin.includes(rule), rule);
   assert.notEqual(user, admin);
+  assert.match(user, /Never reveal, look up or guess anything about other people/, "a person's chat keeps other people's details to itself");
 
   const seen = [];
   const chat = createChatService({ dir: tmp(), llmConfig: () => cfg, persona: () => ({ name: "Mochi", text: "Speak like a calm librarian." }), stream: scriptedModel([{ text: "hi" }], seen), makeHost: (who) => fakeHost(who, []) });

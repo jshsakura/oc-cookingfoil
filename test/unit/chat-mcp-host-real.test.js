@@ -50,3 +50,26 @@ test("a removal asked for by name is refused before it reaches the server", asyn
   const r = await host.call({ account: "admin-1", admin: true }, { tool: "library", arguments: { action: "library_files_remove", args: { rels: ["x.nsp"] } } });
   assert.equal(r.status, "denied");
 });
+
+test("a signed-in person's chat is offered and runs nothing outside USER_TIERS, so no admin read can slip in", async () => {
+  const { servedTools } = await import("../../src/mcp/tools.js");
+  const { USER_TIERS, tiersFor } = await import("../../src/chat/policy.js");
+  const server = buildServer({ token: { id: null, label: "chat", owner: "alice" }, by: { type: "chat", name: "alice" } });
+  const [c, s] = InMemoryTransport.createLinkedPair();
+  await server.connect(s);
+  const client = new Client({ name: "chat-user", version: "1" });
+  await client.connect(c);
+  const user = createMcpHost({ client, base: tiersFor(false) });
+
+  const outside = servedTools().filter((cap) => !Object.hasOwn(USER_TIERS, cap.id));
+  const ids = outside.map((cap) => cap.id);
+  for (const id of ["account_list", "device_list", "integration_list", "settings_get", "server_status", "server_overview", "alerts_get", "jobs_list", "files_list", "trash_list"]) {
+    assert.ok(ids.includes(id), `${id} is served and outside the allowlist`);
+  }
+  const offered = (await user.tools()).flatMap((t) => t.inputSchema.properties?.action?.enum ?? [t.name]);
+  assert.deepEqual(offered.filter((id) => ids.includes(id)), [], "none of them is offered");
+  for (const cap of outside) {
+    const r = await user.call({ account: "user:alice", admin: false }, { tool: cap.id === "help" ? "help" : cap.area, arguments: { action: cap.id, args: {} } });
+    assert.equal(r.status, "denied", cap.id);
+  }
+});

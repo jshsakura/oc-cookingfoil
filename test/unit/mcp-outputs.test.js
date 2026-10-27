@@ -262,3 +262,30 @@ test("patches_remove previews a Korean patch, moves it to the patches trash, and
   await check("trash_restore", { ids: [done.removed[0].trash] });
   assert.ok(fs.existsSync(path.join(dirs.patches, base, "한글패치/atmosphere/contents", base, "romfs/a.bin")));
 });
+
+// Paths of fields a result carries that its declared output does not name, and of any named for a person.
+const PERSONAL = /^(by|owner|account|accounts|user|users|email|ip|ips|address|session|sessions|uploader|uploadedBy|approvedBy|requestedBy)$/i;
+function strays(schema, value, at = "") {
+  if (Array.isArray(value)) return value.flatMap((v, i) => strays(schema?.items, v, `${at}[${i}]`));
+  if (!value || typeof value !== "object") return [];
+  const props = schema?.properties;
+  return Object.entries(value).flatMap(([k, v]) => {
+    const here = `${at}.${k}`;
+    if (PERSONAL.test(k)) return [here];
+    if (!props) return [];
+    if (!Object.hasOwn(props, k)) return [here];
+    return strays(props[k], v, here);
+  });
+}
+
+test("the reads a signed-in person's chat may run return only their declared fields, none about people", async () => {
+  const { USER_READS } = await import("../../src/chat/policy.js");
+  const retroGame = (await (await import("../../src/retro/catalog.js")).current(dirs.retro)).games[0];
+  const runs = { games_search: { q: "third" }, game_get: { titleId: "0100000000030000" }, retro_games_search: { q: "" }, retro_game_get: { id: retroGame.id } };
+  for (const [id, input] of Object.entries(runs)) {
+    assert.ok(USER_READS.includes(id), id);
+    const cap = registry.byId(id);
+    const out = await check(id, input);
+    assert.deepEqual(strays(cap.output, out), [], id);
+  }
+});
