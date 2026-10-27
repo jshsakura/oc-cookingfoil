@@ -21,7 +21,7 @@ export const LOGS_CSS = /* css */ `
 .logs-list summary{cursor:pointer;font-weight:700;display:flex;justify-content:space-between;gap:8px}
 .logs-list summary span{color:var(--muted);font-weight:var(--fw);font-size:var(--fs-xs)}
 .logs-list button{display:flex;width:100%;justify-content:space-between;margin-top:6px;padding:7px 10px;font-weight:var(--fw)}
-.logs-list button[aria-pressed="true"]{border-color:var(--accent);background:rgba(var(--accent-rgb),.14)}
+.logs-list button[aria-pressed="true"]{background:rgba(var(--accent-rgb),.14)}
 .logs-body{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);overflow:hidden;display:flex;flex-direction:column}
 .logs-head{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--muted);font-size:var(--fs-sm);display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .logs-body pre{margin:0;padding:14px;min-height:220px;overflow-x:auto;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all}
