@@ -1228,5 +1228,7 @@
   "Opened from the Album there is too little memory to connect to a PC. Opened from a HOME Menu shortcut, it can.": "Geopend vanuit het Album is er te weinig geheugen om met een pc te verbinden. Geopend via een snelkoppeling in het HOME-menu lukt het wel.",
   "A game sent from the web waits until the console has room.": "Een via het web verstuurde game wacht tot er ruimte is op de console.",
   "Sent from the web. Goes to the download queue unless cancelled.": "Verstuurd via het web. Gaat naar de downloadwachtrij tenzij je annuleert.",
-  "Downloads start once the console is online.": "Downloads starten zodra de console online is."
+  "Downloads start once the console is online.": "Downloads starten zodra de console online is.",
+  "Cleaning up files": "Bestanden opruimen",
+  "Removed {0} unfinished copies.": "{0} onvoltooide kopieën verwijderd."
 }
