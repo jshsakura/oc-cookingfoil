@@ -11,7 +11,7 @@
  *   GET  /pair/qr.js       QR decoder for browsers without BarcodeDetector
  *
  * This account's consoles:
- *   GET  /pair/api/mine                    the consoles it approved and its client downloads
+ *   GET  /pair/api/mine                    the consoles it approved (sends: its client reads sends) and its client downloads
  *   POST /pair/api/devices/revoke  { deviceKey }  a QR console this account approved
  *
  * The CookingFoil client, ready to connect (needs device pairing):
@@ -44,6 +44,7 @@ import { latestBuild, publishedNroPath } from "./client-update.js";
 import { zipStore } from "../helpers/zip-store.js";
 import fs from "node:fs";
 import { mountWebSends } from "./device-sends.js";
+import * as deviceSends from "../security/device-sends.js";
 
 const JSQR_PATH = createRequire(import.meta.url).resolve("jsqr/dist/jsQR.js");
 const TOKEN_RE = /^[a-f0-9]{32}$/;
@@ -99,7 +100,7 @@ function mountMineApi(router) {
     if (!approver) return res.status(401).json({ error: "sign in first" });
     const devices = store.devicesSnapshot().approved
       .filter((d) => ownsApproval(req, approver, d.addedBy))
-      .map(({ deviceKey, label, addedAt }) => ({ deviceKey, label, addedAt }));
+      .map(({ deviceKey, label, addedAt }) => ({ deviceKey, label, addedAt, sends: deviceSends.canReceive(deviceKey) }));
     res.json({ devices, clients: clientRows({ owner: approver }) });
   });
 

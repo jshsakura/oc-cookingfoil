@@ -1191,8 +1191,17 @@
       .send-box { display: grid; gap: 8px; margin-bottom: 12px; }
       .send-box .send-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
       .send-box .send-row .btn { flex: none; padding: 8px 14px; font-size: 14px; }
-      .send-box .send-pick { display: flex; flex-wrap: wrap; gap: 8px; }
-      .modal-actions .btn { flex: 1; padding: 15px 20px; font-size: 16px; border-radius: 16px; }
+      .send-box .send-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+      .send-box .send-pick > span, .send-box .send-pick > small { flex-basis: 100%; font-size: 13px; color: var(--muted); }
+      .send-box .send-pick > span { font-size: 14px; }
+      .send-box .send-pick .btn { padding: 9px 16px; font-size: 14px; }
+      .send-box .send-pick .btn:disabled { opacity: .5; cursor: default; }
+      /* On a PC the actions are as wide as their words, at the right; a phone keeps full-width taps. */
+      .modal-actions { justify-content: flex-end; }
+      .modal-actions .btn { flex: none; padding: 10px 18px; font-size: 14px; border-radius: 12px; }
+      @media (max-width: 640px) {
+        .modal-actions .btn { flex: 1; padding: 14px 18px; font-size: 15px; border-radius: 14px; }
+      }
 
       /* SHARE: files, a memo and links for the operator (the inbox), in the detail modal's frame */
       .share-modal { max-width: 560px; }
@@ -1588,7 +1597,7 @@
           <div class="send-box" id="modal-send-box" hidden></div>
           <div class="modal-actions">
             <a class="btn" id="modal-download" href="#" target="_blank" data-i18n="action.download"></a>
-            <button class="btn" id="modal-send" type="button" data-i18n="send.btn" hidden></button>
+            <button class="btn ghost" id="modal-send" type="button" data-i18n="send.btn" hidden></button>
             <div class="edit-danger" hidden></div>
             <button class="btn ghost" id="modal-close" type="button" data-i18n="action.close"></button>
           </div>
@@ -1696,6 +1705,7 @@
           "client.failed": "다운로드하지 못했습니다. 다시 시도합니다.",
           "send.btn": "내 기기로 보내기",
           "send.pick": "보낼 기기를 고릅니다",
+          "send.update": "흐린 기기는 CookingFoil 을 업데이트하면 받을 수 있습니다.",
           "send.done": (n) => `${n}에 보냈습니다. 기기에서 확인하면 받기 시작합니다.`,
           "send.already": (n) => `${n}에 이미 대기 중입니다.`,
           "send.full": "그 기기에 대기 중인 요청이 너무 많습니다.",
@@ -2049,6 +2059,7 @@
           "client.failed": "Could not download. Try again.",
           "send.btn": "Send to my console",
           "send.pick": "Choose a console",
+          "send.update": "A greyed console can receive once its CookingFoil is updated.",
           "send.done": (n) => `Sent to ${n}. The console asks before it starts downloading.`,
           "send.already": (n) => `Already waiting on ${n}.`,
           "send.full": "That console has too many requests waiting.",
@@ -2402,6 +2413,7 @@
           "client.failed": "ダウンロードできませんでした。もう一度試します。",
           "send.btn": "本体に送る",
           "send.pick": "送る本体を選びます",
+          "send.update": "グレーの本体は CookingFoil を更新すると受け取れます。",
           "send.done": (n) => `${n} に送りました。本体で確認するとダウンロードが始まります。`,
           "send.already": (n) => `${n} ですでに待機中です。`,
           "send.full": "その本体の待機中のリクエストが多すぎます。",
@@ -2755,6 +2767,7 @@
           "client.failed": "無法下載。請再試一次。",
           "send.btn": "傳送到我的主機",
           "send.pick": "請選擇主機",
+          "send.update": "灰色的主機更新 CookingFoil 後即可接收。",
           "send.done": (n) => `已傳送到 ${n}。主機確認後才會開始下載。`,
           "send.already": (n) => `${n} 已在等待中。`,
           "send.full": "該主機等待中的請求太多。",
@@ -3404,9 +3417,12 @@
             pick.append(Object.assign(document.createElement("span"), { textContent: t("send.pick") }));
             for (const c of consoles) {
               const b = Object.assign(document.createElement("button"), { type: "button", className: "btn ghost", textContent: c.label || nameOf(c.deviceKey) });
-              b.addEventListener("click", () => send(c));
+              // A console whose client has never read its list would never get the game: it stays, greyed, with why.
+              if (c.sends === false) { b.disabled = true; b.title = t("send.update"); }
+              else b.addEventListener("click", () => send(c));
               pick.append(b);
             }
+            if (consoles.some((c) => c.sends === false)) pick.append(Object.assign(document.createElement("small"), { textContent: t("send.update") }));
             box.append(pick);
           }
           box.hidden = !box.childElementCount;
@@ -3423,9 +3439,9 @@
           paint();
         }
 
+        // The button always asks which console, even with one, so the press shows where the game goes.
         $("modal-send").addEventListener("click", () => {
           if (!consoles?.length) return;
-          if (consoles.length === 1) { send(consoles[0]); return; }
           picking = !picking;
           paint();
         });
