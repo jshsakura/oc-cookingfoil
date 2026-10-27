@@ -8,6 +8,8 @@
  *   POST /admin/api/plugins/restore          { name }  a plugin the registry deleted comes back, switched off
  *   POST /admin/api/plugins/install          body: the zip itself (application/zip). Only while COOK_PLUGIN_INSTALL=1.
  *                                            Unpacks and checks, installs nothing -> { stagedId, manifest, existing, sha256, expiresAt }
+ *   POST /admin/api/plugins/recommended/install  { id, overwrite? }  fetches a recommended plugin's latest release
+ *                                            (plugins/recommended.js) and installs it, switched off; not gated by the install switch
  *   POST /admin/api/plugins/install/confirm  { stagedId, overwrite? }  installs it, switched off; 409 exists (+ existing) without overwrite
  *   POST /admin/api/plugins/:id/enabled      { on, confirmKeys? }   needsKeys plugins want confirmKeys: true
  *   POST /admin/api/plugins/:id/cache/clear  empties the plugin's cache folder (each plugin's cache is capped; see plugins/cache.js)
@@ -26,6 +28,8 @@ import { installAllowed } from "../../plugins/installer.js";
 import { agentState, clearAgentValues, ID_RE as AGENT_ID_RE, OrderError, setAgentOrder } from "../../plugins/agent-admin.js";
 import { agentParts } from "../../plugins/instance.js";
 import { UNPACK_LIMITS } from "../../plugins/unpack.js";
+import { RECOMMENDED, installRecommended } from "../../plugins/recommended.js";
+import { githubToken } from "../../helpers/envs.js";
 import { PackError, packPlugin } from "../../plugins/pack.js";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -37,14 +41,15 @@ const NAME_RE = /^[a-z0-9][a-z0-9-]{0,39}\.\d{10,16}$/;
 const ERROR_WORD = {
   "not-found": "pl.e.notFound", "safe-mode": "pl.e.safeMode", broken: "pl.e.broken", incompatible: "pl.e.incompat",
   "keys-confirm-required": "pl.e.keys", exists: "pl.e.exists", "install-off": "pl.e.installOff", "bad-package": "pl.e.package",
-  "stage-gone": "pl.e.stageGone", busy: "pl.e.busy", "restart-needed": "pl.e.restart",
+  "stage-gone": "pl.e.stageGone", busy: "pl.e.busy", "restart-needed": "pl.e.restart", "fetch-failed": "pl.e.fetch",
 };
 const word = (lang, key) => TOP_WORDS[lang]?.[key] ?? TOP_WORDS.en[key];
 
 async function snapshot(registry, req, cache, events) {
   const used = await cache.usage();
   const plugins = registry.list().map((p) => ({ ...p, cache: used[p.id] ?? { bytes: 0, files: 0, capBytes: cache.capBytes }, ...(events ? { events: events.statsOf(p.id) } : {}) }));
-  return { safeMode: registry.safeMode, installAllowed: installAllowed(), plugins, trashed: await registry.listTrashed() };
+  const recommended = RECOMMENDED.map(({ id, repo, name }) => ({ id, repo, name }));
+  return { safeMode: registry.safeMode, installAllowed: installAllowed(), plugins, recommended, trashed: await registry.listTrashed() };
 }
 
 export function mountPluginsApi(router, requireSession, registry = pluginRegistry(), installer = pluginInstaller(), cache = pluginCache(), events = null) {
@@ -100,6 +105,14 @@ export function mountPluginsApi(router, requireSession, registry = pluginRegistr
     handle(async (req, res) => {
       res.json({ ok: true, ...(await installer.stage(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0))) });
     }));
+
+  router.post("/api/plugins/recommended/install", handle(async (req, res) => {
+    const { id } = req.body ?? {};
+    if (typeof id !== "string" || !ID_RE.test(id)) return bad(res, req);
+    const plugin = await installRecommended(id, { registry, installer, overwrite: req.body.overwrite === true, token: githubToken || null });
+    debug.log("admin: plugin %s %s installed from its recommended release", plugin.id, plugin.version);
+    res.json({ ok: true, plugin, ...(await snapshot(registry, req, cache, events)) });
+  }));
 
   router.post("/api/plugins/install/confirm", handle(async (req, res) => {
     const { stagedId } = req.body ?? {};
