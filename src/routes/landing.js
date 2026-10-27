@@ -18,6 +18,7 @@ import { promisify } from "node:util";
 
 import pkg from "../app-info.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, activityScript } from "./admin/activity-panel.js";
+import { SCALE } from "./admin/styles.js";
 import { publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
@@ -50,6 +51,7 @@ async function loadTemplate() {
       template = raw
         .replace(/id="version">v\?/g, `id="version">v${pkg.version}`)
         .replace("__BUTTON_ICONS__", () => JSON.stringify(iconSet(BUTTON_ICON_NAMES)))
+        .replace("__SCALE__", () => SCALE)
         .replace("__ACTIVITY_CSS__", () => ACTIVITY_CSS)
         .replace("__ACTIVITY_BUTTON__", () => ACTIVITY_BUTTON_HTML)
         .replace("__ACTIVITY_HTML__", () => ACTIVITY_HTML)
