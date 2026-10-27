@@ -109,7 +109,7 @@ test("the chat integration is saved sealed, shows only whether the key is set, a
     integrations.save("chat", { baseUrl: "https://llm.example.com/v1", model: "glm-5.2", apiKey: "${KEY}" });
     const shown = JSON.stringify(integrations.describe().chat);
     const offered = registry.all.find((c) => c.id === "integration_list").input;
-    console.log(JSON.stringify({ shown, offered: JSON.stringify(offered), got: integrations.get("chat"), left: integrations.save("chat", { baseUrl: "https://llm.example.com/v2", model: "glm-5.2" }).fields.apiKey }));
+    console.log(JSON.stringify({ shown, offered: JSON.stringify(offered), got: integrations.get("chat"), same: integrations.save("chat", { baseUrl: "https://llm.example.com/v1/", model: "glm-6" }).fields.apiKey, moved: integrations.save("chat", { baseUrl: "https://other.example.net/v1", model: "glm-6" }).fields.apiKey, moved2: integrations.get("chat").apiKey, again: integrations.save("chat", { baseUrl: "https://other.example.net/v1", model: "glm-6", apiKey: "${KEY}2" }).fields.apiKey }));
   `;
   const run = spawnSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", env: { ...process.env, COOK_DATA_DIR: data, COOK_SECRET_KEY: Buffer.alloc(32, 7).toString("base64") } });
   assert.equal(run.status, 0, run.stderr);
@@ -117,8 +117,20 @@ test("the chat integration is saved sealed, shows only whether the key is set, a
   assert.ok(!out.shown.includes(KEY), "describe never returns the key");
   assert.deepEqual(JSON.parse(out.shown).fields.apiKey, { set: true });
   assert.equal(out.got.apiKey, KEY);
-  assert.deepEqual(out.left, { set: true }, "an empty key on save keeps the saved one");
+  assert.deepEqual(out.same, { set: true }, "an empty key on save keeps the saved one while the address stays");
+  assert.deepEqual(out.moved, { set: false }, "a new address does not inherit the old key");
+  assert.equal(out.moved2, "");
+  assert.deepEqual(out.again, { set: true }, "a new address with a new key is saved");
   assert.ok(!out.offered.includes('"chat"'));
   const files = fs.readdirSync(data, { recursive: true, withFileTypes: true }).filter((d) => d.isFile());
   for (const f of files) assert.ok(!fs.readFileSync(path.join(f.parentPath, f.name)).includes(KEY), `${f.name} holds the key in plain text`);
+});
+
+test("an automation token cannot read or change the chat or its model settings", async () => {
+  process.env.COOK_DATA_DIR ??= fs.mkdtempSync(path.join(os.tmpdir(), "cook-chat-token-"));
+  const { tokenBlocked } = await import("../../src/routes/admin-page.js");
+  for (const [method, p] of [["POST", "/api/integrations/chat"], ["POST", "/api/integrations/chat/clear"], ["POST", "/api/integrations/chat/test"], ["POST", "/api/chat"], ["GET", "/api/chat"], ["DELETE", "/api/chat"]]) {
+    assert.equal(tokenBlocked(method, p), true, `${method} ${p}`);
+  }
+  assert.equal(tokenBlocked("POST", "/api/integrations/github"), false, "the other keys keep working for tokens");
 });

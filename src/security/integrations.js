@@ -19,7 +19,8 @@ export const SERVICES = {
   // The model behind the admin chat; any OpenAI-compatible endpoint (chat/service.js).
   chat: {
     fields: {
-      baseUrl: { env: () => env.chatLlmBaseUrl, re: URL_RE },
+      // The key goes to this address, so a new address never inherits the old key (see save).
+      baseUrl: { env: () => env.chatLlmBaseUrl, re: URL_RE, keyFor: "apiKey" },
       model: { env: () => env.chatLlmModel, re: /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/ },
       apiKey: { env: () => env.chatLlmApiKey, re: TOKEN_RE, secret: true },
     },
@@ -60,6 +61,8 @@ export const SERVICES = {
     },
   },
 };
+
+const sameAddress = (url) => String(url ?? "").trim().replace(/\/+$/, "").toLowerCase();
 
 export class IntegrationError extends Error {}
 
@@ -132,6 +135,12 @@ export function save(service, input = {}) {
     const value = String(input[k] ?? "").trim();
     if (value && !f.re.test(value)) throw codedError(IntegrationError, "integration.badField", { field: k });
     next[k] = value || (f.secret ? current[k] : "");
+  }
+  // A secret that belongs to an address is kept only while that address stays: moving the address
+  // without a new secret would send the old one to a server it was never given to.
+  for (const [k, f] of Object.entries(spec.fields)) {
+    const secret = f.keyFor;
+    if (secret && !String(input[secret] ?? "").trim() && sameAddress(next[k]) !== sameAddress(current[k])) next[secret] = "";
   }
   persist({ ...all(), [service]: next });
   changed(service);
