@@ -57,6 +57,7 @@ export const OPT_OUT = {
   // HTML a signed-in person reads behind the admin gate; never a tool. GET /admin
   // and GET /admin/ predate the registry and stay in LEGACY_UNREGISTERED.
   "GET /admin/games": "browser-only",
+  "GET /admin/chat": "browser-only",
   "GET /admin/patches": "browser-only",
   "GET /admin/upload": "browser-only",
   "GET /admin/convert": "browser-only",

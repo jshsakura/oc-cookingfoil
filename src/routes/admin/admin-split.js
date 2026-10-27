@@ -13,6 +13,7 @@ import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
 import { GOOGLE_SETTINGS_HTML, ADMIN_SECURITY_HTML, ADMIN_SECURITY_SCRIPT } from "./security-pages.js";
 import { GOOGLE_SETTINGS_SCRIPT } from "./google-settings-script.js";
 import { FEATURED_HTML, FEATURED_SCRIPT } from "./featured-page.js";
+import { CHAT_CSS, CHAT_HTML, CHAT_SCRIPT } from "./chat-page.js";
 /**
  * The split pages of the admin redesign (Stage B, first bundle): trash, inbox,
  * NSZ conversion and the three records pages. Each page carries only its own
@@ -94,6 +95,7 @@ export const SPLIT_PAGES = {
   "/admin/upload": bundle({ css: GAME_PICKER_CSS, body: UPLOAD_HTML, script: GAME_PICKER_SCRIPT+UPLOAD_SCRIPT, init: "loadUpload();" }),
   "/admin/settings/login": bundle({ body: '<section id="tab-settings">'+GOOGLE_SETTINGS_HTML+'</section>', script: GOOGLE_SETTINGS_SCRIPT, init: "loadGoogleSettings();" }),
   "/admin/settings/admin": bundle({ body: '<section id="tab-settings">'+ADMIN_SECURITY_HTML+'</section>', script: ADMIN_SECURITY_SCRIPT, init: "loadTfa();" }),
+  "/admin/chat": bundle({ css: CHAT_CSS, body: CHAT_HTML, script: CHAT_SCRIPT, init: "loadChat();" }),
   "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
   "/admin/files": bundle({ css: FILES_CSS, body: FILES_HTML, script: FILES_SCRIPT, init: "loadFiles();" }),
