@@ -9,7 +9,7 @@ import { arr, bool, nullable, obj, oneOf, str } from "./shape.js";
 import * as integrations from "../security/integrations.js";
 import { testIntegration } from "../routes/admin/integrations-api.js";
 
-const SERVICES = Object.keys(integrations.SERVICES).filter((s) => s !== "telegram");
+const SERVICES = Object.keys(integrations.SERVICES).filter((s) => s !== "telegram" && s !== "chat");
 const OPS = ["test", "clear"];
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const SAID = {
