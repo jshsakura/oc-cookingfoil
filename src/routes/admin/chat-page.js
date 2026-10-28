@@ -58,7 +58,7 @@ const SHEET_HTML = /* html */ `
 export function chatInnerHtml({ web = false } = {}) {
   const w = web ? WEB_WORDS : ADMIN_WORDS;
   return /* html */ `  <div class="ch-top ch-col">
-    <b class="ch-name" id="ch-name"></b>
+    <span class="ch-ai" id="ch-name" role="img">${icon("sparkle")}</span>
     <select id="ch-pick" ${w.label("ch.conv")}></select>
     <button type="button" class="ch-ctx" id="ch-ctx" hidden><span id="ch-ctx-pct"></span></button>
     <button type="button" class="icon-btn" id="ch-new" ${w.label("ch.new")}>${icon("plus")}</button>
@@ -111,7 +111,12 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-hello h3{display:grid;gap:8px;margin:0;max-width:30em;line-height:1.5;text-wrap:balance;word-break:keep-all}
 .ch-hi{font-size:var(--fs-xl,var(--fs-lg))}
 .ch-sub{font-size:var(--fs-md);font-weight:400;color:var(--muted)}
-.ch-name{flex:none;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch-ai{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,rgba(var(--accent-rgb),.28),rgba(var(--accent-rgb),.08));color:var(--accent)}
+.ch-ai .ico{width:16px;height:16px}
+/* The conversation picker reads as a pill, not the browser's plain box. */
+.ch-top select{appearance:none;-webkit-appearance:none;height:40px;padding:0 36px 0 16px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--sunk) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;color:var(--text);font:inherit;font-weight:var(--fw-bold);text-overflow:ellipsis;cursor:pointer}
+.ch-top select:hover{background-color:var(--panel)}
+.ch-top select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* The context meter: how full the model's context is for this conversation; a click compacts it. */
 .ch-ctx{--p:0;position:relative;flex:none;display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p) * 1%),var(--sunk) 0);cursor:pointer;color:var(--text);font:inherit;font-size:var(--fs-2xs);font-weight:var(--fw-bold);line-height:1}
 .ch-ctx::before{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--bg)}
@@ -253,18 +258,23 @@ function chUpload(list){const files=[...list].filter(Boolean);if(!files.length||
   x.send(fd);}
 function chIcon(){const b=$('ch-go');b.innerHTML=chBusy?CH_ICON.stop:CH_ICON.send;b.setAttribute('aria-label',topText(chBusy?'ch.stop':'ch.send'));}
 function chName(){return chState.name||topText('ch.defaultName');}
-function chShowName(){$('ch-name').textContent=chName();}
+function chShowName(){const n=$('ch-name');n.title=topText('m.chat');n.setAttribute('aria-label',topText('m.chat'));}
 // How full the model's context is: a thin bar that turns red near the point where the chat compacts by itself.
 function chCtx(c){const b=$('ch-ctx');const used=c&&Number(c.used)||0,win=c&&Number(c.window)||0;
   if(!used||!win||!chConv){b.hidden=true;return;}
   const pct=Math.min(100,Math.round(used/win*100));b.style.setProperty('--p',pct);$('ch-ctx-pct').textContent=pct+'%';b.classList.toggle('full',pct>=80);
   const label=topFill('ch.ctx',{pct});b.setAttribute('aria-label',label);b.title=label;b.hidden=false;}
+// One of the greetings, drawn each time an empty chat opens, so the opening line is not always the same.
+const CH_GREETS=['ch.greet','ch.greet2','ch.greet3','ch.greet4','ch.greet5','ch.greet6'];
+let chLastGreet=-1;
+function chGreetKey(){let i;do{i=Math.floor(Math.random()*CH_GREETS.length);}while(i===chLastGreet);chLastGreet=i;return CH_GREETS[i];}
 function chEmpty(){const c=chCol();c.classList.add('ch-empty');c.replaceChildren();const h=el('div',null,'ch-hello');chCtx(null);
   if(!chState.enabled||!chState.ready){h.append(el('p',topText('ch.isOff'),'muted'));
     if(CH_ADMIN){const b=el('button',topText('ch.settings'),'primary');b.type='button';b.addEventListener('click',chOpenSheet);h.append(b);}}
-  else{const g=topText('ch.greet'),cut=g.search(/[.。!！]/),hi=el('h3'),fill=(t)=>t.split('{name}').join(chName());
+  else{const g=topText(chGreetKey()),cut=g.search(/[.。!！]/),hi=el('h3'),fill=(t)=>t.split('{name}').join(chName());
     hi.append(el('span',fill(cut<0?g:g.slice(0,cut+1)),'ch-hi'));if(cut>=0&&g.slice(cut+1).trim())hi.append(' ',el('span',fill(g.slice(cut+1).trim()),'ch-sub'));h.append(hi);const chips=el('div',null,'ch-chips');
-    for(const k of CH_ADMIN?['ch.ex1','ch.ex2','ch.ex3']:['ch.uex1','ch.uex2','ch.uex3']){const b=el('button',topText(k),'ch-chip');b.type='button';b.setAttribute('data-noicon','');
+    const marks=CH_ADMIN?['🔎','📊','✅','⚙️']:['🎮','💝','🕹️','🛠️'];
+    for(const [i,k] of(CH_ADMIN?['ch.ex1','ch.ex2','ch.ex3','ch.ex4']:['ch.uex1','ch.uex2','ch.uex3','ch.uex4']).entries()){const b=el('button',marks[i]+' '+topText(k),'ch-chip');b.type='button';b.setAttribute('data-noicon','');
       b.addEventListener('click',()=>{const t=$('ch-text');t.value=topText(k);chGrow();t.focus();});chips.append(b);}
     h.append(chips);}
   c.append(h);}
@@ -337,8 +347,8 @@ async function chDecide(id,approve,card){
 async function chPickList(select,keepPending){
   const d=await api(CH_API);
   chState.name=d.name||'';chShowName();
-  const pick=$('ch-pick');pick.replaceChildren(el('option',topText('ch.new')));pick.firstChild.value='';
-  for(const c of d.conversations){const o=el('option',c.title||topText('ch.untitled'));o.value=c.id;pick.append(o);}
+  const pick=$('ch-pick');pick.replaceChildren(el('option','✨ '+topText('ch.new')));pick.firstChild.value='';
+  for(const c of d.conversations){const o=el('option','💬 '+(c.title||topText('ch.untitled')));o.value=c.id;pick.append(o);}
   pick.value=select&&d.conversations.some((c)=>c.id===select)?select:'';
   if(!keepPending){$('ch-pending-list').replaceChildren();$('ch-pending').hidden=true;
     for(const p of d.pending)chCard({...p,action:p.capId});}

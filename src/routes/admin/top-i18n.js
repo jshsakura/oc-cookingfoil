@@ -22,6 +22,7 @@ import { RETRO_VARIANTS_WORDS } from "./retro-variants-words.js";
 import { INTEGRATIONS_WORDS } from "./integrations-words.js";
 import { LIB_BROWSER_WORDS } from "./library-browser-words.js";
 import { FILES_WORDS } from "./files-words.js";
+import { NAV_WORDS } from "./nav-words.js";
 import { ALERTS_WORDS } from "./alerts-words.js";
 import { TRANSFERS_WORDS } from "./transfers-words.js";
 import { SECURITY_WORDS } from "./security-words.js";
@@ -77,7 +78,7 @@ const BASE_WORDS = {
     "hb.reason.nro-release": "릴리스가 nro 파일 하나입니다",
     "hb.reason.partial": "일부 파일을 빼고 설치합니다",
 
-    title: "CookingFoil 서버 관리", loading: "불러오고 있습니다", web: "대시보드", guide: "운영 안내",
+    title: "CookingFoil 서버 관리", loading: "불러오고 있습니다", web: "웹 화면 열기", guide: "운영 안내",
     logout: "로그아웃", language: "언어", nav: "서버 관리 메뉴", subnav: "세부 메뉴",
     "g.overview": "개요", "g.games": "파일·정리", "g.retro": "레트로", "g.homebrew": "홈브류", "g.people": "계정·기기", "g.ops": "운영",
     "s.library": "파일", "s.nsz": "압축", "s.upload": "업로드", "s.inbox": "임시 공유", "s.featured": "홈 추천",
@@ -511,7 +512,7 @@ const BASE_WORDS = {
     "pp.telegram": "Telegram",
     "pp.noAccount": "No account", "pp.suspendedOff": "Suspended: the account is turned off, so these consoles cannot connect. Turning it on brings them back", "pp.suspendedGone": "Suspended: the account was removed, so these consoles cannot connect", "pp.giveOwner": "Link to account", "pp.giveOwnerAsk": "Pick the account to link {name} to. The console keeps its key, so nothing needs redoing on it.", "pp.ownerGiven": "Linked to the account", "pp.noOwners": "No account to link to. Approve an account first",
 
-    title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide",
+    title: "CookingFoil server admin", loading: "Loading", web: "Open the web page", guide: "Admin guide",
     logout: "Sign out", language: "Language", nav: "Server admin menu", subnav: "Section menu",
     "g.overview": "Overview", "g.games": "Files", "g.retro": "Retro", "g.homebrew": "Homebrew", "g.people": "Accounts", "g.ops": "Operations",
     "s.library": "Files", "s.nsz": "Compress", "s.upload": "Upload", "s.inbox": "Shared inbox", "s.featured": "Home picks",
@@ -881,7 +882,7 @@ const BASE_WORDS = {
     "pp.telegram": "Telegram",
     "pp.noAccount": "アカウントなし", "pp.suspendedOff": "停止中: アカウントがオフのため、これらの本体は接続できません。オンにすると元に戻ります", "pp.suspendedGone": "停止中: アカウントが削除されたため、これらの本体は接続できません", "pp.giveOwner": "アカウントに連携", "pp.giveOwnerAsk": "{name} を連携するアカウントを選びます。本体のキーはそのままなので、本体側でやり直すことはありません。", "pp.ownerGiven": "アカウントに連携しました", "pp.noOwners": "連携できるアカウントがありません。先にアカウントを承認します",
 
-    title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド",
+    title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Webページを開く", guide: "運用ガイド",
     logout: "ログアウト", language: "言語", nav: "サーバー管理メニュー", subnav: "サブメニュー",
     "g.overview": "概要", "g.games": "ファイル", "g.retro": "レトロ", "g.homebrew": "自作アプリ", "g.people": "アカウント", "g.ops": "運用",
     "s.library": "ファイル", "s.nsz": "圧縮", "s.upload": "アップロード", "s.inbox": "一時共有", "s.featured": "ホームのおすすめ",
@@ -1251,7 +1252,7 @@ const BASE_WORDS = {
     "pp.telegram": "Telegram",
     "pp.noAccount": "无账户", "pp.suspendedOff": "已暂停：账户已关闭，这些主机无法连接。重新开启账户即可恢复", "pp.suspendedGone": "已暂停：账户已删除，这些主机无法连接", "pp.giveOwner": "关联到账户", "pp.giveOwnerAsk": "选择要关联 {name} 的账户。主机的密钥不变，主机上无需重新操作。", "pp.ownerGiven": "已关联到账户", "pp.noOwners": "没有可关联的账户。请先批准账户",
 
-    title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南",
+    title: "CookingFoil 服务器管理", loading: "正在加载", web: "打开网页", guide: "运维指南",
     logout: "退出登录", language: "语言", nav: "服务器管理菜单", subnav: "子菜单",
     "g.overview": "概览", "g.games": "文件", "g.retro": "复古", "g.homebrew": "自制软件", "g.people": "账户", "g.ops": "运维",
     "s.library": "文件", "s.nsz": "压缩", "s.upload": "上传", "s.inbox": "临时分享", "s.featured": "首页推荐",
@@ -1602,7 +1603,7 @@ const PEOPLE_WORDS = {
   },
 };
 
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...PLUGINS_WORDS[code], ...BUILD_WARNING_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...FILES_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code], ...GATE_WORDS[code], ...PAIR_PAGE_WORDS[code], ...ENROLL_WORDS[code], ...CONTENT_EDITOR_WORDS[code], ...CONNECT_HOWTO_WORDS[code], ...GUIDE_PAGE_WORDS[code], ...CHAT_WORDS[code], ...THEME_WORDS[code] }]));
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...PLUGINS_WORDS[code], ...BUILD_WARNING_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...FILES_WORDS[code], ...NAV_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code], ...GATE_WORDS[code], ...PAIR_PAGE_WORDS[code], ...ENROLL_WORDS[code], ...CONTENT_EDITOR_WORDS[code], ...CONNECT_HOWTO_WORDS[code], ...GUIDE_PAGE_WORDS[code], ...CHAT_WORDS[code], ...THEME_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;

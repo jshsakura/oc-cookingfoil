@@ -15,11 +15,14 @@ export const NAV_CSS = /* css */ `
 @media (max-width:640px){.hdr-right{gap:10px}.lang-btn{padding:0 12px;gap:4px}.lang-btn .chev{display:none}.up-entry{padding:0}.up-entry .up-entry-t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 /* Sideways only: the active tab's -1px underline must not make the row scroll up and down by a pixel. */
 .subtabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden}
-/* The sidebar lists these tasks already: the page does not repeat them as a tab row. */
-#retro-subtabs,#homebrew-subtabs{display:none}
 .subtabs button{flex:none;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:var(--fw-bold);white-space:nowrap}
 .subtabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--text)}
 .subtabs button:hover{color:var(--text)}
+/* A row's pages (incoming: upload, temp folder, temp share) as link tabs over each page. */
+.adm-rowtabs a{flex:none;display:inline-flex;align-items:center;gap:7px;border-bottom:2px solid transparent;padding:10px 14px;margin-bottom:-1px;color:var(--muted);font-weight:var(--fw-bold);white-space:nowrap;text-decoration:none}
+.adm-rowtabs a[aria-current="page"]{color:var(--text);border-bottom-color:var(--text)}
+.adm-rowtabs a:hover{color:var(--text)}
+.adm-rowtabs .ico{width:16px;height:16px}
 .subtabs{--fade:34px}
 .subtabs.fade-l{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade));mask-image:linear-gradient(to right,transparent 0,#000 var(--fade))}
 .subtabs.fade-r{-webkit-mask-image:linear-gradient(to left,transparent 0,#000 var(--fade));mask-image:linear-gradient(to left,transparent 0,#000 var(--fade))}

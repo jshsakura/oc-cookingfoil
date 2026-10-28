@@ -42,7 +42,7 @@ const list = (re, max) => ({
 export const SETTINGS = {
   devicePairing: bool,
   passwordLogin: bool,
-  deviceApproval: oneOf("manual", "signin", "all"),
+  deviceApproval: oneOf("manual", "signin"),
   // Approved consoles one account may hold; 0 is no limit (security/device-limit.js).
   deviceLimit: whole(0, 1000),
   // Different consoles one account's downloads may enroll in any rolling hour (security/enroll-tokens.js).

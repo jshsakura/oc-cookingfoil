@@ -95,16 +95,12 @@ test("a console polling with a stale password isn't locked out; guessing passwor
   }
 });
 
-test("with auto-approval set to all, every console that asks is approved, signed in or not", async () => {
+test("the old all setting approves no stranger any more: it reads as approval at sign-in", async () => {
   const server = await boot("all");
   try {
     const first = await status(STRANGER);
-    assert.equal(first.status, "approved", "no sign-in needed");
-    assert.ok(first.accessKey, "the key comes down on that poll");
-    const paired = await fetch(`${BASE}/api/library/sections`, { headers: { "X-Device-Key": STRANGER, "X-Access-Key": first.accessKey } });
-    assert.equal(paired.status, 200);
-    const wrong = "Basic " + Buffer.from("alice:stale").toString("base64");
-    assert.equal((await (await fetch(`${BASE}/api/pair/status`, { headers: { Authorization: wrong, "X-Device-Key": KNOCKER } })).json()).status, "approved", "a stale password doesn't hold it back");
+    assert.equal(first.status, "pending", "no sign-in, no approval");
+    assert.equal(first.accessKey, undefined);
   } finally {
     server.kill("SIGKILL");
   }

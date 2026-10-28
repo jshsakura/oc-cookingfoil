@@ -6,7 +6,7 @@ const HASHES: [string, string][] = [
   ['#overview', 'tab-overview'], ['#users', 'tab-users'], ['#devices', 'tab-devices'], ['#settings', 'ss-list'],
   ['#alerts', 'tab-alerts'], ['#logs', 'xf-cards'], ['#featured', 'tab-featured'], ['#library', 'tab-library'],
   ['#nsz', 'tab-nsz'], ['#upload', 'tab-upload'], ['#inbox', 'tab-inbox'], ['#homebrew', 'tab-homebrew'], ['#retro', 'tab-retro'],
-  ['#library/files', 'tab-library'], ['#library/organize', 'tab-library'], ['#library/verify', 'tab-library'],
+  ['#library/files', 'tab-library'], ['#organize', 'tab-organize'], ['#library/verify', 'tab-library'],
   ['#library/patches', 'tab-library'], ['#library/saves', 'tab-library'], ['#library/info', 'tab-library'], ['#library/server', 'tab-library'],
   ['#users/google', 'tab-users'], ['#devices/approved', 'tab-devices'], ['#devices/clients', 'tab-devices'],
   ['#homebrew/reco', 'tab-homebrew'], ['#homebrew/sources', 'tab-homebrew'],
@@ -24,7 +24,7 @@ test('every earlier admin hash still opens its section', async ({ page }) => {
 
 test('library sub-pages open the panel their hash names', async ({ page }) => {
   await signIn(page);
-  for (const sub of ['files', 'organize', 'verify', 'patches', 'saves', 'info', 'server']) {
+  for (const sub of ['files', 'verify', 'patches', 'saves', 'info', 'server']) {
     await page.goto(`/admin#library/${sub}`);
     await expect(page.locator(`[data-lib-panel="${sub}"]`), sub).toBeVisible();
   }
@@ -47,7 +47,9 @@ test('the upload entry in the header is on every group and leads to the one uplo
 test('the menus are named for what they hold, in every language', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/games');
-  const group = (name: string) => page.locator(`aside.adm-side .adm-grp[data-grp="${name}"] summary [data-top]`);
+  const group = (name: string) => name === 'games'
+    ? page.locator('aside.adm-side a[href="/admin/games"] [data-top]')
+    : page.locator(`aside.adm-side .adm-grp[data-grp="${name}"] summary [data-top]`);
   await expect(group('games')).toHaveText('게임');
   await expect(group('people')).toHaveText('계정과 기기');
   for (const [lang, games, people] of [['en', 'Games', 'Accounts and devices'], ['ja', 'ゲーム', 'アカウントとデバイス'], ['zh', '游戏', '账户与设备']]) {

@@ -30,7 +30,7 @@ const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLog
 const SS_GROUPS=[
   ['device',[
     ['devicePairing','bool',()=>topText('ss.f.devicePairing'),()=>topText('ss.f.devicePairingD')],
-    ['deviceApproval',[['manual',()=>topText('ss.devManual')],['signin',()=>topText('ss.devSignin')],['all',()=>topText('ss.devAll')]],()=>topText('ss.f.deviceApproval'),()=>topText('ss.f.deviceApprovalD')],
+    ['deviceApproval',[['manual',()=>topText('ss.devManual')],['signin',()=>topText('ss.devSignin')]],()=>topText('ss.f.deviceApproval'),()=>topText('ss.f.deviceApprovalD')],
     ['deviceLimit',[['0',()=>topText('ss.deviceLimitNone')],...[1,2,3,5,10,15,20,30,50].map((n)=>[String(n),()=>topFill(n===10?'ss.deviceLimitDefault':'ss.deviceLimitN',{n})])],()=>topText('ss.deviceLimit'),()=>topText('ss.deviceLimitD')],
     ['enrollPerHour',[1,2,3,5,10,15,20].map((n)=>[String(n),()=>topFill(n===5?'ss.deviceLimitDefault':'ss.deviceLimitN',{n})]),()=>topText('ss.enrollPerHour'),()=>topText('ss.enrollPerHourD')],
   ]],

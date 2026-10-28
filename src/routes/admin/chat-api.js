@@ -111,14 +111,14 @@ export function mountChatRoutes(router, { path, whoOf, service, enabled, limit =
   }));
 
   router.get(`${path}/consoles`, handle(async (req, res, chat, who) => {
-    res.json({ consoles: ownConsoles(approverOf(who.owner), { admin: who.admin === true }).map(({ code, label, sends }) => ({ code, label, sends })) });
+    res.json({ consoles: ownConsoles(approverOf(who.owner)).map(({ code, label, sends }) => ({ code, label, sends })) });
   }));
 
   router.post(`${path}/send`, handle(async (req, res, chat, who) => {
     const { game, device } = req.body ?? {};
     if (typeof game !== "string" || (device !== undefined && typeof device !== "string")) throw new ChatError("bad_request", "game is needed");
     try {
-      const { code, label, existing } = sendGame(approverOf(who.owner), { game, device, admin: who.admin === true });
+      const { code, label, existing } = sendGame(approverOf(who.owner), { game, device });
       res.json({ ok: true, code, label, existing });
     } catch (err) {
       if (!err.status) throw err;

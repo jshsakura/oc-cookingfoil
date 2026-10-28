@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { areaDescription, areaTools, gated, servedTools, toolOf } from "./tools.js";
 
 const REFERENCE = readFileSync(new URL("./reference.md", import.meta.url), "utf8").trimEnd();
+const GUIDE = readFileSync(new URL("./guide.md", import.meta.url), "utf8").trimEnd();
 
 /** A schema as a short type: string, "a"|"b", T[], { k: T, k?: T }, T|null. */
 export function typeText(s, depth = 0) {
@@ -55,13 +56,14 @@ function fieldLines(schema, prefix = "", seen = new Map()) {
 export function reference() {
   const areas = areaTools().flatMap((a) => ["", `### ${a.name}`, areaDescription(a), ...a.caps.map((c) => `- \`${signature(c)}\``)]);
   return [REFERENCE, "", "## Tools",
-    "", "Call an area tool as `games { action: \"games_search\", args: { q: \"zelda\" } }`. `[confirm]` marks a writing action: without `confirm` it only previews; `confirm: \"approve\"` goes next to `action`, not inside `args`. `help` with `tool` (an action or area name) gives its full spec.",
+    "", "Call an area tool as `games { action: \"games_search\", args: { q: \"zelda\" } }`. `[confirm]` marks a writing action: without `confirm` it only previews; `confirm: \"approve\"` goes next to `action`, not inside `args`. `help` with `tool` (an action or area name) gives its full spec. `help` with `tool: \"guide\"` is the setup and settings guide: install, folders, admin page, connecting a console, proxy and HTTPS, security, troubleshooting.",
     ...areas].join("\n");
 }
 
 const notFound = (name) => Object.assign(new Error(`No action or tool ${name}. Actions: ${servedTools().map((c) => c.id).join(", ")}`), { status: 404 });
 
 export function toolSpec(name) {
+  if (name === "guide") return GUIDE;
   const area = areaTools().find((a) => a.name === name);
   if (area) return [`# ${area.name}`, "", areaDescription(area), "", ...area.caps.map((c) => `- \`${signature(c)}\``)].join("\n");
   const cap = servedTools().find((c) => c.id === name);

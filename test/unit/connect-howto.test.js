@@ -13,7 +13,7 @@ test("how to connect, then how to start it again from the home-screen shortcut",
 
 test("an ID and password count once, at pairing, only where they approve the console", () => {
   assert.match(connectHowto(base)[0], /연결할 때 한 번만 확인해 바로 승인하고, 그 뒤로는 기기 키로만/);
-  for (const s of [{ ...base, accountPasswords: false }, { ...base, deviceApproval: "manual" }, { ...base, deviceApproval: "all" }]) {
+  for (const s of [{ ...base, accountPasswords: false }, { ...base, deviceApproval: "manual" }]) {
     assert.match(connectHowto(s)[0], /콘솔은 비밀번호를 쓰지 않습니다/, JSON.stringify(s));
   }
 });
@@ -25,7 +25,7 @@ test("manual approval and pairing switched off show up in the line", () => {
 
 test("the lines follow the house style: no em dashes, polite endings", () => {
   // The lines are swappable spans now, so the wording checks read the text with the markup stripped.
-  for (const s of [base, { ...base, deviceApproval: "all" }, { ...base, devicePairing: false }]) {
+  for (const s of [base, { ...base, devicePairing: false }]) {
     for (const line of connectHowto(s)) {
       const text = line.replace(/<[^>]+>/g, "");
       assert.ok(!/[—–]/.test(text), text);

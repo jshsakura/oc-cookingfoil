@@ -1,12 +1,12 @@
 /**
  * The consoles an account may send to from the chat: the ones it approved itself, never anyone
- * else's. The web page's own "send to my console" button follows the same rule (routes/device-pair.js
- * ownsApproval); this is that rule for the chat's tools and the cards' buttons, so a person can
- * neither list nor reach another account's console, whatever the model is told.
+ * else's, and none that no account holds. The web page's "send to my console" button follows the same
+ * rule (security/device-owner.js holds), so a person can neither list nor reach another account's
+ * console, whatever the model is told.
  */
 import * as store from "../security/store.js";
 import * as sends from "../security/device-sends.js";
-import * as users from "../security/users.js";
+import { holds } from "../security/device-owner.js";
 import { deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { tokenApprover } from "../security/admin-actor.js";
 import { queueFile } from "../routes/device-sends.js";
@@ -18,17 +18,10 @@ const fail = (status, message) => Object.assign(new Error(message), { status });
 /** The name sends are filed under for the account the chat runs as. */
 export const approverOf = (owner) => tokenApprover(owner);
 
-/**
- * Whether a console approved by `addedBy` is `approver`'s own. The markers the server writes for
- * other approvals ("admin", "auto", "telegram") belong only to the admin's own session (`admin`),
- * never to an account that merely carries that name, as routes/device-pair.js ownsApproval has it.
- */
-const owns = (approver, addedBy, admin) => Boolean(approver) && addedBy === approver && (!users.SYSTEM_APPROVERS.has(addedBy) || (approver === "admin" && admin === true));
-
 /** The account's own approved consoles: [{ deviceKey, code, label, sends }]; sends is whether its client takes sends. */
-export function ownConsoles(approver, { admin = false } = {}) {
+export function ownConsoles(approver) {
   return store.devicesSnapshot().approved
-    .filter((d) => owns(approver, d.addedBy, admin))
+    .filter((d) => holds(approver, d.addedBy))
     .map((d) => ({ deviceKey: d.deviceKey, code: deviceCode(d.deviceKey), label: d.label || deviceCode(d.deviceKey), sends: sends.canReceive(d.deviceKey) }));
 }
 
@@ -41,12 +34,12 @@ function mainFile(titleId) {
 /**
  * Queues base game `game` for one of the account's own consoles. `device` is the console's
  * 8-character code; left out, it must be the only one the account has.
- * `admin` is true only for the admin page's own chat. Returns { code, label, existing, item }; throws an Error with .status 400, 404, 409.
+ * Returns { code, label, existing, item }; throws an Error with .status 400, 404, 409.
  */
-export function sendGame(approver, { game, device, admin = false }) {
+export function sendGame(approver, { game, device }) {
   const titleId = String(game ?? "").toUpperCase();
   if (!TITLE_RE.test(titleId)) throw fail(400, "game must be a Switch base game's 16 hex digit title id, as games_search returns it");
-  const mine = ownConsoles(approver, { admin });
+  const mine = ownConsoles(approver);
   if (!mine.length) throw fail(404, "no console of yours is approved on this server");
   let target;
   if (device === undefined || device === null || device === "") {

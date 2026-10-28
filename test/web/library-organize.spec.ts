@@ -19,7 +19,7 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
   put('incoming/fresh [0100000000030000][v0].nsp', false);
   try {
     await signIn(page);
-    await page.goto('/admin#library/organize');
+    await page.goto('/admin/incoming/temp');
     await page.locator('#lo-sweep').click();
     await expect(page.locator('#toast')).toContainText('2개 옮겼습니다');
     await expect(page.locator('#lo-recent')).toContainText('Drop Game/Drop Game [0100000000020000][v0].nsp');
@@ -37,7 +37,7 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
     await expect.poll(async () => (await (await page.request.get('/admin/api/library/files?q=Drop Game')).json()).matched).toBe(1);
     expect((await (await page.request.get('/admin/api/library/files?q=fresh')).json()).matched).toBe(0);
     fs.mkdirSync('out/web', { recursive: true });
-    await page.locator('#tab-library').screenshot({ path: 'out/web/admin-library-incoming.png' });
+    await page.locator('#tab-organize').screenshot({ path: 'out/web/admin-library-incoming.png' });
   } finally {
     fs.rmSync(path.join(GAMES, 'incoming'), { recursive: true, force: true });
     fs.rmSync(path.join(GAMES, 'Drop Game'), { recursive: true, force: true });

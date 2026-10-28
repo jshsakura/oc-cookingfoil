@@ -13,6 +13,7 @@ process.env.COOK_TELEGRAM_BOT_TOKEN = "";
 process.env.COOK_TELEGRAM_CHAT_ID = "";
 process.env.COOK_TELEGRAM_BUTTONS = "";
 process.env.COOK_ADMIN_EMAIL = "owner@example.com";
+process.env.COOK_AUTH_USERS = "";
 const integrations = await import("../../src/security/integrations.js");
 const alerts = await import("../../src/helpers/alerts.js");
 const tokens = await import("../../src/security/approval-tokens.js");
@@ -20,7 +21,9 @@ const store = await import("../../src/security/store.js");
 const accounts = await import("../../src/security/google-accounts.js");
 const { takeAccessKeyDelivery } = await import("../../src/security/pairing.js");
 const { deviceCode } = await import("../../src/security/pairing-link.js");
-const { handleCallback, SPENT } = await import("../../src/security/telegram-approve.js");
+const users = await import("../../src/security/users.js");
+users.add("boss", "boss-password-1", "admin");
+const { handleCallback, SPENT, approvalOwner, approvalOwnerFor } = await import("../../src/security/telegram-approve.js");
 const updates = await import("../../src/security/telegram-updates.js");
 
 const TOKEN = "123456789:" + "A".repeat(35);
@@ -165,7 +168,7 @@ test("a valid press approves the console the same way the devices tab does", asy
   assert.ok(store.isDeviceApproved(key));
   assert.ok(takeAccessKeyDelivery(key), "the console's key waits for its next poll");
   const row = store.devicesSnapshot().approved.find((d) => d.deviceKey === key);
-  assert.deepEqual([row.label, row.addedBy], ["거실", "telegram"], "named by its note, like the admin page");
+  assert.deepEqual([row.label, row.addedBy], ["거실", "boss"], "named by its note and given to the admin account, like the admin page");
   assert.equal(tg.of("answerCallbackQuery")[0].body.text, "승인했습니다");
   const edit = tg.of("editMessageText")[0].body;
   assert.match(edit.text, /메시지: 거실\n\n민수 님이 승인했습니다\.$/);
@@ -374,4 +377,33 @@ test("without the loop the chat finder still asks Telegram", async () => {
   integrations.clear("telegram");
   alerts.setFetchForTests(async () => ({ json: async () => ({ ok: true, result: [{ message: { chat: { id: 7, first_name: "Me" } } }] }) }));
   assert.deepEqual(await updates.recentChats(TOKEN), [{ id: "7", title: "Me" }]);
+});
+
+test("a console approved from the chat goes to the admin account that saved the settings, else the only admin, else nowhere", async () => {
+  useChat("42");
+  assert.equal(approvalOwner(), "boss", "the only admin account");
+  users.add("deputy", "deputy-password-1", "admin");
+  users.add("kid", "kid-password-1");
+  assert.equal(approvalOwner(), null, "two admins and none saved");
+  assert.equal(approvalOwnerFor("admin", undefined), "", "the server's own marker is no account");
+  assert.equal(approvalOwnerFor("deputy", "boss"), "deputy");
+  useChat("42", { owner: approvalOwnerFor("kid", "") });
+  assert.equal(approvalOwner(), null, "a saved owner that is not an admin does not count");
+
+  const tg = fakeTelegram();
+  const key = newKey();
+  store.recordPendingDevice(key, { message: "서재" });
+  await settle();
+  assert.equal(await handleCallback(press(tg.tokenOf())), "handled");
+  assert.equal(store.isDeviceApproved(key), false, "no account, no approval");
+  assert.match(tg.of("answerCallbackQuery")[0].body.text, /관리자 화면/);
+
+  useChat("42", { owner: "deputy" });
+  assert.equal(approvalOwner(), "deputy");
+  const again = fakeTelegram();
+  const next = newKey();
+  store.recordPendingDevice(next, { message: "서재" });
+  await settle();
+  assert.equal(await handleCallback(press(again.tokenOf())), "approved");
+  assert.equal(store.deviceAddedBy(next), "deputy");
 });

@@ -221,3 +221,20 @@ test("a console whose account is turned off or removed is suspended on every lan
   assert.equal((await byKey()).status, 200, "an account by the same name takes its consoles back");
   assert.equal(suspension("C9".repeat(32)), null, "no console, nothing suspended");
 });
+
+test("a console no account holds has no owner's wishlist, no sends and is no one's own until it is given to an account", async () => {
+  const { giveToAccount } = await import("../../src/security/device-owner.js");
+  const { ownerOf } = await import("../../src/routes/wishlist.js");
+  for (const [i, by] of ["admin", "auto", "telegram"].entries()) {
+    const key = `E${i}`.repeat(32);
+    store.approveDevice(key, { label: "shared", addedBy: by, accessKeyHash: hashAccessKey("k") });
+    assert.equal(ownerOf(key), null, by);
+    for (const who of ["alice", by]) {
+      assert.ok(!(await mine(who)).includes(key), `${by}: not ${who}'s`);
+      assert.equal((await send(who, key)).error, "no such device", `${by}: ${who} cannot send to it`);
+    }
+    assert.deepEqual(giveToAccount(key, "carol"), { ok: true });
+    assert.equal(ownerOf(key), "carol");
+    assert.equal((await send("carol", key)).error, "not in the library", "once held, the send gets past the ownership check");
+  }
+});

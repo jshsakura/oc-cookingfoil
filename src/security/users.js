@@ -35,7 +35,7 @@ const VERIFIED_MAX = 1000;
 
 /**
  * What the server writes as a console's `addedBy` for approvals no account made
- * (the admin page, COOK_DEVICE_AUTO_APPROVE=all, Telegram). No account may take
+ * (the admin page with no accounts, and before 2026-10 automatic and Telegram approvals). No account may take
  * one of these names, or it would own those consoles.
  */
 export const SYSTEM_APPROVERS = new Set(["admin", "auto", "telegram"]);

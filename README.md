@@ -193,7 +193,7 @@ Settings you will usually change on the admin page (Settings tab), all of which 
 | Setting | Variable | Default |
 |---|---|---|
 | QR device connection (also needed for the web page's client download) | `COOK_DEVICE_PAIRING` | `true` |
-| How consoles are approved | `COOK_DEVICE_AUTO_APPROVE` | `true`: a console that sends an ID and password once, at pairing, is approved at once. `false`: the admin approves each one. `all`: every console that asks is approved |
+| How consoles are approved | `COOK_DEVICE_AUTO_APPROVE` | `true`: a console that sends an ID and password once, at pairing, is approved at once. `false`: the admin approves each one |
 | Consoles per account | `COOK_DEVICE_LIMIT` | How many approved consoles one account may hold, however they were approved. `10` unless set; `0` is no limit. Changeable on the Settings tab |
 | Consoles per hour by download | `COOK_ENROLL_PER_HOUR` | How many different consoles one account's downloaded clients may connect on their own in any hour, counted across all of its downloads. `5` unless set, 1 to 50. Changeable on the Settings tab |
 | Public address | `COOK_PUBLIC_BASE_URL` | derived from each request |

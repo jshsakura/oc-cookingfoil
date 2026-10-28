@@ -273,3 +273,9 @@ test("help shows a write's confirm argument and its preview fields", async () =>
   assert.match(text, /- `now\.boxart`/);
   await client.close();
 });
+
+test("help with tool guide returns the setup guide, and the reference points to it", async () => {
+  const { toolSpec, reference } = await import("../../src/mcp/spec.js");
+  assert.match(toolSpec("guide"), /# CookingFoil setup and settings guide/);
+  assert.match(reference(), /tool: "guide"/);
+});

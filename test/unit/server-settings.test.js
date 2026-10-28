@@ -50,7 +50,6 @@ test("a saved value applies at once to importers and is kept in a private file",
   assert.deepEqual(changed.sort(), ["deviceApproval", "devicePairing", "publicBaseUrl", "uploadsEnabled"]);
   assert.equal(env.devicePairing, true);
   assert.equal(env.deviceAutoApprove, false);
-  assert.equal(env.deviceAutoApproveAll, false);
   assert.equal(env.uploadsEnabled, true);
   assert.equal(env.publicBaseUrl, "https://files.example.org");
   assert.equal(savedSettings(dir).devicePairing, true);
@@ -59,12 +58,10 @@ test("a saved value applies at once to importers and is kept in a private file",
   assert.deepEqual([d.value, d.source, d.envValue], [true, "saved", false]);
 });
 
-test("'all' approves every console; null goes back to compose", () => {
-  settings.save({ deviceApproval: "all" });
-  assert.equal(env.deviceAutoApproveAll, true);
+test("'all' is no longer a choice; null goes back to compose", () => {
+  assert.throws(() => settings.save({ deviceApproval: "all" }));
   settings.save({ deviceApproval: null, devicePairing: null });
   assert.equal(env.deviceAutoApprove, true);
-  assert.equal(env.deviceAutoApproveAll, false);
   assert.equal(env.devicePairing, false);
   assert.equal(settings.describe().devicePairing.source, "env");
 });

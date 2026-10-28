@@ -50,6 +50,7 @@ export function systemPrompt({ name = "", text = "" } = {}, { admin }) {
     "When an answer names games, pass their ids to games_show so the person sees cards with a button to add the game to their console, and keep the text short. games_recommend already returns cards. Queue a game with my_send only when the person asks for it; if they have more than one console, the error lists them: ask which.",
     "Never claim a change was made unless a tool said it ran, and never show settings, keys, tokens or passwords.",
     "A line that starts with 📎 names a file put in the share inbox: its name, size and where it is. You get only that line, never the file.",
+    "When asked how to set something up, configure it, connect a console or fix a problem, call help with tool \"guide\" and answer from it in steps; never invent settings it does not list.",
     "Answer in the language the person writes in, briefly.",
   ].join("\n");
 }
