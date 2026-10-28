@@ -95,6 +95,7 @@
  * INSIDE rate-limiting + the probe access-guard.
  */
 import express from "express";
+import { bindingOf } from "../security/device-owner.js";
 
 import * as store from "../security/store.js";
 import {
@@ -344,6 +345,8 @@ export default function pairRouter() {
     const holdsKey = verifyAccessKey(req.get("X-Access-Key"), store.getDeviceAccessKeyHash(deviceKey));
     const repairSecret = accessKey || holdsKey ? null : normalizePairSecret(secret);
     if (repairSecret) return repairResponse(req, res, deviceKey, hashPairSecret(repairSecret));
+    // Whose console it is goes only to a caller that proved the key: the device id alone is anyone's to send.
+    if (accessKey || holdsKey) Object.assign(out, bindingOf(deviceKey));
     if (accessKey) {
       out.accessKey = accessKey;
       const origin = resolveOrigin(req, publicBaseUrl);
@@ -392,16 +395,25 @@ export default function pairRouter() {
     }
     const accessKey = generateAccessKey();
     const fresh = !store.isDeviceApproved(deviceKey);
-    // A console the system let in keeps that approval; it only takes the new key.
-    const addedBy = !fresh && systemApproved(deviceKey) ? undefined : spent.owner;
-    store.approveDevice(deviceKey, { label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : undefined, addedBy, accessKeyHash: hashAccessKey(accessKey) });
+    // A valid download proves whose console this is, so a console the system let in (admin, automatic
+    // approval, Telegram) is bound to that account from now on. Another account's console never gets
+    // here (spend refuses it with 409), and an admin device stays the admin's, taking only the new key.
+    const binds = !fresh && systemApproved(deviceKey) && !store.isDeviceAdmin(deviceKey);
+    const keeps = !fresh && !binds && systemApproved(deviceKey);
+    store.approveDevice(deviceKey, {
+      label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : binds ? consoleName(req) ?? undefined : undefined,
+      addedBy: keeps ? undefined : spent.owner,
+      accessKeyHash: hashAccessKey(accessKey),
+    });
+    if (binds) debug.log("pair: %s… was the system's; now bound to %s", deviceKey.slice(0, 12), spent.owner);
     store.clearPairSecret(deviceKey);
     dropRepair(deviceKey);
     if (again) debug.log("pair: %s… re-enrolled with its own download %s", deviceKey.slice(0, 12), spent.id);
     else debug.log("pair: %s… enrolled by %s's download %s", deviceKey.slice(0, 12), spent.owner, spent.id);
     const origin = resolveOrigin(req, publicBaseUrl);
     vouch(res);
-    res.json({ status: "approved", accessKey, libraryUrl: origin || null, shopUrl: origin || null });
+    // The client keeps its download token until it reads the binding here (bindingOf in device-owner.js).
+    res.json({ status: "approved", accessKey, libraryUrl: origin || null, shopUrl: origin || null, ...bindingOf(deviceKey) });
   });
 
   router.post("/rebind", async (req, res) => {

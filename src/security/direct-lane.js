@@ -46,6 +46,7 @@
  *   401 revoked  the account or console it was made for may no longer sign in
  *   403 blocked  this address sent too many invalid tokens and is shut out for a while
  */
+import { deviceOwner } from "./device-owner.js";
 import crypto from "crypto";
 import express from "express";
 import net from "net";
@@ -227,6 +228,7 @@ export default function directLane(root, { routes = {}, ban = newBan(), staleBan
     // The download records (transfer-track.js): this lane, for whom, and the client the proxy named.
     req.cookingfoilLane = "direct";
     req.directSub = token.sub;
+    if (token.sub.dev && !token.sub.acct) req.deviceOwner = deviceOwner(token.sub.dev);
     req.directClient = ip;
     lane(req, res, () => res.headersSent || res.status(404).end());
   };

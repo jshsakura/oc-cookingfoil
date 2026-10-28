@@ -18,6 +18,7 @@
  * tying a token to it stops casual reuse, and its expiry is what bounds a
  * token taken off the network.
  */
+import { deviceOwner } from "./device-owner.js";
 import * as session from "./session-token.js";
 import { stillAllowed } from "./link-identity.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
@@ -65,6 +66,7 @@ export default function sessionGate({ now = () => Date.now() } = {}) {
     store.touchDevice(sub.dev, ip);
     if (!sub.acct) {
       req.pairedDevice = sub.dev;
+      req.deviceOwner = deviceOwner(sub.dev);
       return next();
     }
     req.auth = { user: sub.acct.id };

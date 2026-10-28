@@ -12,6 +12,7 @@
  *
  * No-op passthrough when COOK_DEVICE_PAIRING is off.
  */
+import { deviceOwner } from "./device-owner.js";
 import * as store from "./store.js";
 import { recordPending } from "./pending-limit.js";
 import { devicePairing } from "../helpers/envs.js";
@@ -32,6 +33,7 @@ export default function pairingGate() {
     const hash = store.getDeviceAccessKeyHash(deviceKey);
     if (hash && verifyAccessKey(req.get("X-Access-Key"), hash)) {
       req.pairedDevice = deviceKey;
+      req.deviceOwner = deviceOwner(deviceKey);
       store.touchDevice(deviceKey, clientIp(req));
       vouch(res);
       return next();
