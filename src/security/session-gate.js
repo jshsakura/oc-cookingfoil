@@ -23,7 +23,7 @@
  */
 import { deviceOwner, suspension } from "./device-owner.js";
 import * as session from "./session-token.js";
-import { stillAllowed } from "./link-identity.js";
+import { keyReplaced, stillAllowed } from "./link-identity.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
 import * as store from "./store.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
@@ -67,7 +67,7 @@ export default function sessionGate({ now = () => Date.now() } = {}) {
     if (!trustedHere(req) && store.isLocked(ip)) {
       return denyResponse(req, res, { reason: DENY.IP_LOCKED, status: 429, retryAfter: lockoutRetryAfter(ip), body: "Locked out after too many failed attempts. Contact the administrator.\n" });
     }
-    if (!stillAllowed(sub)) return refuse(req, res, "revoked");
+    if (!stillAllowed(sub)) return keyReplaced(sub) ? refuse(req, res, "expired", "key-replaced") : refuse(req, res, "revoked");
     // A paired console's session needs pairing to still be on.
     if (!sub.acct && !devicePairing) return refuse(req, res, "revoked", "revoked-pairing-off");
     const suspended = sub.acct ? null : suspension(sub.dev);
