@@ -18,6 +18,8 @@ import * as integrations from "../../security/integrations.js";
 import * as alerts from "../../helpers/alerts.js";
 import * as updates from "../../security/telegram-updates.js";
 import debug from "../../debug.js";
+import { adminApprover } from "../../security/admin-actor.js";
+import { approvalOwnerFor } from "../../security/telegram-approve.js";
 import { apiWord } from "./api-words.js";
 import { securityError } from "../../security/security-messages.js";
 
@@ -70,6 +72,7 @@ export function mountAlertsApi(router, requireSession) {
       buttons: buttons ? "on" : "off",
       approvers,
       lang,
+      owner: approvalOwnerFor(adminApprover(req), current.owner),
     });
     debug.log("admin: alert settings saved (%s)", ids.join(",") || "none");
     res.json({ ok: true });

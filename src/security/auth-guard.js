@@ -18,7 +18,7 @@
 import { GAME_FILE_RE } from "../helpers/file-send.js";
 import crypto from "crypto";
 import debug from "../debug.js";
-import { unauthorizedMessage, devicePairing, deviceAutoApprove, deviceAutoApproveAll } from "../helpers/envs.js";
+import { unauthorizedMessage, devicePairing, deviceAutoApprove } from "../helpers/envs.js";
 import { approveSignedInDevice } from "./pairing-approve.js";
 import * as users from "./users.js";
 import { adminAwaitsSetup } from "./setup.js";
@@ -147,17 +147,12 @@ function toLogin(req, res) {
 /**
  * COOK_DEVICE_AUTO_APPROVE: a console that knocks on the pairing routes with
  * a real account (Basic) and its device key is approved without a QR scan, and
- * uses its device key and access key from then on. With `all`, every console
- * that asks is let in, no sign-in needed. Returns whether it is approved, or
+ * uses its device key and access key from then on. Returns whether it is approved, or
  * "limit" when the account holds all the consoles it may (device-limit.js)
  * and the console keeps waiting.
  */
 export async function autoApproveFromPairRequest(req, deviceKey) {
   if (!devicePairing || !deviceAutoApprove || !deviceKey) return false;
-  if (deviceAutoApproveAll && !store.isLocked(clientIp(req))) {
-    if (approveSignedInDevice(deviceKey, "auto")) debug.log("pair: auto-approved %s… (all consoles)", deviceKey.slice(0, 12));
-    return true;
-  }
   const who = await pairSignIn(req);
   if (!who) return false;
   const approved = approveSignedInDevice(deviceKey, who.name);

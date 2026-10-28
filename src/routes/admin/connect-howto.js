@@ -15,7 +15,6 @@ import { topHtml } from "./top-i18n.js";
 const APPROVAL = {
   manual: topHtml("ch.apprManual"),
   signin: "",
-  all: topHtml("ch.apprAll"),
 };
 
 const ONE_TIME_PASSWORD = topHtml("ch.oncePw");
@@ -26,7 +25,7 @@ const SHORTCUT = topHtml("ch.shortcut");
 /** The <li> lines for the current settings. `s` stands in for the live settings in tests. */
 export function connectHowto(s = {
   devicePairing: env.devicePairing,
-  deviceApproval: env.deviceAutoApproveAll ? "all" : env.deviceAutoApprove ? "signin" : "manual",
+  deviceApproval: env.deviceAutoApprove ? "signin" : "manual",
   accountPasswords: passwordsOn(),
 }) {
   if (!s.devicePairing) return [topHtml("ch.off")];

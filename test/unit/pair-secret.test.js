@@ -196,18 +196,3 @@ test("pairSecretMatches compares in constant time against the stored hash", () =
   assert.equal(pairing.pairSecretMatches(secret, null), false);
 });
 
-test("auto-approval (all consoles) is held to the same pairSecret rule", async () => {
-  const env = await import("../../src/helpers/envs.js");
-  env.applyServerSettings({ deviceApproval: "all" });
-  try {
-    const key = newKey();
-    const secret = newSecret();
-    const r = await request({ deviceKey: key, pairSecret: secret });
-    assert.deepEqual(await r.json(), { status: "approved", passwordOnly: true });
-    assert.deepEqual((await status(key)).body, { status: "approved", passwordOnly: true }, "no key without the secret");
-    assert.ok((await status(key, { "X-Pair-Secret": secret })).body.accessKey);
-    store.revokeDevice(key);
-  } finally {
-    env.applyServerSettings({});
-  }
-});

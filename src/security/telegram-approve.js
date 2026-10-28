@@ -9,6 +9,10 @@
  * audit log and what the console or account sees are the same. A request the
  * admin page already handled is left alone. The alert is then rewritten to say
  * who did what, and its buttons go.
+ *
+ * A console approved from the chat is given to an account, as the admin page gives it to the admin
+ * who approves it: the admin account that saved the alert settings, or the only admin account
+ * there is. With neither, the chat refuses and points at the admin page.
  */
 import debug from "../debug.js";
 import * as alerts from "../helpers/alerts.js";
@@ -17,16 +21,36 @@ import * as integrations from "./integrations.js";
 import * as approvalTokens from "./approval-tokens.js";
 import * as store from "./store.js";
 import * as accounts from "./google-accounts.js";
+import * as users from "./users.js";
 import { approveWaitingDevice } from "./pairing-approve.js";
+import { ownerChoices } from "./device-owner.js";
 
 
 export const SPENT = translator()("spent");
+
+const isAdminChoice = ({ owner, kind }) =>
+  kind === "user" ? users.isAdmin(owner) : accounts.list().some((a) => `google:${a.email}` === owner && a.status === "approved" && a.role === "admin");
+
+/** The owner to keep when `saver` saves the alert settings: the saver when it is an account, else what was kept. Pure over ownerChoices. */
+export function approvalOwnerFor(saver, kept) {
+  return ownerChoices().some((c) => c.owner === saver) ? saver : (kept ?? "");
+}
+
+/** The account a console approved from the chat goes to, or null: the saved owner while it is an active admin, else the only admin account. */
+export function approvalOwner(conf = integrations.get("telegram")) {
+  const admins = ownerChoices().filter(isAdminChoice);
+  if (admins.some((c) => c.owner === conf.owner)) return conf.owner;
+  return admins.length === 1 ? admins[0].owner : null;
+}
 
 /** What each kind of request is, and how the admin page approves or refuses it. */
 const KINDS = {
   device: {
     waiting: (key) => store.isDevicePending(key),
-    approve: (key) => approveWaitingDevice(key, { addedBy: "telegram" }),
+    approve: (key) => {
+      const owner = approvalOwner();
+      return owner ? approveWaitingDevice(key, { addedBy: owner }) : { ok: false, noOwner: true };
+    },
     // The devices tab's 거절: the request goes, and comes back if the console asks again.
     refuse: (key) => store.revokeDevice(key),
     refused: "refusedDevice",
@@ -62,6 +86,7 @@ function decide(request, yes, t) {
   if (!kind.waiting(request.ref)) return { done: false, line: t("handled") };
   if (yes) {
     const result = kind.approve(request.ref);
+    if (result?.noOwner) return { done: false, line: t("needOwner") };
     if (result?.ok === false) return { done: false, line: t("deviceLimit", { n: result.limit }) };
   } else kind.refuse(request.ref);
   debug.log("telegram: a %s request was %s from the chat", request.kind, yes ? "approved" : "refused");
