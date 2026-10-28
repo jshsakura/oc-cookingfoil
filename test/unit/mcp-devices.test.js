@@ -7,6 +7,7 @@ import path from "node:path";
 // device_list and device_set: served by MCP alone, a console named by its 8-character code.
 process.env.COOK_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "cook-mcp-devices-"));
 process.env.COOK_DEVICE_LIMIT = "0";
+process.env.COOK_AUTH_USERS = "alice:alice-password-1";
 
 const { registry } = await import("../../src/capabilities/registry.js");
 const store = await import("../../src/security/store.js");
@@ -24,7 +25,7 @@ test("the routes tokens are refused are served over MCP, and the HTTP lane stays
   assert.ok(servedTools().includes(set));
   assert.equal(set.token, false);
   assert.equal(set.mcp, true);
-  assert.deepEqual(set.also.sort(), ["POST /admin/api/clients/:id/revoke", "POST /admin/api/devices/admin", "POST /admin/api/devices/dismiss", "POST /admin/api/devices/label", "POST /admin/api/devices/revoke"]);
+  assert.deepEqual(set.also.sort(), ["POST /admin/api/clients/:id/revoke", "POST /admin/api/devices/admin", "POST /admin/api/devices/dismiss", "POST /admin/api/devices/label", "POST /admin/api/devices/owner", "POST /admin/api/devices/revoke"]);
 });
 
 test("device_list names waiting and approved consoles by code, never by key", async () => {
@@ -86,4 +87,17 @@ test("a Google owner's token approves under google:<email>, the name account_set
   store.recordPendingDevice(key("d"), { quiet: true });
   await set.handler({ token: { id: "t2", owner: "google:sub1" } }, { device: deviceCode(key("d")), op: "approve" });
   assert.equal(store.deviceAddedBy(key("d")), "google:boss@example.com");
+});
+
+test("a console no account holds is given to an account listed in owners, previewed first", async () => {
+  const { hashAccessKey } = await import("../../src/security/pairing.js");
+  store.approveDevice(key("c"), { label: "den", addedBy: "telegram", accessKeyHash: hashAccessKey("k") });
+  const code = deviceCode(key("c"));
+  assert.ok((await list.handler(ctx, {})).owners.some((o) => o.owner === "alice"));
+  assert.match((await preview({ device: code, op: "owner", owner: "alice" })).changes, /keeps its key/);
+  await assert.rejects(run({ device: code, op: "owner", owner: "nobody" }), (e) => e.status === 409 && /owners/.test(e.message));
+  assert.equal((await run({ device: code, op: "owner", owner: "alice" })).done, "owner");
+  assert.equal(store.deviceAddedBy(key("c")), "alice");
+  await assert.rejects(run({ device: code, op: "owner", owner: "alice" }), /QR re-pair/);
+  await assert.rejects(run({ device: code, op: "owner" }), /owner needs owner/);
 });

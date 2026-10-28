@@ -97,16 +97,19 @@ function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const ico
 // Asks in a dialog that looks like the rest of the page, instead of the browser's confirm().
 // Removing, revoking and the like pass {danger:true}: the message sits on the red warning card
 // and the cancel button starts focused. The message itself may be any language.
-function askDialog(msg,value,opts={}){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input');
-  const typing=value!==undefined,danger=opts.danger===true;
+function askDialog(msg,value,opts={}){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input'),sel=$('ask-select');
+  const choosing=Array.isArray(opts.choices),typing=value!==undefined&&!choosing,danger=opts.danger===true;
   $('ask-text').textContent=msg;ok.className='primary';d.classList.toggle('warn',danger);inp.hidden=!typing;inp.value=typing?value:'';inp.type=opts.secret?'password':'text';inp.autocomplete=opts.secret?'current-password':'off';
+  if(sel){sel.hidden=!choosing;sel.replaceChildren(...(choosing?opts.choices:[]).map((c)=>{const o=el('option',c.label);o.value=c.value;return o;}));}
   return new Promise((resolve)=>{const done=(v)=>{ok.onclick=no.onclick=d.oncancel=inp.onkeydown=null;d.close();resolve(v);};
-    const yes=()=>done(typing?inp.value:true),nope=()=>done(typing?null:false);
+    const yes=()=>done(choosing?sel.value:typing?inp.value:true),nope=()=>done(choosing||typing?null:false);
     ok.onclick=yes;no.onclick=nope;d.oncancel=(e)=>{e.preventDefault();nope();};
     inp.onkeydown=(e)=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();yes();}};
-    d.showModal();if(typing){inp.focus();inp.select();}else(danger?no:ok).focus();});}
+    d.showModal();if(choosing)sel.focus();else if(typing){inp.focus();inp.select();}else(danger?no:ok).focus();});}
 const ask=(msg,opts)=>askDialog(msg,undefined,opts);
 const askText=(msg,value='',opts)=>askDialog(msg,value,opts);
+// One of [{value,label}], or null when cancelled.
+const askPick=(msg,choices)=>askDialog(msg,'',{choices});
 function pill(txt,kind){return el('span',txt,'pill'+(kind?' '+kind:''));}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
 // table(mount,cols,rows,empty) is in grid.js.
