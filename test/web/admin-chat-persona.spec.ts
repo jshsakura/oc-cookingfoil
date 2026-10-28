@@ -10,8 +10,8 @@ test('the admin renames the assistant in the settings sheet and the greeting and
   expect((await page.request.post('/admin/api/server-settings', { data: { chatEnabled: true, chatName: null, chatPersona: null } })).ok()).toBe(true);
   try {
     await page.goto('/admin/chat');
-    await expect(page.locator('#ch-name')).toHaveText('버터');
-    await expect(page.locator('#ch-col .ch-hello h3')).toHaveText('안녕하세요, 제 이름은 버터입니다. 당신의 게임 생활을 돕기 위해 여러 가지 일을 도울 수 있습니다.');
+    await expect(page.locator('#ch-name')).toHaveAttribute('title', '버터');
+    await expect(page.locator('#ch-col .ch-hello h3')).toContainText('버터');
 
     await page.locator('#ch-gear').click();
     await expect(page.locator('#ch-window-in')).toHaveValue('128000');
@@ -20,8 +20,8 @@ test('the admin renames the assistant in the settings sheet and the greeting and
     await page.locator('#ch-persona-form button[type=submit]').click();
     await expect(page.locator('#toast')).toContainText('저장했습니다');
     await page.locator('#ch-sheet-x').click();
-    await expect(page.locator('#ch-name')).toHaveText('모찌');
-    await expect(page.locator('#ch-col .ch-hello h3')).toContainText('제 이름은 모찌입니다');
+    await expect(page.locator('#ch-name')).toHaveAttribute('title', '모찌');
+    await expect(page.locator('#ch-col .ch-hello h3')).toContainText('모찌');
 
     const saved = await (await page.request.get('/admin/api/server-settings')).json();
     expect(saved.settings.chatName.value).toBe('모찌');

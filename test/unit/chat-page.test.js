@@ -52,3 +52,9 @@ test("every admin page but the chat's own carries the floating chat, and its scr
     for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) assert.doesNotThrow(() => new vm.Script(m[1]), p.path);
   }
 });
+
+test("every language has the same drawn greetings, each with the name once and a first sentence", () => {
+  const greets = Object.keys(CHAT_WORDS.ko).filter((k) => /^ch\.greet\d*$/.test(k));
+  assert.ok(greets.length >= 6);
+  for (const c of Object.keys(CHAT_WORDS)) for (const k of greets) assert.equal(CHAT_WORDS[c][k].split("{name}").length, 2, `${c} ${k}`);
+});
