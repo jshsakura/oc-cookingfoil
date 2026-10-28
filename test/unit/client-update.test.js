@@ -62,7 +62,7 @@ test("the client finds its newest build, downloads it and sees a replaced one", 
   const server = await boot(data);
   try {
     assert.equal((await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).status, 404, "nothing published yet");
-    assert.equal((await fetch(`${BASE}/api/client/latest`)).status, 401, "same sign-in as everything else");
+    assert.equal((await fetch(`${BASE}/api/client/latest`)).status, 404, "asked without a key, the same answer");
 
     const nro = path.join(data, "client", "cookingfoil.nro");
     fs.mkdirSync(path.dirname(nro));
@@ -103,6 +103,35 @@ test("the client finds its newest build, downloads it and sees a replaced one", 
     }
     fs.writeFileSync(path.join(data, "client", ".cookingfoil.nro.tmp"), fakeNro("9.9.9"));
     assert.equal((await (await fetch(`${BASE}/api/client/latest`, { headers: AUTH })).json()).version, "0.1.124", "a file still being written is not looked at");
+  } finally {
+    await stop(server);
+  }
+});
+
+test("the update needs only the server's address: no key, a wrong or suspended key, each address capped per hour", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-"));
+  const server = await boot(data);
+  try {
+    const nro = path.join(data, "client", "cookingfoil.nro");
+    fs.mkdirSync(path.dirname(nro));
+    const build = fakeNro("0.2.1");
+    fs.writeFileSync(nro, build);
+    const wrongKey = { "X-Device-Key": "AB".repeat(32), "X-Access-Key": "not-the-key" };
+    for (const [label, headers] of [["no key", {}], ["a wrong key", wrongKey]]) {
+      const latest = await fetch(`${BASE}/api/client/latest`, { headers });
+      assert.equal(latest.status, 200, label);
+      assert.equal((await latest.json()).version, "0.2.1", label);
+      const dl = await fetch(`${BASE}/api/client/cookingfoil.nro`, { headers });
+      assert.equal(dl.status, 200, label);
+      assert.ok(Buffer.from(await dl.arrayBuffer()).equals(build), label);
+    }
+    assert.equal((await fetch(`${BASE}/api/client/strings?lang=en`)).status, 401, "the other client routes keep the sign-in");
+    assert.equal((await fetch(`${BASE}/api/client/icon`)).status, 401);
+    let last;
+    for (let i = 0; i < 20; i++) last = await fetch(`${BASE}/api/client/cookingfoil.nro`).then((r) => (r.body?.cancel(), r));
+    assert.equal(last.status, 429, "an address that took twenty builds this hour waits");
+    assert.ok(Number(last.headers.get("retry-after")) > 0);
+    assert.equal((await fetch(`${BASE}/api/client/latest`)).status, 200, "asking which build is current is never capped");
   } finally {
     await stop(server);
   }

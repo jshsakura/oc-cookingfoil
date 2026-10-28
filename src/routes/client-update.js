@@ -37,7 +37,10 @@
  * It is optional: it rides on /latest only while its version, size and sha256
  * are the build's being offered, and a build without one is offered all the
  * same. The server never checks or makes signatures and holds no key.
- * Every route sits behind the same sign-in as the rest of the server.
+ * /latest and the build itself are also answered before the sign-in (clientUpdateOpenRouter):
+ * a console that is suspended, still waiting, lost its key or runs a broken build can always
+ * update out of it with the server's address alone. The build is the public client anyway.
+ * The other routes sit behind the same sign-in as the rest of the server.
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -55,6 +58,8 @@ import { ClientBuildError, compareVersions, inspectNro } from "../meta/client-bu
 import debug from "../debug.js";
 import { mountClientLog } from "./client-log.js";
 import { directUrl, forRequest } from "../security/download-links.js";
+import { clientIp } from "../security/auth-guard.js";
+import { tooManyRequests } from "../security/retry-after.js";
 
 export const CLIENT_NRO = path.join(dataDir, "client", "cookingfoil.nro");
 export const GITHUB_NRO = path.join(dataDir, "client", "github", "cookingfoil.nro");
@@ -249,6 +254,56 @@ export const clientRelease = createClientRelease({
   maxBytes: MAX_BUILD_BYTES,
 });
 
+async function serveLatest(req, res, next) {
+  try {
+    const info = await latestBuild();
+    res.set("Cache-Control", "no-store");
+    if (!info) return res.status(404).json({ error: "no client build on this server" });
+    const link = forRequest(req);
+    res.json({ ...info, url: directUrl(info.url, link), ...shortcutFields(info) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function serveBuild(req, res, next) {
+  try {
+    const info = await latestBuild();
+    if (!info) return res.status(404).json({ error: "no client build on this server" });
+    res.set({ "Cache-Control": "no-cache", ETag: `"${info.sha256}"` });
+    if (req.fresh) return res.status(304).end();
+    res.type("application/octet-stream");
+    res.attachment("cookingfoil.nro");
+    res.sendFile(PUBLISHED_NRO, { etag: false, lastModified: false, acceptRanges: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Before the sign-in the build is a few MB anyone may ask for, so each address gets a handful an hour.
+const OPEN_BUILDS_PER_HOUR = 20;
+const HOUR_MS = 60 * 60_000;
+
+/** /latest and the build, mounted ahead of the sign-in; a key, even a suspended one, is not looked at. */
+export function clientUpdateOpenRouter({ perHour = OPEN_BUILDS_PER_HOUR, now = Date.now } = {}) {
+  const router = express.Router();
+  const taken = new Map(); // ip → { since, count }
+  router.get("/latest", serveLatest);
+  router.get("/cookingfoil.nro", (req, res, next) => {
+    if (req.fresh || req.get("Range")) return serveBuild(req, res, next);
+    const ip = clientIp(req);
+    const t = now();
+    for (const [k, v] of taken) if (t - v.since >= HOUR_MS) taken.delete(k);
+    const mine = taken.get(ip) ?? { since: t, count: 0 };
+    if (mine.count >= perHour) {
+      return tooManyRequests(res, Math.ceil((mine.since + HOUR_MS - t) / 1000)).json({ error: "too many client downloads from this address; try again later" });
+    }
+    taken.set(ip, { ...mine, count: mine.count + 1 });
+    serveBuild(req, res, next);
+  });
+  return router;
+}
+
 export default function clientUpdateRouter() {
   const router = express.Router();
   // Look at a dropped-in build even before a console asks, so the admin page hears about a bad one.
@@ -274,17 +329,7 @@ export default function clientUpdateRouter() {
     if (encoding) res.set("Content-Encoding", encoding);
     res.type("application/json").send(encoding ? answer[encoding] : answer.json);
   });
-  router.get("/latest", async (req, res, next) => {
-    try {
-      const info = await latestBuild();
-      res.set("Cache-Control", "no-store");
-      if (!info) return res.status(404).json({ error: "no client build on this server" });
-      const link = forRequest(req);
-      res.json({ ...info, url: directUrl(info.url, link), ...shortcutFields(info) });
-    } catch (err) {
-      next(err);
-    }
-  });
+  router.get("/latest", serveLatest);
   // The build's own icon, for the web page's download card.
   router.get("/icon", async (req, res, next) => {
     try {
@@ -298,19 +343,7 @@ export default function clientUpdateRouter() {
       next(err);
     }
   });
-  router.get("/cookingfoil.nro", async (req, res, next) => {
-    try {
-      const info = await latestBuild();
-      if (!info) return res.status(404).json({ error: "no client build on this server" });
-      res.set({ "Cache-Control": "no-cache", ETag: `"${info.sha256}"` });
-      if (req.fresh) return res.status(304).end();
-      res.type("application/octet-stream");
-      res.attachment("cookingfoil.nro");
-      res.sendFile(PUBLISHED_NRO, { etag: false, lastModified: false, acceptRanges: true });
-    } catch (err) {
-      next(err);
-    }
-  });
+  router.get("/cookingfoil.nro", serveBuild);
   mountClientLog(router);
   return router;
 }
