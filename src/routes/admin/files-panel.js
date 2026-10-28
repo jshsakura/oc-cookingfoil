@@ -1,9 +1,9 @@
 /**
- * The admin file browser (/admin/files): the library folders as folders, over
- * /admin/api/files (files-api.js). One storage tab per root, the folder path
- * as links, a table whose header stays under the page header, and a bar at the
- * bottom that holds the selection's actions and the pager. The folder lives in
- * the address (?root=&path=), so back, reload and links land on it.
+ * The admin file browser: the "파일" tab of each library page (games, retro, homebrew, patches, saves),
+ * locked to that page's folder, over /admin/api/files (files-api.js). The folder path as links, a table
+ * whose header stays under the page header, and a bar at the bottom that holds the selection's actions
+ * and the pager. The folder lives in the address (?tab=folder&path=), so back, reload and links land on it.
+ * The move dialog still has a root picker, so a move can cross folders.
  * Everything is scoped under #fb so it never restyles the rest of the page.
  */
 import { icon } from "../../views/icons.js";
@@ -92,8 +92,10 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 @media (prefers-reduced-motion:reduce){#fb *{transition:none!important}}
 `;
 
-export const FILES_HTML = `<section id="tab-files" hidden><div id="fb">
-  <div class="fb-roots" id="fb-roots" role="group" ${topLabel("fb.rootsLabel")}></div>
+/** Where a page puts its file browser; the split page swaps the marker for FOLDER_HTML (ids stay unique). */
+export const FOLDER_MARK = "<!--folder-->";
+
+export const FOLDER_HTML = `<div id="fb">
   <div class="fb-bar">
     <ol class="fb-crumb" id="fb-crumb" ${topLabel("fb.crumbLabel")}></ol>
     <label class="fb-q">${icon("search")}<input type="search" id="fb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("fb.qPh")} ${topLabel("fb.qPh")}></label>
@@ -126,7 +128,7 @@ export const FILES_HTML = `<section id="tab-files" hidden><div id="fb">
       <button type="button" id="fb-next" ${topLabel("fb.next")}>${icon("chevright")}</button>
     </nav>
   </div>
-</div></section>
+</div>
 <dialog id="fb-move" aria-labelledby="fb-m-title">
   <h3 id="fb-m-title">${top("fb.moveTitle")}</h3>
   <div class="fb-roots" id="fb-m-roots" role="group" ${topLabel("fb.rootsLabel")}></div>
@@ -142,13 +144,13 @@ const fb={roots:[],root:'',path:'',page:1,sort:'name',order:'asc',q:'',sel:new S
 const fbSize=(n)=>{if(n==null)return '';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const fbDate=(ms)=>ms?new Date(ms).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'';
 const fbRootName=(k)=>topText('fb.root.'+k);
-function fbUrl(){const u=new URL(location.href);u.searchParams.set('root',fb.root);if(fb.path)u.searchParams.set('path',fb.path);else u.searchParams.delete('path');return u.pathname+u.search;}
+function fbUrl(){const u=new URL(location.href);u.searchParams.delete('root');u.searchParams.delete('view');u.searchParams.set('tab','folder');
+  if(fb.path)u.searchParams.set('path',fb.path);else u.searchParams.delete('path');return u.pathname+u.search+u.hash;}
 function fbGo(root,path,{push=true}={}){fb.root=root;fb.path=path||'';fb.page=1;fb.q='';$('fb-q').value='';fb.sel.clear();
-  if(push&&location.pathname+location.search!==fbUrl())history.pushState(null,'',fbUrl());fbRoots();fbLoad();}
+  if(push&&location.pathname+location.search+location.hash!==fbUrl())history.pushState(null,'',fbUrl());fbLoad();}
 function fbRootButtons(mount,current,pick){mount.replaceChildren();for(const r of fb.roots){const b=el('button');b.type='button';
   b.innerHTML=FB_ICON[r.key]||'';b.append(el('span',fbRootName(r.key)));b.setAttribute('aria-pressed',String(r.key===current));
   b.addEventListener('click',()=>pick(r.key));mount.append(b);}}
-function fbRoots(){fbRootButtons($('fb-roots'),fb.root,(k)=>{if(k!==fb.root)fbGo(k,'');});}
 function fbCrumb(mount,root,path,go){mount.replaceChildren();const parts=path?path.split('/'):[];
   const add=(label,to)=>{const li=el('li');const b=el('button',label);b.type='button';b.title=label;b.addEventListener('click',()=>go(to));li.append(b);mount.append(li);};
   add(fbRootName(root),'');parts.forEach((p,i)=>add(p,parts.slice(0,i+1).join('/')));}
@@ -263,14 +265,21 @@ $('fb-trash-btn').addEventListener('click',()=>fbTrash([...fb.sel]));
 $('fb-clear').addEventListener('click',()=>{fb.sel.clear();for(const r of document.querySelectorAll('#fb-rows tr')){r.setAttribute('aria-selected','false');const cb=r.querySelector('input[type=checkbox]');if(cb)cb.checked=false;}fbFoot();});
 $('fb-prev').addEventListener('click',()=>{if(fb.page>1){fb.page--;fbLoad();window.scrollTo({top:0});}});
 $('fb-next').addEventListener('click',()=>{if(fb.data&&fb.page<fb.data.pages){fb.page++;fbLoad();window.scrollTo({top:0});}});
-window.addEventListener('popstate',()=>{const p=new URLSearchParams(location.search);fbGo(p.get('root')||fb.roots[0]?.key||'',p.get('path')||'',{push:false});});
+window.addEventListener('popstate',()=>{const p=new URLSearchParams(location.search);if(fb.root&&p.get('tab')==='folder')fbGo(fb.root,p.get('path')||'',{push:false});});
 // Esc clears the selection; Delete sends it to the trash. Neither fires while typing or in a dialog.
 document.addEventListener('keydown',(e)=>{if(e.target.closest('input,textarea,select,dialog'))return;
   if(e.key==='Escape'&&fb.sel.size)$('fb-clear').click();else if(e.key==='Delete'&&fb.sel.size)fbTrash([...fb.sel]);});
-async function loadFiles(){try{fb.roots=(await api('/admin/api/files/roots')).roots;}catch(err){toast(err.message);return;}
-  const p=new URLSearchParams(location.search);const want=p.get('root');
-  const root=fb.roots.some((r)=>r.key===want)?want:fb.roots[0]?.key||'';
-  fbGo(root,root===want?p.get('path')||'':'',{push:false});history.replaceState(null,'',fbUrl());}
-// A language switch redraws the tabs, the path, the dates and the counts.
-function fbRelabel(){if(typeof fb==='undefined')return;if(!fb.root)return;fbRoots();fbLoad();}
+// The page's own folder is the only root here; the roots list is for the move dialog's picker.
+async function fbOpen(root){
+  if(!fb.root&&!fb.booting){fb.booting=true;
+    try{fb.roots=(await api('/admin/api/files/roots')).roots;}catch(err){fb.booting=false;toast(err.message);return;}
+    const p=new URLSearchParams(location.search);fb.booting=false;
+    fbGo(root,p.get('tab')==='folder'?p.get('path')||'':'',{push:false});}
+  if(fb.root)history.replaceState(null,'',fbUrl());}
+// A page's tab row with the "파일" tab: opening it starts the browser, leaving it clears the folder from the address.
+function fbTabs(tab,root){subtabs(tab);const st=SUBTABS[tab];if(!st)return;const show=st.show;
+  st.show=(sub)=>{show(sub);if(sub==='folder')fbOpen(root);};
+  st.show(location.hash.split('/')[1]||st.cur);}
+// A language switch redraws the path, the dates and the counts.
+function fbRelabel(){if(typeof fb==='undefined')return;if(!fb.root)return;fbLoad();}
 `;

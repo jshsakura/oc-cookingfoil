@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
-test('the 패치 tab of the games page opens the game patches, and its upload button starts a patch upload', async ({ page }) => {
+test('the patches page lists the game patches, and its upload button starts a patch upload', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?view=patches');
-  await expect(page.locator('#lib-subtabs [data-lsub="patches"]')).toHaveAttribute('aria-selected', 'true');
+  await page.goto('/admin/patches');
+  await expect(page.locator('#patches-subtabs [data-sub="list"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' })).toBeVisible();
   await page.getByRole('button', { name: '패치 올리기' }).click();
   await expect(page).toHaveURL(/\/admin\/upload\?kind=patch/);
@@ -15,9 +15,9 @@ test('the library and patch pages open without a script error or a failed-load t
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await signIn(page);
-  for (const path of ['/admin/games', '/admin/games?view=patches']) {
+  for (const path of ['/admin/games', '/admin/patches', '/admin/saves']) {
     await page.goto(path);
-    await expect(page.locator('#lib-patches, #lib-cards').first()).toBeAttached();
+    await expect(page.locator('#lib-patches, #lib-saves, #lib-cards').first()).toBeAttached();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#toast')).not.toContainText('is not defined');
   }
@@ -27,7 +27,7 @@ test('the library and patch pages open without a script error or a failed-load t
 test('on a phone a patch row puts its name on a line of its own and the game title stays inside the card', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page);
-  await page.goto('/admin/games?view=patches');
+  await page.goto('/admin/patches');
   const row = page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' });
   await expect(row).toBeVisible();
   const [rowBox, nameBox, editBox] = await Promise.all([row.boundingBox(), row.locator('.pt-name').boundingBox(), row.locator('.pt-edit').boundingBox()]);

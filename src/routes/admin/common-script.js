@@ -245,7 +245,8 @@ function subtabs(tab){const bar=$(tab+'-subtabs');if(!bar)return;
     for(const p of $('tab-'+tab)?.querySelectorAll('[data-sub-panel]')||[])p.hidden=p.dataset.subPanel!==sub;}};
   for(const b of bar.querySelectorAll('[data-sub]'))b.addEventListener('click',()=>{
     const next=new URL(location.href);next.hash='#'+tab+'/'+b.dataset.sub;
-    if(tab==='homebrew')next.searchParams.set('tab',b.dataset.sub);
+    if(['homebrew','patches','saves'].includes(tab))next.searchParams.set('tab',b.dataset.sub);else next.searchParams.delete('tab');
+    next.searchParams.delete('path');
     history.replaceState(null,'',next);st.show(b.dataset.sub);if(window.__admMark)window.__admMark();});
   SUBTABS[tab]=st;}
 

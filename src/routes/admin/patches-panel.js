@@ -120,7 +120,7 @@ function ctGroups(list,tidOf,row){const groups=new Map();for(const x of list){co
     const ico=el('img',null,'pt-ico');ico.alt='';ico.loading='lazy';
     if(/^[0-9A-F]{16}$/i.test(tid)){ico.src='/api/library/icon/'+tid+'?size=sm';ico.onerror=()=>ico.removeAttribute('src');}
     h.append(ico,name);g.append(h,...items.map(row));return g;});}
-function ptRender(){const q=$('pt-q').value.trim().toLowerCase(),only=$('pt-only').getAttribute('aria-pressed')==='true';
+function ptRender(){if(!$('lib-patches'))return;const q=$('pt-q').value.trim().toLowerCase(),only=$('pt-only').getAttribute('aria-pressed')==='true';
   const hit=(p)=>(!only||p.required)&&(!q||[p.game,p.title_id,p.name,p.ko&&p.ko.name].some((s)=>(s||'').toLowerCase().includes(q)));
   const req=ptData.filter((p)=>p.required).length,miss=ptData.filter((p)=>p.update_version&&!p.update_in_library).length;
   $('pt-count').textContent=ptData.length?'게임 '+new Set(ptData.map((p)=>p.title_id)).size+'개에 패치 '+ptData.length+'개가 있고, 그중 필수는 '+req+'개입니다.'
@@ -129,7 +129,7 @@ function ptRender(){const q=$('pt-q').value.trim().toLowerCase(),only=$('pt-only
   if(!ptData.length){m.replaceChildren(el('div','게임 패치가 없습니다. 업로드 탭에서 올립니다.','empty'));return;}
   const groups=ctGroups(ptData.filter(hit),(p)=>p.title_id,ptRow);
   m.replaceChildren(...(groups.length?groups:[el('div','찾는 패치가 없습니다.','empty')]));}
-function svRender(){const m=$('lib-saves');
+function svRender(){const m=$('lib-saves');if(!m)return;
   m.replaceChildren(...(svData.length?ctGroups(svData,(s)=>s.titleId,svRow):[el('div','게임 세이브가 없습니다. 업로드 탭에서 올립니다.','empty')]));}
 // The game editor's own list, for the game it has open (gdId).
 function ptGame(){const m=$('gd-patches');if(!m)return;
@@ -137,9 +137,9 @@ function ptGame(){const m=$('gd-patches');if(!m)return;
   m.replaceChildren(...(rows.length?rows:[el('div','이 게임에 엮인 패치와 세이브가 없습니다. 폴더 이름이 이 게임의 타이틀 ID 여야 합니다.','empty')]));}
 async function loadPatches(){let p,s;try{[p,s]=await Promise.all([api('/admin/api/patches'),api('/admin/api/saves')]);}catch(err){toast(err.message);return;}
   ptData=p.patches||[];svData=s.saves||[];ptRender();svRender();ptGame();}
-$('pt-q').addEventListener('input',ptRender);
-$('pt-upload').addEventListener('click',()=>{location.href='/admin/upload?kind=patch';});
-$('pt-only').addEventListener('click',(e)=>{const b=e.currentTarget;b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));ptRender();});
+$('pt-q')?.addEventListener('input',ptRender);
+$('pt-upload')?.addEventListener('click',()=>{location.href='/admin/upload?kind=patch';});
+$('pt-only')?.addEventListener('click',(e)=>{const b=e.currentTarget;b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));ptRender();});
 
 ${CONTENT_EDITOR_SCRIPT}
 `;

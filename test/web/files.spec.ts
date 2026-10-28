@@ -25,7 +25,7 @@ test.afterAll(() => fs.rmSync(base, { recursive: true, force: true }));
 
 test('a folder opens, the path leads back, and the address keeps the place', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/files?root=games&path=fb-test');
+  await page.goto('/admin/games?tab=folder&path=fb-test');
   await expect(row(page, 'Alpha')).toBeVisible();
   await expect(row(page, 'loose.nsp')).toContainText('3 B');
   await row(page, 'Alpha').getByRole('button', { name: 'Alpha' }).click();
@@ -39,7 +39,7 @@ test('a folder opens, the path leads back, and the address keeps the place', asy
 
 test('a new folder, a rename, a move and a trash each change the disk', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/files?root=games&path=fb-test');
+  await page.goto('/admin/games?tab=folder&path=fb-test');
   await expect(row(page, 'Alpha')).toBeVisible();
 
   await page.locator('#fb-mkdir').click();
@@ -75,7 +75,7 @@ test('the header row stays in view while the list scrolls, and the bar sits at t
   for (let i = 0; i < 60; i++) put(`Many/file-${String(i).padStart(2, '0')}.nsp`);
   await page.setViewportSize({ width: 1280, height: 720 });
   await signIn(page);
-  await page.goto('/admin/files?root=games&path=fb-test%2FMany');
+  await page.goto('/admin/games?tab=folder&path=fb-test%2FMany');
   await expect(row(page, 'file-59.nsp')).toBeVisible();
   await page.mouse.wheel(0, 1500);
   const head = await page.locator('#fb thead th.c-name').boundingBox();
@@ -89,7 +89,7 @@ test('the header row stays in view while the list scrolls, and the bar sits at t
 test('on a phone the list fits the width', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page);
-  await page.goto('/admin/files?root=games&path=fb-test');
+  await page.goto('/admin/games?tab=folder&path=fb-test');
   await expect(row(page, 'Alpha')).toBeVisible();
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
@@ -98,7 +98,7 @@ test('on a phone the list fits the width', async ({ page }) => {
 
 test('files dropped on the list or picked with Upload land in the open folder, in pieces', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/files?root=games&path=fb-test%2FBeta');
+  await page.goto('/admin/games?tab=folder&path=fb-test%2FBeta');
   await expect(row(page, 'keep.txt')).toBeVisible();
   await page.evaluate(() => { (window as any).UP_CHUNK_BYTES = 4; });
 

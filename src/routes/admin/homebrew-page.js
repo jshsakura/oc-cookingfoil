@@ -2,11 +2,13 @@
 import { icon } from "../../views/icons.js";
 import { box } from "./boxes.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
+import { FOLDER_MARK } from "./files-panel.js";
 export const HOMEBREW_HTML = /* html */ `<section id="tab-homebrew" hidden>
   <div class="subtabs hide-bar" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
     <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
     <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}추천 홈브류</button>
     <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}GitHub 저장소</button>
+    <button type="button" role="tab" data-sub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button>
   </div>
   <div data-sub-panel="apps">
   <div class="hd"><h2 class="first">${top("ht.apps")}</h2><div class="actions"><button type="button" id="hb-rescan">${top("ra.reload")}</button><button type="button" id="hb-adopt">${top("hb.adopt")}</button></div></div>
@@ -15,6 +17,7 @@ export const HOMEBREW_HTML = /* html */ `<section id="tab-homebrew" hidden>
   <div id="hb-held" class="hb-held" hidden></div>
   <div class="scroll" id="hb-apps" data-skel></div>
   </div>
+  <div data-sub-panel="folder" hidden>${FOLDER_MARK}</div>
   <div data-sub-panel="reco" hidden>
   <div class="hd"><h2 class="first">${top("ht.reco")}</h2><div class="actions"><button type="button" id="hb-add-picked">${top("hb.addPicked")}</button><button type="button" class="primary" id="hb-add-all">${top("hb.addAll")}</button></div></div>
   <p class="muted">${top("hb.recoLede")}</p>

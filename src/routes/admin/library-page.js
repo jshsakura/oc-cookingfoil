@@ -3,16 +3,16 @@ import { icon } from "../../views/icons.js";
 import { top, topPh } from "./top-i18n.js";
 import { LIBRARY_VERIFY_HTML } from "./library-files-panel.js";
 import { LIB_BROWSER_HTML } from "./library-browser-panel.js";
-import { GAME_PATCHES_HTML, PATCHES_HTML, SAVES_HTML } from "./patches-panel.js";
+import { GAME_PATCHES_HTML } from "./patches-panel.js";
+import { FOLDER_MARK } from "./files-panel.js";
 
 export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
   <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
   <p class="muted" id="scan-status" aria-live="polite"></p>
   <div class="subtabs hide-bar" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
-    <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("folder")}파일</button>
+    <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("grid")}${top("m.gameList")}</button>
+    <button type="button" role="tab" data-lsub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button>
     <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}검사</button>
-    <button type="button" role="tab" data-lsub="patches" aria-selected="false">${icon("package")}패치</button>
-    <button type="button" role="tab" data-lsub="saves" aria-selected="false">${icon("save")}세이브</button>
     <button type="button" role="tab" data-lsub="info" aria-selected="false">${icon("book")}이름과 소개</button>
     <button type="button" role="tab" data-lsub="server" aria-selected="false">${icon("sliders")}서버</button>
   </div>
@@ -22,8 +22,7 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
     <div class="cards" id="lib-cards"></div>
   </section></div>
   <div data-lib-panel="verify" hidden>${LIBRARY_VERIFY_HTML}</div>
-  <div data-lib-panel="patches" hidden>${PATCHES_HTML}</div>
-  <div data-lib-panel="saves" hidden>${SAVES_HTML}</div>
+  <div data-lib-panel="folder" hidden>${FOLDER_MARK}</div>
   <div data-lib-panel="info" hidden>
   <h2 class="first">게임 이름, 소개, 추가 정보</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
@@ -80,13 +79,16 @@ $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)re
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.',{danger:true}))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);}catch(err){toast(err.message);}});
 // The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
-const LIB_SUBS=['files','verify','patches','saves','info','server'];let libSub='files';
+const LIB_SUBS=['files','folder','verify','info','server'];let libSub='files';
 function libLoadSub(){
-  if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='patches'||libSub==='saves')loadPatches();}
+  if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='folder')fbOpen('games');else if(libSub==='info')loadPatches();}
 function libShowSub(sub,quiet){if(!LIB_SUBS.includes(sub))return;libSub=sub;
   for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.setAttribute('aria-selected',String(b.dataset.lsub===sub));
   for(const p of document.querySelectorAll('#tab-library [data-lib-panel]'))p.hidden=p.dataset.libPanel!==sub;
-  if(!quiet){const next=new URL(location.href);next.searchParams.set('view',sub);next.hash='#library/'+sub;
+  if(!quiet){const next=new URL(location.href);
+    if(sub==='folder')next.searchParams.delete('view');
+    else{next.searchParams.set('view',sub);next.searchParams.delete('tab');next.searchParams.delete('path');}
+    next.hash='#library/'+sub;
     history.replaceState(null,'',next);libLoadSub();}
   if(window.__admMark)window.__admMark();}
 for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.addEventListener('click',()=>libShowSub(b.dataset.lsub));

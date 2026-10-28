@@ -27,12 +27,13 @@ export const ADMIN_PAGES = [
   { path: "/admin/incoming/temp", tab: "organize", label: "m.organize", row: "incoming", icon: "folder" },
   { path: "/admin/inbox", tab: "inbox", label: "m.inbox", row: "incoming", icon: "send", count: "inbox-count" },
   // the libraries: each page holds its own jobs as tabs
-  { path: "/admin/games", tab: "library", label: "m.grpGames", icon: "grid" },
-  { path: "/admin/retro", tab: "retro", label: "m.retro", icon: "joystick" },
-  { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", icon: "package", param: "tab" },
-  { path: "/admin/featured", tab: "featured", label: "m.featured", icon: "star" },
-  { path: "/admin/files", tab: "files", label: "m.files", icon: "layers" },
-  { path: "/admin/trash", tab: "trash", label: "m.trash", icon: "trash" },
+  { path: "/admin/games", tab: "library", label: "m.grpGames", group: "library", icon: "grid" },
+  { path: "/admin/retro", tab: "retro", label: "m.retro", group: "library", icon: "joystick" },
+  { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", group: "library", icon: "package", param: "tab" },
+  { path: "/admin/patches", tab: "patches", label: "m.patches", group: "library", icon: "puzzle", param: "tab" },
+  { path: "/admin/saves", tab: "saves", label: "m.saves", group: "library", icon: "save", param: "tab" },
+  { path: "/admin/featured", tab: "featured", label: "m.featured", group: "library", icon: "star" },
+  { path: "/admin/trash", tab: "trash", label: "m.trash", group: "library", icon: "trash" },
   // people
   { path: "/admin/users", tab: "users", label: "s.users", group: "people", icon: "users", count: "account-count" },
   { path: "/admin/devices", tab: "devices", label: "s.devices", group: "people", icon: "device", count: "pending-count" },
@@ -62,6 +63,7 @@ const ROWS = {
 };
 
 const GROUPS = {
+  library: { label: "m.library", icon: "layers", always: true },
   people: { label: "m.people", sum: "people", icon: "users" },
   ops: { label: "m.grpOps", sum: "ops", icon: "log" },
   set: { label: "m.grpSet", icon: "sliders" },
@@ -73,7 +75,7 @@ export const PATH_FOR_TAB = {
   overview: "/admin", users: "/admin/users", devices: "/admin/devices", settings: "/admin/settings/server",
   alerts: "/admin/settings/notifications", logs: "/admin/logs/downloads", featured: "/admin/featured",
   library: "/admin/games", organize: "/admin/incoming/temp", nsz: "/admin/convert", upload: "/admin/upload", inbox: "/admin/inbox",
-  homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash",
+  homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash", patches: "/admin/patches", saves: "/admin/saves",
 };
 
 const countSpan = (id, withIds) => `<span class="count"${withIds ? ` id="${id}"` : ` data-count-id="${id}"`} hidden></span>`;
@@ -121,7 +123,7 @@ export function sidebarNav(current, withIds = true) {
   for (const [key, pages] of grouped) {
     if (!pages.length) continue;
     const g = GROUPS[key];
-    const open = pages.some((p) => p.path === current?.path) ? " open" : "";
+    const open = g.always || pages.some((p) => p.path === current?.path) ? " open" : "";
     const sum = g.sum ? `<span class="count" data-sum="${g.sum}" hidden></span>` : "";
     rows.push(`<details class="adm-grp" data-grp="${key}"${open}><summary>${icon(g.icon)}${top(g.label)}${sum}${CHEV}</summary><div class="adm-grp-in">`);
     for (const page of pages) rows.push(item(page, current, withIds));
@@ -246,8 +248,10 @@ function pathForHash(parts){const [tab,sub]=parts;
   if(tab==='settings')return ({integrations:'/admin/settings/integrations',security:PAGE.path==='/admin/settings/login'?PAGE.path:'/admin/settings/admin',tokens:'/admin/settings/automation',plugins:'/admin/settings/plugins'})[sub]||'/admin/settings/server';
   if(tab==='logs')return ({client:'/admin/logs/clients',deny:'/admin/logs/security'})[sub]||'/admin/logs/downloads';
   return H2P[tab]||'/admin';}
-// The temp folder was a tab of the games page; it is a page of the incoming row now.
-if(PAGE.path==='/admin/games'&&(new URLSearchParams(location.search).get('view')==='organize'||location.hash==='#library/organize')){location.replace('/admin/incoming/temp');return;}
+// The temp folder, patches and saves were tabs of the games page; each is a page of its own now.
+if(PAGE.path==='/admin/games'){const gone={organize:'/admin/incoming/temp',patches:'/admin/patches',saves:'/admin/saves'};
+  const q=new URLSearchParams(location.search);const to=gone[q.get('view')]||gone[location.hash.split('/')[1]];
+  if(to&&(q.get('view')||location.hash.startsWith('#library/'))){q.delete('view');const s=q.toString();location.replace(to+(s?'?'+s:''));return;}}
 const legacy=location.hash.slice(1).split('/');
 if(H2P[legacy[0]]&&(legacy[0]!==PAGE.tab||(['settings','logs'].includes(legacy[0])&&legacy[1]&&pathForHash(legacy)!==PAGE.path))){
   location.replace(pathForHash(legacy)+location.search+location.hash);return;}
@@ -297,7 +301,7 @@ window.__admSums=sums;
   if(!sub){if(tab==='library'&&q.get('view'))sub=q.get('view');
     else if(tab==='settings'&&q.get('view'))sub=q.get('view');
     else if(q.get('tab'))sub=q.get('tab');}
-  if(tab==='retro'&&q.get('view'))window.__admRetro=q.get('view');
+  if(tab==='retro'&&(q.get('view')||q.get('tab')==='folder'))window.__admRetro=q.get('tab')==='folder'?'folder':q.get('view');
   if(tab==='logs'&&PAGE.sub)window.__admLogs=PAGE.sub;
   const h=location.hash.slice(1).split('/');
   if(h[0]&&H2P[h[0]]){tab=h[0];sub=h[1]||sub;history.replaceState(null,'',location.pathname+(location.search||''));}
