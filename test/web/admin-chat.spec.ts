@@ -49,9 +49,9 @@ test('the chat is a full-height chat screen: off state, settings sheet, greeting
   await page.locator('#ch-sheet-x').click();
   await expect(page.locator('#ch-sheet')).toBeHidden();
 
-  // Greeting with three example chips; a chip fills the box without sending.
+  // Greeting with four example chips; a chip fills the box without sending.
   await expect(page.locator('#ch-col .ch-hello h3')).toBeVisible();
-  await expect(page.locator('.ch-chip')).toHaveCount(3);
+  await expect(page.locator('.ch-chip')).toHaveCount(4);
   await page.locator('.ch-chip').first().click();
   await expect(page.locator('#ch-text')).toHaveValue(/게임이 몇 개/);
 
