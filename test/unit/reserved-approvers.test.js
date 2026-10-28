@@ -13,7 +13,7 @@ process.env.COOK_AUTH_USERS = "";
 process.env.COOK_DEVICE_PAIRING = "true";
 const users = await import("../../src/security/users.js");
 const store = await import("../../src/security/store.js");
-const { ownsApproval } = await import("../../src/routes/device-pair.js");
+const { holds } = await import("../../src/security/device-owner.js");
 const { mayEnroll } = await import("../../src/routes/pair.js");
 
 test("an account cannot be named after a system approver, in any case", () => {
@@ -24,14 +24,13 @@ test("an account cannot be named after a system approver, in any case", () => {
   assert.equal(users.add("alice", "alice-password-1").name, "alice");
 });
 
-test("an account named like a system approver owns none of those consoles", () => {
-  const account = (user) => ({ auth: { user } });
+test("no one holds a console the server approved, the admin session included", () => {
   for (const marker of ["admin", "auto", "telegram"]) {
-    assert.equal(ownsApproval(account(marker), marker, marker), false, marker);
+    assert.equal(holds(marker, marker), false, marker);
   }
-  assert.equal(ownsApproval(account("alice"), "alice", "alice"), true, "an account owns what it approved");
-  assert.equal(ownsApproval(account("alice"), "alice", "bob"), false);
-  assert.equal(ownsApproval({}, "admin", "admin"), true, "the admin's own session still owns its approvals");
+  assert.equal(holds("alice", "alice"), true, "an account holds what it approved");
+  assert.equal(holds("alice", "bob"), false);
+  assert.equal(holds(null, null), false);
 });
 
 test("a console the server approved takes a new key from any download; an account's console stays its own", () => {

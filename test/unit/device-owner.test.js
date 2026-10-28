@@ -186,3 +186,20 @@ test("the admin gives a console no account holds to an account; it keeps its key
   assert.deepEqual(giveToAccount(adm, "carol"), { ok: false, code: "admin-device" });
   assert.deepEqual(giveToAccount("C4".repeat(32), "carol"), { ok: false, code: "no-device" });
 });
+
+test("a console no account holds has no owner's wishlist, no sends and is no one's own until it is given to an account", async () => {
+  const { giveToAccount } = await import("../../src/security/device-owner.js");
+  const { ownerOf } = await import("../../src/routes/wishlist.js");
+  for (const [i, by] of ["admin", "auto", "telegram"].entries()) {
+    const key = `E${i}`.repeat(32);
+    store.approveDevice(key, { label: "shared", addedBy: by, accessKeyHash: hashAccessKey("k") });
+    assert.equal(ownerOf(key), null, by);
+    for (const who of ["alice", by]) {
+      assert.ok(!(await mine(who)).includes(key), `${by}: not ${who}'s`);
+      assert.equal((await send(who, key)).error, "no such device", `${by}: ${who} cannot send to it`);
+    }
+    assert.deepEqual(giveToAccount(key, "carol"), { ok: true });
+    assert.equal(ownerOf(key), "carol");
+    assert.equal((await send("carol", key)).error, "not in the library", "once held, the send gets past the ownership check");
+  }
+});

@@ -9,7 +9,8 @@
  *   GET  /pair/api/sends                       the caller's waiting items → { consoles: [{ deviceKey, items }] }
  *   POST /pair/api/sends/<id>/cancel           withdraw one the caller sent → { ok: true } or 404
  *   `path` is the file's library-relative path (the item's url without its "../" and unescaped).
- *   The admin session may send to any console; a library account only to those it approved.
+ *   The admin session may send to any console an account holds; a library account only to its own.
+ *   A console no account holds (approved by the admin, automatically or from Telegram) takes no sends.
  *
  * The console (device key + access key, or its session token; it reads and acks only its own queue):
  *   GET  /api/device/sends
@@ -31,6 +32,8 @@ import crypto from "node:crypto";
 import express from "express";
 
 import * as store from "../security/store.js";
+import * as users from "../security/users.js";
+import { holds } from "../security/device-owner.js";
 import * as sends from "../security/device-sends.js";
 import * as sendHistory from "../security/send-history.js";
 import { baseTitleIdOf } from "../meta/image-cache.js";
@@ -115,11 +118,15 @@ export function consoleSendsRouter() {
 }
 
 /** The web endpoints, mounted into the /pair router (which owns the same-origin and sign-in rules). */
-export function mountWebSends(router, { guardWrite, approverOf, ownsApproval }) {
+export function mountWebSends(router, { guardWrite, approverOf }) {
   const json = express.json({ limit: "4kb" });
 
-  const ownDevice = (req, approver, deviceKey) =>
-    Boolean(deviceKey) && store.devicesSnapshot().approved.some((d) => d.deviceKey === deviceKey && (approver === "admin" && !req.auth?.user ? true : ownsApproval(req, approver, d.addedBy)));
+  // The admin session may send to any console an account holds; nobody sends to one no account holds.
+  const ownDevice = (req, approver, deviceKey) => {
+    const by = deviceKey ? store.deviceAddedBy(deviceKey) : null;
+    if (!by || !store.isDeviceApproved(deviceKey)) return false;
+    return approver === "admin" && !req.auth?.user ? !users.SYSTEM_APPROVERS.has(by) : holds(approver, by);
+  };
 
   router.post("/api/sends", json, (req, res) => {
     const approver = guardWrite(req, res);

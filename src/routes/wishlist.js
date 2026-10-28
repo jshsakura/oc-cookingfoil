@@ -10,8 +10,8 @@
  * The console (device key + access key, or its session token):
  *   GET  /api/device/wishlist
  *        → 200 { serverId, items: [{ titleId, name, addedAt, inLibrary }] }
- *        The list of the account that approved this console (the admin's for a console the
- *        admin approved; none for one approved automatically or from Telegram). `inLibrary`
+ *        The list of the account that holds this console; none for one no account holds
+ *        (approved by the admin, automatically or from Telegram). `inLibrary`
  *        says whether this server holds the base game. A console registered with several
  *        servers merges the lists by titleId and tells servers apart by serverId. The body
  *        is an ETag: send If-None-Match to get 304 while nothing changed.
@@ -20,18 +20,17 @@ import crypto from "node:crypto";
 import express from "express";
 
 import * as store from "../security/store.js";
-import * as users from "../security/users.js";
+import { holds } from "../security/device-owner.js";
 import * as wishlist from "../security/wishlist.js";
 import { serverId } from "../security/server-id.js";
 import { relPathsForBase } from "../meta/library-cache.js";
 
 const inLibrary = (titleId) => relPathsForBase(titleId).length > 0 || relPathsForBase(titleId.toLowerCase()).length > 0;
 
-/** The account whose wishes a console shows: the one that approved it, or null for a system approval. */
+/** The account whose wishes a console shows: the one that holds it, or null when no account does. */
 export function ownerOf(deviceKey) {
-  const row = store.devicesSnapshot().approved.find((d) => d.deviceKey === deviceKey);
-  if (!row?.addedBy) return null;
-  return users.SYSTEM_APPROVERS.has(row.addedBy) && row.addedBy !== "admin" ? null : row.addedBy;
+  const by = store.isDeviceApproved(deviceKey) ? store.deviceAddedBy(deviceKey) : null;
+  return holds(by, by) ? by : null;
 }
 
 /** The console endpoint, mounted at /api/device/wishlist behind the sign-in gates. */

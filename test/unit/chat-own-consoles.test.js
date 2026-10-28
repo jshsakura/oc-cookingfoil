@@ -25,9 +25,8 @@ test("an account lists only the consoles it approved", () => {
   assert.deepEqual(ownConsoles("nobody"), []);
 });
 
-test("an account only named admin does not own the admin's consoles; the admin page's chat does", () => {
+test("a console the admin approved is no one's to reach from the chat, the admin page's included", () => {
   assert.deepEqual(ownConsoles("admin"), []);
-  assert.deepEqual(ownConsoles("admin", { admin: true }).map((c) => c.code), [deviceCode(KEYS.admin)]);
 });
 
 test("sending names a console of the caller's, or says which they have", () => {
