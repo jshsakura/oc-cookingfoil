@@ -97,7 +97,7 @@ async function inMemoryHost({ owner, name, admin }) {
     import("../mcp/server.js"),
     import("./mcp-host.js"),
   ]);
-  const server = buildServer({ token: { id: null, label: "chat", owner, chatAdmin: admin === true }, by: { type: "chat", name } });
+  const server = buildServer({ token: { id: null, label: "chat", owner }, by: { type: "chat", name } });
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   await server.connect(serverSide);
   const client = new Client({ name: "cookingfoil-chat", version: "1" });

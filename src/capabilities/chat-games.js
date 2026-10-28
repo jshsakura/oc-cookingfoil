@@ -96,7 +96,7 @@ export const chatGamesCapabilities = [
     }),
     previewOutput: obj({ game: str(), changes: str() }),
     handler: async (ctx, input) => {
-      const out = sendGame(approverOf(ctx.token?.owner), { game: input.game, device: input.device, admin: ctx.token?.chatAdmin === true });
+      const out = sendGame(approverOf(ctx.token?.owner), { game: input.game, device: input.device });
       return { code: out.code, label: out.label, existing: out.existing, name: out.item.name };
     },
   }),

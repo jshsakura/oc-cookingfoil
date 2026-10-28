@@ -45,6 +45,7 @@ import { latestBuild, publishedNroPath } from "./client-update.js";
 import { zipStore } from "../helpers/zip-store.js";
 import fs from "node:fs";
 import { mountWebSends } from "./device-sends.js";
+import { holds } from "../security/device-owner.js";
 import * as deviceSends from "../security/device-sends.js";
 import { mountWebWishlist } from "./wishlist.js";
 
@@ -56,17 +57,6 @@ export function approverOf(req) {
   if (req.auth?.user) return req.auth.user;
   if (req.pairedDevice) return null;
   return hasValidSession(req) ? "admin" : null;
-}
-
-/**
- * Whether a console approved by `addedBy` is this approver's own. A library account
- * never owns the markers the server writes for other approvals ("admin",
- * "auto", "telegram"), whatever it is called; only the admin's own session owns "admin".
- */
-export function ownsApproval(req, approver, addedBy) {
-  if (!approver || addedBy !== approver) return false;
-  if (!users.SYSTEM_APPROVERS.has(addedBy)) return true;
-  return addedBy === "admin" && !req.auth?.user;
 }
 
 /**
@@ -101,7 +91,7 @@ function mountMineApi(router) {
     const approver = approverOf(req);
     if (!approver) return res.status(401).json({ error: "sign in first" });
     const devices = store.devicesSnapshot().approved
-      .filter((d) => ownsApproval(req, approver, d.addedBy))
+      .filter((d) => holds(approver, d.addedBy))
       .map(({ deviceKey, label, addedAt, lastSeenAt }) => ({ deviceKey, code: deviceCode(deviceKey), label, addedAt, lastSeenAt: lastSeenAt ?? null, sends: deviceSends.canReceive(deviceKey) }));
     res.json({ devices, clients: clientRows({ owner: approver }) });
   });
@@ -147,13 +137,13 @@ function mountMineApi(router) {
     res.json({ ok: true });
   });
 
-  mountWebSends(router, { guardWrite, approverOf, ownsApproval });
+  mountWebSends(router, { guardWrite, approverOf });
   mountWebWishlist(router, { guardWrite, approverOf });
 
   // A console of this account, or null: another account's console is answered as missing.
   const ownConsole = (req, approver) => {
     const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
-    return deviceKey && store.devicesSnapshot().approved.some((d) => d.deviceKey === deviceKey && ownsApproval(req, approver, d.addedBy)) ? deviceKey : null;
+    return deviceKey && store.devicesSnapshot().approved.some((d) => d.deviceKey === deviceKey && holds(approver, d.addedBy)) ? deviceKey : null;
   };
 
   router.post("/api/devices/revoke", json, (req, res) => {

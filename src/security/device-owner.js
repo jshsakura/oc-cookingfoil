@@ -18,6 +18,13 @@ import { accountFull } from "./device-limit.js";
 
 const GOOGLE = "google:";
 
+/**
+ * Whether `approver` (an account name, or "google:<email>") holds the console approved by `addedBy`.
+ * The markers the server writes for its own approvals ("admin", "auto", "telegram") are no
+ * account's, the admin session's included, so such a console has no sends, wishlist or chat consoles.
+ */
+export const holds = (approver, addedBy) => Boolean(approver) && addedBy === approver && !users.SYSTEM_APPROVERS.has(addedBy);
+
 /** The owner principal of `deviceKey`, as above. */
 export function deviceOwner(deviceKey) {
   if (!deviceKey || !store.isDeviceApproved(deviceKey)) return null;
