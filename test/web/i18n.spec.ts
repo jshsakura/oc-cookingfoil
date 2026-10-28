@@ -52,16 +52,13 @@ test('switched to ja, en or zh, the landing shows no Korean on any tab, the clie
 
 test('the admin top area follows the language picked on the web, and its account menu changes it', async ({ page }) => {
   await signIn(page);
-  const games = page.locator('aside.adm-side .adm-grp[data-grp="games"] summary [data-top]');
-  const files = page.locator('aside.adm-side a[href="/admin/games"] [data-top]');
+  const games = page.locator('aside.adm-side a[href="/admin/games"] [data-top]');
   await expect(games).toHaveText('게임');
-  await expect(files).toHaveText('라이브러리');
 
   await page.goto('/');
   await pickLang(page, 'ja');
   await page.goto('/admin');
   await expect(games).toHaveText('ゲーム');
-  await expect(files).toHaveText('ライブラリ');
   await expect(page.locator('aside.adm-side .adm-grp[data-grp="ops"] summary [data-top]')).toHaveText('記録');
   await expect(page.locator('h1.brand')).toHaveAttribute('aria-label', 'CookingFoil サーバー管理');
   await expect(page).toHaveTitle('CookingFoil サーバー管理');
@@ -81,7 +78,6 @@ test('the admin top area follows the language picked on the web, and its account
   await page.keyboard.press('Escape');
   await pick('en');
   await expect(games).toHaveText('Games');
-  await expect(files).toHaveText('Library');
   await expect(page.locator('#lang-current')).toHaveText('EN');
   await expect(page.locator('#lang-list')).toBeHidden();
   await expect(page.locator('#lang-list [data-admin-lang="en"]')).toHaveAttribute('aria-checked', 'true');

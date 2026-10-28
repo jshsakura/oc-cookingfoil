@@ -14,41 +14,31 @@
 import { icon } from "../../views/icons.js";
 import { top } from "./top-i18n.js";
 
-/** A page: the section (tab) it opens, the sub-view inside it when there is one, and its sidebar icon. */
+/**
+ * A page: the section (tab) it opens, the sub-view inside it when there is one, and its sidebar icon.
+ * A page with no group or row is a sidebar row of its own. A `row` puts pages under one sidebar row,
+ * linked as tabs at the top of each page; a `group` puts them in a folding list.
+ */
 export const ADMIN_PAGES = [
   { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
   { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat" },
-  // games: the Switch library and what the console's home screen shows
-  { path: "/admin/games", tab: "library", label: "m.library", group: "games", icon: "folder" },
-  { path: "/admin/patches", tab: "library", sub: "patches", label: "m.patches", group: "games", icon: "package" },
-  { path: "/admin/saves", tab: "library", sub: "saves", label: "m.saves", group: "games", icon: "save" },
-  { path: "/admin/titles", tab: "library", sub: "info", label: "m.titles", group: "games", icon: "book" },
-  { path: "/admin/integrity", tab: "library", sub: "verify", label: "m.integrity", group: "games", icon: "check" },
-  { path: "/admin/featured", tab: "featured", label: "m.featured", group: "games", icon: "star" },
-  // retro: the eight jobs are items of their own, not a hidden tab row
-  {
-    path: "/admin/retro", tab: "retro", group: "retro", tasks: [
-      { view: "art", label: "rt.art", icon: "image" }, { view: "ratings", label: "rt.ratings", icon: "thumbs-up" },
-      { view: "cores", label: "rt.cores", icon: "monitor" }, { view: "names", label: "rt.names", icon: "tag" },
-      { view: "patch", label: "rt.patch", icon: "globe" }, { view: "dups", label: "rt.dups", icon: "copy" },
-      { view: "sets", label: "rt.sets", icon: "layers" },
-    ],
-  },
-  { path: "/admin/homebrew", tab: "homebrew", group: "homebrew", param: "tab", tasks: [
-    { view: "apps", label: "ht.apps", icon: "grid" }, { view: "reco", label: "ht.reco", icon: "sparkle" }, { view: "sources", label: "ht.sources", icon: "globe" },
-  ] },
-  // files: what comes in, where it sits, what was thrown away
-  { path: "/admin/upload", tab: "upload", label: "m.upload", group: "files", icon: "upload" },
-  { path: "/admin/organize", tab: "library", sub: "organize", label: "m.organize", group: "files", icon: "inbox" },
-  { path: "/admin/inbox", tab: "inbox", label: "m.inbox", group: "files", icon: "inbox", count: "inbox-count" },
-  { path: "/admin/files", tab: "files", label: "m.files", group: "files", icon: "layers" },
-  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "files", icon: "shrink" },
-  { path: "/admin/trash", tab: "trash", label: "m.trash", group: "files", icon: "trash" },
+  // incoming: what reached the server and waits for a place
+  { path: "/admin/upload", tab: "upload", label: "m.upload", row: "incoming", icon: "upload" },
+  { path: "/admin/incoming/temp", tab: "organize", label: "m.organize", row: "incoming", icon: "folder" },
+  { path: "/admin/inbox", tab: "inbox", label: "m.inbox", row: "incoming", icon: "send", count: "inbox-count" },
+  // the libraries: each page holds its own jobs as tabs
+  { path: "/admin/games", tab: "library", label: "m.grpGames", icon: "grid" },
+  { path: "/admin/retro", tab: "retro", label: "m.retro", icon: "joystick" },
+  { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", icon: "package", param: "tab" },
+  { path: "/admin/featured", tab: "featured", label: "m.featured", icon: "star" },
+  { path: "/admin/files", tab: "files", label: "m.files", icon: "layers" },
+  { path: "/admin/trash", tab: "trash", label: "m.trash", icon: "trash" },
   // people
   { path: "/admin/users", tab: "users", label: "s.users", group: "people", icon: "users", count: "account-count" },
   { path: "/admin/devices", tab: "devices", label: "s.devices", group: "people", icon: "device", count: "pending-count" },
-  // records
+  // records and jobs
   { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops", icon: "download" },
+  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "ops", icon: "shrink" },
   { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops", icon: "device" },
   { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", icon: "lock", count: "lock-count" },
   { path: "/admin/logs/alerts", tab: "alerts", sub: "history", label: "m.alertLog", group: "ops", icon: "bell" },
@@ -67,11 +57,11 @@ export const ADMIN_PAGES = [
 
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 
+const ROWS = {
+  incoming: { label: "m.incoming", icon: "inbox" },
+};
+
 const GROUPS = {
-  games: { label: "m.grpGames", sum: "games", icon: "grid" },
-  retro: { label: "m.retro", icon: "joystick" },
-  homebrew: { label: "g.homebrew", icon: "package" },
-  files: { label: "m.grpFiles", sum: "files", icon: "layers" },
   people: { label: "m.people", sum: "people", icon: "users" },
   ops: { label: "m.grpOps", sum: "ops", icon: "log" },
   set: { label: "m.grpSet", icon: "sliders" },
@@ -82,23 +72,33 @@ const GROUPS = {
 export const PATH_FOR_TAB = {
   overview: "/admin", users: "/admin/users", devices: "/admin/devices", settings: "/admin/settings/server",
   alerts: "/admin/settings/notifications", logs: "/admin/logs/downloads", featured: "/admin/featured",
-  library: "/admin/games", nsz: "/admin/convert", upload: "/admin/upload", inbox: "/admin/inbox",
+  library: "/admin/games", organize: "/admin/incoming/temp", nsz: "/admin/convert", upload: "/admin/upload", inbox: "/admin/inbox",
   homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash",
 };
 
+const countSpan = (id, withIds) => `<span class="count"${withIds ? ` id="${id}"` : ` data-count-id="${id}"`} hidden></span>`;
+
 const item = (page, current, withIds) => {
   const on = current?.path === page.path;
-  const count = page.count
-    ? `<span class="count"${withIds ? ` id="${page.count}"` : ` data-count-id="${page.count}"`} hidden></span>`
-    : "";
+  const count = page.count ? countSpan(page.count, withIds) : "";
   return `<a class="adm-item" href="${page.path}"${on ? ' aria-current="page"' : ""}>${page.icon ? icon(page.icon) : ""}${top(page.label)}${count}</a>`;
 };
 
-const taskItem = (page, task, current) => {
-  const href = `${page.path}?${page.param === "tab" ? "tab" : "view"}=${task.view}`;
-  const on = current?.path === page.path && (current?.view || page.tasks[0].view) === task.view;
-  return `<a class="adm-item adm-task" href="${href}"${on ? ' aria-current="page"' : ""}>${task.icon ? icon(task.icon) : ""}${top(task.label)}</a>`;
+/** A row that stands for several pages: it opens the first, and is the current row on any of them. */
+const rowItem = (key, pages, current, withIds) => {
+  const r = ROWS[key];
+  const on = pages.some((p) => p.path === current?.path);
+  const counts = pages.filter((p) => p.count).map((p) => countSpan(p.count, withIds)).join("");
+  return `<a class="adm-item" href="${pages[0].path}" data-paths="${pages.map((p) => p.path).join(" ")}"${on ? ' aria-current="page"' : ""}>${icon(r.icon)}${top(r.label)}${counts}</a>`;
 };
+
+/** The tabs over a page that shares a sidebar row with others: one link per page, the open one marked. */
+export function rowTabsHtml(page) {
+  if (!page.row) return "";
+  const pages = ADMIN_PAGES.filter((p) => p.row === page.row);
+  const links = pages.map((p) => `<a href="${p.path}"${p.path === page.path ? ' aria-current="page"' : ""}>${icon(p.icon)}${top(p.label)}</a>`).join("");
+  return `<nav class="subtabs adm-rowtabs hide-bar" data-top-label="${ROWS[page.row].label}">${links}</nav>`;
+}
 
 /**
  * The sidebar tree. One list per group; the current group is the open one, and
@@ -109,9 +109,14 @@ const taskItem = (page, task, current) => {
 export function sidebarNav(current, withIds = true) {
   const rows = [];
   const grouped = new Map(Object.keys(GROUPS).map((g) => [g, []]));
+  const seen = new Set();
   for (const page of ADMIN_PAGES) {
-    if (!page.group) rows.push(item(page, current, withIds));
-    else grouped.get(page.group).push(page);
+    if (page.group) grouped.get(page.group).push(page);
+    else if (!page.row) rows.push(item(page, current, withIds));
+    else if (!seen.has(page.row)) {
+      seen.add(page.row);
+      rows.push(rowItem(page.row, ADMIN_PAGES.filter((p) => p.row === page.row), current, withIds));
+    }
   }
   for (const [key, pages] of grouped) {
     if (!pages.length) continue;
@@ -119,10 +124,7 @@ export function sidebarNav(current, withIds = true) {
     const open = pages.some((p) => p.path === current?.path) ? " open" : "";
     const sum = g.sum ? `<span class="count" data-sum="${g.sum}" hidden></span>` : "";
     rows.push(`<details class="adm-grp" data-grp="${key}"${open}><summary>${icon(g.icon)}${top(g.label)}${sum}${CHEV}</summary><div class="adm-grp-in">`);
-    for (const page of pages) {
-      if (!page.tasks) rows.push(item(page, current, withIds));
-      else for (const task of page.tasks) rows.push(taskItem(page, task, current));
-    }
+    for (const page of pages) rows.push(item(page, current, withIds));
     rows.push(`</div></details>`);
   }
   return rows.join("");
@@ -244,6 +246,8 @@ function pathForHash(parts){const [tab,sub]=parts;
   if(tab==='settings')return ({integrations:'/admin/settings/integrations',security:PAGE.path==='/admin/settings/login'?PAGE.path:'/admin/settings/admin',tokens:'/admin/settings/automation',plugins:'/admin/settings/plugins'})[sub]||'/admin/settings/server';
   if(tab==='logs')return ({client:'/admin/logs/clients',deny:'/admin/logs/security'})[sub]||'/admin/logs/downloads';
   return H2P[tab]||'/admin';}
+// The temp folder was a tab of the games page; it is a page of the incoming row now.
+if(PAGE.path==='/admin/games'&&(new URLSearchParams(location.search).get('view')==='organize'||location.hash==='#library/organize')){location.replace('/admin/incoming/temp');return;}
 const legacy=location.hash.slice(1).split('/');
 if(H2P[legacy[0]]&&(legacy[0]!==PAGE.tab||(['settings','logs'].includes(legacy[0])&&legacy[1]&&pathForHash(legacy)!==PAGE.path))){
   location.replace(pathForHash(legacy)+location.search+location.hash);return;}
@@ -255,24 +259,24 @@ function activePath(){let p=location.pathname;
     else if(sub==='plugins')p='/admin/settings/plugins';
     else if(sub==='security')p=(p==='/admin/settings/admin')?p:'/admin/settings/login';}
   return p;}
-function mark(){const p=activePath(),q=new URLSearchParams(location.search);
-  for(const a of document.querySelectorAll('.adm-item')){const u=new URL(a.href,location.origin);let on=u.pathname===p;
-    // A task item (retro ?view, homebrew ?tab) is on only for its own task.
-    if(on&&(u.searchParams.has('view')||u.searchParams.has('tab'))){
-      const key=u.searchParams.has('tab')?'tab':'view';
-      const def=key==='tab'?'apps':'art';
-      on=u.searchParams.get(key)===(q.get(key)||def);}
+function mark(){const p=activePath();
+  for(const a of document.querySelectorAll('.adm-item')){const on=a.dataset.paths?a.dataset.paths.split(' ').includes(p):new URL(a.href,location.origin).pathname===p;
     if(on){a.setAttribute('aria-current','page');const g=a.closest('details.adm-grp');if(g)g.open=true;}
     else a.removeAttribute('aria-current');}
   crumb();}
-// The header names the page by its menu path, "group > item", from the sidebar's current item. The label
-// spans are copies, so the language switch relabels them with the rest.
+// The header names the page by its menu path, from the sidebar's current item: "group > item" in a group,
+// "row > tab" on a page that holds its jobs as tabs. The label spans are copies, so the language switch
+// relabels them with the rest.
 function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySelector('.adm-side .adm-item[aria-current="page"]');
   if(!c)return;c.replaceChildren();if(!a)return;
   const label=(n)=>{const s=n&&n.querySelector(':scope>[data-top]');return s?s.cloneNode(true):null;};
-  const g=label(a.closest('details.adm-grp')?.querySelector('summary')),i=label(a);
-  if(g){g.classList.add('adm-crumb-g');c.append(g);
+  const grp=a.closest('details.adm-grp');
+  const tab=grp?null:document.querySelector('main .subtabs:not([hidden]) :is([aria-current="page"],[aria-selected="true"])');
+  let g=label(grp?.querySelector('summary')),i=label(a);
+  if(tab){g=i;i=label(tab);if(!i){i=document.createElement('span');i.textContent=tab.textContent.trim();}}
+  if(g&&i){g.classList.add('adm-crumb-g');c.append(g);
     c.insertAdjacentHTML('beforeend','<svg class="adm-crumb-sep" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');}
+  else if(g)i=g;
   if(i){i.classList.add('adm-crumb-i');c.append(i);}}
 window.__admMark=mark;
 function sums(){

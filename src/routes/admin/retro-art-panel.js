@@ -156,13 +156,15 @@ var RETRO_SUBS=['art','ratings','cores','names','patch','dups','sets'];
 var retroSub=(()=>{try{const v=localStorage.getItem('cf-retro-sub');return RETRO_SUBS.includes(v)?v:'art';}catch{return 'art';}})();
 function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
   try{localStorage.setItem('cf-retro-sub',retroSub);}catch{}
+  const next=new URL(location.href);if(next.searchParams.get('view')!==retroSub){next.searchParams.set('view',retroSub);history.replaceState(null,'',next);}
   for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===retroSub));
   const panel=['art','ratings','cores','names','patch'].includes(retroSub)?retroSub:'versions';
   for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=p.dataset.subPanel!==panel;
   if(panel==='names')loadRetroKo();
   if(panel==='patch')loadRetroPatch();
   if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});}
-  if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}}
+  if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}
+  if(window.__admMark)window.__admMark();}
 for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.addEventListener('click',()=>retroShowSub(b.dataset.sub));
 function retroOpen(){
   // Retro's trash is the shared one now, filtered to the retro folder; old links land there.

@@ -22,6 +22,7 @@ import { RETRO_VARIANTS_WORDS } from "./retro-variants-words.js";
 import { INTEGRATIONS_WORDS } from "./integrations-words.js";
 import { LIB_BROWSER_WORDS } from "./library-browser-words.js";
 import { FILES_WORDS } from "./files-words.js";
+import { NAV_WORDS } from "./nav-words.js";
 import { ALERTS_WORDS } from "./alerts-words.js";
 import { TRANSFERS_WORDS } from "./transfers-words.js";
 import { SECURITY_WORDS } from "./security-words.js";
@@ -1602,7 +1603,7 @@ const PEOPLE_WORDS = {
   },
 };
 
-export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...PLUGINS_WORDS[code], ...BUILD_WARNING_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...FILES_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code], ...GATE_WORDS[code], ...PAIR_PAGE_WORDS[code], ...ENROLL_WORDS[code], ...CONTENT_EDITOR_WORDS[code], ...CONNECT_HOWTO_WORDS[code], ...GUIDE_PAGE_WORDS[code], ...CHAT_WORDS[code], ...THEME_WORDS[code] }]));
+export const TOP_WORDS = Object.fromEntries(TOP_LANGS.map(([code]) => [code, { ...BASE_WORDS[code], ...TRASH_WORDS[code], ...MCP_WORDS[code], ...RETRO_KO_WORDS[code], ...RETRO_PATCH_WORDS[code], ...KEYS_WORDS[code], ...UPLOAD_LIMIT_WORDS[code], ...PEOPLE_WORDS[code], ...(WIDE_WORDS[code] || {}), ...OV_WORDS[code], ...PLUGINS_WORDS[code], ...BUILD_WARNING_WORDS[code], ...SETTINGS_WORDS[code], ...SETTINGS_FIELD_WORDS[code], ...SETTINGS_ROW_WORDS[code], ...NSZ_WORDS[code], ...RETRO_ART_WORDS[code], ...HOMEBREW_WORDS[code], ...RETRO_VARIANTS_WORDS[code], ...INTEGRATIONS_WORDS[code], ...LIB_BROWSER_WORDS[code], ...FILES_WORDS[code], ...NAV_WORDS[code], ...ALERTS_WORDS[code], ...TRANSFERS_WORDS[code], ...SECURITY_WORDS[code], ...CLIENT_RELEASE_WORDS[code], ...LOGS_WORDS[code], ...GATE_WORDS[code], ...PAIR_PAGE_WORDS[code], ...ENROLL_WORDS[code], ...CONTENT_EDITOR_WORDS[code], ...CONNECT_HOWTO_WORDS[code], ...GUIDE_PAGE_WORDS[code], ...CHAT_WORDS[code], ...THEME_WORDS[code] }]));
 
 /** A label in the top area: Korean in the HTML, swapped by the script for the stored language. */
 export const top = (key) => `<span data-top="${key}">${TOP_WORDS.ko[key]}</span>`;

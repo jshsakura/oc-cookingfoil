@@ -1,7 +1,7 @@
 import { LIBRARY_HTML, LIBRARY_PAGE_SCRIPT } from "./library-page.js";
 import { LIBRARY_FILES_CSS, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
 import { LIB_BROWSER_CSS, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
-import { ORGANIZE_CSS, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
+import { ORGANIZE_CSS, ORGANIZE_HTML, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
 import { PATCHES_SCRIPT } from "./patches-panel.js";
 import { HOMEBREW_HTML, HOMEBREW_DIALOG_HTML, HOMEBREW_SCRIPT } from "./homebrew-page.js";
 import { LIST_HELPERS_CSS, LIST_HELPERS_SCRIPT } from "./list-helpers.js";
@@ -35,7 +35,7 @@ import { ACTIVITY_CSS, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT } from "./boxes.js";
 import { top, TOP_I18N_SCRIPT, TOP_LANG_CSS } from "./top-i18n.js";
 import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
-import { ADM_SHELL_CSS, admRouterScript } from "./admin-pages.js";
+import { ADM_SHELL_CSS, admRouterScript, rowTabsHtml } from "./admin-pages.js";
 import { COMMON_SCRIPT } from "./common-script.js";
 import { CHROME_SCRIPT } from "./chrome-script.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
@@ -68,7 +68,7 @@ ${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${BRAND_MOTION_CS
 ${adminChrome(current)}
 <div class="wrap">
 <main>
-${open}
+${rowTabsHtml(page)}${open}
 </main>
 </div>
 ${ASK_DIALOG_HTML}
@@ -82,9 +82,9 @@ const bundle = (extra) => extra;
 /** The first bundle's pages, by the path the router already knows. */
 export const SPLIT_PAGES = {
   "/admin/games": bundle({
-    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+ORGANIZE_CSS+LIBRARY_FILES_CSS,
+    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+LIBRARY_FILES_CSS,
     body: LIBRARY_HTML+CONTENT_DIALOG_HTML,
-    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT+ORGANIZE_SCRIPT,
+    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT,
     init: "libShowSub(location.hash.split('/')[1]||'files',true);loadLibrary();",
   }),
   "/admin/homebrew": bundle({
@@ -107,6 +107,7 @@ export const SPLIT_PAGES = {
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
   "/admin/files": bundle({ css: FILES_CSS, body: FILES_HTML, script: FILES_SCRIPT, init: "loadFiles();" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
+  "/admin/incoming/temp": bundle({ css: ORGANIZE_CSS, body: '<section id="tab-organize">'+ORGANIZE_HTML+'</section>', script: ORGANIZE_SCRIPT, init: "loLoad();" }),
   "/admin/inbox": bundle({ css: INBOX_CSS, body: INBOX_HTML, script: INBOX_SCRIPT, init: "loadInbox();" }),
   "/admin/convert": bundle({ css: NSZ_CSS, body: NSZ_HTML, script: NSZ_SCRIPT, init: "loadNsz();" }),
   "/admin/logs/downloads": bundle({ css: TRANSFERS_CSS + LOGS_CSS, body: TRANSFERS_HTML, script: TRANSFERS_SCRIPT, init: "setTimeout(xfOpen);" }),
