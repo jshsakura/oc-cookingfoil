@@ -93,22 +93,19 @@ test("against the base, a new problem in a dictionary fails even when another wa
   assert.deepEqual(newSince(swapped, base).map((n) => n.text), ["W: en lacks c"], "named by its dictionary");
 });
 
-test("a markdown doc counts its Korean lines until every admin language has the same document", () => {
+test("a markdown doc counts its Korean lines until English has the same document", () => {
   const ko = "# 안내\n\n첫 줄입니다.\n\n## 둘\n\n- 항목\n";
   const en = "# Guide\n\nFirst line.\n\n## Two\n\n- Item\n";
-  const alone = scanEntries([{ file: "src/views/guide.md", source: ko }]);
+  const alone = scanEntries([{ file: "src/views/guide.ko.md", source: ko }]);
   assert.deepEqual(alone[0].strays.map((s) => s.line), [1, 3, 5, 7]);
   assert.deepEqual(alone[0].problems, []);
-  const guide = (results) => results.find((r) => r.file === "src/views/guide.md");
-  const partial = scanEntries([{ file: "src/views/guide.md", source: ko }, { file: "src/views/guide.en.md", source: en }]);
-  assert.equal(guide(partial).strays.length, 4, "the Korean still counts while a language is missing");
-  assert.deepEqual(guide(partial).problems.map((p) => p.text), ["missing ja", "missing zh"]);
-  const whole = scanEntries(["", ".en", ".ja", ".zh"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? en : ko })));
-  assert.deepEqual(whole.flatMap((r) => [...r.strays, ...r.problems]), [], "a translated doc is a dictionary of documents");
-  const longer = scanEntries(["", ".en", ".ja", ".zh"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? en : ko + "\n새 줄입니다.\n" })));
-  assert.deepEqual(guide(longer).problems.map((p) => p.text), ["en has 4 lines, ko 5", "ja has 4 lines, ko 5", "zh has 4 lines, ko 5"]);
-  const korean = scanEntries(["", ".en", ".ja", ".zh"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i === 2 ? ko : i ? en : ko })));
-  assert.equal(korean.find((r) => r.file === "src/views/guide.ja.md").strays.length, 4, "Korean in a translation counts");
+  const guide = (results) => results.find((r) => r.file === "src/views/guide.ko.md");
+  const whole = scanEntries([".ko", ".en"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? en : ko })));
+  assert.deepEqual(whole.flatMap((r) => [...r.strays, ...r.problems]), [], "a translated doc is a dictionary of documents; Japanese and Chinese need no file");
+  const longer = scanEntries([".ko", ".en"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? en : ko + "\n새 줄입니다.\n" })));
+  assert.deepEqual(guide(longer).problems.map((p) => p.text), ["en has 4 lines, ko 5"]);
+  const korean = scanEntries([".ko", ".en"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: ko })));
+  assert.equal(korean.find((r) => r.file === "src/views/guide.en.md").strays.length, 4, "Korean in a translation counts");
 });
 
 test("a renamed or split file: the failure says how to move the ceiling, and --rename moves it without raising it", () => {
@@ -184,8 +181,8 @@ test("an exemption the merge base did not have fails until approved, naming the 
 test("a translated guide passes only when each line is translated, not filled with placeholders", () => {
   const ko = "# 안내\n\n첫 줄입니다.\n\n## 둘\n\n- 항목\n\n```\nnpm start\n```\n";
   const en = "# Guide\n\nFirst line.\n\n## Two\n\n- Item\n\n```\nnpm start\n```\n";
-  const set = (tr) => scanEntries(["", ".en", ".ja", ".zh"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? tr(l.slice(1)) : ko })));
-  const guide = (results) => results.find((r) => r.file === "src/views/guide.md");
+  const set = (tr) => scanEntries([".ko", ".en"].map((l, i) => ({ file: `src/views/guide${l}.md`, source: i ? tr(l.slice(1)) : ko })));
+  const guide = (results) => results.find((r) => r.file === "src/views/guide.ko.md");
   assert.deepEqual(guide(set(() => en)).problems, [], "a real translation with an identical code line passes");
   const todo = ko.split("\n").map((l) => (!l.trim() ? "" : /^#{1,6}\s/.test(l) ? l.match(/^#+/)[0] + " x" : "TODO")).join("\n");
   const filler = set(() => todo);
@@ -308,5 +305,6 @@ test("the scanner finds the known dictionaries and holds each to its languages",
   const labels = dictsOf("src/meta/card-labels.js");
   assert.ok(labels.length >= 10 && labels.every((d) => d.kind === "client" && d.langs.size === CLIENT_LANGS.length));
   assert.equal(ceilings.problems?.["src/views/landing.html"] ?? 0, 0, "the web page people see first has a whole dictionary");
-  assert.ok(byFile.get("src/views/guide.md")?.strays.length > 0, "the operator guide is read as text");
+  assert.ok(byFile.has("src/views/guide.ko.md") && byFile.has("src/views/guide.en.md"), "the operator guide is read as a pair of documents");
+  assert.equal(ceilings.problems?.["src/views/guide.ko.md"] ?? 0, 0, "the guide in Korean and English line up");
 });

@@ -20,7 +20,8 @@ export const DATA_LITERALS_FILE = path.join(ROOT, "test/fixtures/i18n-data-liter
 export const ADMIN_LANGS = ["ko", "en", "ja", "zh"];
 export const CLIENT_LANGS = LANGS;
 const CLIENT_ONLY = LANGS.filter((l) => !ADMIN_LANGS.includes(l));
-const DOC_LANGS = ADMIN_LANGS.filter((l) => l !== "ko");
+// A document is kept in Korean and English; Japanese and Chinese readers are given the English one.
+const DOC_LANGS = ["en"];
 
 const HANGUL_CHARS = "ᄀ-ᇿ㄰-㆏가-힯";
 const HANGUL = new RegExp(`[${HANGUL_CHARS}]`);
@@ -281,7 +282,7 @@ export function scanSource(source, file, { exempt = [] } = {}) {
   return { strays, dicts, problems: problemItems(dicts), used, rejected };
 }
 
-// A markdown doc is admin language: guide.md is Korean, guide.en.md guide.ja.md guide.zh.md its translations.
+// A markdown doc is admin language: guide.ko.md is Korean and guide.en.md its translation (a plain guide.md counts as the Korean one).
 const DOC_TRANSLATION = new RegExp(`\\.(${DOC_LANGS.join("|")})\\.md$`);
 const docLines = (source) => source.split("\n").map((text, i) => ({ n: i + 1, text })).filter((l) => l.text.trim());
 const isHeading = (text) => /^#{1,6}\s/.test(text);
@@ -299,7 +300,8 @@ function lineProblem(ko, tr) {
 
 /** Why a Korean doc and its translations do not line up, or [] when every language has the same document. */
 function docProblems(file, sources) {
-  const others = DOC_LANGS.map((l) => [l, sources.get(file.replace(/\.md$/, `.${l}.md`))]);
+  const stem = file.replace(/(\.ko)?\.md$/, "");
+  const others = DOC_LANGS.map((l) => [l, sources.get(`${stem}.${l}.md`)]);
   if (others.every(([, s]) => s === undefined)) return null; // not translated yet: its Korean lines count as strays
   const ko = docLines(sources.get(file));
   const koHeadings = ko.filter((l) => isHeading(l.text)).length;
