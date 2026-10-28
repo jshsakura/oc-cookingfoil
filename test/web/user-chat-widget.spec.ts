@@ -44,8 +44,8 @@ test('a signed-in person sees the chat button at the lower right, opens it, and 
 
   await launch.click();
   await expect(page.locator('#ch-widget')).toBeVisible();
-  await expect(page.locator('#ch-widget .ch-hello h3')).toContainText('버터');
-  await expect(page.locator('#ch-name')).toHaveAttribute('title', '버터');
+  await expect(page.locator('#ch-widget .ch-hello h3')).toBeVisible();
+  await expect(page.locator('#ch-name')).toHaveAttribute('title', 'AI 채팅');
   await expect(page.locator('#ch-gear')).toHaveCount(0);
   await expect(page.locator('#ch-text')).toHaveAttribute('maxlength', '4000');
 

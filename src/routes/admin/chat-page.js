@@ -111,8 +111,8 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-hello h3{display:grid;gap:8px;margin:0;max-width:30em;line-height:1.5;text-wrap:balance;word-break:keep-all}
 .ch-hi{font-size:var(--fs-xl,var(--fs-lg))}
 .ch-sub{font-size:var(--fs-md);font-weight:400;color:var(--muted)}
-.ch-ai{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,rgba(var(--accent-rgb),.28),rgba(var(--accent-rgb),.08));color:var(--accent)}
-.ch-ai .ico{width:20px;height:20px}
+.ch-ai{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,rgba(var(--accent-rgb),.28),rgba(var(--accent-rgb),.08));color:var(--accent)}
+.ch-ai .ico{width:16px;height:16px}
 /* The conversation picker reads as a pill, not the browser's plain box. */
 .ch-top select{appearance:none;-webkit-appearance:none;height:40px;padding:0 36px 0 16px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--sunk) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;color:var(--text);font:inherit;font-weight:var(--fw-bold);text-overflow:ellipsis;cursor:pointer}
 .ch-top select:hover{background-color:var(--panel)}
@@ -258,7 +258,7 @@ function chUpload(list){const files=[...list].filter(Boolean);if(!files.length||
   x.send(fd);}
 function chIcon(){const b=$('ch-go');b.innerHTML=chBusy?CH_ICON.stop:CH_ICON.send;b.setAttribute('aria-label',topText(chBusy?'ch.stop':'ch.send'));}
 function chName(){return chState.name||topText('ch.defaultName');}
-function chShowName(){const n=$('ch-name');n.title=chName();n.setAttribute('aria-label',chName());}
+function chShowName(){const n=$('ch-name');n.title=topText('m.chat');n.setAttribute('aria-label',topText('m.chat'));}
 // How full the model's context is: a thin bar that turns red near the point where the chat compacts by itself.
 function chCtx(c){const b=$('ch-ctx');const used=c&&Number(c.used)||0,win=c&&Number(c.window)||0;
   if(!used||!win||!chConv){b.hidden=true;return;}
