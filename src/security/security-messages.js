@@ -22,6 +22,7 @@ export const SECURITY_MESSAGES = {
     "integration.unknown": "알 수 없는 서비스입니다",
     "integration.badField": "{field} 형식이 맞지 않습니다",
     "token.max": "토큰은 {n}개까지 만들 수 있습니다",
+    "token.scope": "토큰 종류는 관리자(admin) 또는 카탈로그 읽기(catalog) 중 하나입니다",
     "token.missing": "없는 토큰입니다",
     "totp.locked": "인증 코드를 너무 여러 번 틀려 잠갔습니다. 15분 뒤에 다시 시도합니다.",
   },
@@ -36,6 +37,7 @@ export const SECURITY_MESSAGES = {
     "integration.unknown": "Unknown service",
     "integration.badField": "{field} is not in the right format",
     "token.max": "Up to {n} tokens can be made",
+    "token.scope": "A token's scope is admin or catalog",
     "token.missing": "No such token",
     "totp.locked": "Too many wrong codes, so sign-in by code is locked. Try again in 15 minutes.",
   },
@@ -50,6 +52,7 @@ export const SECURITY_MESSAGES = {
     "integration.unknown": "不明なサービスです",
     "integration.badField": "{field} の形式が正しくありません",
     "token.max": "トークンは {n} 個まで作れます",
+    "token.scope": "トークンの種類は admin（管理者）か catalog（カタログ読み取り）です",
     "token.missing": "存在しないトークンです",
     "totp.locked": "認証コードを何度も間違えたためロックしました。15 分後にもう一度試します。",
   },
@@ -64,6 +67,7 @@ export const SECURITY_MESSAGES = {
     "integration.unknown": "未知的服务",
     "integration.badField": "{field} 格式不正确",
     "token.max": "最多可以创建 {n} 个令牌",
+    "token.scope": "令牌类型为 admin（管理员）或 catalog（目录只读）",
     "token.missing": "没有这个令牌",
     "totp.locked": "验证码错误次数过多，已锁定。请 15 分钟后再试。",
   },
@@ -78,6 +82,7 @@ export const SECURITY_MESSAGES = {
       "integration.unknown": "未知的服務",
       "integration.badField": "{field} 格式不正確",
       "token.max": "最多可以建立 {n} 個權杖",
+      "token.scope": "權杖類型為 admin（管理員）或 catalog（目錄唯讀）",
       "token.missing": "找不到此權杖",
       "totp.locked": "驗證碼錯誤次數過多，已鎖定。請在 15 分鐘後再試。"
   },
@@ -92,6 +97,7 @@ export const SECURITY_MESSAGES = {
       "integration.unknown": "Servicio desconocido",
       "integration.badField": "El formato de {field} no es válido",
       "token.max": "Se pueden crear hasta {n} tokens",
+      "token.scope": "El tipo de token es admin o catalog",
       "token.missing": "No existe ese token",
       "totp.locked": "Demasiados códigos de verificación incorrectos. Acceso bloqueado; vuelve a intentarlo en 15 minutos."
   },
@@ -106,6 +112,7 @@ export const SECURITY_MESSAGES = {
       "integration.unknown": "Service inconnu",
       "integration.badField": "Le format de {field} est incorrect",
       "token.max": "Vous pouvez créer jusqu’à {n} jetons",
+      "token.scope": "Le type de jeton est admin ou catalog",
       "token.missing": "Ce jeton n’existe pas",
       "totp.locked": "Trop de codes de vérification incorrects. Accès bloqué ; réessayez dans 15 minutes."
   },
@@ -120,6 +127,7 @@ export const SECURITY_MESSAGES = {
       "integration.unknown": "Unbekannter Dienst",
       "integration.badField": "Das Format von {field} ist ungültig",
       "token.max": "Es können höchstens {n} Tokens erstellt werden",
+      "token.scope": "Der Token-Typ ist admin oder catalog",
       "token.missing": "Dieses Token existiert nicht",
       "totp.locked": "Zu viele falsche Bestätigungscodes. Der Zugriff ist gesperrt; versuchen Sie es in 15 Minuten erneut."
   },
@@ -134,6 +142,7 @@ export const SECURITY_MESSAGES = {
       "integration.unknown": "Servizio sconosciuto",
       "integration.badField": "Il formato di {field} non è valido",
       "token.max": "Puoi creare al massimo {n} token",
+      "token.scope": "Il tipo di token è admin o catalog",
       "token.missing": "Questo token non esiste",
       "totp.locked": "Troppi codici di verifica errati. Accesso bloccato; riprova tra 15 minuti."
   },
@@ -148,6 +157,7 @@ export const SECURITY_MESSAGES = {
       "integration.unknown": "Serviço desconhecido",
       "integration.badField": "O formato de {field} é inválido",
       "token.max": "É possível criar até {n} tokens",
+      "token.scope": "O tipo de token é admin ou catalog",
       "token.missing": "Esse token não existe",
       "totp.locked": "Muitos códigos de verificação incorretos. Acesso bloqueado; tente novamente em 15 minutos."
   },
@@ -162,6 +172,7 @@ export const SECURITY_MESSAGES = {
       "integration.unknown": "Onbekende dienst",
       "integration.badField": "De indeling van {field} is ongeldig",
       "token.max": "Er kunnen maximaal {n} tokens worden gemaakt",
+      "token.scope": "Het tokentype is admin of catalog",
       "token.missing": "Dit token bestaat niet",
       "totp.locked": "Te veel onjuiste verificatiecodes. De toegang is geblokkeerd; probeer het over 15 minuten opnieuw."
   },
@@ -176,6 +187,7 @@ export const SECURITY_MESSAGES = {
       "integration.unknown": "Неизвестный сервис",
       "integration.badField": "Неверный формат поля {field}",
       "token.max": "Максимальное число токенов: {n}",
+      "token.scope": "Тип токена: admin или catalog",
       "token.missing": "Такого токена нет",
       "totp.locked": "Слишком много неверных кодов подтверждения. Доступ заблокирован; повторите попытку через 15 минут."
   },

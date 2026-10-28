@@ -485,6 +485,10 @@ test('the automation token copy row stays out of sight until a token is made', a
   await page.goto('/admin#settings/tokens');
   await expect(page.locator('#tok-form')).toBeVisible();
   await expect(page.locator('#tok-new')).toBeHidden();
+  // A script that only reads the game list gets a catalog token, not the whole admin API.
+  const scope = page.getByLabel('권한', { exact: true });
+  await expect(scope).toHaveValue('admin');
+  await expect(scope.locator('option')).toHaveText(['관리자 API 전체', '게임 목록과 파일 읽기만']);
 });
 
 test('the operator guide reads as a page, and its raw text stays for helpers', async ({ page, request }) => {

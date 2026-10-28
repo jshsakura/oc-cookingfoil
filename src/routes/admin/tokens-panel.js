@@ -10,6 +10,7 @@ export const TOKENS_HTML = `<div class="hd"><h2>${top("tok.h2")}</h2></div>
 <p class="muted">${top("tok.lede")}</p>
 <form class="add" id="tok-form" autocomplete="off">
   <input id="tok-label" ${topPh("tok.labelPh")} ${topLabel("tok.labelAria")} maxlength="64">
+  <select id="tok-scope" ${topLabel("tok.scope")}><option value="admin">${top("tok.scopeAdmin")}</option><option value="catalog">${top("tok.scopeCatalog")}</option></select>
   <button class="primary" type="submit">${top("tok.makeBtn")}</button>
 </form>
 <div class="copy-row" id="tok-new" hidden><code id="tok-value"></code><button type="button" id="tok-copy" data-top="ov.copy">${top("ov.copy")}</button></div>
@@ -31,15 +32,15 @@ export const TOKENS_HTML = `<div class="hd"><h2>${top("tok.h2")}</h2></div>
 export const TOKENS_SCRIPT = /* js */ `
 async function loadTokens(){
   try{const d=await api('/admin/api/tokens');
-    table('tok-list',[topText('tok.name'),topText('tok.owner'),topText('tok.created'),topText('tok.lastUsed'),''],d.tokens.map((t)=>{const tr=el('tr');
+    table('tok-list',[topText('tok.name'),topText('tok.scope'),topText('tok.owner'),topText('tok.created'),topText('tok.lastUsed'),''],d.tokens.map((t)=>{const tr=el('tr');
       const b=btn(topText('tok.delete'),async()=>{if(!await ask(topText('tok.deleteAsk')))return;
         try{await api('/admin/api/tokens/'+t.id+'/revoke',{method:'POST',body:{}});toast(topText('tok.deleted'));loadTokens();}catch(err){toast(err.message);}},'danger');
       const c=el('td');c.append(b);
-      tr.append(td(t.label||'—'),td(String(t.owner).replace(/^google:.*/,topText('tok.google'))),td(fmt(t.createdAt)),td(fmt(t.lastUsedAt)),c);return tr;}),topText('tok.none'));
+      tr.append(td(t.label||'—'),td(topText(t.scope==='catalog'?'tok.scopeCatalog':'tok.scopeAdmin')),td(String(t.owner).replace(/^google:.*/,topText('tok.google'))),td(fmt(t.createdAt)),td(fmt(t.lastUsedAt)),c);return tr;}),topText('tok.none'));
   }catch(err){toast(err.message);}
 }
 $('tok-form').addEventListener('submit',async(e)=>{e.preventDefault();
-  try{const d=await api('/admin/api/tokens',{method:'POST',body:{label:$('tok-label').value}});
+  try{const d=await api('/admin/api/tokens',{method:'POST',body:{label:$('tok-label').value,scope:$('tok-scope').value}});
     $('tok-value').textContent=d.token;$('tok-new').hidden=false;$('tok-note').hidden=false;$('tok-label').value='';loadTokens();}catch(err){toast(err.message);}});
 async function loadMcp(){
   try{const d=await api('/admin/api/server-settings');const s=d.settings;

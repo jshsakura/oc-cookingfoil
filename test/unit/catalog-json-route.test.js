@@ -16,6 +16,9 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const TOKEN_ID = "0a1b2c3d";
 const TOKEN_SECRET = "s".repeat(40);
 const TOKEN = { Authorization: `Bearer cft_${TOKEN_ID}_${TOKEN_SECRET}` };
+const CAT_ID = "4e5f6a7b";
+const CAT_SECRET = "c".repeat(40);
+const CATALOG = { Authorization: `Bearer cft_${CAT_ID}_${CAT_SECRET}` };
 const BASIC = { Authorization: "Basic " + Buffer.from("alice:alice-password").toString("base64") };
 
 const data = fs.mkdtempSync(path.join(os.tmpdir(), "catalog-json-route-"));
@@ -30,6 +33,7 @@ before(async () => {
   consoleHeaders = await seedConsole(data);
   await seedRecords(data, "api-token", {
     [TOKEN_ID]: { id: TOKEN_ID, owner: "alice", label: "scraper", hash: crypto.createHash("sha256").update(TOKEN_SECRET).digest("hex"), createdAt: 1, lastUsedAt: null },
+    [CAT_ID]: { id: CAT_ID, owner: "alice", label: "catalog", scope: "catalog", hash: crypto.createHash("sha256").update(CAT_SECRET).digest("hex"), createdAt: 2, lastUsedAt: null },
   });
   child = spawn(process.execPath, ["./src/index.js"], {
     cwd: path.join(import.meta.dirname, "../.."),
@@ -135,4 +139,25 @@ test("the retired addresses are gone", async () => {
   }
   const root = await get("/", { ...consoleHeaders, Accept: "application/json" });
   assert.match(root.headers.get("content-type") ?? "", /text\/html/, "/ is the web page, never a library index");
+});
+
+test("a catalog token reads the list and downloads the files it names, and reaches nothing else", async () => {
+  const r = await get("/games.json", CATALOG);
+  assert.equal(r.status, 200);
+  const file = (await r.json()).files.find((f) => f.titleId === "0100000000010000");
+  const url = new URL(file.url);
+  const got = await get(url.pathname, CATALOG);
+  assert.equal(got.status, 200);
+  assert.equal(await got.text(), "NSP");
+  assert.equal((await fetch(BASE + url.pathname, { method: "HEAD", headers: CATALOG })).status, 200);
+  for (const where of ["/admin/api/devices", "/admin/guide.md", "/api/library/sections", "/mcp", "/pair/api/mine"]) {
+    assert.equal((await get(where, CATALOG)).status, 401, where);
+  }
+  assert.equal((await fetch(BASE + url.pathname, { method: "POST", headers: CATALOG })).status, 401, "reads only");
+});
+
+test("an admin token still does not download game files: that is the catalog token's", async () => {
+  const r = await get("/games.json", TOKEN);
+  const file = (await r.json()).files[0];
+  assert.equal((await get(new URL(file.url).pathname, TOKEN)).status, 401);
 });

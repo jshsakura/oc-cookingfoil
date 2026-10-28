@@ -2,7 +2,8 @@
  * Automation tokens (see security/api-tokens.js), from the admin page only:
  *
  *   GET  /admin/api/tokens               [{ id, owner, label, createdAt, lastUsedAt }]
- *   POST /admin/api/tokens   { label }   { id, token }   the token is shown this once
+ *   POST /admin/api/tokens   { label, scope? }   { id, token }   the token is shown this once;
+ *                                       scope "catalog" reads /games.json and its game files only
  *   POST /admin/api/tokens/:id/revoke
  *
  * A request made with a token cannot use these: tokens never mint tokens (requireSession refuses
@@ -32,7 +33,7 @@ export function mountApiTokensApi(router, requireSession) {
     const actor = adminActor(req);
     if (!actor) return res.status(409).json({ error: apiWord(req, "token.needAccount"), code: "token.needAccount" });
     const owner = actor.kind === "google" ? `google:${actor.sub}` : actor.name;
-    const made = apiTokens.create(owner, req.body?.label);
+    const made = apiTokens.create(owner, req.body?.label, { scope: req.body?.scope ?? "admin" });
     debug.log("admin: automation token %s made for %s", made.id, owner);
     res.json(made);
   }));
