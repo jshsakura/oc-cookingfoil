@@ -218,7 +218,7 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-drawer .adm-item{min-height:44px}
 .adm-drawer .adm-grp summary{min-height:44px;box-sizing:border-box}
 .adm-drawer-hd{flex:none;display:flex;align-items:center;gap:10px;padding:max(18px, env(safe-area-inset-top, 0px)) 16px 16px;border-bottom:1px solid var(--line);font-weight:var(--fw-bold)}
-.adm-drawer-hd .wm{flex:1;font-family:'Baloo 2',inherit;font-size:var(--fs-xl);font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1}
+.adm-drawer-hd .wm{flex:1;font-family:'Baloo 2',system-ui,sans-serif;font-size:var(--fs-xl);font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1}
 .adm-drawer-hd .wm .dot{color:var(--accent)}
 .adm-drawer-hd .logo{display:block}
 #adm-drawer-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel);color:var(--text);font-size:var(--fs-sm);line-height:1;cursor:pointer}

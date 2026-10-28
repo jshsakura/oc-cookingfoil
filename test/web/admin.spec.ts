@@ -713,3 +713,12 @@ test('server behaviour shows one group at a time and keeps the one picked after 
   await expect(page.locator('#ss-jump').getByRole('tab', { name: '다운로드' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.ss-row[data-key="devicePairing"]')).toBeHidden();
 });
+
+test('the admin logo is drawn in the brand typeface', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin');
+  const wm = page.locator('.brand .wm').first();
+  await expect(wm).toBeVisible();
+  expect(await wm.evaluate((n) => getComputedStyle(n).fontFamily)).toMatch(/^"?Baloo 2"?/);
+  expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('800 20px "Baloo 2"'); })).toBe(true);
+});

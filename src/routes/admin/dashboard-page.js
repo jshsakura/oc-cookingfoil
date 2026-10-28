@@ -51,7 +51,7 @@ body{padding:28px 32px 80px}.wrap{max-width:1240px;margin:0 auto}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}
 .brand{margin:0}.brand a{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none}
 .logo{width:44px;height:44px;flex:none}
-.brand .wm{font-family:'Baloo 2',inherit;font-size:var(--fs-3xl);font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1;padding-top:4px}.brand .wm .dot{color:var(--accent)}
+.brand .wm{font-family:'Baloo 2',system-ui,sans-serif;font-size:var(--fs-3xl);font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1;padding-top:4px}.brand .wm .dot{color:var(--accent)}
 /* the dashboard's view switch, so the admin page reads as its third tab */
 .apptabs{display:inline-flex;gap:2px;padding:3px;margin-right:auto;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel)}
 .apptabs a{padding:6px 14px;border-radius:var(--r-pill);color:var(--muted);text-decoration:none;font-weight:var(--fw-bold);font-size:var(--fs-sm);white-space:nowrap}
