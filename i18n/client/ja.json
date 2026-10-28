@@ -1238,5 +1238,6 @@
   "Errors only": "エラーのみ",
   "This console's account is turned off. Contact the server's admin.": "この本体のアカウントはオフになっています。サーバーの管理者に問い合わせてください。",
   "This console's account was deleted. Contact the server's admin.": "この本体のアカウントは削除されました。サーバーの管理者に問い合わせてください。",
-  "This console is suspended on this server. Contact the server's admin.": "この本体はこのサーバーで停止されています。サーバーの管理者に問い合わせてください。"
+  "This console is suspended on this server. Contact the server's admin.": "この本体はこのサーバーで停止されています。サーバーの管理者に問い合わせてください。",
+  "This console needs to be approved again. Scan the QR code to link it to your account.": "この本体はもう一度承認が必要です。QRコードで自分のアカウントに連携してください。"
 }
