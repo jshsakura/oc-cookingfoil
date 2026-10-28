@@ -42,7 +42,7 @@ const SEED = `
   enroll.spend(token, "${OTHER}");
   await store.load();
   const accessKey = pairing.generateAccessKey();
-  store.approveDevice("${APPROVED}", { label: "test", addedBy: "admin", accessKeyHash: pairing.hashAccessKey(accessKey) });
+  store.approveDevice("${APPROVED}", { label: "test", addedBy: "alice", accessKeyHash: pairing.hashAccessKey(accessKey) });
   await store.shutdown();
   console.log(JSON.stringify({ expired, used: token, accessKey }));
 `;

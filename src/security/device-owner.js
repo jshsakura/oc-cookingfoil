@@ -39,12 +39,15 @@ export function deviceOwner(deviceKey) {
 }
 
 /**
- * Why the account holding a console no longer lets it in, or null: "account-off" while the account
- * is turned off (or a Google account waits or is refused), "account-gone" once it is removed. The
- * console keeps its key and its record, and comes back as it was when the account does.
+ * Why a console is not let in, or null: "account-off" while the account holding it is turned off
+ * (or a Google account waits or is refused), "account-gone" once it is removed, and "no-account"
+ * for a console no account holds on a server that has accounts. The console keeps its key and its
+ * record: it comes back when the account does, or once it is given to one (its re-pair QR, or the
+ * admin's "link to an account"). A server without accounts has nobody to hold a console.
  */
 export function suspension(deviceKey) {
   const o = deviceOwner(deviceKey);
+  if (o?.state === "unbound") return users.hasUsers() || googleAccounts.list().length > 0 ? "no-account" : null;
   if (o?.state !== "bound" || o.active) return null;
   const known = o.owner.kind === "google" ? googleAccounts.list().some((a) => a.email === o.owner.id) : users.list().some((u) => u.name === o.owner.id);
   return known ? "account-off" : "account-gone";

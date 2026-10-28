@@ -243,3 +243,20 @@ test("a console no account holds has no owner's wishlist, no sends and is no one
     assert.equal((await send("carol", key)).error, "not in the library", "once held, the send gets past the ownership check");
   }
 });
+
+test("on a server with accounts a console no account holds is refused on every lane until it is given to one", async () => {
+  const { suspension, giveToAccount } = await import("../../src/security/device-owner.js");
+  const users = await import("../../src/security/users.js");
+  const key = "F7".repeat(32);
+  store.approveDevice(key, { label: "shared", addedBy: "admin", accessKeyHash: hashAccessKey("k7") });
+  const dev = { "X-Device-Key": key, "X-Access-Key": "k7" };
+  assert.equal(suspension(key), "no-account");
+  const r = await fetch(`${base}/identity`, { headers: dev });
+  assert.equal(r.status, 403);
+  assert.deepEqual(await r.json(), { error: "suspended", reason: "no-account" });
+  const knock = await (await fetch(`${base}/api/pair/status`, { headers: { "X-Device-Key": key, "X-Pair-Secret": "7e".repeat(32) } })).json();
+  assert.equal(knock.repair, true, "it is shown its re-pair QR");
+  if (!users.list().some((u) => u.name === "erin")) users.add("erin", "erin-password-1");
+  assert.deepEqual(giveToAccount(key, "erin"), { ok: true });
+  assert.equal((await fetch(`${base}/identity`, { headers: dev })).status, 200, "given to an account, the same key works");
+});
