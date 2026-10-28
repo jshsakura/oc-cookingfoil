@@ -7,11 +7,12 @@ import { freshCode, signIn } from './admin-sign-in';
 
 const PAGES: [string, string, string][] = [
   ['/admin', 'tab-overview', '서버 현황'],
-  ['/admin/games', 'tab-library', '라이브러리'],
-  ['/admin/upload', 'tab-upload', '올리기'],
+  ['/admin/games', 'tab-library', '게임'],
+  ['/admin/incoming/temp', 'tab-organize', '들어온 파일'],
+  ['/admin/upload', 'tab-upload', '들어온 파일'],
   // Stage B first bundle: these pages carry only their own panel.
   ['/admin/convert', 'tab-nsz', '파일 압축'],
-  ['/admin/inbox', 'tab-inbox', '임시 공유'],
+  ['/admin/inbox', 'tab-inbox', '들어온 파일'],
   ['/admin/featured', 'tab-featured', '홈 화면 구성'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
@@ -21,10 +22,6 @@ const PAGES: [string, string, string][] = [
   ['/admin/logs/security', 'lockouts', '차단과 거부'],
   ['/admin/settings/notifications', 'tab-alerts', '알림 설정'],
   ['/admin/logs/alerts', 'al-history', '알림 기록'],
-  ['/admin/saves', 'tab-library', '세이브'],
-  ['/admin/titles', 'tab-library', '이름과 소개'],
-  ['/admin/integrity', 'tab-library', '무결성 검사'],
-  ['/admin/organize', 'tab-library', '임시 폴더'],
   ['/admin/client', 'tab-client', '클라이언트 배포'],
   ['/admin/settings/server', 'ss-list', '서버 동작'],
   ['/admin/settings/integrations', 'intg-h', '외부 서비스'],
@@ -47,14 +44,15 @@ test('every page opens its own section, marks the sidebar and keeps its address 
   }
 });
 
-test('the retro group lists its seven jobs as items with addresses of their own', async ({ page }) => {
+test('the retro page lists its seven jobs as tabs and keeps the chosen one in its address', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
-  await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('RetroArch 코어');
-  const items = page.locator('aside.adm-side .adm-grp[data-grp="retro"] .adm-task');
+  await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('레트로 게임');
+  await expect(page.locator('#retro-subtabs [data-sub="cores"]')).toHaveAttribute('aria-selected', 'true');
+  const items = page.locator('#retro-subtabs [data-sub]');
   await expect(items).toHaveCount(7);
-  await expect(items.first()).toHaveAttribute('href', '/admin/retro?view=art');
+  await expect(items.first()).toHaveAttribute('data-sub', 'art');
 });
 
 test('a settings page opens its own area', async ({ page }) => {
@@ -68,9 +66,8 @@ test('a settings page opens its own area', async ({ page }) => {
 test('homebrew and library task choices keep their addresses and selection on reload', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/homebrew?tab=apps');
-  await page.locator('aside.adm-side a.adm-task[href*="tab=sources"]').click();
+  await page.locator('#homebrew-subtabs [data-sub="sources"]').click();
   expect(new URL(page.url()).searchParams.get('tab')).toBe('sources');
-  await expect(page.locator('aside.adm-side > nav [aria-current="page"]')).toHaveText('GitHub 저장소');
   await page.reload();
   await expect(page.locator('#homebrew-subtabs [data-sub="sources"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#hb-add')).toBeVisible();
@@ -177,7 +174,7 @@ test.describe('on a phone', () => {
     const drawer = page.locator('#adm-drawer');
     await expect(drawer).toBeVisible();
     // The dialog holds the focus, so Escape (its own close) is reachable.
-    await expect(drawer.locator('a[href="/admin/patches"]')).toBeVisible();
+    await expect(drawer.locator('a[href="/admin/games"]')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(drawer).toBeHidden();
   });

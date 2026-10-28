@@ -24,13 +24,11 @@ test("every section keeps its id and every job keeps its page address", () => {
     assert.match(html, new RegExp(`<section id="tab-${tab}"`), `tab-${tab}`);
   }
   // The page each of those sections now lives behind (admin-pages.js). The
-  // retro and homebrew groups carry their tasks as links, so those two match
-  // by their task-address prefix.
-  for (const path of ["/admin", "/admin/games", "/admin/upload", "/admin/convert", "/admin/inbox", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/settings/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
+  // incoming row opens its first page and stands for the others it lists.
+  for (const path of ["/admin", "/admin/games", "/admin/retro", "/admin/homebrew", "/admin/upload", "/admin/convert", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/settings/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
     assert.match(html, new RegExp(`href="${path.replace(/\//g, "\\/")}"`), `sidebar link for ${path}`);
   }
-  assert.match(html, /href="\/admin\/retro\?view=/, "sidebar link for /admin/retro");
-  assert.match(html, /href="\/admin\/homebrew\?tab=/, "sidebar link for /admin/homebrew");
+  assert.match(html, /data-paths="\/admin\/upload \/admin\/incoming\/temp \/admin\/inbox"/, "the incoming row stands for its three pages");
 });
 
 test("the look-alike folder notice names both folders and the system, and says the art follows the folder", () => {

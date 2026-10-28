@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
 for (const task of [
-  { view: 'files', api: 'browse', period: 4000, ready: '#lb-list .ag-row' },
-  { view: 'organize', api: 'organize', period: 5000, ready: '#lo-held .empty' },
+  { view: 'files', url: '/admin/games?view=files', other: 'info', api: 'browse', period: 4000, ready: '#lb-list .ag-row' },
+  { view: 'organize', url: '/admin/incoming/temp', other: '', api: 'organize', period: 5000, ready: '#lo-held .empty' },
 ]) {
   test(`${task.view} polls only its active visible page and resumes after returning`, async ({ page }) => {
     await page.clock.install();
@@ -18,17 +18,20 @@ for (const task of [
         await route.fulfill({ json: { held: [], recent: [], systems: [], running: true, waiting: 1 } });
       }
     });
-    await page.goto(`/admin/games?view=${task.view}`);
+    await page.goto(task.url);
     await expect(page.locator(task.ready).first()).toBeVisible();
     const initial = calls;
     await page.clock.fastForward(task.period + 500);
     await expect.poll(() => calls).toBeGreaterThan(initial);
-    await page.locator('#lib-subtabs [data-lsub="info"]').click();
-    const otherTask = calls;
-    await page.clock.fastForward(task.period * 3);
-    expect(calls).toBe(otherTask);
-    await page.locator(`#lib-subtabs [data-lsub="${task.view}"]`).click();
-    await expect.poll(() => calls).toBeGreaterThan(otherTask);
+    // A page with sibling tabs stops polling while another tab shows; a page of its own has none to leave for.
+    if (task.other) {
+      await page.locator(`#lib-subtabs [data-lsub="${task.other}"]`).click();
+      const otherTask = calls;
+      await page.clock.fastForward(task.period * 3);
+      expect(calls).toBe(otherTask);
+      await page.locator(`#lib-subtabs [data-lsub="${task.view}"]`).click();
+      await expect.poll(() => calls).toBeGreaterThan(otherTask);
+    }
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { value: true, configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));

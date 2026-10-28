@@ -16,7 +16,7 @@ test('registered GitHub repositories show as cards with their buttons in the foo
   } }));
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/admin#homebrew');
-  await page.locator('aside.adm-side a.adm-task[href*="tab=sources"]').click();
+  await page.locator('#homebrew-subtabs [data-sub="sources"]').click();
   const cards = page.locator('#hb-sources .src-card');
   await expect(cards).toHaveCount(3);
   const first = cards.first();
