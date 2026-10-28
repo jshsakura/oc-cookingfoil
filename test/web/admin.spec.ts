@@ -64,8 +64,9 @@ test.afterEach(async ({ request }) => {
 test('library tab shows the catalog state and starts a rescan', async ({ page }) => {
   await signIn(page);
   await page.goto("/admin/games");
-  await page.getByRole('tab', { name: '서버' }).click();
-  await expect(page.locator('#settings')).toContainText('버전');
+  await page.goto('/admin/settings/server');
+  await expect(page.locator('#ss-about-kv')).toContainText('버전');
+  await page.goto('/admin/games');
   const rescan = page.getByRole('button', { name: '다시 스캔', exact: true });
   await rescan.click();
   await expect(page.locator('#toast')).toContainText('다시 스캔을 시작했습니다');
