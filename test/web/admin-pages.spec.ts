@@ -9,11 +9,11 @@ import { freshCode, signIn } from './admin-sign-in';
 const PAGES: [string, string, string][] = [
   ['/admin', 'tab-overview', '서버 현황'],
   ['/admin/games', 'tab-library', '게임'],
-  ['/admin/incoming/temp', 'tab-organize', '들어온 파일'],
-  ['/admin/upload', 'tab-upload', '들어온 파일'],
+  ['/admin/incoming/temp', 'tab-organize', '파일 업로드'],
+  ['/admin/upload', 'tab-upload', '파일 업로드'],
   // Stage B first bundle: these pages carry only their own panel.
   ['/admin/convert', 'tab-nsz', '파일 압축'],
-  ['/admin/inbox', 'tab-inbox', '들어온 파일'],
+  ['/admin/inbox', 'tab-inbox', '파일 업로드'],
   ['/admin/featured', 'tab-featured', '홈 화면 구성'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
@@ -26,9 +26,9 @@ const PAGES: [string, string, string][] = [
   ['/admin/client', 'tab-client', '클라이언트 배포'],
   ['/admin/settings/server', 'ss-list', '서버 동작'],
   ['/admin/settings/integrations', 'intg-h', '외부 서비스'],
-  ['/admin/settings/login', 'tab-settings', '사용자 로그인'],
+  ['/admin/settings/login', 'tab-settings', '로그인'],
   ['/admin/settings/admin', 'tab-settings', '관리자 보안'],
-  ['/admin/settings/automation', 'mcp-on', '자동화와 MCP'],
+  ['/admin/settings/automation', 'mcp-on', '자동화 토큰'],
 ];
 
 test('every page opens its own section, marks the sidebar and keeps its address on reload', async ({ page }) => {
@@ -297,3 +297,71 @@ for (const [path, root, tab] of FOLDER_PAGES) {
     }
   });
 }
+
+test('the sidebar lists each group in the agreed order, with no separate security group', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin');
+  const side = page.locator('aside.adm-side > nav');
+  await expect(side.locator('details.adm-grp')).toHaveCount(4);
+  await expect(side.locator('details.adm-grp[data-grp="sec"]')).toHaveCount(0);
+  const hrefs = (sel: string) => side.locator(`${sel} a.adm-item`).evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+  expect(await hrefs('details[data-grp="library"]')).toEqual(['/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/featured', '/admin/trash']);
+  expect(await hrefs('details[data-grp="people"]')).toEqual(['/admin/users', '/admin/devices', '/admin/client']);
+  expect(await hrefs('details[data-grp="ops"]')).toEqual(['/admin/convert', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']);
+  expect(await hrefs('details[data-grp="set"]')).toEqual(['/admin/settings/server', '/admin/settings/login', '/admin/settings/admin', '/admin/settings/notifications', '/admin/settings/integrations', '/admin/settings/plugins', '/admin/settings/automation']);
+  await expect(side.locator('details[data-grp="ops"] summary [data-top]')).toHaveText('작업과 기록');
+  await expect(side.locator('a.adm-item[href="/admin/settings/login"]')).toHaveText('로그인');
+  await expect(side.locator('a.adm-item[href="/admin/settings/automation"]')).toHaveText('자동화 토큰');
+});
+
+test('the upload page is called 업로드 in the header, the tab and the breadcrumb', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/upload');
+  await expect(page.locator('#up-entry .up-entry-t')).toHaveText('업로드');
+  await expect(page.locator('.adm-rowtabs a[href="/admin/upload"]')).toHaveText('업로드');
+  await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('업로드');
+});
+
+test('the client page stands alone and the games server tab moved to the server settings', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/client');
+  await expect(page.locator('#cr-form')).toBeVisible();
+  await expect(page.locator('#tab-overview')).toHaveCount(0);
+  await page.goto('/admin/games');
+  await expect(page.locator('#lib-subtabs [data-lsub="server"]')).toHaveCount(0);
+  for (const from of ['/admin/games?view=server', '/admin/games#library/server']) {
+    await page.goto(from);
+    await expect(page.locator('#ss-list'), from).toBeVisible();
+    expect(new URL(page.url()).pathname, from).toBe('/admin/settings/server');
+  }
+  await expect(page.locator('#ss-about-kv dt')).toHaveCount(3);
+});
+
+test('the account menu hugs its content on a desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page);
+  await page.goto('/admin');
+  await page.locator('#acct-btn').click();
+  const box = await page.locator('#acct-list').boundingBox();
+  expect(box!.width).toBeLessThanOrEqual(320);
+  const swatches = await page.locator('.theme-pick [data-theme-pick]').evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().left));
+  const gaps = swatches.slice(1).map((x, i) => x - swatches[i]);
+  expect(Math.max(...gaps)).toBeLessThanOrEqual(48);
+});
+
+test('addresses read plainly: this server, mapped v4, private ranges chipped, empty as a dash', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/users');
+  const read = (ip: string | null) => page.evaluate((v) => { const n = ipNode(v); return { text: n.textContent, title: n.querySelector('.ip')?.getAttribute('title') ?? '', chip: !!n.querySelector('.ip-lan') }; }, ip);
+  expect(await read('::1')).toMatchObject({ text: '이 서버', title: '::1', chip: false });
+  expect(await read('127.0.0.1')).toMatchObject({ text: '이 서버', title: '127.0.0.1' });
+  expect(await read('::ffff:192.0.2.7')).toMatchObject({ text: '192.0.2.7', title: '::ffff:192.0.2.7', chip: false });
+  expect(await read('192.0.2.5')).toMatchObject({ text: '192.0.2.5', chip: false });
+  expect(await read('2001:db8::1')).toMatchObject({ text: '2001:db8::1', chip: false });
+  for (const lan of ['10.1.2.3', '172.16.0.9', '172.31.255.1', '192.168.1.20', '::ffff:10.0.0.4', 'fd00::5', 'fe80::1']) { // privacy-ok: private-range samples, not real hosts
+    expect((await read(lan)).chip, lan).toBe(true);
+    expect((await read(lan)).text, lan).toContain('내부망');
+  }
+  expect((await read('172.32.0.1')).chip).toBe(false);
+  expect(await read('')).toMatchObject({ text: '—', chip: false });
+});

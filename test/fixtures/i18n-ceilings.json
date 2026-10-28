@@ -17,7 +17,7 @@
     "src/routes/admin/homebrew-page.js": 5,
     "src/routes/admin/inbox-panel.js": 20,
     "src/routes/admin/library-files-panel.js": 36,
-    "src/routes/admin/library-page.js": 49,
+    "src/routes/admin/library-page.js": 44,
     "src/routes/admin/patches-panel.js": 45,
     "src/routes/admin/retro-art-panel.js": 6,
     "src/routes/admin/upload-page.js": 19,

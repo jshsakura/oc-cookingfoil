@@ -22,7 +22,7 @@ function renderUsers(list){usersShown=list;
     tr.append(td(u.role==='admin'?topText('pp.admin'):topText('pp.user')));
     const active=u.lastActiveAt||u.lastAt;
     const st=td();st.append(u.enabled?pill(active?topText('pp.on'):topText('pp.noRecord'),active?'on':''):pill(topText('pp.off'),'off'));tr.append(st);
-    tr.append(loginCell(u.lastLoginAt,u.lastLoginMethod,u.lastLoginIp,()=>openLogins(u.user,u.user)),whenCell(active),td(u.lastIp||'—','ip'));
+    tr.append(loginCell(u.lastLoginAt,u.lastLoginMethod,u.lastLoginIp,()=>openLogins(u.user,u.user)),whenCell(active),ipCell(u.lastIp));
     const act=td();const box=el('div',null,'row-actions');
     box.append(tbtn('edit','pp.passChange',()=>resetPassword(u.user)));
     // Your own account can't be demoted, turned off or removed (you'd lock yourself out).

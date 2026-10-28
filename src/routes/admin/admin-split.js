@@ -153,7 +153,7 @@ export const SPLIT_PAGES = {
   // Settings pages: each area is its own page now.
   "/admin/settings/server": bundle({
     css: SERVER_SETTINGS_CSS, body: SERVER_SETTINGS_HTML,
-    script: SERVER_SETTINGS_SCRIPT, init: "loadServerSettings();",
+    script: SERVER_SETTINGS_SCRIPT, init: "loadServerSettings();loadServerAbout();",
   }),
   "/admin/settings/integrations": bundle({
     css: INTEGRATIONS_CSS, body: INTEGRATIONS_HTML,

@@ -10,7 +10,8 @@ import { top, topLabel } from "./top-i18n.js";
 export const SERVER_SETTINGS_HTML = `<div class="hd"><h2 class="first" data-top="m.setServer">${top("m.setServer")}</h2></div>
   <p class="muted">${top("ss.lede")}</p>
   <div class="box-jump" id="ss-jump" role="tablist" ${topLabel("ss.jumpLabel")}></div>
-  <div id="ss-list" class="ss-list"></div>`;
+  <div id="ss-list" class="ss-list"></div>
+  <section class="box" id="ss-about"><div class="box-h"><h3 data-top="s.settings">${top("s.settings")}</h3></div><div class="box-b"><dl class="kv" id="ss-about-kv"></dl></div></section>`;
 
 export const SERVER_SETTINGS_CSS = `
 .ss-list{display:grid;gap:14px;margin:10px 0 26px}
@@ -111,7 +112,12 @@ function ssControl(key,kind,s,ph){
   i.addEventListener('change',()=>ssSave({[key]:i.value}));i.addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();i.blur();}});return i;}
 let ssLast=null;
 // Drawn again in the new language when the admin switches it.
-function ssRelabel(){if(ssLast)ssRender(ssLast);}
+function ssRelabel(){if(ssLast)ssRender(ssLast);if(ssAboutLast)ssAbout(ssAboutLast);}
+let ssAboutLast=null;
+// What the games page's server tab showed: the version, the address the server is reached at, the titledb regions read.
+function ssAbout(d){ssAboutLast=d;const dl=$('ss-about-kv');if(!dl)return;dl.replaceChildren();
+  for(const [k,v] of [[topText('ss.aboutVersion'),'v'+d.version],[topText('ss.aboutOrigin'),d.origin||'—'],[topText('ss.aboutRegions'),(d.titledb?.regions||[]).map((r)=>r.region||r).join(', ')||'—']])dl.append(el('dt',k),el('dd',String(v)));}
+async function loadServerAbout(){ssAbout(await api('/admin/api/library'));}
 function ssRender(d){ssLast=d;const list=$('ss-list');list.replaceChildren();const jump=$('ss-jump');jump.replaceChildren();
   for(const [title,rows] of SS_GROUPS){const t=ssText(SS_TITLES[title]);const box=boxEl('ss-'+SS_GROUPS.findIndex((x)=>x[0]===title),t,'','ss-group');const g=box.querySelector('.box-b');
     const a=el('button',t);a.type='button';a.setAttribute('role','tab');a.dataset.group=title;a.addEventListener('click',()=>ssShowGroup(title));jump.append(a);box.dataset.group=title;

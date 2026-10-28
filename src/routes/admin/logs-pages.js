@@ -117,7 +117,7 @@ function renderSecurity(d){
   $('lock-count').hidden=!locks.length;$('lock-count').textContent=locks.length;
   $('unlock-all').disabled=!locks.length;
   pagedTable('lockouts',[topText('lg.colIp'),topText('lg.colReason'),topText('lg.colTime'),topText('lg.colUntil'),''],locks,(l)=>{const tr=el('tr');
-    tr.append(td(l.ip,'ip'),td(l.reason||'—'),td(fmt(l.lockedAt)),td(l.until?fmt(l.until):topText('lg.untilManual')));
+    tr.append(ipCell(l.ip),td(l.reason||'—'),td(fmt(l.lockedAt)),td(l.until?fmt(l.until):topText('lg.untilManual')));
     const act=td();act.append(tbtn('unlock','lg.release',()=>unlock(l.ip)));tr.append(act);return tr;},topText('lg.lockEmpty'),{label:topText('lg.lockH'),placeholder:topText('lg.lockPh')});
   pagedTable('denials',[topText('lg.colTime'),topText('lg.colReason'),topText('lg.colClient'),topText('lg.colPath'),topText('lg.colIp')],d.denials?.recent||[],(x)=>{const tr=el('tr');
     const w=td(ago(x.at));w.title=fmt(x.at);tr.append(w);
@@ -126,7 +126,7 @@ function renderSecurity(d){
     // A lock that has since been lifted is history, not a live block.
     if(x.reason==='ip-locked'&&!lockedNow.has(x.ip))r.append(' ',pill(topText('lg.lifted')));
     if(hint)r.append(el('div',hint,'muted'));tr.append(r);
-    tr.append(td(x.ua||'—'),td(x.path||'—','ip'),td(x.ip||'—','ip'));return tr;},topText('lg.denyEmpty'),{label:topText('lg.denyH'),placeholder:topText('lg.denyPh')});}
+    tr.append(td(x.ua||'—'),td(x.path||'—','ip'),ipCell(x.ip));return tr;},topText('lg.denyEmpty'),{label:topText('lg.denyH'),placeholder:topText('lg.denyPh')});}
 async function unlock(ip){if(!await ask(topFill('lg.unlockAsk',{ip})))return;
   try{await api('/admin/api/unlock',{method:'POST',body:{ip}});toast(topText('lg.unlocked'));secReload();}catch(err){toast(err.message);}}
 if($('unlock-all'))$('unlock-all').addEventListener('click',async()=>{if(!await ask(topText('lg.unlockAllAsk')))return;

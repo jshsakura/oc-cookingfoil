@@ -154,7 +154,7 @@ export const themePickerHtml = (word) => `<div class="theme-pick" role="group" a
 export const THEME_PICKER_CSS = `
 .theme-pick{display:grid;gap:6px;padding:6px 6px 4px}
 .theme-pick-label{font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--muted);padding:0 6px}
-.theme-pick-grid{display:flex;justify-content:space-between;align-items:center;padding:2px 4px}
+.theme-pick-grid{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:center;gap:2px;padding:2px 4px}
 .pop-list .theme-pick [data-theme-pick]{display:grid;place-items:center;position:relative;flex:none;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer}
 .pop-list .theme-pick [data-theme-pick]:hover .theme-swatch{transform:scale(1.12)}
 .pop-list .theme-pick [data-theme-pick]:focus-visible{outline:2px solid var(--accent);outline-offset:0}

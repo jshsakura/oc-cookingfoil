@@ -14,7 +14,6 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
     <button type="button" role="tab" data-lsub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button>
     <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}검사</button>
     <button type="button" role="tab" data-lsub="info" aria-selected="false">${icon("book")}이름과 소개</button>
-    <button type="button" role="tab" data-lsub="server" aria-selected="false">${icon("sliders")}서버</button>
   </div>
   <div data-lib-panel="files">${LIB_BROWSER_HTML}
   <section class="lib-ops" aria-labelledby="lib-ops-h">
@@ -48,11 +47,6 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
     </div>
   </form>
   </div>
-  <div data-lib-panel="server" hidden>
-  <h2 class="first" data-top="s.settings">${top("s.settings")}</h2>
-  <dl class="kv" id="settings"></dl>
-  <p class="muted">바꿀 수 있는 설정은 <a href="#settings/server">설정 탭의 서버 동작</a>에 있습니다.</p>
-  </div>
 </section>`;
 
 export const LIBRARY_PAGE_SCRIPT = /* js */ `
@@ -79,7 +73,7 @@ $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)re
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.',{danger:true}))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);}catch(err){toast(err.message);}});
 // The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
-const LIB_SUBS=['files','folder','verify','info','server'];let libSub='files';
+const LIB_SUBS=['files','folder','verify','info'];let libSub='files';
 function libLoadSub(){
   if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='folder')fbOpen('games');else if(libSub==='info')loadPatches();}
 function libShowSub(sub,quiet){if(!LIB_SUBS.includes(sub))return;libSub=sub;
@@ -101,9 +95,6 @@ async function loadLibrary(refreshPanel=true){
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};
   cards.append(card('게임 파일',num(d.files)),card('titledb 타이틀',num(d.titledb?.titles)),
     card('마지막 빌드',d.lastBuildMs!=null?num(d.lastBuildMs)+'ms':'—'),card('가동 시간',uptime(d.uptime)));
-  const rows=[['버전','v'+d.version],['공개 주소',d.origin||'—'],
-    ['읽어 둔 titledb 지역',(d.titledb?.regions||[]).map((r)=>r.region||r).join(', ')||'—']];
-  const dl=$('settings');dl.replaceChildren();for(const [k,v] of rows)dl.append(el('dt',k),el('dd',String(v)));
   scanShow(d.scan||{});return d;}
 // The rescan button stays pressed while a whole read of the games folder waits or runs.
 const scanBusy=(s)=>s.state==='running'||s.fullPending;
