@@ -7,7 +7,6 @@
  *   server → client
  *     { type: "hello",        version, etag, files, customs, restarting }
  *     { type: "library-updated", etag, files, customs, mode, buildMs }
- *     { type: "shop-updated", ... }   // deprecated copy of the line above for an older client; remove with the /api/shop aliases
  *     { type: "restarting", restart_id, retry_after, back_by, message }   // safe restart began
  *     { type: "activity", running: [...], recent: [...] }   // read-only task status
  *     { type: "ping" }                                    // hb keepalive
@@ -238,10 +237,9 @@ export function attach(server, { heartbeatMs = HEARTBEAT_MS } = {}) {
   // library-cache itself.
   const unsubscribe = libraryCache.onUpdate((payload) => {
     const msg = JSON.stringify({ type: "library-updated", ...payload });
-    const legacyMsg = JSON.stringify({ type: "shop-updated", ...payload });
     for (const ws of wss.clients) {
       if (ws.readyState !== 1) continue;
-      try { ws.send(msg); ws.send(legacyMsg); } catch (err) {
+      try { ws.send(msg); } catch (err) {
         debug.error("ws: broadcast failed: %s", err.message);
       }
     }

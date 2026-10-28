@@ -306,7 +306,7 @@ expressApp.use("/assets", webAssets);
 
 // A pairing-only server must guard API content as well as the file catalog.
 // Keep admin approval and clean configuration export reachable for onboarding.
-expressApp.use(["/api/library", "/api/shop", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", "/api/plugins", BRIDGE_PATH], deviceContentGuard());
+expressApp.use(["/api/library", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", "/api/plugins", BRIDGE_PATH], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -338,16 +338,6 @@ expressApp.post("/api/library/variants", sameOriginWrites(), ...libraryVariants(
 // A plugin's own addresses, as its manifest declares them (plugins/routes.js). The server's auth runs ahead of it.
 expressApp.use("/api/plugins", sameOriginWrites(), pluginRouter());
 expressApp.get("/games.json", catalogJsonRoute);
-
-// Deprecated aliases (the only place they are mounted): an older client release and a scraper still use
-// /api/shop/* and /shop.json, with the same handlers and the same auth as the /api/library/* and /games.json
-// routes above. Remove this block once both have moved.
-expressApp.get("/api/shop/icon/:titleId", iconRoute);
-expressApp.get("/api/shop/banner/:titleId", bannerRoute);
-expressApp.get("/api/shop/screenshot/:titleId/:idx", screenshotRoute);
-expressApp.get("/api/shop/sections", sectionsRoute);
-expressApp.get("/api/shop/info", libraryInfoRoute);
-expressApp.get("/shop.json", catalogJsonRoute);
 
 // Web-only: auxiliary files (mods/patches/zips) in a title's folder, which a
 // console does not install but the web page can list + download.

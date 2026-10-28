@@ -63,7 +63,7 @@ export function ignoreBasic(req, _res, next) {
 
 export default function authGuard() {
   return (req, res, next) => {
-    // Automation tokens: the admin API and the /games.json catalog (legacy /shop.json alias) only, acting as the admin who made them.
+    // Automation tokens: the admin API and the /games.json catalog only, acting as the admin who made them.
     if (apiTokens.presented(req)) return tokenLane(req, res, next, clientIp(req));
 
     // Accounts are managed live from /admin: no accounts means no sign-in wall,
@@ -224,7 +224,7 @@ function ownerIsAdmin(owner) {
 // token as a failed login and could lock the caller's address out.
 const MCP_PATH = /^\/mcp\/?$/i;
 
-const CATALOG = (p) => p === "/games.json" || p === "/shop.json";
+const CATALOG = (p) => p === "/games.json";
 // What an automation token may reach: the admin API, its guide, the flat catalog and MCP.
 export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || CATALOG(p) || MCP_PATH.test(p);
 // A catalog token reads the list and the game files it names ("../<file>" on the origin): nothing under

@@ -6,7 +6,7 @@
  *
  * A token acts as the admin account that made it, only on /admin/api/*, and
  * stops working when that account stops being an admin. A "catalog" token is
- * narrower: it reads /games.json (/shop.json) and downloads the game files that
+ * narrower: it reads /games.json and downloads the game files that
  * list names, and is never the admin anywhere (auth-guard.js tokenLane). It cannot make or
  * revoke tokens, nor change the admin page's two-step login. Only a SHA-256 of
  * the secret is kept, in the security database (0600); the
