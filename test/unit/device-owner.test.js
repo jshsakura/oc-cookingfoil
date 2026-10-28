@@ -217,6 +217,11 @@ test("a console whose account is turned off or removed is suspended on every lan
 
   users.remove("dave");
   await refused(await byKey(), "account-gone");
+  const knock = await fetch(`${base}/api/pair/status`, { headers: { "X-Device-Key": key, "X-Pair-Secret": "5a".repeat(32) } });
+  const asked = await knock.json();
+  assert.equal(knock.status, 200, JSON.stringify(asked));
+  assert.equal(asked.repair, true, "a suspended console asking without its key is shown a re-pair QR");
+  assert.equal(store.getDeviceAccessKeyHash(key), hashAccessKey(body.accessKey), "asking for a QR changes nothing until someone approves it");
   users.add("dave", "dave-password-2");
   assert.equal((await byKey()).status, 200, "an account by the same name takes its consoles back");
   assert.equal(suspension("C9".repeat(32)), null, "no console, nothing suspended");
