@@ -76,7 +76,7 @@ const DOWNLOAD_ROUTES = [
 ];
 
 // Paths the library itself answers at the root; never served from the games folder here.
-const CATALOG_PATHS = new Set(["/games.json", "/shop.json", "/robots.txt", "/healthz"]);
+const CATALOG_PATHS = new Set(["/games.json", "/robots.txt", "/healthz"]);
 
 /** "route" for a download route, "file" for a path in the games folder, null for anything else. Pure. */
 export function laneOf(rawPath) {

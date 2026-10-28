@@ -5,7 +5,9 @@
  *   Authorization: Bearer cft_<id>_<secret>
  *
  * A token acts as the admin account that made it, only on /admin/api/*, and
- * stops working when that account stops being an admin. It cannot make or
+ * stops working when that account stops being an admin. A "catalog" token is
+ * narrower: it reads /games.json and downloads the game files that
+ * list names, and is never the admin anywhere (auth-guard.js tokenLane). It cannot make or
  * revoke tokens, nor change the admin page's two-step login. Only a SHA-256 of
  * the secret is kept, in the security database (0600); the
  * token itself is shown once, when it is made.
@@ -53,19 +55,25 @@ export function verify(header, now = Date.now()) {
   return rec;
 }
 
+/** What a token may do: the admin API as its maker, or only read the catalog and its game files. */
+export const SCOPES = ["admin", "catalog"];
+/** A token made before scopes is an admin one. Pure. */
+export const scopeOf = (rec) => (rec?.scope === "catalog" ? "catalog" : "admin");
+
 /** Makes a token for an admin account. Returns { token, id }; the token is not kept. */
-export function create(owner, label) {
+export function create(owner, label, { scope = "admin" } = {}) {
+  if (!SCOPES.includes(scope)) throw codedError(TokenError, "token.scope");
   if (load().length >= MAX_TOKENS) throw codedError(TokenError, "token.max", { n: MAX_TOKENS });
   const id = crypto.randomBytes(4).toString("hex");
   const secret = crypto.randomBytes(32).toString("base64url");
-  const rec = { id, owner: String(owner), label: String(label ?? "").trim().slice(0, LABEL_MAX), hash: sha(secret).toString("hex"), createdAt: Date.now(), lastUsedAt: null };
+  const rec = { id, owner: String(owner), label: String(label ?? "").trim().slice(0, LABEL_MAX), hash: sha(secret).toString("hex"), scope, createdAt: Date.now(), lastUsedAt: null };
   persist([...load(), rec]);
   return { id, token: `cft_${id}_${secret}` };
 }
 
 /** Tokens without their hashes. */
 export function list() {
-  return load().map(({ hash: _hash, ...t }) => t);
+  return load().map(({ hash: _hash, ...t }) => ({ ...t, scope: scopeOf(t) }));
 }
 
 export function revoke(id) {

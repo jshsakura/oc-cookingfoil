@@ -15,6 +15,7 @@
  * (COOK_LOCKOUT_TTL_HOURS=0, default) until an admin unlocks via POST
  * /api/admin/unlock, OR auto-expire if the env sets a TTL.
  */
+import { GAME_FILE_RE } from "../helpers/file-send.js";
 import crypto from "crypto";
 import debug from "../debug.js";
 import { unauthorizedMessage, devicePairing, deviceAutoApprove, deviceAutoApproveAll } from "../helpers/envs.js";
@@ -62,7 +63,7 @@ export function ignoreBasic(req, _res, next) {
 
 export default function authGuard() {
   return (req, res, next) => {
-    // Automation tokens: the admin API and the /games.json catalog (legacy /shop.json alias) only, acting as the admin who made them.
+    // Automation tokens: the admin API and the /games.json catalog only, acting as the admin who made them.
     if (apiTokens.presented(req)) return tokenLane(req, res, next, clientIp(req));
 
     // Accounts are managed live from /admin: no accounts means no sign-in wall,
@@ -223,19 +224,27 @@ function ownerIsAdmin(owner) {
 // token as a failed login and could lock the caller's address out.
 const MCP_PATH = /^\/mcp\/?$/i;
 
+const CATALOG = (p) => p === "/games.json";
 // What an automation token may reach: the admin API, its guide, the flat catalog and MCP.
-export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || (p === "/games.json" || p === "/shop.json") || MCP_PATH.test(p);
+export const TOKEN_PATHS = (p) => p.startsWith("/admin/api/") || p === "/admin/guide.md" || CATALOG(p) || MCP_PATH.test(p);
+// A catalog token reads the list and the game files it names ("../<file>" on the origin): nothing under
+// /api or /admin, only GET and HEAD.
+export const CATALOG_PATHS = (req) => (req.method === "GET" || req.method === "HEAD")
+  && (CATALOG(req.path) || (GAME_FILE_RE.test(req.path) && !/^\/(api|admin)(\/|$)/i.test(req.path)));
 
 function tokenLane(req, res, next, ip) {
   if (!trustedHere(req) && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked out" });
   const token = apiTokens.verify(req.headers.authorization);
-  if (!token || !TOKEN_PATHS(req.path) || !ownerIsAdmin(token.owner)) {
+  const catalog = apiTokens.scopeOf(token) === "catalog";
+  if (!token || !(catalog ? CATALOG_PATHS(req) : TOKEN_PATHS(req.path)) || !ownerIsAdmin(token.owner)) {
     if (!trustedHere(req)) recordFailure(ip, req);
     noteRefusal(req, res, 401, "api-token-invalid");
     return res.status(401).json({ error: "invalid token" });
   }
   req.apiToken = token;
   vouch(res);
+  // Never an account: a catalog token reads, it acts as nobody.
+  if (catalog) return next();
   if (token.owner.startsWith("google:")) req.webUser = { kind: "google", sub: token.owner.slice(7) };
   else req.auth = { user: token.owner };
   return next();
