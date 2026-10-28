@@ -12,12 +12,12 @@
  *
  * No-op passthrough when COOK_DEVICE_PAIRING is off.
  */
-import { deviceOwner } from "./device-owner.js";
+import { deviceOwner, suspension } from "./device-owner.js";
 import * as store from "./store.js";
 import { recordPending } from "./pending-limit.js";
 import { devicePairing } from "../helpers/envs.js";
 import { deviceKeyFromHeaders, verifyAccessKey } from "./pairing.js";
-import { SESSION_HEADER } from "./session-gate.js";
+import { SESSION_HEADER, refuseSuspended } from "./session-gate.js";
 import { recordDeny, DENY } from "./deny.js";
 import { vouch } from "./server-id.js";
 import { clientIp } from "./auth-guard.js";
@@ -32,6 +32,8 @@ export default function pairingGate() {
 
     const hash = store.getDeviceAccessKeyHash(deviceKey);
     if (hash && verifyAccessKey(req.get("X-Access-Key"), hash)) {
+      const suspended = suspension(deviceKey);
+      if (suspended) return refuseSuspended(req, res, suspended);
       req.pairedDevice = deviceKey;
       req.deviceOwner = deviceOwner(deviceKey);
       store.touchDevice(deviceKey, clientIp(req));

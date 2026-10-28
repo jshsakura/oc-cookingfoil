@@ -31,6 +31,18 @@ export function deviceOwner(deviceKey) {
   return { state: "bound", owner: { kind: "user", id: by, displayName: by }, active: users.isActive(by) };
 }
 
+/**
+ * Why the account holding a console no longer lets it in, or null: "account-off" while the account
+ * is turned off (or a Google account waits or is refused), "account-gone" once it is removed. The
+ * console keeps its key and its record, and comes back as it was when the account does.
+ */
+export function suspension(deviceKey) {
+  const o = deviceOwner(deviceKey);
+  if (o?.state !== "bound" || o.active) return null;
+  const known = o.owner.kind === "google" ? googleAccounts.list().some((a) => a.email === o.owner.id) : users.list().some((u) => u.name === o.owner.id);
+  return known ? "account-off" : "account-gone";
+}
+
 /** What a console is told about its own binding: no account id beyond the name it shows. Pure over deviceOwner. */
 export function bindingOf(deviceKey) {
   const o = deviceOwner(deviceKey);

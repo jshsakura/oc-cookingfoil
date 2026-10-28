@@ -186,3 +186,38 @@ test("the admin gives a console no account holds to an account; it keeps its key
   assert.deepEqual(giveToAccount(adm, "carol"), { ok: false, code: "admin-device" });
   assert.deepEqual(giveToAccount("C4".repeat(32), "carol"), { ok: false, code: "no-device" });
 });
+
+test("a console whose account is turned off or removed is suspended on every lane, keeps its key, and comes back with the account", async () => {
+  const users = await import("../../src/security/users.js");
+  const { suspension } = await import("../../src/security/device-owner.js");
+  users.add("dave", "dave-password-1");
+  const key = "9D".repeat(32);
+  const { status, body } = await enrollAs("dave", key, "c");
+  assert.equal(status, 200, JSON.stringify(body));
+  const dev = { "X-Device-Key": key, "X-Access-Key": body.accessKey };
+  const { token } = await (await fetch(`${base}/api/session`, { headers: dev })).json();
+  const byKey = () => fetch(`${base}/identity`, { headers: dev });
+  const bySession = () => fetch(`${base}/via-session`, { headers: { "X-Device-Key": key, Authorization: `Bearer ${token}` } });
+  const refused = async (r, reason) => {
+    assert.equal(r.status, 403);
+    assert.equal(r.headers.get("x-cookingfoil-session"), "suspended");
+    assert.deepEqual(await r.json(), { error: "suspended", reason });
+  };
+
+  users.setEnabled("dave", false);
+  assert.equal(suspension(key), "account-off");
+  await refused(await byKey(), "account-off");
+  await refused(await bySession(), "account-off");
+  assert.equal(store.getDeviceAccessKeyHash(key), hashAccessKey(body.accessKey), "the key is kept");
+
+  users.setEnabled("dave", true);
+  assert.equal(suspension(key), null);
+  assert.equal((await byKey()).status, 200);
+  assert.equal((await bySession()).status, 200, "the old session works again");
+
+  users.remove("dave");
+  await refused(await byKey(), "account-gone");
+  users.add("dave", "dave-password-2");
+  assert.equal((await byKey()).status, 200, "an account by the same name takes its consoles back");
+  assert.equal(suspension("C9".repeat(32)), null, "no console, nothing suspended");
+});
