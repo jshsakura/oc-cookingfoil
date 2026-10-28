@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { test, expect } from './library-fixture';
 import fs from 'node:fs';
 import path from 'node:path';
 import { signIn } from './admin-sign-in';
@@ -85,65 +86,55 @@ test('the game picker keeps its list through Korean typing, shows a filled value
 });
 
 // The home picks row: a list of every game with a tick box, filtered by its own search box.
-test('a home picks row marks games from its list, one found by search, unmarks one, and saves', async ({ page }) => {
-  // Two rescans and their polls do not fit the default 30 s on a loaded machine.
-  test.slow();
+test('a home picks row marks games from its list, one found by search, unmarks one, and saves', async ({ page, libraryFile, undo }) => {
   const cookie = await signIn(page);
   const headers = await headersOf(page, cookie);
-  fs.writeFileSync(secondFile, '');
-  try {
-    await page.request.post('/admin/api/library/rescan', { headers, data: {} });
-    await expect.poll(async () => (await (await page.request.get(`/admin/api/games/search?q=${SECOND}`, { headers })).json()).total, { timeout: 15_000 }).toBe(1);
+  libraryFile(path.basename(secondFile));
+  undo(() => page.request.put('/admin/api/featured', { data: { collections: [] }, headers }));
+  await page.request.post('/admin/api/library/rescan', { headers, data: {} });
+  await expect.poll(async () => (await (await page.request.get(`/admin/api/games/search?q=${SECOND}`, { headers })).json()).total, { timeout: 15_000 }).toBe(1);
 
-    await page.goto("/admin/games");
-    await page.goto('/admin/featured');
-    await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
-    await page.getByLabel('줄 제목', { exact: true }).fill('고른 게임');
-    const list = page.getByRole('list', { name: '게임 목록' });
-    await expect(list.getByRole('checkbox')).toHaveCount(2);
-    await list.getByRole('checkbox', { name: new RegExp(ID) }).check();
+  await page.goto("/admin/games");
+  await page.goto('/admin/featured');
+  await page.getByRole('button', { name: '추천 줄 추가', exact: true }).click();
+  await page.getByLabel('줄 제목', { exact: true }).fill('고른 게임');
+  const list = page.getByRole('list', { name: '게임 목록' });
+  await expect(list.getByRole('checkbox')).toHaveCount(2);
+  await list.getByRole('checkbox', { name: new RegExp(ID) }).check();
 
-    // The search box filters the same list; the second game is ticked from the filtered list.
-    await page.getByRole('searchbox', { name: '게임 목록에서 찾기' }).pressSequentially('picker');
-    await expect(list.getByRole('checkbox')).toHaveCount(1);
-    await list.getByRole('checkbox', { name: new RegExp(SECOND) }).check();
-    const row = page.locator('#f-list .fgames li');
-    await expect(row).toHaveCount(2);
+  // The search box filters the same list; the second game is ticked from the filtered list.
+  await page.getByRole('searchbox', { name: '게임 목록에서 찾기' }).pressSequentially('picker');
+  await expect(list.getByRole('checkbox')).toHaveCount(1);
+  await list.getByRole('checkbox', { name: new RegExp(SECOND) }).check();
+  const row = page.locator('#f-list .fgames li');
+  await expect(row).toHaveCount(2);
 
-    // "Picked only" lists what is in the row; unticking the first takes it out.
-    await page.getByRole('searchbox', { name: '게임 목록에서 찾기' }).fill('');
-    await page.getByRole('checkbox', { name: '추천한 것만' }).check();
-    await expect(list.getByRole('checkbox', { checked: true })).toHaveCount(2);
-    await list.getByRole('checkbox', { name: new RegExp(ID) }).uncheck();
-    await expect(row).toHaveCount(1);
-    await expect(row).toContainText('Picker Second Game');
-    await page.screenshot({ path: `${SHOTS}/featured-list.png`, fullPage: true });
+  // "Picked only" lists what is in the row; unticking the first takes it out.
+  await page.getByRole('searchbox', { name: '게임 목록에서 찾기' }).fill('');
+  await page.getByRole('checkbox', { name: '추천한 것만' }).check();
+  await expect(list.getByRole('checkbox', { checked: true })).toHaveCount(2);
+  await list.getByRole('checkbox', { name: new RegExp(ID) }).uncheck();
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('Picker Second Game');
+  await page.screenshot({ path: `${SHOTS}/featured-list.png`, fullPage: true });
 
-    await page.getByRole('button', { name: /^저장/ }).click();
-    await expect(page.locator('#toast')).toContainText('추천을 저장했습니다');
-    await expect.poll(async () => (await (await page.request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
-      .toEqual([SECOND]);
-    await page.reload();
-    await page.goto("/admin/games");
-    await page.goto('/admin/featured');
-    await expect(page.locator('#f-list .fgames li')).toContainText('Picker Second Game');
+  await page.getByRole('button', { name: /^저장/ }).click();
+  await expect(page.locator('#toast')).toContainText('추천을 저장했습니다');
+  await expect.poll(async () => (await (await page.request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
+    .toEqual([SECOND]);
+  await page.reload();
+  await page.goto("/admin/games");
+  await page.goto('/admin/featured');
+  await expect(page.locator('#f-list .fgames li')).toContainText('Picker Second Game');
 
-    // A game's own page puts it in a row too.
-    const field = await openInfo(page);
-    await field.fill(`Test Game [${ID}]`);
-    await field.dispatchEvent('change');
-    await expect(page.locator('#gd-body')).toBeVisible();
-    await page.locator('#gd-feat-row').selectOption({ label: '고른 게임' });
-    await page.getByRole('button', { name: '추천에 넣기' }).click();
-    await expect(page.locator('#toast')).toContainText('추천에 넣었습니다');
-    await expect.poll(async () => (await (await page.request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
-      .toEqual([SECOND, ID]);
-  } finally {
-    // First and without a request, so the extra game leaves the disk even if the test ran out of time.
-    fs.rmSync(secondFile, { force: true });
-    await page.request.put('/admin/api/featured', { data: { collections: [] }, headers });
-    // The next specs count the library's files: wait until the extra game is gone from it.
-    await page.request.post('/admin/api/library/rescan', { headers, data: {} });
-    await expect.poll(async () => (await (await page.request.get(`/admin/api/games/search?q=${SECOND}`, { headers })).json()).total, { timeout: 15_000 }).toBe(0);
-  }
+  // A game's own page puts it in a row too.
+  const field = await openInfo(page);
+  await field.fill(`Test Game [${ID}]`);
+  await field.dispatchEvent('change');
+  await expect(page.locator('#gd-body')).toBeVisible();
+  await page.locator('#gd-feat-row').selectOption({ label: '고른 게임' });
+  await page.getByRole('button', { name: '추천에 넣기' }).click();
+  await expect(page.locator('#toast')).toContainText('추천에 넣었습니다');
+  await expect.poll(async () => (await (await page.request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
+    .toEqual([SECOND, ID]);
 });
