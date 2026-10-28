@@ -55,7 +55,8 @@ export function approveWaitingDevice(deviceKey, { label = "", addedBy }) {
  */
 export function pairLinkView(link, approver) {
   if (link.used) return { view: "done", repair: null };
-  if (!store.isDeviceApproved(link.deviceKey)) return { view: "confirm", repair: null };
+  // A console's first approval needs its request still waiting: a dismissed one is over.
+  if (!store.isDeviceApproved(link.deviceKey)) return { view: store.isDevicePending(link.deviceKey) ? "confirm" : "done", repair: null };
   if (!repairRequest(link.deviceKey)) return { view: "done", repair: null };
   return { view: "confirm", repair: store.deviceAddedBy(link.deviceKey) === approver ? "repairSame" : "repairOther" };
 }

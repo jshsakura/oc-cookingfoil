@@ -14,7 +14,8 @@ process.env.COOK_DEVICE_AUTO_APPROVE = "false";
 const express = (await import("express")).default;
 const store = await import("../../src/security/store.js");
 const pairing = await import("../../src/security/pairing.js");
-const { approveWaitingDevice } = await import("../../src/security/pairing-approve.js");
+const { approveWaitingDevice, approvePairLink } = await import("../../src/security/pairing-approve.js");
+const { issuePairLink } = await import("../../src/security/pairing-link.js");
 const { registerPairSecret, deliverAccessKey } = await import("../../src/security/pairing-delivery.js");
 const pairRouter = (await import("../../src/routes/pair.js")).default;
 const pendingLimit = await import("../../src/security/pending-limit.js");
@@ -196,3 +197,50 @@ test("pairSecretMatches compares in constant time against the stored hash", () =
   assert.equal(pairing.pairSecretMatches(secret, null), false);
 });
 
+
+test("a dismissed request's QR approves nothing, and no key waits for anyone", async () => {
+  const key = newKey();
+  assert.equal((await request({ deviceKey: key, pairSecret: newSecret() })).status, 200);
+  const { token } = issuePairLink(key);
+  assert.equal(store.dismissPending(key), true);
+  assert.notEqual(approvePairLink(token, { addedBy: "alice" }), "ok");
+  assert.equal(store.isDeviceApproved(key), false);
+  const r = await status(key);
+  assert.equal(r.body.accessKey, undefined, "a bare poll with the device id gets no key");
+});
+
+test("a console revoked after asking to be paired again cannot be approved by that old QR", async () => {
+  const key = newKey();
+  const secret = newSecret();
+  assert.equal((await request({ deviceKey: key, pairSecret: secret })).status, 200);
+  approveWaitingDevice(key, { addedBy: "admin" });
+  assert.ok((await status(key, { "X-Pair-Secret": secret })).body.accessKey);
+  assert.equal((await status(key, { "X-Pair-Secret": newSecret() })).body.repair, true);
+  const { token } = issuePairLink(key);
+  store.revokeDevice(key);
+  assert.notEqual(approvePairLink(token, { addedBy: "mallory" }), "ok");
+  assert.equal(store.isDeviceApproved(key), false);
+  assert.equal((await status(key)).body.accessKey, undefined);
+});
+
+test("a key staged before the console got a new one is never handed out", async () => {
+  const key = newKey();
+  const secret = newSecret();
+  assert.equal((await request({ deviceKey: key, pairSecret: secret })).status, 200);
+  approveWaitingDevice(key, { addedBy: "admin" });
+  // Revoked before it took that key, then enrolled again with a download: the new key is K2.
+  store.revokeDevice(key);
+  const k2 = pairing.generateAccessKey();
+  store.approveDevice(key, { label: "again", addedBy: "alice", accessKeyHash: pairing.hashAccessKey(k2) });
+  const r = await status(key, { "X-Access-Key": k2, "X-Pair-Secret": secret });
+  assert.equal(r.body.status, "approved");
+  assert.equal(r.body.accessKey, undefined, "the old staged key would overwrite the one the console holds");
+});
+
+test("a staged key that no longer matches the console's key is dropped, not delivered", () => {
+  const key = newKey();
+  store.approveDevice(key, { label: "x", addedBy: "admin", accessKeyHash: pairing.hashAccessKey(pairing.generateAccessKey()) });
+  pairing.stageAccessKeyDelivery(key, pairing.generateAccessKey());
+  assert.equal(deliverAccessKey(key, null), null);
+  assert.equal(pairing.takeAccessKeyDelivery(key), null, "and it is gone");
+});
