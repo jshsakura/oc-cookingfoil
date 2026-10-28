@@ -145,6 +145,9 @@ test("first run: setup code, admin account, authenticator, then keys from the ad
     const guide = await viaToken("/admin/guide.md");
     assert.equal(guide.status, 200);
     assert.match(await guide.text(), /AI 도우미에게 맡기기/);
+    for (const [lang, want] of [["en", /Handing it to an AI helper/], ["ja", /Handing it to an AI helper/], ["zh-Hant", /Handing it to an AI helper/], ["ko", /AI 도우미에게 맡기기/]]) {
+      assert.match(await (await viaToken(`/admin/guide.md?lang=${lang}`)).text(), want, `the guide in ${lang}`);
+    }
     assert.equal((await viaToken("/admin/api/users", { method: "POST", body: JSON.stringify({ name: "x", password: "long-enough-pass" }) })).status, 403);
     assert.equal((await viaToken("/admin/api/tokens", { method: "POST", body: "{}" })).status, 403, "tokens never mint tokens");
     assert.equal((await viaToken("/admin/api/2fa/start", { method: "POST", body: "{}" })).status, 403);

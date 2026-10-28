@@ -22,11 +22,17 @@ ${TOP_LANG_CSS}
 .guide-lang{position:fixed;top:16px;right:16px}
 `;
 
-export function guidePage(markdown) {
+const GUIDE_SCRIPT = `const showGuide=()=>{const want=adminLang==='ko'?'ko':'en';for(const d of document.querySelectorAll('[data-guide-lang]'))d.hidden=d.dataset.guideLang!==want;};
+(window.admRelabelHooks=window.admRelabelHooks||[]).push(showGuide);showGuide();`;
+
+/** The guide in Korean and English, both in the page: the language menu shows one (Korean for Korean, English for every other language). */
+export function guidePage(korean, english = korean) {
   return `<!doctype html><html lang="ko" class="adm"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title data-top="gd.docTitle">${TOP_WORDS.ko["gd.docTitle"]}</title>${ADMIN_HEAD}<style>${ADMIN_CSS}${DOC_CSS}</style></head><body><div class="guide-lang">${TOP_LANG_HTML}</div><main>
 <a class="back" href="/admin" data-top="gd.back">${top("gd.back")}</a>
-${renderMarkdown(markdown)}
+<div data-guide-lang="ko">${renderMarkdown(korean)}</div>
+<div data-guide-lang="en" hidden>${renderMarkdown(english)}</div>
 </main>
-<script>${topScript(["gd."])}</script></body></html>`;
+<script>${topScript(["gd."])}</script>
+<script>${GUIDE_SCRIPT}</script></body></html>`;
 }

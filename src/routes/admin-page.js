@@ -108,7 +108,9 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const GUIDE = fs.readFileSync(fileURLToPath(new URL("../views/guide.md", import.meta.url)), "utf8");
+const GUIDE = Object.fromEntries(["ko", "en"].map((l) => [l, fs.readFileSync(fileURLToPath(new URL(`../views/guide.${l}.md`, import.meta.url)), "utf8")]));
+// The guide is kept in Korean and English; any other language, Japanese and Chinese included, reads English. Without ?lang= it stays Korean.
+const guideLang = (req) => (typeof req.query?.lang === "string" && parseLang(req.query.lang) !== "ko" ? "en" : "ko");
 import { readPairLink, deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approvePairLink, approveWaitingDevice, pairLinkView } from "../security/pairing-approve.js";
 import { deviceLimitRefusal } from "../security/device-limit.js";
@@ -121,7 +123,7 @@ import * as envs from "../helpers/envs.js";
 import { sameOriginWrites } from "../security/same-origin.js";
 import { sendVendor } from "./admin/grid.js";
 import { securityText } from "../security/security-messages.js";
-import { requestLang } from "../meta/langs.js";
+import { parseLang, requestLang } from "../meta/langs.js";
 
 const DENIAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 // One authenticator secret guards /admin, so its wrong codes share one account counter.
@@ -376,13 +378,13 @@ export default function adminPageRouter() {
   // The operator's guide, which is also what an AI assistant is handed with a token.
   router.get("/guide.md", (req, res) => {
     if (!requireSession(req, res)) return;
-    res.set("Cache-Control", "no-store").type("text/markdown; charset=utf-8").send(GUIDE);
+    res.set("Cache-Control", "no-store").type("text/markdown; charset=utf-8").send(GUIDE[guideLang(req)]);
   });
 
   // The same guide as a page to read; /guide.md stays the raw text an AI helper is handed.
   router.get("/guide", (req, res) => {
     if (!requireSession(req, res)) return;
-    res.set("Cache-Control", "no-store").type("html").send(guidePage(GUIDE));
+    res.set("Cache-Control", "no-store").type("html").send(guidePage(GUIDE.ko, GUIDE.en));
   });
 
   router.post("/verify", async (req, res) => {

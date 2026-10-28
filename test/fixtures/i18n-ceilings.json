@@ -5,8 +5,7 @@
     "src/security/busy-guard.js": 1,
     "src/security/google-accounts.js": 1,
     "src/security/pairing-approve.js": 1,
-    "src/security/store.js": 2,
-    "src/views/guide.md": 98
+    "src/security/store.js": 2
   },
   "problems": {
     "src/retro/systems.js": 41
