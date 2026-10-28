@@ -76,7 +76,7 @@ const keyless = ([id, title, use, host, href]) => `<div class="intg-free" data-f
   <p class="muted">${top(use)} <span class="intg-host">${href ? `<a href="${href}" target="_blank" rel="noopener">${host}</a>` : host}</span></p>
 </div>`;
 
-export const INTEGRATIONS_HTML = `<h2 id="intg-h">${top("ig.h2")}</h2>
+export const INTEGRATIONS_HTML = `<h2 id="intg-h">${top("m.setIntegrations")}</h2>
 <p class="muted">${top("ig.lede")}</p>
 ${SERVICES.map(card).join("\n")}
 ${box("keyless", top("ig.keylessTitle"), `<p class="muted">${top("ig.keylessLede")}</p>

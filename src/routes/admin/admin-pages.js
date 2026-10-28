@@ -267,19 +267,24 @@ function mark(){const p=activePath();
     else a.removeAttribute('aria-current');}
   crumb();}
 // The header names the page by its menu path, from the sidebar's current item: "group > item" in a group,
-// "row > tab" on a page that holds its jobs as tabs. The label spans are copies, so the language switch
-// relabels them with the rest.
+// "row > tab" on a page that holds its jobs as tabs, and the open in-page tab as the last crumb. The label
+// spans are copies, so the language switch relabels them with the rest.
 function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySelector('.adm-side .adm-item[aria-current="page"]');
   if(!c)return;c.replaceChildren();if(!a)return;
   const label=(n)=>{const s=n&&n.querySelector(':scope>[data-top]');return s?s.cloneNode(true):null;};
+  const plain=(n)=>{const s=n.querySelector('[data-top]');if(s)return s.cloneNode(true);const t=document.createElement('span');
+    t.textContent=[...n.childNodes].filter((x)=>x.nodeType===3||(x.nodeType===1&&!x.classList.contains('count')&&!x.querySelector('svg')&&x.tagName!=='svg')).map((x)=>x.textContent).join('').trim();return t;};
   const grp=a.closest('details.adm-grp');
-  const tab=grp?null:document.querySelector('main .subtabs:not([hidden]) :is([aria-current="page"],[aria-selected="true"])');
-  let g=label(grp?.querySelector('summary')),i=label(a);
-  if(tab){g=i;i=label(tab);if(!i){i=document.createElement('span');i.textContent=tab.textContent.trim();}}
-  if(g&&i){g.classList.add('adm-crumb-g');c.append(g);
-    c.insertAdjacentHTML('beforeend','<svg class="adm-crumb-sep" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');}
-  else if(g)i=g;
-  if(i){i.classList.add('adm-crumb-i');c.append(i);}}
+  const rowTab=grp?null:document.querySelector('main .adm-rowtabs [aria-current="page"]');
+  const sec=document.querySelector('main .subtabs:not(.adm-rowtabs):not([hidden]) :is([data-sub],[data-lsub])[aria-selected="true"]');
+  const parts=[];
+  if(rowTab){parts.push(label(a),plain(rowTab));}else{parts.push(label(grp?.querySelector('summary')),label(a));}
+  if(sec)parts.push(plain(sec));
+  const shown=parts.filter(Boolean);
+  shown.forEach((p,k)=>{const last=k===shown.length-1;
+    if(!last){p.classList.add('adm-crumb-g');c.append(p);
+      c.insertAdjacentHTML('beforeend','<svg class="adm-crumb-sep" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');}
+    else{p.classList.add('adm-crumb-i');c.append(p);}});}
 window.__admMark=mark;
 function sums(){
   // The group sums sit inside the observed tree, so every write is made only
@@ -327,5 +332,9 @@ if(menu&&drawer){const open=()=>{drawer.showModal();menu.setAttribute('aria-expa
   drawer.addEventListener('click',(e)=>{if(e.target.closest('a'))drawer.close();});}
 if(PAGE.anchor)setTimeout(scrollAnchor,300);
 mark();sums();
+// A tab switched inside the page changes the last crumb; the header is outside main, so this never feeds itself.
+const mainEl=document.querySelector('main');let crumbQueued=false;
+if(mainEl)new MutationObserver(()=>{if(crumbQueued)return;crumbQueued=true;queueMicrotask(()=>{crumbQueued=false;crumb();});})
+  .observe(mainEl,{subtree:true,attributes:true,attributeFilter:['aria-selected','hidden','aria-current']});
 })();`;
 }

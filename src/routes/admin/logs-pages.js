@@ -63,7 +63,7 @@ ${box("bug-reports", top("lg.bugH"), `<p class="muted">${top("lg.bugLead")}</p>
 export const LOGS_SECURITY_HTML = /* html */ `
 <div class="hd"><h2 class="first">${top("lg.lockH")}</h2><button type="button" id="unlock-all">${top("lg.unlockAll")}</button></div>
 <div class="scroll" id="lockouts" data-skel></div>
-<div class="hd"><h2>${top("lg.denyH")}</h2><button type="button" id="clrdeny">${top("lg.denyClear")}</button></div>
+<div class="hd"><h2>${top("m.deny")}</h2><button type="button" id="clrdeny">${top("lg.denyClear")}</button></div>
 <p class="muted">${top("lg.denyLead")}</p>
 <div class="scroll" id="denials" data-skel></div>
 `;

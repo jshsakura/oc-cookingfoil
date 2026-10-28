@@ -13,7 +13,7 @@ export const HOMEBREW_WORDS = {
     "hb.addPicked": "고른 것 추가",
     "hb.addAll": "모두 추가",
     "hb.recoLede": "최신 릴리스에서 바로 받을 수 있는 것을 확인한 목록입니다. 추가하면 서버가 GitHub 릴리스를 따라가며 새 버전을 알려 줍니다.",
-    "hb.addRepoTitle": "GitHub 저장소 추가",
+    "hb.addRepoTitle": "GitHub 저장소",
     "hb.repoPh": "GitHub 주소 또는 owner/name",
     "hb.repoLabel": "GitHub 저장소",
     "hb.assetPh": "쓸 파일 이름 (선택, 예: *-classic.nro)",

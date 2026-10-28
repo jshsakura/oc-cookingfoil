@@ -7,13 +7,13 @@ import { GAME_PATCHES_HTML } from "./patches-panel.js";
 import { FOLDER_MARK } from "./files-panel.js";
 
 export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
-  <div class="hd"><h2>라이브러리</h2><button type="button" class="primary" id="rescan">다시 스캔</button></div>
+  <div class="hd"><h2>${top("m.grpGames")}</h2><button type="button" class="primary" id="rescan">${top("lib.rescan")}</button></div>
   <p class="muted" id="scan-status" aria-live="polite"></p>
   <div class="subtabs hide-bar" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
     <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("grid")}${top("m.gameList")}</button>
     <button type="button" role="tab" data-lsub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button>
-    <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}검사</button>
-    <button type="button" role="tab" data-lsub="info" aria-selected="false">${icon("book")}이름과 소개</button>
+    <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}${top("lb.colCheck")}</button>
+    <button type="button" role="tab" data-lsub="info" aria-selected="false">${icon("book")}${top("m.titles")}</button>
   </div>
   <div data-lib-panel="files">${LIB_BROWSER_HTML}
   <section class="lib-ops" aria-labelledby="lib-ops-h">
@@ -23,7 +23,7 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
   <div data-lib-panel="verify" hidden>${LIBRARY_VERIFY_HTML}</div>
   <div data-lib-panel="folder" hidden>${FOLDER_MARK}</div>
   <div data-lib-panel="info" hidden>
-  <h2 class="first">게임 이름, 소개, 추가 정보</h2>
+  <h2 class="first">${top("m.titles")}</h2>
   <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
   <form class="desc-form" id="gd-form">
     <label>${top("gp.find")}<input id="gd-game" autocomplete="off" ${topPh("gp.ph")}></label>
