@@ -1240,5 +1240,6 @@
   "This console's account was deleted. Contact the server's admin.": "이 기기의 계정이 지워졌습니다. 서버 관리자에게 문의해 주세요.",
   "This console is suspended on this server. Contact the server's admin.": "이 기기는 이 서버에서 정지되어 있습니다. 서버 관리자에게 문의해 주세요.",
   "This console needs to be approved again. Scan the QR code to link it to your account.": "이 기기를 다시 인증해야 합니다. QR 코드로 내 계정에 연결해 주세요.",
-  "v{0} stopped twice on this console before it opened, so it is not installed again. A bug report went to the server.": "v{0} 버전이 이 기기에서 열리기 전에 두 번 멈춰서 다시 설치하지 않습니다. 서버로 버그 신고를 보냈습니다."
+  "v{0} stopped twice on this console before it opened, so it is not installed again. A bug report went to the server.": "v{0} 버전이 이 기기에서 열리기 전에 두 번 멈춰서 다시 설치하지 않습니다. 서버로 버그 신고를 보냈습니다.",
+  "Lost the connection to the server while reading the file: {0}": "파일을 읽는 중에 서버와 연결이 끊겼습니다: {0}"
 }
