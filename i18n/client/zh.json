@@ -1240,5 +1240,6 @@
   "This console's account was deleted. Contact the server's admin.": "此主机的账户已被删除。请联系服务器管理员。",
   "This console is suspended on this server. Contact the server's admin.": "此主机已在此服务器上被停用。请联系服务器管理员。",
   "This console needs to be approved again. Scan the QR code to link it to your account.": "这台主机需要重新批准。请扫描二维码将它连接到你的账户。",
-  "v{0} stopped twice on this console before it opened, so it is not installed again. A bug report went to the server.": "v{0} 在这台主机上两次在打开前停止，因此不再安装。已向服务器发送错误报告。"
+  "v{0} stopped twice on this console before it opened, so it is not installed again. A bug report went to the server.": "v{0} 在这台主机上两次在打开前停止，因此不再安装。已向服务器发送错误报告。",
+  "Lost the connection to the server while reading the file: {0}": "读取文件时与服务器的连接中断：{0}"
 }
