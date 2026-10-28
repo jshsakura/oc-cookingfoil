@@ -7,7 +7,7 @@
  */
 export const WIDE_WORDS = {
   "zh-Hant": {
-    title: "CookingFoil 伺服器管理", loading: "載入中", web: "儀表板", guide: "操作指南",
+    title: "CookingFoil 伺服器管理", loading: "載入中", web: "開啟網頁", guide: "操作指南",
     logout: "登出", language: "語言", nav: "伺服器管理選單", subnav: "子選單",
     "m.overview": "伺服器概況", "m.library": "收藏庫", "m.patches": "修補程式", "pt.upload": "上傳修補程式", "m.upload": "上傳", "m.nsz": "檔案壓縮", "m.inbox": "收件匣",
     "m.featured": "首頁畫面構成", "m.trash": "回收站", "m.retro": "復古遊戲", "m.people": "帳戶與裝置",
@@ -286,7 +286,7 @@ export const WIDE_WORDS = {
     "tok.lastUsed": "最後使用", "tok.name": "名稱", "tok.none": "還沒有權杖。", "tok.owner": "建立者", "up.entry": "上傳檔案", "up.seeFiles": "已上傳的檔案請在檔案清單中確認。",
   },
   es: {
-    title: "Administración del servidor CookingFoil", loading: "Cargando", web: "Panel", guide: "Guía",
+    title: "Administración del servidor CookingFoil", loading: "Cargando", web: "Abrir la web", guide: "Guía",
     logout: "Cerrar sesión", language: "Idioma", nav: "Menú de administración", subnav: "Submenú",
     "m.overview": "Estado del servidor", "m.library": "Biblioteca", "m.patches": "Parches", "pt.upload": "Subir un parche", "m.upload": "Subir", "m.nsz": "Compresión de archivos", "m.inbox": "Bandeja",
     "m.featured": "Pantalla de inicio", "m.trash": "Papelera", "m.retro": "Juegos retro", "m.people": "Cuentas y dispositivos",
@@ -567,7 +567,7 @@ export const WIDE_WORDS = {
     "tok.lastUsed": "Último uso", "tok.name": "Nombre", "tok.none": "Aún no hay tokens.", "tok.owner": "Creado por", "up.entry": "Subir archivos", "up.seeFiles": "Comprueba los archivos subidos en la lista de archivos.",
   },
   fr: {
-    title: "Administration du serveur CookingFoil", loading: "Chargement", web: "Tableau de bord", guide: "Guide",
+    title: "Administration du serveur CookingFoil", loading: "Chargement", web: "Ouvrir le site", guide: "Guide",
     logout: "Se déconnecter", language: "Langue", nav: "Menu d'administration", subnav: "Sous-menu",
     "m.overview": "État du serveur", "m.library": "Bibliothèque", "m.patches": "Correctifs", "pt.upload": "Téléverser un correctif", "m.upload": "Téléverser", "m.nsz": "Compression des fichiers", "m.inbox": "Boîte de réception",
     "m.featured": "Écran d'accueil", "m.trash": "Corbeille", "m.retro": "Jeux rétro", "m.people": "Comptes et appareils",
@@ -848,7 +848,7 @@ export const WIDE_WORDS = {
     "tok.lastUsed": "Dernière utilisation", "tok.name": "Nom", "tok.none": "Pas encore de jetons.", "tok.owner": "Créé par", "up.entry": "Téléverser des fichiers", "up.seeFiles": "Vérifiez les fichiers téléversés dans la liste des fichiers.",
   },
   de: {
-    title: "CookingFoil-Serververwaltung", loading: "Lädt", web: "Übersicht", guide: "Anleitung",
+    title: "CookingFoil-Serververwaltung", loading: "Lädt", web: "Webseite öffnen", guide: "Anleitung",
     logout: "Abmelden", language: "Sprache", nav: "Verwaltungsmenü", subnav: "Untermenü",
     "m.overview": "Serverstatus", "m.library": "Bibliothek", "m.patches": "Patches", "pt.upload": "Patch hochladen", "m.upload": "Hochladen", "m.nsz": "Dateikomprimierung", "m.inbox": "Eingang",
     "m.featured": "Startbildschirm", "m.trash": "Papierkorb", "m.retro": "Retro-Spiele", "m.people": "Konten und Geräte",
@@ -1129,7 +1129,7 @@ export const WIDE_WORDS = {
     "tok.lastUsed": "Zuletzt genutzt", "tok.name": "Name", "tok.none": "Noch keine Tokens.", "tok.owner": "Erstellt von", "up.entry": "Dateien hochladen", "up.seeFiles": "Prüfe die hochgeladenen Dateien in der Dateiliste.",
   },
   it: {
-    title: "Amministrazione del server CookingFoil", loading: "Caricamento", web: "Pannello", guide: "Guida",
+    title: "Amministrazione del server CookingFoil", loading: "Caricamento", web: "Apri il sito", guide: "Guida",
     logout: "Esci", language: "Lingua", nav: "Menu di amministrazione", subnav: "Sottomenu",
     "m.overview": "Stato del server", "m.library": "Libreria", "m.patches": "Patch", "pt.upload": "Carica una patch", "m.upload": "Carica", "m.nsz": "Compressione dei file", "m.inbox": "Posta in arrivo",
     "m.featured": "Schermata iniziale", "m.trash": "Cestino", "m.retro": "Giochi retrò", "m.people": "Account e dispositivi",
@@ -1410,7 +1410,7 @@ export const WIDE_WORDS = {
     "tok.lastUsed": "Ultimo uso", "tok.name": "Nome", "tok.none": "Ancora nessun token.", "tok.owner": "Creato da", "up.entry": "Carica file", "up.seeFiles": "Controlla i file caricati nell'elenco file.",
   },
   pt: {
-    title: "Administração do servidor CookingFoil", loading: "Carregando", web: "Painel", guide: "Guia",
+    title: "Administração do servidor CookingFoil", loading: "Carregando", web: "Abrir a página web", guide: "Guia",
     logout: "Sair", language: "Idioma", nav: "Menu de administração", subnav: "Submenu",
     "m.overview": "Estado do servidor", "m.library": "Biblioteca", "m.patches": "Patches", "pt.upload": "Enviar um patch", "m.upload": "Enviar", "m.nsz": "Compressão de arquivos", "m.inbox": "Caixa de entrada",
     "m.featured": "Tela inicial", "m.trash": "Lixeira", "m.retro": "Jogos retrô", "m.people": "Contas e dispositivos",
@@ -1691,7 +1691,7 @@ export const WIDE_WORDS = {
     "tok.lastUsed": "Último uso", "tok.name": "Nome", "tok.none": "Ainda sem tokens.", "tok.owner": "Criado por", "up.entry": "Enviar arquivos", "up.seeFiles": "Confira os arquivos enviados na lista de arquivos.",
   },
   nl: {
-    title: "CookingFoil serverbeheer", loading: "Laden", web: "Dashboard", guide: "Handleiding",
+    title: "CookingFoil serverbeheer", loading: "Laden", web: "Webpagina openen", guide: "Handleiding",
     logout: "Afmelden", language: "Taal", nav: "Beheermenu", subnav: "Submenu",
     "m.overview": "Serverstatus", "m.library": "Bibliotheek", "m.patches": "Patches", "pt.upload": "Patch uploaden", "m.upload": "Uploaden", "m.nsz": "Bestandscompressie", "m.inbox": "Inbox",
     "m.featured": "Startscherm", "m.trash": "Prullenbak", "m.retro": "Retro-spellen", "m.people": "Accounts en apparaten",
@@ -1972,7 +1972,7 @@ export const WIDE_WORDS = {
     "tok.lastUsed": "Laatst gebruikt", "tok.name": "Naam", "tok.none": "Nog geen tokens.", "tok.owner": "Aangemaakt door", "up.entry": "Bestanden uploaden", "up.seeFiles": "Controleer de geüploade bestanden in de bestandenlijst.",
   },
   ru: {
-    title: "Управление сервером CookingFoil", loading: "Загрузка", web: "Панель", guide: "Руководство",
+    title: "Управление сервером CookingFoil", loading: "Загрузка", web: "Открыть веб-страницу", guide: "Руководство",
     logout: "Выйти", language: "Язык", nav: "Меню управления", subnav: "Подменю",
     "m.overview": "Состояние сервера", "m.library": "Библиотека", "m.patches": "Патчи", "pt.upload": "Загрузить патч", "m.upload": "Загрузить", "m.nsz": "Сжатие файлов", "m.inbox": "Входящие",
     "m.featured": "Главный экран", "m.trash": "Корзина", "m.retro": "Ретро-игры", "m.people": "Аккаунты и устройства",
