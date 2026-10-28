@@ -72,6 +72,17 @@ function accountAllowed({ kind, id }) {
   return passwordOwnerOk() && users.isActive(id);
 }
 
+/**
+ * Whether tokens made for `who` stopped only because the console's access key was replaced while it
+ * stays approved and its account allowed (an enroll again, a new key from the admin). The console then
+ * holds the new key, or is getting it: a request it sent with the old session is told to sign in
+ * again, not to pair again.
+ */
+export function keyReplaced(who) {
+  if (!who?.paired || !store.isDeviceApproved(who.dev) || deviceStamp(who.dev) === (who.dstamp ?? null)) return false;
+  return stillAllowed({ ...who, dstamp: deviceStamp(who.dev) });
+}
+
 /** Whether tokens made for `who` may still be used. */
 export function stillAllowed(who) {
   if (!who || (!who.acct && !who.paired)) return false;

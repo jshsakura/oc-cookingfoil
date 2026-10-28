@@ -124,7 +124,11 @@ test("a session made by the console carries the same owner, and a new binding en
   assert.equal(ok.owner.owner.id, "bob");
   assert.equal(ok.account, null, "a session of a console is no web sign-in");
   store.approveDevice(key, { addedBy: "auto", accessKeyHash: hashAccessKey("rotated") });
-  assert.equal((await via()).status, 401, "a new key for the console ends its old session");
+  const stale = await via();
+  assert.equal(stale.status, 401, "a new key for the console ends its old session");
+  assert.equal(stale.headers.get("x-cookingfoil-session"), "expired", "a request sent before the new key landed asks for a new session, not for pairing again");
+  store.revokeDevice(key);
+  assert.equal((await via()).headers.get("x-cookingfoil-session"), "revoked", "a console taken off pairs again");
 });
 
 test("an approved console without its access key is refused before the download is spent: a stranger gets no key", async () => {
