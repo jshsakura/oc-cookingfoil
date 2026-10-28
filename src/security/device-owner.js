@@ -14,6 +14,7 @@
 import * as store from "./store.js";
 import * as users from "./users.js";
 import * as googleAccounts from "./google-accounts.js";
+import { accountFull } from "./device-limit.js";
 
 const GOOGLE = "google:";
 
@@ -35,4 +36,28 @@ export function bindingOf(deviceKey) {
   const o = deviceOwner(deviceKey);
   if (!o) return null;
   return o.state === "bound" ? { bound: true, owner: { kind: o.owner.kind, displayName: o.owner.displayName } } : { bound: false };
+}
+
+/** The accounts a console may be given to: active password accounts and approved Google ones, as approvers. */
+export function ownerChoices() {
+  const people = users.list().filter((u) => u.enabled).map((u) => ({ owner: u.name, kind: "user", displayName: u.name }));
+  const google = googleAccounts.list().filter((a) => a.status === "approved" && a.email).map((a) => ({ owner: `${GOOGLE}${a.email}`, kind: "google", displayName: a.email }));
+  return [...people, ...google];
+}
+
+/**
+ * The admin gives a console that no account holds to one, keeping its key, so nothing changes on the
+ * console. Only an account-less console: moving one between accounts is the owner's QR re-pair.
+ * @returns {{ ok: true } | { ok: false, code: "no-device" | "has-owner" | "admin-device" | "no-account" | "device-limit", limit?: number }}
+ */
+export function giveToAccount(deviceKey, owner) {
+  const now = deviceOwner(deviceKey);
+  if (!now) return { ok: false, code: "no-device" };
+  if (now.state === "bound") return { ok: false, code: "has-owner" };
+  if (store.isDeviceAdmin(deviceKey)) return { ok: false, code: "admin-device" };
+  if (!ownerChoices().some((c) => c.owner === owner)) return { ok: false, code: "no-account" };
+  const limit = accountFull(owner, deviceKey);
+  if (limit) return { ok: false, code: "device-limit", limit };
+  store.setDeviceOwner(deviceKey, owner);
+  return { ok: true };
 }

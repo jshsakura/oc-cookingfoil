@@ -11,6 +11,7 @@ import * as store from "../security/store.js";
 import { deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approveWaitingDevice } from "../security/pairing-approve.js";
 import { accountFull } from "../security/device-limit.js";
+import { giveToAccount, ownerChoices } from "../security/device-owner.js";
 import { tokenApprover } from "../security/admin-actor.js";
 import * as enrollTokens from "../security/enroll-tokens.js";
 import * as sends from "../security/device-sends.js";
@@ -59,12 +60,21 @@ const OPS = {
   revoke: "remove the console; it must pair again",
   cancel_download: "cancel a waiting client download (its id, from device_list)",
   admin: "let it change item settings (on: true), or only read (on: false)",
+  owner: "give a console no account holds to an account (owner, from device_list owners); its key stays",
+};
+
+const OWNER_REFUSED = {
+  "no-device": "not an approved console",
+  "has-owner": "the console belongs to an account already; moving it is the owner's QR re-pair",
+  "admin-device": "an admin console is not given to an account",
+  "no-account": "not an active account; device_list owners lists them",
 };
 
 function check(input) {
   if (!Object.hasOwn(OPS, input.op)) throw fail(400, `op is one of ${Object.keys(OPS).join(", ")}`);
   if (input.op === "rename" && typeof input.label !== "string") throw fail(400, "rename needs label");
   if (input.op === "admin" && typeof input.on !== "boolean") throw fail(400, "admin needs on: true or false");
+  if (input.op === "owner" && typeof input.owner !== "string") throw fail(400, "owner needs owner, one of device_list owners");
   if (input.op === "cancel_download") {
     const row = enrollTokens.list().find((t) => t.id === String(input.device) && t.state === "waiting");
     if (!row) throw fail(404, `no waiting download ${input.device}; device_list shows them`);
@@ -93,7 +103,7 @@ export const devicesCapabilities = [
     title: "List consoles",
     description: "Lists consoles waiting for approval and approved ones with the code device_set takes, plus downloads sent to consoles and not yet picked up (sends).",
     input: { type: "object", properties: {} },
-    output: obj({ waiting: arr(WAITING), approved: arr(APPROVED), downloads: arr(DOWNLOAD), sends: arr(obj({ code: str("8-character console code"), items: arr(SENT) })) }),
+    output: obj({ waiting: arr(WAITING), approved: arr(APPROVED), downloads: arr(DOWNLOAD), sends: arr(obj({ code: str("8-character console code"), items: arr(SENT) })), owners: arr(obj({ owner: str("what device_set op owner takes"), kind: oneOf(["user", "google"]), displayName: str() })) }),
     safety: "read",
     http: { method: "GET", path: "/admin/api/devices" },
     also: ["GET /pair/api/sends"],
@@ -104,6 +114,7 @@ export const devicesCapabilities = [
         waiting: pending.map((d) => ({ code: deviceCode(d.deviceKey), name: d.name ?? null, message: d.message ?? null, firstSeenAt: d.firstSeenAt ?? null, lastSeenAt: d.lastSeenAt ?? null })),
         downloads: enrollTokens.list().filter((t) => t.state === "waiting").map((t) => ({ id: t.id, owner: t.owner, expiresAt: t.expiresAt })),
         approved: approved.map((d) => ({ code: deviceCode(d.deviceKey), label: d.label, admin: d.admin, addedBy: d.addedBy, addedAt: d.addedAt, lastSeenAt: d.lastSeenAt ?? null })),
+        owners: ownerChoices(),
       });
     },
   }),
@@ -111,7 +122,7 @@ export const devicesCapabilities = [
     id: "device_set",
     area: "admin",
     title: "Approve or change a console",
-    description: "Approves a waiting console, renames it, sets its admin flag, removes it, or cancels a waiting client download. Pick it by the code from device_list.",
+    description: "Approves a waiting console, renames it, sets its admin flag, gives a console no account holds to an account, removes it, or cancels a waiting client download. Pick it by the code from device_list.",
     input: {
       type: "object",
       properties: {
@@ -119,14 +130,16 @@ export const devicesCapabilities = [
         op: { type: "string", enum: Object.keys(OPS), description: "approve (or give a new key), rename, revoke (must pair again), admin (with on), or cancel_download" },
         label: { type: "string", description: "The name to give (approve and rename), up to 64 characters; approve keeps the console's own name when omitted" },
         on: { type: "boolean", description: "For op admin only: true lets the console change item settings, false makes it read only" },
+        owner: { type: "string", description: "For op owner only: the account, as device_list owners lists it" },
       },
       required: ["device", "op"],
     },
-    output: obj({ done: oneOf(["approve", "rename", "revoke", "admin", "cancel_download"]), code: str(), label: str(), admin: bool() }),
+    output: obj({ done: oneOf(["approve", "rename", "revoke", "admin", "owner", "cancel_download"]), code: str(), label: str(), admin: bool() }),
     preview: async (ctx, input) => {
       const { state, row } = check(input);
       if (state === "download") return { console: { code: row.id, state, name: `download of ${row.owner}`, admin: false }, op: input.op, refused: null, changes: "Cancels the download. A console that has not used it yet can no longer enroll with it." };
-      const limit = input.op === "approve" ? accountFull(store.pendingDownload(row.deviceKey)?.owner ?? approver(ctx), row.deviceKey) : 0;
+      const limit = input.op === "approve" ? accountFull(store.pendingDownload(row.deviceKey)?.owner ?? approver(ctx), row.deviceKey)
+        : input.op === "owner" ? accountFull(input.owner, row.deviceKey) : 0;
       return {
         console: { code: deviceCode(row.deviceKey), state, name: name(row), admin: row.admin === true },
         op: input.op,
@@ -136,6 +149,7 @@ export const devicesCapabilities = [
           rename: `Renames it to "${String(input.label ?? "").trim().slice(0, 64)}".`,
           revoke: "Removes it. Its key stops working at once and it has to pair again.",
           admin: input.on ? "It may change item settings from the console." : "It can only read from now on.",
+          owner: `Gives it to ${input.owner}; it keeps its key, so nothing changes on the console.`,
         }[input.op],
       };
     },
@@ -147,7 +161,7 @@ export const devicesCapabilities = [
     }),
     safety: "write",
     http: { method: "POST", path: "/admin/api/devices/approve" },
-    also: ["POST /admin/api/devices/label", "POST /admin/api/devices/revoke", "POST /admin/api/devices/dismiss", "POST /admin/api/devices/admin", "POST /admin/api/clients/:id/revoke"],
+    also: ["POST /admin/api/devices/owner", "POST /admin/api/devices/label", "POST /admin/api/devices/revoke", "POST /admin/api/devices/dismiss", "POST /admin/api/devices/admin", "POST /admin/api/clients/:id/revoke"],
     mcp: true,
     handler: async (ctx, input) => {
       const { key, row, state } = check(input);
@@ -163,6 +177,12 @@ export const devicesCapabilities = [
       if (input.op === "rename") {
         store.renameDevice(key, input.label);
         return { done: "rename", code: deviceCode(key), label: String(input.label).trim().slice(0, 64), admin: row.admin === true };
+      }
+      if (input.op === "owner") {
+        const result = giveToAccount(key, input.owner);
+        if (result.code === "device-limit") throw fail(409, `the account holds ${result.limit} consoles already, the most it may`);
+        if (!result.ok) throw fail(409, OWNER_REFUSED[result.code]);
+        return { done: "owner", code: deviceCode(key), label: row.label ?? "", admin: false };
       }
       if (input.op === "admin") {
         store.setDeviceAdmin(key, input.on);

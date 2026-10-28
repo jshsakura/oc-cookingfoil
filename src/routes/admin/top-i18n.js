@@ -177,6 +177,7 @@ const BASE_WORDS = {
     "pp.adminDevice": "관리자 기기",
     "pp.count": "{n}대",
     "pp.telegram": "텔레그램", "pp.accountPh": "이름이나 IP 로 찾기", "pp.accountLabel": "계정", "pp.name": "이름", "pp.devCodePh": "기기 화면의 기기 코드 8자리", "pp.role": "역할", "pp.passChange": "비밀번호 변경",
+    "pp.noAccount": "계정 없음", "pp.giveOwner": "계정에 연결", "pp.giveOwnerAsk": "{name} 을(를) 연결할 계정을 고릅니다. 기기의 키는 그대로라 기기에서는 다시 할 일이 없습니다.", "pp.ownerGiven": "계정에 연결했습니다", "pp.noOwners": "연결할 수 있는 계정이 없습니다. 먼저 계정을 승인합니다",
     "pp.googleOff": "구글 로그인이 꺼져 있습니다. 설정 탭에서 켭니다.",
     "pp.googleLead": "로그인 화면에서 구글로 들어온 계정입니다. 승인한 계정만 웹을 쓰고 기기 화면의 QR이나 아이디·비밀번호로 연결한 기기도 이 계정이 승인한 것으로 셉니다.",
     "pp.copyFail": "복사하지 못했습니다. 직접 선택해 복사합니다.",
@@ -508,6 +509,7 @@ const BASE_WORDS = {
     "pp.adminDevice": "Administrator device",
     "pp.count": "{n} devices",
     "pp.telegram": "Telegram",
+    "pp.noAccount": "No account", "pp.giveOwner": "Link to account", "pp.giveOwnerAsk": "Pick the account to link {name} to. The console keeps its key, so nothing needs redoing on it.", "pp.ownerGiven": "Linked to the account", "pp.noOwners": "No account to link to. Approve an account first",
 
     title: "CookingFoil server admin", loading: "Loading", web: "Web page", guide: "Admin guide",
     logout: "Sign out", language: "Language", nav: "Server admin menu", subnav: "Section menu",
@@ -877,6 +879,7 @@ const BASE_WORDS = {
     "pp.adminDevice": "管理者デバイス",
     "pp.count": "{n} 台",
     "pp.telegram": "Telegram",
+    "pp.noAccount": "アカウントなし", "pp.giveOwner": "アカウントに連携", "pp.giveOwnerAsk": "{name} を連携するアカウントを選びます。本体のキーはそのままなので、本体側でやり直すことはありません。", "pp.ownerGiven": "アカウントに連携しました", "pp.noOwners": "連携できるアカウントがありません。先にアカウントを承認します",
 
     title: "CookingFoil サーバー管理", loading: "読み込んでいます", web: "Web 画面", guide: "運用ガイド",
     logout: "ログアウト", language: "言語", nav: "サーバー管理メニュー", subnav: "サブメニュー",
@@ -1246,6 +1249,7 @@ const BASE_WORDS = {
     "pp.adminDevice": "管理员设备",
     "pp.count": "{n} 台",
     "pp.telegram": "Telegram",
+    "pp.noAccount": "无账户", "pp.giveOwner": "关联到账户", "pp.giveOwnerAsk": "选择要关联 {name} 的账户。主机的密钥不变，主机上无需重新操作。", "pp.ownerGiven": "已关联到账户", "pp.noOwners": "没有可关联的账户。请先批准账户",
 
     title: "CookingFoil 服务器管理", loading: "正在加载", web: "网页", guide: "运维指南",
     logout: "退出登录", language: "语言", nav: "服务器管理菜单", subnav: "子菜单",

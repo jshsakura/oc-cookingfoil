@@ -25,6 +25,7 @@
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
  * anything" is no longer a reachable state.
  */
+import { bindingOf, giveToAccount, ownerChoices } from "../security/device-owner.js";
 import { pluginEvents } from "../plugins/instance.js";
 import { gravatarUrl } from "../helpers/gravatar.js";
 import { clientRows } from "./device-pair.js";
@@ -111,6 +112,7 @@ const GUIDE = fs.readFileSync(fileURLToPath(new URL("../views/guide.md", import.
 import { readPairLink, deviceCode, normalizeDeviceCode } from "../security/pairing-link.js";
 import { approvePairLink, approveWaitingDevice, pairLinkView } from "../security/pairing-approve.js";
 import { deviceLimitRefusal } from "../security/device-limit.js";
+import { apiWord } from "./admin/api-words.js";
 import { pairPage } from "./admin/pair-page.js";
 import { guidePage } from "./admin/guide-page.js";
 import { resolveOrigin } from "../helpers/origin.js";
@@ -461,7 +463,7 @@ export default function adminPageRouter() {
     const snapshot = store.devicesSnapshot();
     const withCode = (row) => ({ ...row, code: deviceCode(row.deviceKey) });
     const approved = snapshot.approved.map(withCode);
-    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: req.apiToken ? approved.map(withoutIps) : approved, clients: clientRows() });
+    res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: req.apiToken ? approved.map(withoutIps) : approved, clients: clientRows(), owners: ownerChoices() });
   });
 
   router.post("/api/clients/:id/revoke", (req, res) => {
@@ -485,6 +487,18 @@ export default function adminPageRouter() {
     if (!result.ok) return deviceLimitRefusal(req, res, result.limit);
     debug.log("admin: approved device %s… (%s)", deviceKey.slice(0, 12), result.label || "no label");
     res.json({ ok: true, deviceKey });
+  });
+
+  // A console no account holds goes to the account the admin picks, keeping its key (security/device-owner.js).
+  router.post("/api/devices/owner", (req, res) => {
+    if (!requireSession(req, res)) return;
+    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    if (!deviceKey) return res.status(400).json({ error: "invalid deviceKey" });
+    const result = giveToAccount(deviceKey, String(req.body?.owner ?? ""));
+    if (result.code === "device-limit") return deviceLimitRefusal(req, res, result.limit);
+    if (!result.ok) return res.status(result.code === "no-device" ? 404 : 409).json({ error: apiWord(req, `device.${result.code}`), code: result.code });
+    debug.log("admin: console %s… given to an account", deviceKey.slice(0, 12));
+    res.json({ ok: true, binding: bindingOf(deviceKey) });
   });
 
   router.post("/api/devices/label", (req, res) => {

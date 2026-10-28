@@ -126,7 +126,7 @@ function seenCell(a){
 function renderApproved(){const d=devicesShown;if(!d)return;
   const idle=Number($('dev-idle').value)||0;
   // Grouped by the account each console belongs to, so whose consoles are whose reads at a glance.
-  const whose=(a)=>a.addedBy==='admin'?topText('pp.admin'):a.addedBy==='telegram'?topText('pp.telegram'):String(a.addedBy||'—').replace(/^google:/,'');
+  const whose=(a)=>noOwner(a)?topText('pp.noAccount'):String(a.addedBy).replace(/^google:/,'');
   // A console with no record has been idle at least since the server began keeping history.
   const unused=(a)=>{if(!idle)return true;const from=a.idleSince??devicesShown.activitySince;return from!=null&&Date.now()-from>=idle*DAY_MS;};
   const approved=(d.approved||[]).filter(unused).sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
@@ -141,6 +141,7 @@ function renderApproved(){const d=devicesShown;if(!d)return;
     const adm=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.admin===true;b.setAttribute('aria-label',(a.label||a.code||topText('pp.device'))+' '+topText('pp.adminDevice'));
     b.addEventListener('change',()=>setDeviceAdmin(a.deviceKey,b.checked,a.label||a.code||topText('pp.thisDevice')));w.append(b,el('span'));adm.append(w);tr.append(adm);
     const act=td();const box=el('div',null,'row-actions');
+    if(noOwner(a)&&a.admin!==true)box.append(tbtn('link','pp.giveOwner',()=>giveOwner(a.deviceKey,a.label||a.code||topText('pp.thisDevice')),'primary'));
     box.append(tbtn('rename','pp.rename',()=>renameDevice(a.deviceKey,a.label)),tbtn('reissue','pp.reissue',()=>reissue(a.deviceKey,a.label)),tbtn('key','pp.revokeKey',()=>revoke(a.deviceKey),'danger'));
     act.append(box);tr.append(act);rows.push(tr);}
   return rows;};
@@ -193,6 +194,12 @@ async function revoke(deviceKey){if(!await ask(topText('pp.revokeAsk'),{danger:t
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast(topText('pp.keyRevoked'));loadDevices();}catch(err){toast(err.message);}}
 async function setDeviceAdmin(deviceKey,admin,name){
   try{await api('/admin/api/devices/admin',{method:'POST',body:{deviceKey,admin}});toast(admin?topFill('pp.canChangeItems',{name}):topFill('pp.readOnly',{name}));loadDevices();}catch(err){toast(err.message);loadDevices();}}
+// A console the admin, automatic approval or Telegram let in belongs to no account yet (security/device-owner.js).
+const noOwner=(a)=>!a.addedBy||a.addedBy==='admin'||a.addedBy==='auto'||a.addedBy==='telegram';
+async function giveOwner(deviceKey,name){const owners=(devicesShown&&devicesShown.owners)||[];
+  if(!owners.length){toast(topText('pp.noOwners'));return;}
+  const owner=await askPick(topFill('pp.giveOwnerAsk',{name}),owners.map((o)=>({value:o.owner,label:o.displayName})));if(owner===null)return;
+  try{await api('/admin/api/devices/owner',{method:'POST',body:{deviceKey,owner}});toast(topText('pp.ownerGiven'));loadDevices();}catch(err){toast(err.message);}}
 async function renameDevice(deviceKey,label){const next=await askText(topText('pp.renameDevicePh'),label||'');if(next===null)return;
   try{await api('/admin/api/devices/label',{method:'POST',body:{deviceKey,label:next}});toast(topText('pp.renamed'));loadDevices();}catch(err){toast(err.message);}}
 

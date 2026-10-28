@@ -642,6 +642,40 @@ test('an approved console gets a 관리자 기기 switch, off until the admin tu
   }
 });
 
+test('a console no account holds is linked to an account from its row, keeping its key', async ({ page, request }) => {
+  const KEY = 'E8'.repeat(32);
+  await signIn(page);
+  const origin = { Origin: new URL(page.url()).origin };
+  const missing = await page.request.post('/admin/api/devices/owner', { data: { deviceKey: 'E9'.repeat(32), owner: NAME }, headers: origin });
+  expect(missing.status()).toBe(404);
+  expect((await missing.json()).code).toBe('no-device');
+  // The admin's code session has no account, so its approval leaves the console with none.
+  const pending = await (await request.get('/api/pair/status', { headers: { 'X-Device-Key': KEY } })).json();
+  expect((await page.request.post('/admin/api/devices/approve', { data: { code: pending.pairCode, label: '거실 콘솔' }, headers: origin })).status()).toBe(200);
+  expect((await page.request.post('/admin/api/users', { data: { name: NAME, password: PASSWORD, role: 'admin' }, headers: origin })).status()).toBe(201);
+  await page.goto('/login');
+  await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
+  await page.getByLabel(/^(비밀번호|Password)$/).fill(PASSWORD);
+  await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith('/login'));
+  const row = async () => (await (await page.request.get('/admin/api/devices')).json()).approved.find((d: { deviceKey: string }) => d.deviceKey === KEY);
+  const hash = (await row()).accessKeyHash;
+  await page.goto('/admin/devices?tab=approved');
+  await expect(page.getByText('계정 없음', { exact: false }).first()).toBeVisible();
+  await page.getByRole('row', { name: /거실 콘솔/ }).getByRole('button', { name: '계정에 연결' }).click();
+  await expect(page.locator('#ask-select')).toBeVisible();
+  await page.locator('#ask-select').selectOption(NAME);
+  await page.locator('#ask-ok').click();
+  await expect(page.locator('#toast')).toContainText('계정에 연결했습니다');
+  await expect.poll(async () => (await row()).addedBy).toBe(NAME);
+  expect((await row()).accessKeyHash).toBe(hash);
+  await expect(page.getByRole('row', { name: /거실 콘솔/ }).getByRole('button', { name: '계정에 연결' })).toHaveCount(0);
+  const again = await page.request.post('/admin/api/devices/owner', { data: { deviceKey: KEY, owner: NAME }, headers: { Origin: new URL(page.url()).origin } });
+  expect(again.status()).toBe(409);
+  expect((await again.json()).error).toContain('QR');
+  // Removing the account (afterEach) ends its consoles with it.
+});
+
 test("a console's address opens its IPs by day, every value shown as text", async ({ page, request }) => {
   const KEY = 'E8'.repeat(32);
   await signIn(page);
