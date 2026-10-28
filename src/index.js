@@ -79,7 +79,7 @@ import { consoleWishlistRouter } from "./routes/wishlist.js";
 import raLinkRouter from "./routes/ra-link.js";
 import retroRouter from "./routes/retro.js";
 import savesRouter, { savesCatalog, savesEnabled, watchSaves } from "./routes/saves.js";
-import clientUpdateRouter from "./routes/client-update.js";
+import clientUpdateRouter, { clientUpdateOpenRouter } from "./routes/client-update.js";
 import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
 import { homebrewRouter, start as startHomebrew } from "./routes/homebrew.js";
@@ -278,6 +278,8 @@ expressApp.use(setupRouter());
 // rate-limiting + the probe access-guard. 404s unless COOK_DEVICE_PAIRING=true.
 // The only routes where a console's ID and password (Basic) count, once, to approve it.
 expressApp.use("/api/pair", pairRouter());
+// The client update, before the sign-in: a console stuck on any key problem updates out of it.
+expressApp.use("/api/client", clientUpdateOpenRouter());
 // The phone page a console's RetroAchievements QR opens: the one-time code in the link is its only key.
 expressApp.use(raLinkRouter());
 // Past this point a Basic header is no credential: dropped, so the request is
