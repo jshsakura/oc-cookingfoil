@@ -1231,5 +1231,7 @@
   "Downloads start once the console is online.": "Загрузка начнётся, когда консоль будет в сети.",
   "Cleaning up files": "Очистка файлов",
   "Removed {0} unfinished copies.": "Удалено незавершённых копий: {0}.",
-  "Deleting unfinished copies and files a Mac left.": "Удаление незавершённых копий и файлов, оставленных Mac."
+  "Deleting unfinished copies and files a Mac left.": "Удаление незавершённых копий и файлов, оставленных Mac.",
+  "This console is linked to another account. Games sent from your account will not reach it.": "Эта консоль привязана к другой учётной записи. Игры, отправленные с вашей учётной записи, на неё не придут.",
+  "This download could not link the console to your account. Download it from the website again to send games to it.": "Эта загрузка не смогла привязать консоль к вашей учётной записи. Скачайте клиент с сайта ещё раз, чтобы отправлять на неё игры."
 }
