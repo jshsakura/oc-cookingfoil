@@ -37,15 +37,15 @@ import { DEFAULT_LANG, render, translator } from "./alert-messages.js";
 
 /** What can be told, with what the admin page says about each; `on` is the default. */
 export const EVENTS = {
-  device: { label: "기기 승인 요청", desc: "처음 보는 기기가 승인을 기다릴 때 알립니다. 기기가 남긴 메시지, 요청을 보낸 주소, 그 주소에서 최근 접속한 계정도 함께 보냅니다.", on: true },
-  account: { label: "구글 계정 승인 요청", desc: "새 구글 계정이 들어와 승인을 기다릴 때 알립니다. 메일 주소는 앞 두 글자와 도메인만 보냅니다.", on: true },
-  lockout: { label: "로그인 실패 잠금", desc: "아이디나 비밀번호를 여러 번 틀린 주소를 잠갔을 때 알립니다. 우리 기기라면 로그 탭에서 풉니다.", on: true },
-  probe: { label: "위험한 접근", desc: "알려진 공격 경로나 도구를 로그인 전에 막았을 때 알립니다. 첫 건은 바로, 이어지는 것은 10분씩 모아 한 번에 보냅니다.", on: true },
-  inbox: { label: "임시 공유", desc: "로그인한 사용자가 임시 공유함에 파일, 메모, 링크를 남기면 바로 알립니다. 올린 사람, 파일 수와 크기, 링크 수, 메모 첫 줄을 보냅니다.", on: true },
-  direct: { label: "외부 다운로드 전용 주소", desc: "외부 다운로드 전용 주소가 응답하지 않거나 다시 응답할 때 알립니다. 서버가 켜질 때의 상태는 켜졌다는 알림에 함께 적습니다.", on: true },
-  nsz: { label: "NSZ 변환", desc: "변환 대기열을 모두 처리했을 때와, 작업 공간이 모자라거나 잇달아 실패해 멈췄을 때 알립니다.", on: true },
-  security: { label: "보안 감시", desc: "누가 로그인을 거듭 틀리기 시작하면 주소가 잠기기 전에 알리고, 6시간마다 그동안 틀린 로그인, 잠근 주소, 막은 요청을 모아 보냅니다. 틀린 로그인도 잠금도 없던 동안에는 보내지 않습니다.", on: true },
-  server: { label: "서버 시작", desc: "서버가 켜질 때 알립니다. 업데이트 뒤나 예상하지 못한 재시작을 알 수 있고, 외부 다운로드 전용 주소의 상태도 함께 적습니다.", on: true },
+  device: { label: translator("ko")("event.device"), desc: translator("ko")("eventDesc.device"), on: true },
+  account: { label: translator("ko")("event.account"), desc: translator("ko")("eventDesc.account"), on: true },
+  lockout: { label: translator("ko")("event.lockout"), desc: translator("ko")("eventDesc.lockout"), on: true },
+  probe: { label: translator("ko")("event.probe"), desc: translator("ko")("eventDesc.probe"), on: true },
+  inbox: { label: translator("ko")("event.inbox"), desc: translator("ko")("eventDesc.inbox"), on: true },
+  direct: { label: translator("ko")("event.direct"), desc: translator("ko")("eventDesc.direct"), on: true },
+  nsz: { label: translator("ko")("event.nsz"), desc: translator("ko")("eventDesc.nsz"), on: true },
+  security: { label: translator("ko")("event.security"), desc: translator("ko")("eventDesc.security"), on: true },
+  server: { label: translator("ko")("event.server"), desc: translator("ko")("eventDesc.server"), on: true },
   plugin: { label: translator("ko")("event.plugin"), desc: translator("ko")("eventDesc.plugin"), on: true },
   damaged: { label: translator("ko")("event.damaged"), desc: translator("ko")("eventDesc.damaged"), on: true },
   chat: { label: translator("ko")("event.chat"), desc: translator("ko")("eventDesc.chat"), on: true },
@@ -183,7 +183,7 @@ async function deliver(event, text, now, title = translator(alertLang())(`event.
     return remember({ at: now, event, text, status: d.ok ? "sent" : "failed", ...(d.ok ? {} : { detail: d.description ?? "" }) });
   } catch (err) {
     debug.log("alerts: telegram unreachable: %s", err.message);
-    return remember({ at: now, event, text, status: "failed", detail: "텔레그램에 닿지 못했습니다" });
+    return remember({ at: now, event, text, status: "failed", detail: translator("ko")("detailTelegramFail") });
   }
 }
 
@@ -262,7 +262,7 @@ export function alert(event, message, { subject = "", now = Date.now(), digest =
   } else {
     const key = `${event}:${subject}`;
     if (now - (lastSent.get(key) ?? -Infinity) < DEDUPE_MS) {
-      remember({ at: now, event, text, status: "held", detail: "같은 일을 30분 안에 이미 알렸습니다" });
+      remember({ at: now, event, text, status: "held", detail: translator("ko")("detailHeldSame") });
       return false;
     }
     lastSent.delete(key);
@@ -270,7 +270,7 @@ export function alert(event, message, { subject = "", now = Date.now(), digest =
     pruneLastSent(now);
   }
   if ((approval || burst) && !burstAllows(event, now)) {
-    remember({ at: now, event, text, status: "held", detail: "승인 요청이 몰려 창이 끝날 때 한 번에 알립니다" });
+    remember({ at: now, event, text, status: "held", detail: translator("ko")("detailHeldBurst") });
     return false;
   }
   const extra = approval && buttonsOn() ? { reply_markup: approvalKeyboard(approvalTokens.issue(approval.kind, approval.ref, now)) } : {};
@@ -280,11 +280,11 @@ export function alert(event, message, { subject = "", now = Date.now(), digest =
 
 /** Sends a test message now, whatever the events; resolves to { ok, message }. */
 export async function test() {
-  if (!integrations.configured("telegram")) return { ok: false, message: "봇 토큰과 채팅 ID 를 먼저 넣습니다" };
+  if (!integrations.configured("telegram")) return { ok: false, message: translator("ko")("testNeedSetup") };
   const t = translator(alertLang());
   const on = enabledEvents().map((k) => t(`event.${k}`)).join(", ") || t("none");
   const e = await deliver("test", t("testSent", { on }), Date.now());
-  return e.status === "sent" ? { ok: true, message: "시험 메시지를 보냈습니다" } : { ok: false, message: e.detail || "보내지 못했습니다" };
+  return e.status === "sent" ? { ok: true, message: translator("ko")("testOk") } : { ok: false, message: e.detail || translator("ko")("testFail") };
 }
 
 /** Test-only: swap the fetch used and forget what was sent and gathered. */

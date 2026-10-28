@@ -17,11 +17,12 @@
  * job then ends (done, fail or discard), it lands in recent as "stopped".
  */
 import debug from "../debug.js";
+import { activityText } from "../meta/meta-messages.js";
 
 /** Thrown by a job that stops partway because the admin asked, so its half-done result is not kept. */
 export class JobStopped extends Error {
   constructor() {
-    super("중지했습니다");
+    super(activityText("act.stopped"));
     this.name = "JobStopped";
   }
 }
@@ -153,7 +154,7 @@ export function createActivity({ now = Date.now, flushMs = FLUSH_MS, probeMs = P
         changed();
       },
       done(result = null) { end(id, { state: "done", result: text(result) }); },
-      fail(err) { end(id, { state: "failed", error: text(err?.message ?? err) || "알 수 없는 오류입니다." }); },
+      fail(err) { end(id, { state: "failed", error: text(err?.message ?? err) || activityText("act.unknownError") }); },
       /** Ends without a trace: the job found nothing to do. */
       discard() { end(id, null); },
     };
@@ -179,7 +180,7 @@ export function createActivity({ now = Date.now, flushMs = FLUSH_MS, probeMs = P
     const fn = cancels.get(id);
     if (!e || !fn) return false;
     cancels.delete(id);
-    Object.assign(e, { cancellable: false, stopping: true, detail: "중지하는 중" });
+    Object.assign(e, { cancellable: false, stopping: true, detail: activityText("act.stopping") });
     // The job may end inside its own cancel(): end() then records it as stopped.
     try { fn(); } catch (err) { debug.error("activity: cancel of %s threw: %s", e.kind, err.message); }
     changed();

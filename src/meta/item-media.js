@@ -22,6 +22,7 @@ import { jsonFile } from "../helpers/json-file.js";
 import debug from "../debug.js";
 import * as artCrop from "./art-crop.js";
 import * as sidecar from "./art-sidecar.js";
+import { koText } from "./meta-messages.js";
 import { discard } from "../library/trash-service.js";
 
 export const MAX_SHOTS = sidecar.MAX_SHOTS;
@@ -38,7 +39,7 @@ async function encode(raw, [w, h]) {
   try {
     return await sidecar.toWebp(raw, w, h);
   } catch (err) {
-    throw new MediaImageError(`이미지를 읽지 못했습니다: ${err.message}`);
+    throw new MediaImageError(koText("art.readFailWhy", { why: err.message }));
   }
 }
 
@@ -87,7 +88,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
   }
 
   const check = (id) => {
-    if (!idRe.test(String(id))) throw new MediaImageError("번호가 맞지 않습니다");
+    if (!idRe.test(String(id))) throw new MediaImageError(koText("media.badId"));
   };
 
   const ownDir = (id) => path.join(dir, id);
@@ -296,7 +297,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
         debug.error("%s: %s: a screenshot left out: %s", label, id, err.message);
       }
     }
-    if (!encoded.length) throw new MediaImageError("읽을 수 있는 이미지가 없습니다");
+    if (!encoded.length) throw new MediaImageError(koText("media.noReadable"));
     await clearShots(id);
     for (const [i, buf] of encoded.entries()) await writePicture(id, sidecar.slotName("shot", i + 1), buf);
     put(id, "shots", { source, ...(game ? { game } : {}), at: now });
@@ -308,7 +309,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     check(id);
     settle(id);
     const have = pictures(id).shots;
-    if (have.length + raws.length > MAX_SHOTS) throw new MediaImageError(`스크린샷은 ${MAX_SHOTS}장까지 둡니다`);
+    if (have.length + raws.length > MAX_SHOTS) throw new MediaImageError(koText("media.shotsMax", { max: MAX_SHOTS }));
     const encoded = [];
     const originals = [];
     for (const raw of raws) {
@@ -335,7 +336,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
       put(id, "shots", { off: true });
       return 0;
     }
-    if (!Number.isInteger(n) || n < 1 || n > shots.length) throw new MediaImageError("없는 스크린샷입니다");
+    if (!Number.isInteger(n) || n < 1 || n > shots.length) throw new MediaImageError(koText("media.noShot"));
     const gone = shots[n - 1].slot;
     await sidecar.remove(homeDir(id), gone);
     await sidecar.remove(ownDir(id), gone);
@@ -378,7 +379,7 @@ export function createMediaStore({ dir, file, idRe, urlBase, label = "media", ho
     check(id);
     const pic = pictureOf(id, part, n);
     const kept = original(id, part, n);
-    if (!kept) throw new MediaImageError("다시 자를 원본이 없습니다");
+    if (!kept) throw new MediaImageError(koText("art.noOriginal"));
     const raw = fs.readFileSync(kept.image);
     const webp = await encode(await cut(raw, crop), sizeOf(part));
     // A picture put in by hand becomes the kept original before the cut replaces it.

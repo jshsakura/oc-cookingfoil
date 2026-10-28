@@ -14,6 +14,7 @@ import path from "path";
 import { dataDir } from "../helpers/envs.js";
 import debug from "../debug.js";
 import * as activity from "../tasks/activity.js";
+import { activityText } from "./meta-messages.js";
 import * as igdb from "./igdb-client.js";
 import { fetchSgdbImage, sgdbHeroes, sgdbSearch } from "../retro/art/sync.js";
 import { createMediaStore, MediaImageError, MAX_SHOTS } from "./item-media.js";
@@ -141,7 +142,7 @@ export function fillPorts(entries, { apiKey = "", fetchImpl = fetch, now = Date.
       return (apiKey && due(e.id, "banner", now())) || (shotsOn && due(e.id, "shots", now()));
     });
     if (!todo.length) return 0;
-    const job = activity.begin("homebrew-art", { title: "포트 그림을 찾습니다", total: todo.length });
+    const job = activity.begin("homebrew-art", { title: activityText("act.homebrewArt"), total: todo.length });
     let got = 0;
     for (const [i, e] of todo.entries()) {
       if (job.stopped) break;
@@ -189,7 +190,7 @@ export function fillPorts(entries, { apiKey = "", fetchImpl = fetch, now = Date.
       }
       if (pauseMs) await new Promise((res) => setTimeout(res, pauseMs));
     }
-    job.done(`그림 ${got}장`);
+    job.done(activityText("act.pictures", { n: got }));
     return got;
   })().finally(() => { filling = null; });
   return filling;
