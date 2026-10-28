@@ -344,6 +344,18 @@ export default function adminPageRouter() {
       await serveAdminPage(req, res, page);
     });
   }
+  // The library's jobs became tabs of the games page and the temp folder moved under "incoming":
+  // old bookmarks and alert links land on the new address, with their query kept.
+  const MOVED = {
+    "/patches": "/admin/games?view=patches", "/saves": "/admin/games?view=saves", "/titles": "/admin/games?view=info",
+    "/integrity": "/admin/games?view=verify", "/organize": "/admin/incoming/temp",
+  };
+  for (const [from, to] of Object.entries(MOVED)) {
+    router.get(from, (req, res) => {
+      const extra = new URLSearchParams(req.query).toString();
+      res.redirect(302, extra ? `${to}${to.includes("?") ? "&" : "?"}${extra}` : to);
+    });
+  }
   // Alerts moved under the settings: an old bookmark lands on the new address.
   router.get("/notifications", (req, res) => res.redirect(301, "/admin/settings/notifications"));
 

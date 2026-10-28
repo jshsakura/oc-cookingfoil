@@ -232,3 +232,18 @@ test('dictionary text keeps its links and never shows a raw key or source', asyn
   await expect(page.locator('#lb-list')).toContainText('Test Game');
   await expect(page.locator('#lb-list')).not.toContainText('lb.k');
 });
+
+test('the addresses the menu plan retired redirect to where their job lives now', async ({ page }) => {
+  await signIn(page);
+  const moved: [string, string][] = [
+    ['/admin/patches', '/admin/games?view=patches'], ['/admin/saves', '/admin/games?view=saves'], ['/admin/titles', '/admin/games?view=info'],
+    ['/admin/integrity', '/admin/games?view=verify'], ['/admin/organize', '/admin/incoming/temp'],
+  ];
+  for (const [from, to] of moved) {
+    const res = await page.request.get(from, { maxRedirects: 0 });
+    expect(res.status(), from).toBe(302);
+    expect(res.headers().location, from).toBe(to);
+  }
+  await page.goto('/admin/patches');
+  await expect(page.locator('#lib-subtabs [data-lsub="patches"]')).toHaveAttribute('aria-selected', 'true');
+});
