@@ -1235,5 +1235,8 @@
   "This console is linked to another account. Games sent from your account will not reach it.": "Esta consola está vinculada a otra cuenta. Los juegos que envíes desde tu cuenta no llegarán a ella.",
   "This download could not link the console to your account. Download it from the website again to send games to it.": "Esta descarga no pudo vincular la consola a tu cuenta. Vuelve a descargarla desde el sitio web para enviarle juegos.",
   "Log for bug reports": "Registro para informes de errores",
-  "Errors only": "Solo errores"
+  "Errors only": "Solo errores",
+  "This console's account is turned off. Contact the server's admin.": "La cuenta de esta consola está desactivada. Contacta con el administrador del servidor.",
+  "This console's account was deleted. Contact the server's admin.": "La cuenta de esta consola se ha eliminado. Contacta con el administrador del servidor.",
+  "This console is suspended on this server. Contact the server's admin.": "Esta consola está suspendida en este servidor. Contacta con el administrador del servidor."
 }

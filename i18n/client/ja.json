@@ -1235,5 +1235,8 @@
   "This console is linked to another account. Games sent from your account will not reach it.": "この本体は別のアカウントに連携されています。あなたのアカウントから送ったゲームはこの本体に届きません。",
   "This download could not link the console to your account. Download it from the website again to send games to it.": "このダウンロードでは本体をあなたのアカウントに連携できませんでした。ゲームを送るには、ウェブサイトからもう一度ダウンロードしてください。",
   "Log for bug reports": "バグ報告用のログ",
-  "Errors only": "エラーのみ"
+  "Errors only": "エラーのみ",
+  "This console's account is turned off. Contact the server's admin.": "この本体のアカウントはオフになっています。サーバーの管理者に問い合わせてください。",
+  "This console's account was deleted. Contact the server's admin.": "この本体のアカウントは削除されました。サーバーの管理者に問い合わせてください。",
+  "This console is suspended on this server. Contact the server's admin.": "この本体はこのサーバーで停止されています。サーバーの管理者に問い合わせてください。"
 }
