@@ -1231,5 +1231,7 @@
   "Downloads start once the console is online.": "I download partono quando la console è online.",
   "Cleaning up files": "Pulizia dei file",
   "Removed {0} unfinished copies.": "Rimosse {0} copie non completate.",
-  "Deleting unfinished copies and files a Mac left.": "Eliminazione delle copie non completate e dei file lasciati da un Mac."
+  "Deleting unfinished copies and files a Mac left.": "Eliminazione delle copie non completate e dei file lasciati da un Mac.",
+  "This console is linked to another account. Games sent from your account will not reach it.": "Questa console è collegata a un altro account. I giochi inviati dal tuo account non le arriveranno.",
+  "This download could not link the console to your account. Download it from the website again to send games to it.": "Questo download non ha potuto collegare la console al tuo account. Scaricalo di nuovo dal sito web per inviarle giochi."
 }

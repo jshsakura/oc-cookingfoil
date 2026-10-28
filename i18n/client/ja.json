@@ -1231,5 +1231,7 @@
   "Downloads start once the console is online.": "インターネットに接続してからダウンロードできます。",
   "Cleaning up files": "ファイルを整理しています",
   "Removed {0} unfinished copies.": "完了していないコピー {0} 件を削除しました。",
-  "Deleting unfinished copies and files a Mac left.": "完了していないコピーと Mac が残したファイルを削除しています。"
+  "Deleting unfinished copies and files a Mac left.": "完了していないコピーと Mac が残したファイルを削除しています。",
+  "This console is linked to another account. Games sent from your account will not reach it.": "この本体は別のアカウントに連携されています。あなたのアカウントから送ったゲームはこの本体に届きません。",
+  "This download could not link the console to your account. Download it from the website again to send games to it.": "このダウンロードでは本体をあなたのアカウントに連携できませんでした。ゲームを送るには、ウェブサイトからもう一度ダウンロードしてください。"
 }

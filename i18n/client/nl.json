@@ -1231,5 +1231,7 @@
   "Downloads start once the console is online.": "Downloads starten zodra de console online is.",
   "Cleaning up files": "Bestanden opruimen",
   "Removed {0} unfinished copies.": "{0} onvoltooide kopieën verwijderd.",
-  "Deleting unfinished copies and files a Mac left.": "Onvoltooide kopieën en door een Mac achtergelaten bestanden worden verwijderd."
+  "Deleting unfinished copies and files a Mac left.": "Onvoltooide kopieën en door een Mac achtergelaten bestanden worden verwijderd.",
+  "This console is linked to another account. Games sent from your account will not reach it.": "Deze console is gekoppeld aan een ander account. Games die je vanaf je account verstuurt, komen er niet aan.",
+  "This download could not link the console to your account. Download it from the website again to send games to it.": "Met deze download kon de console niet aan je account worden gekoppeld. Download hem opnieuw van de website om er games naartoe te sturen."
 }
