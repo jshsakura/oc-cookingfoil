@@ -39,7 +39,7 @@ import { NAV_CSS, NAV_SCRIPT } from "./nav-structure.js";
 import { ADMIN_PAGE_BY_PATH, ADM_SHELL_CSS, MENU_BUTTON_HTML, admRouterScript, drawerHtml, sidebarNav } from "./admin-pages.js";
 import { ACTIVITY_CSS, ACTIVITY_HTML, ACTIVITY_BUTTON_HTML, ACTIVITY_SCRIPT } from "./activity-panel.js";
 import { BOX_CSS, BOX_SCRIPT } from "./boxes.js";
-import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, top } from "./top-i18n.js";
+import { TOP_I18N_SCRIPT, TOP_LANG_CSS, TOP_LANG_HTML, TOP_WORDS, top, topLabel } from "./top-i18n.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 import { USERS_HTML, devicesHtml, CRED_DIALOG_HTML, IP_DIALOG_HTML } from "./people-pages.js";
 import { GAME_PICKER_CSS, GAME_PICKER_SCRIPT } from "./game-picker.js";
@@ -316,21 +316,21 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 /** The header every admin page shares: brand, menu, upload, language, account and activity. */
 /** The page title and the ask dialog, shared by the whole dashboard and the split pages. */
 /** The one frame around every admin page: brand, account and menu in the sidebar (a top bar on a phone), plus the phone drawer. */
-export const adminChrome = (current) => /* html */ `<aside class="adm-side">${ADMIN_HEADER_HTML}<nav class="adm-side-in" data-top-label="nav" aria-label="서버 관리 메뉴">${sidebarNav(current)}</nav></aside>\n${drawerHtml(current)}`;
+export const adminChrome = (current) => /* html */ `<aside class="adm-side">${ADMIN_HEADER_HTML}<nav class="adm-side-in" ${topLabel("nav")}>${sidebarNav(current)}</nav></aside>\n${drawerHtml(current)}`;
 
-export const ADMIN_TITLE_HTML = /* html */ `<title>CookingFoil 서버 관리</title>`;
-export const ASK_DIALOG_HTML = /* html */ `<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">\n  <p id="ask-text"></p>\n  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>\n  <select id="ask-select" aria-labelledby="ask-text" hidden></select>\n  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>\n</dialog>`;
+export const ADMIN_TITLE_HTML = /* html */ `<title>${TOP_WORDS.ko["title"]}</title>`;
+export const ASK_DIALOG_HTML = /* html */ `<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">\n  <p id="ask-text"></p>\n  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>\n  <select id="ask-select" aria-labelledby="ask-text" hidden></select>\n  <div class="dialog-actions"><button type="button" id="ask-no" data-top="pp.cancel">${TOP_WORDS.ko["pp.cancel"]}</button><button type="button" id="ask-ok" class="primary" data-top="dp.ok">${TOP_WORDS.ko["dp.ok"]}</button></div>\n</dialog>`;
 
 export const ADMIN_HEADER_HTML = /* html */ `<header class="adm-hdr">
-  <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
+  <h1 class="brand" ${topLabel("title")}><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>
   <div class="hdr-right">
   ${MENU_BUTTON_HTML}
   <p class="adm-crumb" id="adm-crumb"></p>
-  <a class="up-entry" id="up-entry" href="/admin/upload" data-top-label="up.entry" aria-label="파일 올리기">${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
+  <a class="up-entry" id="up-entry" href="/admin/upload" ${topLabel("up.entry")}>${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
   ${TOP_LANG_HTML}
   <div class="acct-menu activity-account">
-    <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="계정 메뉴 및 서버 활동" title="계정 메뉴 및 서버 활동">${ACTIVITY_BUTTON_HTML}</button>
-    <div class="pop-list" id="acct-list" role="dialog" aria-label="계정 메뉴 및 서버 활동" hidden>
+    <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" ${topLabel("acct.menu")} title="${TOP_WORDS.ko["acct.menu"]}">${ACTIVITY_BUTTON_HTML}</button>
+    <div class="pop-list" id="acct-list" role="dialog" ${topLabel("acct.menu")} hidden>
       <div class="account-links" role="menu">
       <a role="menuitem" href="/">${icon("home")}${top("web")}</a>
       <a role="menuitem" href="/admin/guide" target="_blank" rel="noopener">${icon("book")}${top("guide")}</a>
@@ -363,16 +363,16 @@ ${USERS_HTML}
 ${devicesHtml()}
 
 <section id="tab-settings" hidden>
-  <div class="subtabs hide-bar" id="set-subtabs" role="tablist" aria-label="설정 구역">
-    <button type="button" role="tab" data-ssub="server" aria-selected="true">${icon("sliders")}서버 동작</button>
-    <button type="button" role="tab" data-ssub="integrations" aria-selected="false">${icon("package")}외부 서비스</button>
-    <button type="button" role="tab" data-ssub="security" aria-selected="false">${icon("lock")}로그인과 보안</button>
-    <button type="button" role="tab" data-ssub="tokens" aria-selected="false">${icon("log")}자동화 토큰</button>
+  <div class="subtabs hide-bar" id="set-subtabs" role="tablist" ${topLabel("dp.setArea")}>
+    <button type="button" role="tab" data-ssub="server" aria-selected="true">${icon("sliders")}${top("m.setServer")}</button>
+    <button type="button" role="tab" data-ssub="integrations" aria-selected="false">${icon("package")}${top("m.setIntegrations")}</button>
+    <button type="button" role="tab" data-ssub="security" aria-selected="false">${icon("lock")}${top("dp.loginSec")}</button>
+    <button type="button" role="tab" data-ssub="tokens" aria-selected="false">${icon("log")}${top("m.setAuto")}</button>
   </div>
   <div data-set-panel="server">${SERVER_SETTINGS_HTML}</div>
   <div data-set-panel="integrations" hidden>${INTEGRATIONS_HTML}</div>
   <div data-set-panel="security" hidden>
-  <p class="muted">관리 페이지는 관리자 계정으로 로그인한 뒤에 한 번 더 확인합니다. 관리자 비밀번호나 인증 앱 코드 중 하나를 넣습니다.</p>
+  <p class="muted">${top("dp.gateLead")}</p>
   ${GOOGLE_SETTINGS_HTML}
   ${ADMIN_SECURITY_HTML}
   </div>
@@ -380,10 +380,10 @@ ${devicesHtml()}
 </section>
 
 <section id="tab-logs" hidden>
-  <div class="subtabs hide-bar" id="logs-subtabs" role="tablist" aria-label="로그 종류">
-    <button type="button" role="tab" data-lsub="xfer" aria-selected="true">${icon("download")}다운로드 기록</button>
-    <button type="button" role="tab" data-lsub="client" aria-selected="false">${icon("device")}클라이언트 로그</button>
-    <button type="button" role="tab" data-lsub="deny" aria-selected="false">${icon("lock")}차단과 거부</button>
+  <div class="subtabs hide-bar" id="logs-subtabs" role="tablist" ${topLabel("dp.logKind")}>
+    <button type="button" role="tab" data-lsub="xfer" aria-selected="true">${icon("download")}${top("m.xfer")}</button>
+    <button type="button" role="tab" data-lsub="client" aria-selected="false">${icon("device")}${top("m.clients")}</button>
+    <button type="button" role="tab" data-lsub="deny" aria-selected="false">${icon("lock")}${top("m.deny")}</button>
   </div>
   <div data-logs-panel="xfer">${TRANSFERS_HTML}</div>
   <div data-logs-panel="client" hidden">

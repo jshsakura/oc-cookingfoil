@@ -91,27 +91,29 @@ const GRID_THEME=window.agGrid?agGrid.themeQuartz.withParams({
   chromeBackgroundColor:'var(--panel)',fontFamily:'inherit',fontSize:13,headerFontSize:12.5,headerFontWeight:600,
   wrapperBorderRadius:14,spacing:6,cellHorizontalPadding:12,rowBorder:{color:'var(--line)'},columnBorder:false,
   inputBackgroundColor:'var(--sunk)',inputBorder:false}):undefined;
-const GRID_TEXT={page:'쪽',to:'-',of:'/',more:'더',firstPage:'처음',previousPage:'이전',nextPage:'다음',lastPage:'끝',
-  pageSizeSelectorLabel:'한 쪽에',noRowsToShow:'찾은 것이 없습니다.',ariaRowSelect:'',ariaSortableColumn:'눌러서 정렬합니다'};
+const gridLocale=()=>({page:topText('gd.page'),to:'-',of:'/',more:topText('gd.more'),firstPage:topText('gd.first'),previousPage:topText('fp.prev'),nextPage:topText('fp.next'),lastPage:topText('gd.last'),
+  pageSizeSelectorLabel:topText('gd.perPage'),noRowsToShow:topText('gd.none'),ariaRowSelect:'',ariaSortableColumn:topText('gd.sortHint')});
 // One cell of a built row, moved into the grid with its classes, title and listeners.
 function gridCell(td){const d=el('div',null,'gc'+(td.className?' '+td.className:''));if(td.title)d.title=td.title;
   while(td.firstChild)d.append(td.firstChild);return d;}
 // What a cell sorts by. data-sort wins; else a date, "3분 전", a size or a number read from the text; else the text.
 // Empty cells ("", "—") give null and sort last in either direction.
 const GRID_UNIT={B:1,KB:1024,MB:1048576,GB:1073741824,TB:1099511627776};
-const GRID_AGO={'초':1,'분':60,'시간':3600,'일':86400};
+// The words a date or an age is written with come from the dictionary, in the page's language.
+const gridAgo=()=>Object.fromEntries(topText('gd.agoUnits').split('|').map((u,i)=>[u,[1,60,3600,86400][i]]));
 function gridKey(n){if(!n)return null;const at=n.querySelector?.('[data-sort]')||n;
   if(at.dataset?.sort!=null&&at.dataset.sort!=='')return Number(at.dataset.sort);
   const sel=n.querySelector?.('select');const t=(sel?sel.selectedOptions[0]?.textContent:n.textContent||'').trim();
   if(!t||t==='—'||t==='-')return null;
-  let m=t.match(/^(?:(\\d{4})\\.\\s+)?(\\d{1,2})\\.\\s+(\\d{1,2})\\.(?:\\s*(오전|오후)\\s*(\\d{1,2}):(\\d{2})(?::(\\d{2}))?)?/);
-  if(m){let h=Number(m[5]||0);if(m[4]==='오후'&&h<12)h+=12;if(m[4]==='오전'&&h===12)h=0;
+  let m=t.match(/^(?:(\\d{4})\\.\\s+)?(\\d{1,2})\\.\\s+(\\d{1,2})\\.(?:\\s*([^\\d\\s]+)\\s*(\\d{1,2}):(\\d{2})(?::(\\d{2}))?)?/);
+  const ampm=topText('gd.ampm').split('|');
+  if(m){let h=Number(m[5]||0);if(m[4]===ampm[1]&&h<12)h+=12;if(m[4]===ampm[0]&&h===12)h=0;
     return new Date(Number(m[1]||new Date().getFullYear()),Number(m[2])-1,Number(m[3]),h,Number(m[6]||0),Number(m[7]||0)).getTime();}
   if((m=t.match(/^(\\d{4})-(\\d{2})-(\\d{2})(?:[ T](\\d{2}):(\\d{2}))?/)))return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]||0),Number(m[5]||0)).getTime();
-  if(t==='방금'||t==='지금')return Date.now();
-  if((m=t.match(/^(\\d+)\\s*(초|분|시간|일)\\s*전/)))return Date.now()-Number(m[1])*GRID_AGO[m[2]]*1000;
+  if(topText('gd.nowWords').split('|').includes(t))return Date.now();
+  if((m=t.match(/^(\\d+)\\s*(.*)$/)))for(const [u,sec] of Object.entries(gridAgo()))if(m[2].startsWith(u)&&m[2].slice(u.length).trimStart().startsWith(topText('gd.agoWord')))return Date.now()-Number(m[1])*sec*1000;
   if((m=t.match(/^(-?[\\d,]*\\.?\\d+)\\s*(B|KB|MB|GB|TB)\\b/i)))return Number(m[1].replace(/,/g,''))*GRID_UNIT[m[2].toUpperCase()];
-  if((m=t.match(/^(-?[\\d,]*\\.?\\d+)\\s*(%|개|장|건|명|대|초|ms)?(\\s*\\(.*\\))?$/)))return Number(m[1].replace(/,/g,''));
+  if((m=t.match(/^(-?[\\d,]*\\.?\\d+)\\s*([^\\s(]*)(\\s*\\(.*\\))?$/))&&(!m[2]||['%','ms',...topText('gd.countUnits').split('|')].includes(m[2])))return Number(m[1].replace(/,/g,''));
   return t;}
 function gridCompare(a,b,_na,_nb,desc){const x=gridKey(_na?.data?._n?.[this.i]),y=gridKey(_nb?.data?._n?.[this.i]);
   if(x==null||y==null)return x==null&&y==null?0:(x==null)!==desc?1:-1;
@@ -166,18 +168,18 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   const many=!groups&&opts.paging!==false&&items.length>GRID_PAGE;
   const tools=el('div',null,'grid-tools');
   if(opts.search&&items.length>10){const q=el('input');q.type='search';
-    q.placeholder=opts.placeholder||'이름으로 찾기';q.setAttribute('aria-label',(opts.label||'목록')+' 찾기');
+    q.placeholder=opts.placeholder||topText('pg.search');q.setAttribute('aria-label',topFill('gd.find',{label:opts.label||topText('pg.list')}));
     q.addEventListener('input',()=>m._grid?.setGridOption('quickFilterText',q.value));tools.append(q);}
   // "○○순": every sortable column offers its orders by what it holds, and the pick outlives a redraw.
   const orders=gridOrders(cols,columnDefs,items);
-  const pick=el('select','', 'grid-sort');pick.setAttribute('aria-label',(opts.label||'목록')+' 정렬');
-  pick.append(new Option('기본 순서',''));for(const o of orders)pick.append(new Option(o.label,o.key));
+  const pick=el('select','', 'grid-sort');pick.setAttribute('aria-label',topFill('gd.sortBy',{label:opts.label||topText('pg.list')}));
+  pick.append(new Option(topText('gd.defaultOrder'),''));for(const o of orders)pick.append(new Option(o.label,o.key));
   if(orders.length&&items.length>1)tools.append(pick);
   // Filters for a column with a handful of values (상태, 역할, 기종), as chips like the client's.
   m._filters??={};const filters=gridFilters(cols,columnDefs,items).filter((f)=>!(opts.noFilter||[]).includes(f.title));
   for(const f of Object.keys(m._filters))if(!filters.some((x)=>x.col===f))delete m._filters[f];
   const chipRows=filters.map((f)=>{const row=el('div',null,'grid-chips');row.append(el('span',f.title,'grid-chips-label'));
-    for(const v of ['',...f.values]){const b=el('button',v||'전체','grid-chip');b.type='button';
+    for(const v of ['',...f.values]){const b=el('button',v||topText('t.total'),'grid-chip');b.type='button';
       b.setAttribute('aria-pressed',String((m._filters[f.col]??'')===v));
       b.addEventListener('click',()=>{if(v)m._filters[f.col]=v;else delete m._filters[f.col];
         for(const c of row.querySelectorAll('.grid-chip'))c.setAttribute('aria-pressed',String(c===b));
@@ -203,10 +205,10 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
       const col=m._grid.getColumn(id);if(col&&w>col.getActualWidth())grow.push({key:id,newWidth:Math.ceil(w)});}
     if(grow.length)m._grid.setColumnWidths(grow);};
   const count=()=>{const n=tools.querySelector('.grid-count');if(!n||!m._grid)return;let shown=0;
-    m._grid.forEachNodeAfterFilter((r)=>{if(!r.data?._head)shown++;});n.textContent=shown===items.length?items.length+'개':shown+' / '+items.length+'개';};
+    m._grid.forEachNodeAfterFilter((r)=>{if(!r.data?._head)shown++;});n.textContent=shown===items.length?topFill('t.count',{n:items.length}):topFill('gd.shownOf',{shown,n:items.length});};
   m._grid=agGrid.createGrid(box,{theme:GRID_THEME,rowData:data,columnDefs,domLayout:'autoHeight',
     rowHeight:GRID_ROW,headerHeight:40,suppressCellFocus:true,suppressColumnVirtualisation:true,enableCellTextSelection:true,
-    localeText:GRID_TEXT,overlayNoRowsTemplate:'<span>찾은 것이 없습니다.</span>',
+    localeText:gridLocale(),overlayNoRowsTemplate:'<span>'+topText('gd.none')+'</span>',
     getRowId:(p)=>p.data._id||'k'+p.data._k,
     getRowClass:(p)=>p.data._cls||'',
     isExternalFilterPresent:filtered,
@@ -227,13 +229,13 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
 const gridText0=(n)=>{const sel=n?.querySelector?.('select');return (sel?sel.selectedOptions[0]?.textContent:n?.textContent||'').trim();};
 // What a column holds, from its sort keys: 'date', 'ago', 'number' or 'text' (null when it is empty or not sortable).
 function gridKind(items,i){let kind=null;for(const r of items){const n=r._n[i],k=gridKey(n);if(k==null)continue;
-  const t=gridText0(n);const now=typeof k==='number'&&/전$/.test(t)?'ago':typeof k==='number'&&k>1e12?'date':typeof k==='number'?'number':'text';
+  const t=gridText0(n);const now=typeof k==='number'&&t.endsWith(topText('gd.agoWord'))?'ago':typeof k==='number'&&k>1e12?'date':typeof k==='number'?'number':'text';
   if(kind&&kind!==now)return 'text';kind=now;}return kind;}
 function gridOrders(cols,defs,items){const out=[];
   defs.forEach((d,i)=>{if(!d.sortable||!cols[i])return;const t=cols[i],k=gridKind(items,i),c=d.colId;
-    if(k==='date'||k==='ago')out.push({label:t+' 최근순',key:c+':desc'},{label:t+' 오래된순',key:c+':asc'});
-    else if(k==='number')out.push({label:t+' 큰순',key:c+':desc'},{label:t+' 작은순',key:c+':asc'});
-    else if(k==='text')out.push({label:t+' 가나다순',key:c+':asc'},{label:t+' 역순',key:c+':desc'});});
+    if(k==='date'||k==='ago')out.push({label:topFill('gd.recent',{label:t}),key:c+':desc'},{label:topFill('gd.oldest',{label:t}),key:c+':asc'});
+    else if(k==='number')out.push({label:topFill('gd.largest',{label:t}),key:c+':desc'},{label:topFill('gd.smallest',{label:t}),key:c+':asc'});
+    else if(k==='text')out.push({label:topFill('gd.az',{label:t}),key:c+':asc'},{label:topFill('gd.za',{label:t}),key:c+':desc'});});
   return out;}
 function gridFilters(cols,defs,items){if(items.length<4)return [];const out=[];
   defs.forEach((d,i)=>{if(!d.sortable||!cols[i]||gridKind(items,i)!=='text')return;

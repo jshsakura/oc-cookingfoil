@@ -1,4 +1,4 @@
-import { top } from "./top-i18n.js";
+import { top, topLabel } from "./top-i18n.js";
 /**
  * The admin page's 임시 공유 tab: what signed-in users left in the share inbox,
  * newest first, with their files to download, 정리함 to set one aside and
@@ -7,12 +7,12 @@ import { top } from "./top-i18n.js";
 
 export const INBOX_HTML = `<section id="tab-inbox" hidden>
   <div class="hd"><h2 class="first" data-top="m.inbox">${top("m.inbox")}</h2>
-    <div class="seg" id="ib-show" role="group" aria-label="보기">
-      <button type="button" data-show="open" aria-pressed="true" class="active">정리할 것</button>
-      <button type="button" data-show="done" aria-pressed="false">정리함</button>
+    <div class="seg" id="ib-show" role="group" ${topLabel("ov.go")}>
+      <button type="button" data-show="open" aria-pressed="true" class="active" data-top="ib.open">${top("ib.open")}</button>
+      <button type="button" data-show="done" aria-pressed="false" data-top="ib.done">${top("ib.done")}</button>
       <button type="button" data-show="all" aria-pressed="false" data-top="t.total">${top("t.total")}</button>
     </div></div>
-  <p class="muted">로그인한 사용자가 대시보드에서 남긴 파일, 메모, 링크입니다. 패치, 세이브, 홈브류로 옮긴 것은 정리함으로 보내면 목록에서 숨깁니다. 서버의 data/inbox 폴더에도 그대로 있습니다.</p>
+  <p class="muted">${top("ib.lead")}</p>
   <p class="muted" id="ib-usage"></p>
   <div class="ib-list" id="ib-list"></div>
 </section>`;
@@ -39,23 +39,24 @@ var ibShow='open'; // var: the first showTab() can run before this line
 const ibSize=(n)=>{if(!n)return '0 B';const u=['B','KB','MB','GB','TB'];const i=Math.min(4,Math.floor(Math.log(n)/Math.log(1024)));return i?(n/1024**i).toFixed(1)+' '+u[i]:n+' B';};
 function ibCard(e){const card=el('article',null,'ib-entry'+(e.done?' done':''));card.dataset.id=e.id;
   const head=el('div',null,'ib-head');const when=el('span',ago(Date.parse(e.at)),'muted');when.title=fmt(Date.parse(e.at));
-  head.append(el('b',e.user),when,pill('파일 '+e.files.length+'개 · '+ibSize(e.bytes)));if(e.done)head.append(pill('정리함','on'));card.append(head);
+  head.append(el('b',e.user),when,pill(topFill('ib.filesN',{n:e.files.length,size:ibSize(e.bytes)})));if(e.done)head.append(pill(topText('ib.done'),'on'));card.append(head);
   if(e.memo)card.append(el('p',e.memo,'ib-memo'));
-  if(e.links.length){const box=el('div');box.append(el('h4','링크'));const ul=el('ul');
+  if(e.links.length){const box=el('div');box.append(el('h4',topText('ib.links')));const ul=el('ul');
     for(const u of e.links){const li=el('li');const a=el('a',u);a.href=u;a.target='_blank';a.rel='noopener noreferrer';li.append(a);ul.append(li);}box.append(ul);card.append(box);}
   if(e.files.length){const box=el('div');box.append(el('h4',topText('lo.colFile')));const ul=el('ul');
     for(const f of e.files){const li=el('li');const a=el('a',f.name);a.href=f.url;a.download='';li.append(a,el('span',ibSize(f.size)));ul.append(li);}box.append(ul);card.append(box);}
   const acts=el('div',null,'row-actions');
-  acts.append(btn(e.done?'정리할 것으로 되돌리기':'정리함으로',async()=>{try{await api('/admin/api/inbox/'+e.id+'/done',{method:'POST',body:{done:!e.done}});
-    toast(e.done?'정리할 것으로 되돌렸습니다.':'정리함으로 옮겼습니다.');loadInbox();}catch(err){toast(err.message);}}));
-  acts.append(tbtn('delete','pp.delete',async()=>{if(!await ask(e.user+' 님이 남긴 것을 파일까지 삭제할까요? 되돌릴 수 없습니다.',{danger:true}))return;
+  acts.append(btn(topText(e.done?'ib.reopenBtn':'ib.doneBtn'),async()=>{try{await api('/admin/api/inbox/'+e.id+'/done',{method:'POST',body:{done:!e.done}});
+    toast(topText(e.done?'ib.reopened':'ib.moved'));loadInbox();}catch(err){toast(err.message);}}));
+  acts.append(tbtn('delete','pp.delete',async()=>{if(!await ask(topFill('ib.deleteAsk',{user:e.user}),{danger:true}))return;
     try{await api('/admin/api/inbox/'+e.id,{method:'DELETE'});toast(topText('pp.deleted'));loadInbox();}catch(err){toast(err.message);}},'danger'));
   card.append(acts);return card;}
 async function loadInbox(){let d;try{d=await api('/admin/api/inbox?show='+ibShow);}catch(err){toast(err.message);return;}
   const list=$('ib-list');
-  list.replaceChildren(...(d.entries.length?d.entries.map(ibCard):[el('div',ibShow==='done'?'정리함이 비어 있습니다.':'남긴 것이 없습니다.','empty')]));
-  $('ib-usage').textContent=(d.enabled?'켜져 있습니다. ':'꺼져 있습니다. 설정 탭에서 켭니다. ')+'쓰는 공간 '+ibSize(d.usage)+' / '+ibSize(d.quota)+', 한 번에 '+ibSize(d.maxBytes)+'까지 받습니다.';
+  list.replaceChildren(...(d.entries.length?d.entries.map(ibCard):[el('div',topText(ibShow==='done'?'ib.emptyDone':'ib.none'),'empty')]));
+  $('ib-usage').textContent=topFill(d.enabled?'ib.usageOn':'ib.usageOff',{used:ibSize(d.usage),quota:ibSize(d.quota),max:ibSize(d.maxBytes)});
   if(ibShow==='open')ibBadge(d.entries.length);}
+(window.admRelabelHooks=window.admRelabelHooks||[]).push(()=>{if($('ib-list'))loadInbox();});
 function ibBadge(n){const c=$('inbox-count');c.hidden=!n;c.textContent=n;}
 $('ib-show').addEventListener('click',(e)=>{const b=e.target.closest('[data-show]');if(!b)return;ibShow=b.dataset.show;
   for(const x of $('ib-show').querySelectorAll('button')){const on=x===b;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on));}loadInbox();});

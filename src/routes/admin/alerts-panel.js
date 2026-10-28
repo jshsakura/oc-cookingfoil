@@ -10,9 +10,9 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
   <h2 class="first">${top("m.alerts")}</h2>
   <p class="muted">${top("al.lede")}</p>
   <div class="al-status" id="al-status"><span class="al-dot"></span><div><strong>${top("loading")}</strong><span></span></div></div>
-  <div class="subtabs hide-bar" id="alerts-subtabs" role="tablist" aria-label="알림 구역">
-    <button type="button" role="tab" data-sub="setup" aria-selected="true">${icon("sliders")}설정</button>
-    <button type="button" role="tab" data-sub="history" aria-selected="false">${icon("bell")}최근 알림</button>
+  <div class="subtabs hide-bar" id="alerts-subtabs" role="tablist" ${topLabel("al.areaAria")}>
+    <button type="button" role="tab" data-sub="setup" aria-selected="true">${icon("sliders")}${top("m.grpSet")}</button>
+    <button type="button" role="tab" data-sub="history" aria-selected="false">${icon("bell")}${top("al.recent")}</button>
   </div>
   <div data-sub-panel="setup">
   <form id="al-form" autocomplete="off">
@@ -28,7 +28,7 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
       <button type="button" id="al-chats">${top("al.findChats")}</button>
     </div>
     <h3>${top("al.langH")}</h3>
-    <div class="add"><select name="lang" ${topLabel("al.langH")}><option value="ko">한국어</option><option value="en">English</option><option value="ja">日本語</option><option value="zh">中文</option></select></div>
+    <div class="add"><select name="lang" ${topLabel("al.langH")}><option value="ko">${top("al.langKo")}</option><option value="en">${top("al.langEn")}</option><option value="ja">${top("al.langJa")}</option><option value="zh">${top("al.langZh")}</option></select></div>
     <h3>${top("al.eventsH")}</h3>
     <div class="al-events" id="al-events"></div>
     <h3>${top("al.approveH")}</h3>

@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GRID_SCRIPT } from "../../src/routes/admin/grid.js";
+import { TOP_WORDS } from "../../src/routes/admin/top-i18n.js";
 
-const { gridKey, gridCompare } = new Function("window", "document", `${GRID_SCRIPT}; return { gridKey, gridCompare };`)({}, {});
+const { gridKey, gridCompare } = new Function("window", "document", "topText", `${GRID_SCRIPT}; return { gridKey, gridCompare };`)({}, {}, (k) => TOP_WORDS.ko[k]);
 const cell = (text, sort) => ({ textContent: text, dataset: sort == null ? {} : { sort: String(sort) }, querySelector: () => null });
 const order = (texts, desc = false) => {
   const cmp = gridCompare.bind({ i: 0 });
