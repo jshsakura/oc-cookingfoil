@@ -309,7 +309,7 @@ test("revoking a console ends its re-pair request: its old QR cannot re-pair it 
   assert.deepEqual(await mine("alice"), [target]);
 }));
 
-test("a console the admin let in takes a new key from any account's download and keeps its approval", () => withServer(async ({ data }) => {
+test("a console the admin approved from their session is the admin account's: its own download re-enrolls it without the key, another's is refused", () => withServer(async ({ data }) => {
   for (const k of Object.keys(sessions)) delete sessions[k];
   adminHeaders = null;
   const target = key("C");
@@ -318,11 +318,15 @@ test("a console the admin let in takes a new key from any account's download and
   const old = (await poll(target, secret("c"))).body.accessKey;
   assert.ok(old);
 
+  assert.equal((await enroll(target, await downloadToken(data, "bob"))).status, 409);
+  assert.equal(await library(target, old), 200, "a refused download changes nothing");
   const r = await enroll(target, await downloadToken(data, "alice"));
   assert.equal(r.status, 200);
-  const fresh = (await r.json()).accessKey;
-  assert.equal(await library(target, fresh), 200);
+  const body = await r.json();
+  assert.equal(body.bound, true);
+  assert.equal(await library(target, body.accessKey), 200);
   assert.equal(await library(target, old), 401);
+  assert.deepEqual(await mine("alice"), [target]);
 }));
 
 test("a console that still holds its key is told it is approved, never shown a re-pair QR", () => withServer(async () => {

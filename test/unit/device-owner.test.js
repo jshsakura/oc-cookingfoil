@@ -10,7 +10,7 @@ import path from "node:path";
 const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-device-owner-"));
 Object.assign(process.env, {
   COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(data, "games"), COOK_DEVICE_PAIRING: "true", COOK_DEVICE_AUTO_APPROVE: "false",
-  COOK_AUTH_USERS: "alice:alice-password,bob:bob-password", COOK_TITLEDB_AUTO_FETCH: "false", COOK_PUBLIC_BASE_URL: "",
+  COOK_AUTH_USERS: "alice:alice-password,bob:bob-password,carol:carol-password", COOK_TITLEDB_AUTO_FETCH: "false", COOK_PUBLIC_BASE_URL: "",
 });
 const { default: express } = await import("express");
 const store = await import("../../src/security/store.js");
@@ -39,8 +39,8 @@ after(async () => {
 });
 
 const post = (url, headers, body) => fetch(base + url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
-const enrollAs = async (owner, deviceKey, label) => {
-  const r = await post("/api/pair/enroll", { "X-Device-Key": deviceKey }, { token: enroll.issue(owner).token, label });
+const enrollAs = async (owner, deviceKey, label, accessKey) => {
+  const r = await post("/api/pair/enroll", { "X-Device-Key": deviceKey, ...(accessKey ? { "X-Access-Key": accessKey } : {}) }, { token: enroll.issue(owner).token, label });
   return { status: r.status, body: await r.json() };
 };
 const mine = async (who) => { webUser = who; return (await (await fetch(`${base}/pair/api/mine`)).json()).devices.map((d) => d.deviceKey); };
@@ -50,7 +50,7 @@ for (const by of ["auto", "admin", "telegram"]) {
   test(`a console approved by ${by} is bound to the account whose download enrolls it, and takes its name`, async () => {
     const key = (by.charCodeAt(0).toString(16) + "A").repeat(32).slice(0, 64).toUpperCase();
     store.approveDevice(key, { label: "old label", addedBy: by, accessKeyHash: hashAccessKey("old-key") });
-    const r = await enrollAs("alice", key, "alice console");
+    const r = await enrollAs("alice", key, "alice console", "old-key");
     assert.equal(r.status, 200);
     assert.deepEqual({ bound: r.body.bound, owner: r.body.owner }, { bound: true, owner: { kind: "user", displayName: "alice" } });
     assert.equal(store.deviceAddedBy(key), "alice");
@@ -62,20 +62,26 @@ for (const by of ["auto", "admin", "telegram"]) {
 
 test("enrolling again with the same account is idempotent; another account's download is refused with 409 and takes nothing", async () => {
   const key = "C3".repeat(32);
-  assert.equal((await enrollAs("alice", key, "mine")).body.bound, true);
-  const again = await enrollAs("alice", key, "mine");
+  const first = await enrollAs("alice", key, "mine");
+  assert.equal(first.body.bound, true);
+  const again = await enrollAs("alice", key, "mine", first.body.accessKey);
   assert.equal(again.status, 200);
   assert.equal(again.body.owner.displayName, "alice");
-  const other = await enrollAs("bob", key, "bob wants it");
+  const other = await enrollAs("bob", key, "bob wants it", again.body.accessKey);
   assert.equal(other.status, 409);
   assert.equal(store.deviceAddedBy(key), "alice");
   assert.ok(!(await mine("bob")).includes(key));
 });
 
-test("an admin device stays the admin's: it takes the new key but is not bound", async () => {
+test("an admin device stays the admin's: with its key it takes a new one but is not bound; without it nothing happens", async () => {
   const key = "D4".repeat(32);
   store.approveDevice(key, { label: "admin console", addedBy: "admin", accessKeyHash: hashAccessKey("x"), admin: true });
-  const r = await enrollAs("alice", key, "alice console");
+  const before = store.getDeviceAccessKeyHash(key);
+  const blind = await enrollAs("alice", key, "alice console");
+  assert.equal(blind.status, 403);
+  assert.equal(blind.body.accessKey, undefined);
+  assert.equal(store.getDeviceAccessKeyHash(key), before, "no key handed out");
+  const r = await enrollAs("alice", key, "alice console", "x");
   assert.equal(r.status, 200);
   assert.equal(r.body.bound, false);
   assert.equal(store.deviceAddedBy(key), "admin");
@@ -119,4 +125,31 @@ test("a session made by the console carries the same owner, and a new binding en
   assert.equal(ok.account, null, "a session of a console is no web sign-in");
   store.approveDevice(key, { addedBy: "auto", accessKeyHash: hashAccessKey("rotated") });
   assert.equal((await via()).status, 401, "a new key for the console ends its old session");
+});
+
+test("an approved console without its access key is refused before the download is spent: a stranger gets no key", async () => {
+  const key = "B8".repeat(32);
+  store.approveDevice(key, { label: "someone's", addedBy: "auto", accessKeyHash: hashAccessKey("theirs") });
+  const before = store.getDeviceAccessKeyHash(key);
+  const token = enroll.issue("bob").token;
+  const r = await post("/api/pair/enroll", { "X-Device-Key": key }, { token, label: "taken?" });
+  assert.equal(r.status, 403);
+  assert.equal((await r.json()).accessKey, undefined);
+  assert.equal(store.getDeviceAccessKeyHash(key), before, "the holder keeps its key");
+  assert.equal(store.deviceAddedBy(key), "auto");
+  // The download was not spent: the same token still enrolls a console of bob's.
+  const r2 = await post("/api/pair/enroll", { "X-Device-Key": "B9".repeat(32) }, { token, label: "bob's" });
+  assert.equal(r2.status, 200);
+});
+
+test("a console that never got its enroll answer repeats it with the same download and gets in again", async () => {
+  const key = "BA".repeat(32);
+  const token = enroll.issue("carol").token;
+  const first = await post("/api/pair/enroll", { "X-Device-Key": key }, { token, label: "c" });
+  assert.equal(first.status, 200);
+  const again = await post("/api/pair/enroll", { "X-Device-Key": key }, { token, label: "c" });
+  assert.equal(again.status, 200);
+  const body = await again.json();
+  assert.equal(body.bound, true);
+  assert.equal(body.owner.displayName, "carol");
 });

@@ -364,7 +364,21 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
     }
+    // A console the system let in (admin, automatic approval, Telegram) belongs to no account yet, so a
+    // download alone proves nothing about it: it must show its current access key too, or a stranger who
+    // knows its device id would get its key and could bind it. The one exception is the same download
+    // repeating its own enroll (the console never got the answer). A console that lost its key comes back
+    // by QR (/status answers it with a re-pair link). An account's console needs no key: that account's
+    // download proves it (a console after a format), and another account's is refused by spend (409).
     const checks = enrollChecks(deviceKey);
+    const proves = verifyAccessKey(req.get("X-Access-Key"), store.getDeviceAccessKeyHash(deviceKey));
+    if (store.isDeviceApproved(deviceKey) && systemApproved(deviceKey) && !proves && !enrollTokens.respend(req.body?.token, deviceKey, checks)) {
+      debug.log("pair: %s… enroll refused: approved already, no access key shown", deviceKey.slice(0, 12));
+      noteRefusal(req, res, 403, "enroll-needs-key", { proven: false });
+      res.set("X-CookingFoil-Enroll", "needs-key");
+      res.status(403).json({ error: "this console was let in without an account; enroll it with its current access key, or pair it again by QR" });
+      return;
+    }
     const first = enrollTokens.spend(req.body?.token, deviceKey, checks);
     // A console sometimes repeats its enroll seconds later; one the download took is answered again.
     const again = first ? null : enrollTokens.respend(req.body?.token, deviceKey, checks);
@@ -395,10 +409,11 @@ export default function pairRouter() {
     }
     const accessKey = generateAccessKey();
     const fresh = !store.isDeviceApproved(deviceKey);
-    // A valid download proves whose console this is, so a console the system let in (admin, automatic
-    // approval, Telegram) is bound to that account from now on. Another account's console never gets
-    // here (spend refuses it with 409), and an admin device stays the admin's, taking only the new key.
-    const binds = !fresh && systemApproved(deviceKey) && !store.isDeviceAdmin(deviceKey);
+    // A valid download shown with the console's own access key proves whose console it is, so a console
+    // the system let in (admin, automatic approval, Telegram) is bound to that account from now on.
+    // Another account's console never gets here (spend refuses it with 409), and an admin device stays
+    // the admin's, taking only the new key.
+    const binds = !fresh && proves && systemApproved(deviceKey) && !store.isDeviceAdmin(deviceKey);
     const keeps = !fresh && !binds && systemApproved(deviceKey);
     store.approveDevice(deviceKey, {
       label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : binds ? consoleName(req) ?? undefined : undefined,
