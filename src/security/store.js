@@ -15,7 +15,8 @@ import { translator } from "../helpers/alert-messages.js";
 import debug from "../debug.js";
 import { envBool } from "../helpers/env-read.js";
 import { alert } from "../helpers/alerts.js";
-import { deviceCode } from "./pairing-link.js";
+import { deviceCode, dropPairLink } from "./pairing-link.js";
+import { discardAccessKeyDelivery } from "./pairing.js";
 import { dropRepair } from "./pairing-repair.js";
 import { isLoopbackIp, isPrivateIp } from "./net.js";
 import { doneAt, eventLog, markDone, recordStore } from "../db/security-stores.js";
@@ -453,7 +454,7 @@ export function revokeDevice(deviceKey) {
   // Dismissing a request that was never approved must stick across a restart too.
   const dismissed = dropPending(deviceKey);
   const hadSecret = state.pairSecrets.delete(deviceKey);
-  dropRepair(deviceKey);
+  endPairAttempt(deviceKey);
   deviceSends.forget(deviceKey);
   if (removed) appendAudit({ kind: "device-revoke", deviceKey, at: Date.now() });
   if (removed || dismissed || hadSecret) scheduleFlush();
@@ -518,10 +519,18 @@ export function pendingName(deviceKey) {
  * meanwhile (QR, auto approval) is left alone: its approval and the key staged for
  * it stay. Returns whether a waiting request was dropped.
  */
+// A refused or forgotten attempt leaves nothing behind: its QR approves nothing, and no key waits to be
+// taken. Its pairSecret goes too (the callers), so a key left over would go to whoever polls first.
+function endPairAttempt(deviceKey) {
+  dropRepair(deviceKey);
+  dropPairLink(deviceKey);
+  discardAccessKeyDelivery(deviceKey);
+}
+
 export function dismissPending(deviceKey) {
   if (isDeviceApproved(deviceKey)) return false;
   const dismissed = dropPending(deviceKey);
-  dropRepair(deviceKey);
+  endPairAttempt(deviceKey);
   if (state.pairSecrets.delete(deviceKey) || dismissed) scheduleFlush();
   if (dismissed) approvalsChanged("device");
   return dismissed;

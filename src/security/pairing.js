@@ -85,6 +85,11 @@ export function stageAccessKeyDelivery(deviceKey, accessKey) {
   oneTimeDelivery.set(deviceKey, accessKey);
 }
 
+/** Drop a staged accessKey nobody took: the attempt it was for has ended. */
+export function discardAccessKeyDelivery(deviceKey) {
+  oneTimeDelivery.delete(deviceKey);
+}
+
 /** Return + consume the staged accessKey for a device (single use), or null. */
 export function takeAccessKeyDelivery(deviceKey) {
   const key = oneTimeDelivery.get(deviceKey);

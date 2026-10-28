@@ -10,7 +10,7 @@
  * request without one is an old client and this branch can go.
  */
 import * as store from "./store.js";
-import { hashPairSecret, normalizePairSecret, pairSecretMatches, takeAccessKeyDelivery } from "./pairing.js";
+import { hashPairSecret, normalizePairSecret, pairSecretMatches, takeAccessKeyDelivery, verifyAccessKey } from "./pairing.js";
 
 /**
  * Check, without keeping it, the pairSecret a console asks with: "invalid" when
@@ -52,11 +52,16 @@ export function registerPairSecret(deviceKey, raw) {
   return store.registerPairSecret(deviceKey, hashPairSecret(secret));
 }
 
-/** The staged accessKey for a console that proved it asked (or a legacy one), consumed; else null. */
+/**
+ * The staged accessKey for a console that proved it asked (or a legacy one), consumed; else null.
+ * A staged key the console's record no longer holds (it got another since) is dropped, not given:
+ * the console would put it in place of the key that works.
+ */
 export function deliverAccessKey(deviceKey, presented) {
   const want = store.pairSecretHash(deviceKey);
   if (want && !pairSecretMatches(presented, want)) return null;
   const accessKey = takeAccessKeyDelivery(deviceKey);
-  if (accessKey) store.clearPairSecret(deviceKey);
+  if (!accessKey || !verifyAccessKey(accessKey, store.getDeviceAccessKeyHash(deviceKey))) return null;
+  store.clearPairSecret(deviceKey);
   return accessKey;
 }
