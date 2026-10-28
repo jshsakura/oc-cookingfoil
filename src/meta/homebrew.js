@@ -369,7 +369,7 @@ export async function adoptFolders(root) {
       skipped.push(heldEntry(folder, "homebrew.badPaths", { list: (lang) => describeProblems(problems, 5, lang) }));
       continue;
     }
-    const manifest = { nro, mode: "folder", reason: "게임 데이터가 함께 있어야 실행됩니다", rules: [], excluded: [], own_metadata: hasOwnMetadata(files) };
+    const manifest = { nro, mode: "folder", reason: metaText("ko", "homebrew.needsData"), rules: [], excluded: [], own_metadata: hasOwnMetadata(files) };
     await fsp.writeFile(path.join(dir, MANIFEST), JSON.stringify(manifest));
     registered.push(folder);
   }

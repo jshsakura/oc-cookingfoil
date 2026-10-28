@@ -10,6 +10,7 @@
 import * as igdb from "./igdb-client.js";
 import * as titledb from "./titledb-store.js";
 import * as integrations from "../security/integrations.js";
+import { koText } from "./meta-messages.js";
 
 const SGDB = "https://www.steamgriddb.com/api/v2";
 const IGDB_IMAGES = "https://images.igdb.com/igdb/image/upload/";
@@ -111,20 +112,20 @@ const TYPES = ["image/jpeg", "image/png", "image/webp"];
 export async function remoteImage(url, { fetchImpl = fetch } = {}) {
   let at = String(url);
   for (let hop = 0; hop < 4; hop++) {
-    if (!allowedImageUrl(at)) throw new Error("고를 수 없는 그림 주소입니다");
+    if (!allowedImageUrl(at)) throw new Error(koText("art.urlBad"));
     const res = await fetchImpl(at, { signal: AbortSignal.timeout(20_000), redirect: "manual" });
     if ([301, 302, 303, 307, 308].includes(res.status)) {
       await res.body?.cancel?.().catch(() => {});
       at = new URL(res.headers.get("location") ?? "", at).href;
       continue;
     }
-    if (!res.ok) throw new Error(`그림을 받지 못했습니다 (${res.status})`);
-    if (Number(res.headers.get("content-length")) > MAX_IMAGE_BYTES) throw new Error("15 MB 보다 큰 그림입니다");
+    if (!res.ok) throw new Error(koText("art.fetchFail", { status: res.status }));
+    if (Number(res.headers.get("content-length")) > MAX_IMAGE_BYTES) throw new Error(koText("art.tooBig"));
     const body = Buffer.from(await res.arrayBuffer());
-    if (body.length > MAX_IMAGE_BYTES) throw new Error("15 MB 보다 큰 그림입니다");
+    if (body.length > MAX_IMAGE_BYTES) throw new Error(koText("art.tooBig"));
     const i = MAGIC.findIndex((m) => m.every((b, k) => body[k] === b));
-    if (i < 0) throw new Error("그림 파일이 아닙니다");
+    if (i < 0) throw new Error(koText("art.notImage"));
     return { body, type: TYPES[i] };
   }
-  throw new Error("고를 수 없는 그림 주소입니다");
+  throw new Error(koText("art.urlBad"));
 }

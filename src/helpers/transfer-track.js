@@ -27,6 +27,7 @@ import { countsAsDownload, DOWNLOAD_BYTES } from "../security/drain.js";
 import { isLoopbackIp, isPrivateIp, socketIp } from "../security/net.js";
 import { accountOf } from "../security/link-identity.js";
 import * as store from "../security/store.js";
+import { koText } from "../meta/meta-messages.js";
 
 const CLIENT_CHARS = 80;
 const PREFIX = 8;
@@ -60,7 +61,7 @@ function deviceLabel(dev) {
     labels = { at: Date.now(), map: new Map(store.devicesSnapshot().approved.map((d) => [d.deviceKey, d.label])) };
   }
   const label = labels.map.get(dev);
-  return { prefix, label: label ? `${label} (${prefix})` : `기기 ${prefix}` };
+  return { prefix, label: label ? `${label} (${prefix})` : koText("transfer.device", { prefix }) };
 }
 
 /**

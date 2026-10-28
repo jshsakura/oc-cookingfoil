@@ -1,23 +1,11 @@
 {
   "strays": {
-    "src/db/backup.js": 2,
-    "src/helpers/alerts.js": 24,
-    "src/helpers/transfer-track.js": 1,
-    "src/meta/art-crop.js": 10,
-    "src/meta/art-search.js": 6,
-    "src/meta/custom-art.js": 1,
-    "src/meta/homebrew-media.js": 2,
-    "src/meta/homebrew.js": 1,
-    "src/meta/item-media.js": 6,
-    "src/retro/filters.js": 25,
-    "src/retro/shortcut-name.js": 2,
     "src/routes/inbox.js": 1,
     "src/routes/pair.js": 1,
     "src/security/busy-guard.js": 1,
     "src/security/google-accounts.js": 1,
     "src/security/pairing-approve.js": 1,
     "src/security/store.js": 2,
-    "src/tasks/activity.js": 3,
     "src/views/guide.md": 98
   },
   "problems": {

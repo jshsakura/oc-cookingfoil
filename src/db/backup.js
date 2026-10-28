@@ -27,6 +27,7 @@ import debug from "../debug.js";
 import * as env from "../helpers/envs.js";
 import { securityDb } from "./database.js";
 import * as activity from "../tasks/activity.js";
+import { activityText } from "../meta/meta-messages.js";
 
 export const BACKUP_DIR = "backups";
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -130,7 +131,7 @@ let last = null; // { at, day, files, bytes, ms } or { at, error }
 /** Makes today's backup now (replacing one made earlier today). Returns what it wrote. */
 export function backupNow(now = Date.now()) {
   const started = Date.now();
-  const job = activity.begin("backup", { title: "DB 를 백업합니다" });
+  const job = activity.begin("backup", { title: activityText("act.backup") });
   const day = dayOf(now);
   const work = path.join(root(), `.${day}.partial`);
   try {
@@ -150,7 +151,7 @@ export function backupNow(now = Date.now()) {
     last = { at: Date.now(), day, files, bytes: sizeOf(done), ms: Date.now() - started };
     debug.log("backup: %s, %d file(s), %d bytes in %d ms", day, files, last.bytes, last.ms);
     if (env.backupDays > 0) prune(env.backupDays);
-    job.done(`파일 ${files}개`);
+    job.done(activityText("act.files", { n: files }));
     return last;
   } catch (err) {
     fs.rmSync(work, { recursive: true, force: true });

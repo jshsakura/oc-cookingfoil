@@ -28,5 +28,17 @@
     "constant": "COMPOUND_JAMO",
     "reason": "Hangul jamo decomposition table for the admin game search: keys compared by how Korean is typed. Never shown.",
     "approved": "Integration of batch 2026-10-22 (featured-search review FEATURED2.ko.md), 2026-10-23"
+  },
+  {
+    "file": "src/retro/shortcut-name.js",
+    "literal": "정발",
+    "reason": "A word of the shortcut's own file name (official release or Korean patch edition). It is part of the stored name and must stay the same text in every language, so it is not a dictionary entry.",
+    "approved": "Session 4.2 (repo owner's integration), 2026-10-29"
+  },
+  {
+    "file": "src/retro/shortcut-name.js",
+    "literal": "한글",
+    "reason": "A word of the shortcut's own file name (official release or Korean patch edition). It is part of the stored name and must stay the same text in every language, so it is not a dictionary entry.",
+    "approved": "Session 4.2 (repo owner's integration), 2026-10-29"
   }
 ]

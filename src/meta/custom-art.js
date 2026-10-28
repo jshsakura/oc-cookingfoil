@@ -20,6 +20,7 @@ import { customArtDir } from "../helpers/envs.js";
 import { forget, thumbVariantPaths } from "./image-cache.js";
 import debug from "../debug.js";
 import * as artCrop from "./art-crop.js";
+import { koText } from "./meta-messages.js";
 import { discard } from "../library/trash-service.js";
 import * as gameMeta from "./game-meta.js";
 import { copyAside, encode, slotName, writeAtomic, writeSlot, KINDS, MAX_SCREENSHOTS, REPLACED } from "./game-art-files.js";
@@ -114,7 +115,7 @@ async function recropNow(base, kind, idx, crop) {
   gameMeta.refresh(base);
   const file = pathFor(base, kind, idx);
   const kept = file ? artCrop.readOriginal(file) : null;
-  if (!kept) throw new artCrop.CropError("다시 자를 원본이 없습니다");
+  if (!kept) throw new artCrop.CropError(koText("art.noOriginal"));
   const art = await encode(kind, await artCrop.cropOf(await fs.promises.readFile(kept.image), crop));
   gameMeta.clearSlot(base, slotName(kind, idx));
   writeAtomic(file, art);

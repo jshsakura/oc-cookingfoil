@@ -15,6 +15,7 @@ import path from "path";
 import sharp from "sharp";
 import { discard } from "../library/trash-service.js";
 import { shrink } from "./art-ingest.js";
+import { koText } from "./meta-messages.js";
 
 export const ORIG_MAX = 2048;
 const ORIG_QUALITY = 85;
@@ -35,20 +36,20 @@ export function parseCrop(raw) {
   if (raw === undefined || raw === null || raw === "") return null;
   let v = raw;
   if (typeof v === "string") {
-    if (v.length > 200) throw new CropError("자를 영역이 맞지 않습니다");
-    try { v = JSON.parse(v); } catch { throw new CropError("자를 영역이 맞지 않습니다"); }
+    if (v.length > 200) throw new CropError(koText("art.cropBad"));
+    try { v = JSON.parse(v); } catch { throw new CropError(koText("art.cropBad")); }
   }
-  if (!v || typeof v !== "object") throw new CropError("자를 영역이 맞지 않습니다");
+  if (!v || typeof v !== "object") throw new CropError(koText("art.cropBad"));
   const r = {};
   for (const k of ["x", "y", "w", "h"]) {
     const n = v[k];
-    if (typeof n !== "number" || !Number.isFinite(n)) throw new CropError("자를 영역이 맞지 않습니다");
+    if (typeof n !== "number" || !Number.isFinite(n)) throw new CropError(koText("art.cropBad"));
     r[k] = round(n);
   }
   // A hair of slack for rounding in the browser; anything more is outside the picture.
   const EPS = 1e-4;
   if (r.x < 0 || r.y < 0 || r.w <= 0 || r.h <= 0 || r.x + r.w > 1 + EPS || r.y + r.h > 1 + EPS) {
-    throw new CropError("자를 영역이 그림 밖으로 나갑니다");
+    throw new CropError(koText("art.cropOutside"));
   }
   return { x: r.x, y: r.y, w: Math.min(r.w, 1 - r.x), h: Math.min(r.h, 1 - r.y) };
 }
@@ -59,9 +60,9 @@ export async function uprightSize(input, failOn = "error") {
   try {
     m = await sharp(input, { failOn, limitInputPixels: MAX_INPUT_PIXELS }).metadata();
   } catch (err) {
-    throw new CropError(`이미지를 읽지 못했습니다: ${err.message}`);
+    throw new CropError(koText("art.readFailWhy", { why: err.message }));
   }
-  if (!m.width || !m.height) throw new CropError("이미지를 읽지 못했습니다");
+  if (!m.width || !m.height) throw new CropError(koText("art.readFail"));
   return (m.orientation ?? 1) >= 5 ? { width: m.height, height: m.width } : { width: m.width, height: m.height };
 }
 
@@ -76,7 +77,7 @@ export async function cropOf(input, crop, { failOn = "error" } = {}) {
   const top = Math.min(height - 1, Math.max(0, Math.round(crop.y * height)));
   const w = Math.min(width - left, Math.round(crop.w * width));
   const h = Math.min(height - top, Math.round(crop.h * height));
-  if (w < MIN_CROP_PX || h < MIN_CROP_PX) throw new CropError(`자를 영역은 ${MIN_CROP_PX}픽셀 이상이어야 합니다`);
+  if (w < MIN_CROP_PX || h < MIN_CROP_PX) throw new CropError(koText("art.cropMin", { min: MIN_CROP_PX }));
   if (left === 0 && top === 0 && w === width && h === height) return input;
   try {
     return await sharp(input, { failOn, limitInputPixels: MAX_INPUT_PIXELS })
@@ -85,7 +86,7 @@ export async function cropOf(input, crop, { failOn = "error" } = {}) {
       .png({ compressionLevel: 0 })
       .toBuffer();
   } catch (err) {
-    throw new CropError(`이미지를 자르지 못했습니다: ${err.message}`);
+    throw new CropError(koText("art.cutFail", { why: err.message }));
   }
 }
 
@@ -94,7 +95,7 @@ export async function shrinkOriginal(input, { failOn = "error" } = {}) {
   try {
     return await shrink(input, { format: "webp", width: ORIG_MAX, height: ORIG_MAX, quality: ORIG_QUALITY, effort: 4, failOn });
   } catch (err) {
-    throw new CropError(`이미지를 읽지 못했습니다: ${err.message}`);
+    throw new CropError(koText("art.readFailWhy", { why: err.message }));
   }
 }
 
