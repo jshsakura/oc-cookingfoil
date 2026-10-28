@@ -60,6 +60,7 @@ import { largeFiles, hasHiddenSegment, GAME_FILE_RE } from "../helpers/file-send
 import { trackTransfers } from "../helpers/transfer-track.js";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
+import path from "node:path";
 
 export const TOKEN_STATE_HEADER = "X-CookingFoil-Token";
 export const EDGE_HEADER = "X-CookingFoil-Edge";
@@ -129,6 +130,22 @@ export function viaDirectProxy(req, secret = env.directEdgeSecret) {
   if (!looksProxied(req) || !edgeMatches(req.get(EDGE_HEADER), secret)) return null;
   return proxiedClient(req.get("x-forwarded-for"));
 }
+
+// A console holding links from before its key changed is refused here and the proxy logs nothing
+// useful: one line per console and verdict a minute, so a failing download can be traced.
+const NOTE_EVERY_MS = 60_000;
+const noted = new Map();
+function noteRefusal(res, sub, verdict, reqPath, now = Date.now()) {
+  const who = sub?.dev ? String(sub.dev).slice(0, 8) : sub?.acct ? "account" : "unknown";
+  const key = `${who}:${verdict}`;
+  if ((noted.get(key) ?? 0) + NOTE_EVERY_MS <= now) {
+    noted.set(key, now);
+    if (noted.size > 1000) noted.clear();
+    debug.log("direct lane: %s token from %s for %s", verdict, who, path.basename(decodeURIComponentSafe(reqPath)));
+  }
+  return res;
+}
+const decodeURIComponentSafe = (v) => { try { return decodeURIComponent(v); } catch { return v; } };
 
 let warnedNoSecret = false;
 
@@ -222,9 +239,9 @@ export default function directLane(root, { routes = {}, ban = newBan(), staleBan
     }
     // From here the token's MAC checked out: it is ours, so the answer names the server (server-id.js).
     vouch(res);
-    if (token.verdict === "expired") return refuse(res, 401, "expired");
-    if (!stillAllowed(token.sub)) return refuse(res, 401, "revoked");
-    if (token.sub.dev && !token.sub.acct && suspension(token.sub.dev)) return refuse(res, 403, "suspended");
+    if (token.verdict === "expired") return refuse(noteRefusal(res, token.sub, "expired", req.path), 401, "expired");
+    if (!stillAllowed(token.sub)) return refuse(noteRefusal(res, token.sub, "revoked", req.path), 401, "revoked");
+    if (token.sub.dev && !token.sub.acct && suspension(token.sub.dev)) return refuse(noteRefusal(res, token.sub, "suspended", req.path), 403, "suspended");
 
     // The download records (transfer-track.js): this lane, for whom, and the client the proxy named.
     req.cookingfoilLane = "direct";

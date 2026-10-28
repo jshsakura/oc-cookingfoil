@@ -37,6 +37,7 @@ const { createBan } = await import("../../src/security/download-ban.js");
 const { default: directLane, TOKEN_STATE_HEADER, laneOf, proxiedClient, viaDirectProxy, bearerToken, edgeMatches } = await import("../../src/security/direct-lane.js");
 const { homebrewRouter } = await import("../../src/routes/homebrew.js");
 const health = await import("../../src/security/direct-health.js");
+const { default: debug } = await import("../../src/debug.js");
 
 const KEY_A = "A".repeat(64);
 const KEY_B = "B".repeat(64);
@@ -390,7 +391,17 @@ test("missing, broken, expired and revoked tokens are 401 and say which", async 
   const paired = tokenFor({ user: null, dev: null, paired: KEY_P });
   assert.equal((await get(port, url, { method: "HEAD", ...bearer(paired) })).status, 200);
   store.approveDevice(KEY_P, { label: "living room", addedBy: "alice", accessKeyHash: "h2" });
-  assert.equal(tokenState(await get(port, url, bearer(paired))), "revoked", "pairing again ends the old tokens");
+  const lines = [];
+  const realLog = debug.log;
+  debug.log = (...args) => lines.push(args);
+  try {
+    assert.equal(tokenState(await get(port, url, bearer(paired))), "revoked", "pairing again ends the old tokens");
+    await get(port, url, bearer(paired));
+  } finally {
+    debug.log = realLog;
+  }
+  const notes = lines.filter((a) => String(a[0]).startsWith("direct lane: %s token"));
+  assert.deepEqual(notes.map((a) => a.slice(1, 3)), [["revoked", "CCCCCCCC"]], "the refusal is logged once a minute per console, by its key's first 8");
   const repaired = tokenFor({ user: null, dev: null, paired: KEY_P });
   assert.equal((await get(port, url, { method: "HEAD", ...bearer(repaired) })).status, 200);
   store.revokeDevice(KEY_P);
