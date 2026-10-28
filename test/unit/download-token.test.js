@@ -386,10 +386,10 @@ test("missing, broken, expired and revoked tokens are 401 and say which", async 
   assert.equal((await get(port, url, { method: "HEAD", ...bearer(tokenFor({ user: "dave" })) })).status, 200);
 
   const KEY_P = "C".repeat(64);
-  store.approveDevice(KEY_P, { label: "living room", accessKeyHash: "h" });
+  store.approveDevice(KEY_P, { label: "living room", addedBy: "alice", accessKeyHash: "h" });
   const paired = tokenFor({ user: null, dev: null, paired: KEY_P });
   assert.equal((await get(port, url, { method: "HEAD", ...bearer(paired) })).status, 200);
-  store.approveDevice(KEY_P, { label: "living room", accessKeyHash: "h2" });
+  store.approveDevice(KEY_P, { label: "living room", addedBy: "alice", accessKeyHash: "h2" });
   assert.equal(tokenState(await get(port, url, bearer(paired))), "revoked", "pairing again ends the old tokens");
   const repaired = tokenFor({ user: null, dev: null, paired: KEY_P });
   assert.equal((await get(port, url, { method: "HEAD", ...bearer(repaired) })).status, 200);
