@@ -212,13 +212,14 @@ test('the header names every page by its menu path', async ({ page }) => {
   await page.goto('/admin/retro?view=ratings');
   await expect(page.locator('#adm-crumb')).toHaveText(/라이브러리\s*레트로 게임/);
   await page.goto('/admin/devices');
-  await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('기기');
+  await expect(page.locator('#adm-crumb')).toHaveText(/계정과 기기\s*기기\s*승인 대기/);
+  await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('승인 대기');
   await page.goto('/admin');
   await expect(page.locator('#adm-crumb')).toHaveText('서버 현황');
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/admin/retro?view=ratings');
   await expect(page.locator('#adm-crumb .adm-crumb-i')).toBeVisible();
-  await expect(page.locator('#adm-crumb .adm-crumb-g')).toBeHidden();
+  for (const g of await page.locator('#adm-crumb .adm-crumb-g').all()) await expect(g).toBeHidden();
 });
 
 test('dictionary text keeps its links and never shows a raw key or source', async ({ page }) => {
