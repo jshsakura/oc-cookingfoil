@@ -320,7 +320,7 @@ td:not(:first-child):not([data-label=""])>*{grid-column:2}
 export const adminChrome = (current) => /* html */ `<aside class="adm-side">${ADMIN_HEADER_HTML}<nav class="adm-side-in" data-top-label="nav" aria-label="서버 관리 메뉴">${sidebarNav(current)}</nav></aside>\n${drawerHtml(current)}`;
 
 export const ADMIN_TITLE_HTML = /* html */ `<title>CookingFoil 서버 관리</title>`;
-export const ASK_DIALOG_HTML = /* html */ `<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">\n  <p id="ask-text"></p>\n  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>\n  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>\n</dialog>`;
+export const ASK_DIALOG_HTML = /* html */ `<dialog id="ask-dialog" class="ask" aria-labelledby="ask-text">\n  <p id="ask-text"></p>\n  <input id="ask-input" type="text" autocomplete="off" aria-labelledby="ask-text" hidden>\n  <select id="ask-select" aria-labelledby="ask-text" hidden></select>\n  <div class="dialog-actions"><button type="button" id="ask-no">취소</button><button type="button" id="ask-ok" class="primary">확인</button></div>\n</dialog>`;
 
 export const ADMIN_HEADER_HTML = /* html */ `<header class="adm-hdr">
   <h1 class="brand" data-top-label="title" aria-label="CookingFoil 서버 관리"><a href="/#all"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="42" height="42"><span class="wm">cookingfoil<span class="dot">.</span></span></a></h1>

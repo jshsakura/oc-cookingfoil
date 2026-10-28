@@ -169,3 +169,20 @@ test("a person renames their own console from /pair; another account's console i
   assert.match(listed.code, /^[0-9A-F]{8}$/);
   assert.ok("lastSeenAt" in listed);
 });
+
+test("the admin gives a console no account holds to an account; it keeps its key", async () => {
+  const { giveToAccount, ownerChoices } = await import("../../src/security/device-owner.js");
+  const key = "C1".repeat(32);
+  store.approveDevice(key, { label: "living room", addedBy: "admin", accessKeyHash: hashAccessKey("kept") });
+  assert.ok(ownerChoices().some((c) => c.owner === "carol"));
+  assert.deepEqual(giveToAccount(key, "nobody"), { ok: false, code: "no-account" });
+  assert.deepEqual(giveToAccount(key, "carol"), { ok: true });
+  assert.equal(store.deviceAddedBy(key), "carol");
+  assert.equal(store.getDeviceAccessKeyHash(key), hashAccessKey("kept"));
+  assert.ok((await mine("carol")).includes(key));
+  assert.deepEqual(giveToAccount(key, "bob"), { ok: false, code: "has-owner" }, "moving between accounts is the owner's QR re-pair");
+  const adm = "C2".repeat(32);
+  store.approveDevice(adm, { addedBy: "admin", accessKeyHash: hashAccessKey("a"), admin: true });
+  assert.deepEqual(giveToAccount(adm, "carol"), { ok: false, code: "admin-device" });
+  assert.deepEqual(giveToAccount("C4".repeat(32), "carol"), { ok: false, code: "no-device" });
+});

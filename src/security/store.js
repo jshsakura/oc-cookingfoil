@@ -769,6 +769,17 @@ export function setDeviceAdmin(deviceKey, on) {
 }
 
 /** Rename an approved console. @returns {boolean} whether it exists */
+/** Give an approved console an owner; its access key stays. @returns {boolean} whether it exists */
+export function setDeviceOwner(deviceKey, owner) {
+  const d = state.devices.get(deviceKey);
+  if (!d) return false;
+  state.devices.set(deviceKey, deviceRecord({ ...d, addedBy: owner }));
+  appendAudit({ kind: "device-owner", deviceKey, owner, at: Date.now() });
+  scheduleFlush();
+  approvalsChanged("device");
+  return true;
+}
+
 export function renameDevice(deviceKey, label) {
   const d = state.devices.get(deviceKey);
   if (!d) return false;
