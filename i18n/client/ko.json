@@ -1233,5 +1233,7 @@
   "Removed {0} unfinished copies.": "끝나지 않은 복사 파일 {0}개를 지웠습니다.",
   "Deleting unfinished copies and files a Mac left.": "끝나지 않은 복사 파일과 Mac이 남긴 파일을 지웁니다.",
   "This console is linked to another account. Games sent from your account will not reach it.": "이 기기는 다른 계정에 연결되어 있습니다. 내 계정에서 보낸 게임은 이 기기로 오지 않습니다.",
-  "This download could not link the console to your account. Download it from the website again to send games to it.": "이 다운로드로는 기기를 내 계정에 연결하지 못했습니다. 기기로 보내려면 웹사이트에서 다시 내려받아 주세요."
+  "This download could not link the console to your account. Download it from the website again to send games to it.": "이 다운로드로는 기기를 내 계정에 연결하지 못했습니다. 기기로 보내려면 웹사이트에서 다시 내려받아 주세요.",
+  "Log for bug reports": "버그 보고용 로그",
+  "Errors only": "오류만"
 }
