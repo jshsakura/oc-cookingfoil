@@ -1,6 +1,6 @@
 /** Game library tasks and game details, independent of the other admin pages. */
 import { icon } from "../../views/icons.js";
-import { top, topPh } from "./top-i18n.js";
+import { top, topLabel, topPh } from "./top-i18n.js";
 import { LIBRARY_VERIFY_HTML } from "./library-files-panel.js";
 import { LIB_BROWSER_HTML } from "./library-browser-panel.js";
 import { GAME_PATCHES_HTML } from "./patches-panel.js";
@@ -9,7 +9,7 @@ import { FOLDER_MARK } from "./files-panel.js";
 export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
   <div class="hd"><h2>${top("m.grpGames")}</h2><button type="button" class="primary" id="rescan">${top("lib.rescan")}</button></div>
   <p class="muted" id="scan-status" aria-live="polite"></p>
-  <div class="subtabs hide-bar" id="lib-subtabs" role="tablist" aria-label="라이브러리 구역">
+  <div class="subtabs hide-bar" id="lib-subtabs" role="tablist" ${topLabel("lp.areaAria")}>
     <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("grid")}${top("m.gameList")}</button>
     <button type="button" role="tab" data-lsub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button>
     <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}${top("lb.colCheck")}</button>
@@ -24,26 +24,26 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
   <div data-lib-panel="folder" hidden>${FOLDER_MARK}</div>
   <div data-lib-panel="info" hidden>
   <h2 class="first">${top("m.titles")}</h2>
-  <p class="muted">소개는 titledb 가 새로 받아 오면 바뀔 수 있는 게임 설명이고, 직접 쓰면 그 글이 대신 나옵니다. 추가 정보는 운영자만 쓰는 안내(함께 설치할 것, 필요한 용량, 맞는 판, 오버클럭)로 자동 갱신이 건드리지 않습니다.</p>
+  <p class="muted">${top("lp.notesLead")}</p>
   <form class="desc-form" id="gd-form">
     <label>${top("gp.find")}<input id="gd-game" autocomplete="off" ${topPh("gp.ph")}></label>
     <div id="gd-body" hidden>
       <h3 data-top="pp.name">${top("pp.name")}</h3>
       <p class="muted" id="gd-name-original"></p>
-      <div class="ct-pair"><label>한국어<input id="gd-name-ko" maxlength="120" autocomplete="off"></label><label>영어 (다른 언어의 기본값)<input id="gd-name-en" maxlength="120" autocomplete="off"></label></div>
+      <div class="ct-pair"><label>${top("lp.ko")}<input id="gd-name-ko" maxlength="120" autocomplete="off"></label><label>${top("lp.en")}<input id="gd-name-en" maxlength="120" autocomplete="off"></label></div>
       ${GAME_PATCHES_HTML}
-      <h3>추가 정보</h3>
-      <label>한국어<textarea id="gd-notes-ko" maxlength="2000" placeholder="예: 게임 데이터 패치(약 49GB)를 함께 설치해야 실행됩니다."></textarea></label>
-      <label>영어 (다른 언어의 기본값)<textarea id="gd-notes-en" maxlength="2000"></textarea></label>
-      <h3>소개</h3>
+      <h3>${top("lp.notesH")}</h3>
+      <label>${top("lp.ko")}<textarea id="gd-notes-ko" maxlength="2000" ${topPh("lp.notesPh")}></textarea></label>
+      <label>${top("lp.en")}<textarea id="gd-notes-en" maxlength="2000"></textarea></label>
+      <h3>${top("lp.introH")}</h3>
       <p class="muted" id="gd-original"></p>
-      <label>한국어<textarea id="gd-ko" maxlength="2000"></textarea></label>
-      <label>영어 (다른 언어의 기본값)<textarea id="gd-en" maxlength="2000"></textarea></label>
+      <label>${top("lp.ko")}<textarea id="gd-ko" maxlength="2000"></textarea></label>
+      <label>${top("lp.en")}<textarea id="gd-en" maxlength="2000"></textarea></label>
       <h3>${top("fp.detailH")}</h3>
       <div class="fp-detail"><label>${top("fp.detailRow")}<select id="gd-feat-row"></select></label>
         <label id="gd-feat-title-l" hidden>${top("fp.newTitle")}<input id="gd-feat-title" maxlength="40" autocomplete="off"></label>
         <button type="button" id="gd-feat-go">${top("fp.addTo")}</button></div>
-      <div class="row-actions"><button type="submit" class="primary">저장</button><button type="button" id="gd-reset">소개를 titledb 것으로 되돌리기</button></div>
+      <div class="row-actions"><button type="submit" class="primary">${top("fp.save")}</button><button type="button" id="gd-reset">${top("lp.resetBtn")}</button></div>
     </div>
   </form>
   </div>
@@ -51,7 +51,7 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
 
 export const LIBRARY_PAGE_SCRIPT = /* js */ `
 function uptime(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
-  return (d?d+'일 ':'')+(h?h+'시간 ':'')+m+'분';}
+  return [d?topFill('lp.d',{n:d}):'',h?topFill('lp.h',{n:h}):'',topFill('lp.m',{n:m})].filter(Boolean).join(' ');}
 // The admin's own description of a game; titledb refreshes never overwrite it.
 let gdId='';
 // Leaving the game box fires change again: the same game already open keeps what is being typed.
@@ -63,15 +63,15 @@ async function openDesc(force){const m=$('gd-game').value.match(/[0-9A-Fa-f]{16}
   $('gd-ko').value=own.description?.ko||'';$('gd-en').value=own.description?.en||'';
   $('gd-notes-ko').value=own.notes?.ko||'';$('gd-notes-en').value=own.notes?.en||'';
   $('gd-name-ko').value=own.name?.ko||'';$('gd-name-en').value=own.name?.en||'';
-  $('gd-name-original').textContent=(own.name?'직접 정한 이름을 보여 주고 있습니다. 비우고 저장하면 ':'비워 두면 ')+(d.originalName?'원래 이름('+d.originalName+')을 씁니다.':'파일에서 읽은 이름을 씁니다.')+' 이름이 깨졌거나 틀렸을 때 고칩니다.';
-  $('gd-original').textContent=own.description?'직접 쓴 소개를 보여 주고 있습니다.':(d.original?'지금은 titledb 소개를 보여 줍니다: '+d.original.slice(0,160)+(d.original.length>160?'…':''):'지금은 소개가 비어 있습니다. 쓰면 그 글이 나옵니다.');
+  $('gd-name-original').textContent=topFill(own.name?(d.originalName?'lp.nameOwnOrig':'lp.nameOwnFile'):(d.originalName?'lp.nameEmptyOrig':'lp.nameEmptyFile'),{name:d.originalName});
+  $('gd-original').textContent=own.description?topText('lp.descOwn'):(d.original?topFill('lp.descOrig',{text:d.original.slice(0,160)+(d.original.length>160?'…':'')}):topText('lp.descEmpty'));
   $('gd-body').hidden=false;ptGame();gdFeatRows();}
 $('gd-game').addEventListener('change',()=>openDesc());
 gamePicker($('gd-game'),{fill:true,edited:true,pick:()=>openDesc()});
 $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)return;
-  try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{name:{ko:$('gd-name-ko').value,en:$('gd-name-en').value},description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast('저장했습니다');openDesc(true);}catch(err){toast(err.message);}});
-$('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask('직접 쓴 소개를 지우고 titledb 소개로 돌아갑니다. 추가 정보는 그대로 둡니다.',{danger:true}))return;
-  try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast('원래 소개로 돌렸습니다');openDesc(true);}catch(err){toast(err.message);}});
+  try{await api('/admin/api/descriptions/'+gdId,{method:'POST',body:{name:{ko:$('gd-name-ko').value,en:$('gd-name-en').value},description:{ko:$('gd-ko').value,en:$('gd-en').value},notes:{ko:$('gd-notes-ko').value,en:$('gd-notes-en').value}}});toast(topText('lp.saved'));openDesc(true);}catch(err){toast(err.message);}});
+$('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask(topText('lp.resetAsk'),{danger:true}))return;
+  try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast(topText('lp.resetDone'));openDesc(true);}catch(err){toast(err.message);}});
 // The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
 const LIB_SUBS=['files','folder','verify','info'];let libSub='files';
 function libLoadSub(){
@@ -93,15 +93,15 @@ async function loadLibrary(refreshPanel=true){
   const d=await api('/admin/api/library');
   const cards=$('lib-cards');cards.replaceChildren();
   const card=(l,v)=>{const c=el('div',null,'card');c.append(el('div',v,'v'),el('div',l,'l'));return c;};
-  cards.append(card('게임 파일',num(d.files)),card('titledb 타이틀',num(d.titledb?.titles)),
-    card('마지막 빌드',d.lastBuildMs!=null?num(d.lastBuildMs)+'ms':'—'),card('가동 시간',uptime(d.uptime)));
+  cards.append(card(topText('lp.cardFiles'),num(d.files)),card(topText('lp.cardTitledb'),num(d.titledb?.titles)),
+    card(topText('lp.cardBuild'),d.lastBuildMs!=null?num(d.lastBuildMs)+'ms':'—'),card(topText('lp.cardUptime'),uptime(d.uptime)));
   scanShow(d.scan||{});return d;}
 // The rescan button stays pressed while a whole read of the games folder waits or runs.
 const scanBusy=(s)=>s.state==='running'||s.fullPending;
-const scanTook=(f)=>'파일 '+num(f.files)+'개, '+(f.ms/1000).toFixed(1)+'초';
+const scanTook=(f)=>topFill('lp.scanTook',{files:num(f.files),sec:(f.ms/1000).toFixed(1)});
 function scanShow(s){const b=$('rescan');b.disabled=scanBusy(s);b.setAttribute('aria-busy',String(scanBusy(s)));
-  $('scan-status').textContent=s.state==='running'?'게임 폴더를 읽고 있습니다.':s.fullPending?'곧 게임 폴더를 다시 읽습니다.'
-    :s.lastFull?'마지막으로 전부 읽은 때는 '+fmt(s.lastFull.at)+'입니다. '+scanTook(s.lastFull)+' 걸렸습니다.':'';}
+  $('scan-status').textContent=s.state==='running'?topText('lp.scanRunning'):s.fullPending?topText('lp.scanPending')
+    :s.lastFull?topFill('lp.scanLast',{at:fmt(s.lastFull.at),took:scanTook(s.lastFull)}):'';}
 let scanPoll=null;
 function scanWatch(since){
   if(scanPoll)scanPoll.stop();let lastError='';
@@ -111,11 +111,11 @@ function scanWatch(since){
     const status=d.scan||{};
     if(!scanBusy(status)&&status.lastFull&&status.lastFull.at>=since){
       poll.stop();if(scanPoll===poll)scanPoll=null;
-      toast('다시 스캔을 마쳤습니다. '+scanTook(status.lastFull)+' 걸렸습니다.');}
+      toast(topFill('lp.scanDone',{took:scanTook(status.lastFull)}));}
   },1000);scanPoll=poll;}
 $('rescan').addEventListener('click',async()=>{$('rescan').disabled=true;
   try{const r=await api('/admin/api/library/rescan',{method:'POST',body:{}});
-    toast(r.already?'이미 다시 스캔을 기다리고 있습니다.':'다시 스캔을 시작했습니다.');scanShow({fullPending:true});scanWatch(r.requestedAt);}
+    toast(topText(r.already?'lp.scanAlready':'lp.scanStarted'));scanShow({fullPending:true});scanWatch(r.requestedAt);}
   catch(err){toast(err.message);$('rescan').disabled=false;}});
 
 let gdCollections=[];

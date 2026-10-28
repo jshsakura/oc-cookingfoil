@@ -16,14 +16,14 @@ import { top, topLabel, topPh } from "./top-i18n.js";
 import { FOLDER_MARK } from "./files-panel.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
-  <nav class="subtabs hide-bar" id="retro-subtabs" role="tablist" aria-label="레트로">
+  <nav class="subtabs hide-bar" id="retro-subtabs" role="tablist" ${topLabel("g.retro")}>
     <button type="button" role="tab" data-sub="art">${icon("image")}${top("ra.title")}</button>
     <button type="button" role="tab" data-sub="ratings">${icon("star")}${top("rt.ratings")}</button>
     <button type="button" role="tab" data-sub="cores">${icon("package")}${top("ra.coresTitle")}</button>
     <button type="button" role="tab" data-sub="names">${icon("tag")}${top("rk.tab")}</button>
     <button type="button" role="tab" data-sub="patch">${icon("upload")}${top("rpt.tab")}</button>
     <button type="button" role="tab" data-sub="dups">${icon("copy")}${top("rv.title")}</button>
-    <button type="button" role="tab" data-sub="sets">${icon("monitor")}아케이드 세트</button>
+    <button type="button" role="tab" data-sub="sets">${icon("monitor")}${top("rt.sets")}</button>
     <button type="button" role="tab" data-sub="folder">${icon("folder")}${top("m.files")}</button>
   </nav>
   <div data-sub-panel="folder" hidden>${FOLDER_MARK}</div>

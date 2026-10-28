@@ -4,7 +4,7 @@ import { box } from "./boxes.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
 import { FOLDER_MARK } from "./files-panel.js";
 export const HOMEBREW_HTML = /* html */ `<section id="tab-homebrew" hidden>
-  <div class="subtabs hide-bar" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
+  <div class="subtabs hide-bar" id="homebrew-subtabs" role="tablist" ${topLabel("hp.areaAria")}>
     <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}${top("ht.apps")}</button>
     <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}${top("ht.reco")}</button>
     <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}${top("hb.addRepoTitle")}</button>
@@ -150,7 +150,7 @@ function hbAppCard(a,extras){const name=a.name||a.app;const card=el('article',nu
   const icon=el('img',null,'hb-icon');icon.alt='';icon.loading='lazy';icon.src=iconUrl;
   icon.onerror=()=>icon.replaceWith(el('span',String(name||'?').slice(0,1),'hb-icon hb-icon-none'));
   const title=el('div',null,'hb-title');title.append(el('b',name));
-  const where=a.install_type==='title'?'설치형 NSP · '+a.title_id:'switch/'+a.app+'/';
+  const where=a.install_type==='title'?topFill('hp.installNsp',{id:a.title_id}):'switch/'+a.app+'/';
   title.append(el('span',(a.version?'v'+a.version+' · ':'')+(a.source==='github'?'GitHub '+(a.repo_url||'').replace('https://github.com/',''):topText('hb.manualSrc'))+' · '+where,'muted'));
   title.title=name;
   const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.enabled;b.setAttribute('aria-label',topFill('hb.enableAria',{name}));

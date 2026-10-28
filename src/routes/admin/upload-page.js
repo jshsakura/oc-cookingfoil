@@ -1,12 +1,12 @@
 /** File upload page and its batch workflow, shared by the legacy shell. */
 import { guessUpload } from "./upload-guess.js";
 import { failureKind, hasBatches, splitUnits, tally, tallyFiles, trimHistory, unitsToSend } from "./upload-flow.js";
-import { top, topPh } from "./top-i18n.js";
+import { TOP_WORDS, top, topLabel, topPh } from "./top-i18n.js";
 
 export const UPLOAD_HTML = /* html */ `<section id="tab-upload" hidden>
   <div class="hd"><h2>${top("s.upload")}</h2></div>
   <p class="muted up-lead" id="up-lead">${top("u.lead")}</p>
-  <div class="up-drop" id="up-drop" tabindex="0" role="button" data-top-label="u.dropAria" aria-label="올릴 파일 고르기">
+  <div class="up-drop" id="up-drop" tabindex="0" role="button" ${topLabel("u.dropAria")}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
     <b id="up-drop-t">${top("u.dropT")}</b>
     <span id="up-chosen"></span>
@@ -21,7 +21,7 @@ export const UPLOAD_HTML = /* html */ `<section id="tab-upload" hidden>
     <p id="up-guess-t" aria-live="polite"></p>
     <button type="button" id="up-change">${top("u.change")}</button>
   </div>
-  <div id="up-kinds" role="group" data-top-label="u.kindsAria" aria-label="올릴 곳" hidden>
+  <div id="up-kinds" role="group" ${topLabel("u.kindsAria")} hidden>
   <p class="up-group">${top("u.grpSwitch")}</p>
   <div class="up-kinds">
     <button type="button" data-kind="game"><b>${top("u.kGame")}</b><span>${top("u.kGameD")}</span></button>
@@ -40,15 +40,15 @@ export const UPLOAD_HTML = /* html */ `<section id="tab-upload" hidden>
   <p class="muted up-hint" id="up-hint"></p>
   <div id="up-note"></div>
   <form class="up" id="up-form" hidden>
-    <label id="up-system-l" hidden>기종<select id="up-system"></select></label>
-    <label id="up-target-l" hidden>대상<select id="up-target"><option value="">게임</option></select></label>
+    <label id="up-system-l" hidden>${top("rk.colSystem")}<select id="up-system"></select></label>
+    <label id="up-target-l" hidden>${top("u.target")}<select id="up-target"><option value="" data-top="m.grpGames">${TOP_WORDS.ko["m.grpGames"]}</option></select></label>
     <label id="up-game-l" hidden>${top("gp.find")}<input id="up-game" autocomplete="off" ${topPh("gp.ph")}></label>
-    <label id="up-name-l" hidden>이름<input id="up-name" maxlength="100" autocomplete="off"></label>
-    <label class="check" id="up-required-l" hidden><input type="checkbox" id="up-required"> 이 패치 없이는 게임이 실행되지 않습니다 (필수)</label>
-    <label id="up-savetype-l" hidden>세이브 종류<select id="up-savetype"><option value="">백업 .meta 를 따르거나 어느 쪽에나 적용합니다</option><option value="device">본체 공용 세이브</option><option value="account">계정 세이브</option></select></label>
-    <details class="up-more" id="up-desc-l" hidden><summary>설명 넣기 (선택)</summary>
-      <label>영어 설명 (다른 언어의 기본값)<textarea id="up-desc" maxlength="2000"></textarea></label>
-      <label>한국어 설명<textarea id="up-desc-ko" maxlength="2000"></textarea></label>
+    <label id="up-name-l" hidden>${top("pp.name")}<input id="up-name" maxlength="100" autocomplete="off"></label>
+    <label class="check" id="up-required-l" hidden><input type="checkbox" id="up-required"> ${top("u.requiredLabel")}</label>
+    <label id="up-savetype-l" hidden>${top("u.saveType")}<select id="up-savetype"><option value="" data-top="u.saveAny">${TOP_WORDS.ko["u.saveAny"]}</option><option value="device" data-top="u.saveDevice">${TOP_WORDS.ko["u.saveDevice"]}</option><option value="account" data-top="u.saveAccount">${TOP_WORDS.ko["u.saveAccount"]}</option></select></label>
+    <details class="up-more" id="up-desc-l" hidden><summary>${top("u.descMore")}</summary>
+      <label>${top("u.descEn")}<textarea id="up-desc" maxlength="2000"></textarea></label>
+      <label>${top("u.descKo")}<textarea id="up-desc-ko" maxlength="2000"></textarea></label>
     </details>
     <p class="up-plan" id="up-plan"></p>
     <div class="bar" id="up-bar" hidden><i></i></div>
@@ -56,7 +56,7 @@ export const UPLOAD_HTML = /* html */ `<section id="tab-upload" hidden>
   </form>
   <p class="muted up-foot">${top("u.foot")} <a href="#library">${top("up.seeFiles")}</a></p>
   <p class="up-sum" id="up-sum" role="status" aria-live="polite" hidden></p>
-  <div class="up-log" id="up-log" role="list" data-top-label="u.resultsAria" aria-label="올린 결과"></div>
+  <div class="up-log" id="up-log" role="list" ${topLabel("u.resultsAria")}></div>
 </section>`;
 
 export const UPLOAD_SCRIPT = /* js */ `
@@ -169,9 +169,8 @@ function upRender(){
   $('up-plan').textContent=upPlanText();
   const w=upKind&&upInfo&&upInfo.targets[upKind==='port'?'homebrew':upKind];$('up-note').replaceChildren();
   if(w&&!w.writable){const nt=el('div',null,'note warn');
-    nt.append(el('div',w.exists===false?'이 종류를 받을 폴더가 서버에 없습니다':'이 폴더는 지금 쓸 수 없습니다','t'),
-      el('div',w.exists===false?'compose 에서 이 폴더를 마운트하고 컨테이너를 다시 띄웁니다. 폴더 위치는 README 의 폴더 설명을 봅니다.'
-        :'compose 에서 이 폴더 마운트의 read_only 를 false 로 바꾸고 컨테이너를 다시 띄웁니다.','d'));$('up-note').append(nt);}
+    nt.append(el('div',topText(w.exists===false?'u.noFolder':'u.folderRO'),'t'),
+      el('div',topText(w.exists===false?'u.noFolderD':'u.folderRODesc'),'d'));$('up-note').append(nt);}
   const failed=upUnits.filter((u)=>u.state==='fail').length;
   $('up-go').textContent=failed&&!upBusy?upT('goRetry',{n:failed}):upT('go');
   $('up-go').disabled=upBusy||!(w&&w.writable)||(upKind==='retro'&&!sys);$('up-clear').disabled=upBusy;$('up-clear').textContent=upT('reset');
@@ -233,12 +232,12 @@ async function fetchUploadInfo(){
   // Every retro console is its own tile, so a ROM goes where it was meant to and not where its extension guesses.
   $('up-systems').replaceChildren(...upInfo.systems.map((s)=>{const b=el('button');b.type='button';b.dataset.kind='retro';b.dataset.system=s.id;
     const im=el('img');im.alt='';im.loading='lazy';im.src='/api/retro/systems/'+encodeURIComponent(s.id)+'/icon';im.onerror=()=>im.style.visibility='hidden';
-    b.append(im,el('b',s.name));b.title=s.name+' · '+s.extensions.join(' ');b.setAttribute('aria-label','레트로 · '+s.name);return b;}));
+    b.append(im,el('b',s.name));b.title=s.name+' · '+s.extensions.join(' ');b.setAttribute('aria-label',topFill('u.retroOf',{name:s.name}));return b;}));
   const more=el('button',null,'up-more-sys');more.type='button';more.hidden=true;
   more.addEventListener('click',()=>{upAllSys=true;upRender();});$('up-systems').append(more);
-  if(!upInfo.systems.length)$('up-systems').append(el('div','서버에 레트로 기종이 없습니다.','empty'));
+  if(!upInfo.systems.length)$('up-systems').append(el('div',topText('u.noSystems'),'empty'));
   // A homebrew app's patch or save goes into its own switch/<app>/ folder.
-  for(const h of upInfo.homebrew||[]){const o=el('option',(h.kind==='port'?'포트 · ':'홈브류 · ')+h.name+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}
+  for(const h of upInfo.homebrew||[]){const o=el('option',topFill(h.kind==='port'?'u.portOf':'u.hbOf',{name:h.name})+' (switch/'+h.app+'/)');o.value=h.app;$('up-target').append(o);}
   return true;}catch(e){upInfo=null;toast(errText(e));return false;}}
 async function loadUpload(){
   if(!await loadUploadInfo())return;
