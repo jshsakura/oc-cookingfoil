@@ -59,6 +59,7 @@ import debug from "../debug.js";
 import { mountClientLog } from "./client-log.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 import { clientIp } from "../security/auth-guard.js";
+import { tooManyRequests } from "../security/retry-after.js";
 
 export const CLIENT_NRO = path.join(dataDir, "client", "cookingfoil.nro");
 export const GITHUB_NRO = path.join(dataDir, "client", "github", "cookingfoil.nro");
@@ -295,8 +296,7 @@ export function clientUpdateOpenRouter({ perHour = OPEN_BUILDS_PER_HOUR, now = D
     for (const [k, v] of taken) if (t - v.since >= HOUR_MS) taken.delete(k);
     const mine = taken.get(ip) ?? { since: t, count: 0 };
     if (mine.count >= perHour) {
-      res.set("Retry-After", String(Math.ceil((mine.since + HOUR_MS - t) / 1000)));
-      return res.status(429).json({ error: "too many client downloads from this address; try again later" });
+      return tooManyRequests(res, Math.ceil((mine.since + HOUR_MS - t) / 1000)).json({ error: "too many client downloads from this address; try again later" });
     }
     taken.set(ip, { ...mine, count: mine.count + 1 });
     serveBuild(req, res, next);
