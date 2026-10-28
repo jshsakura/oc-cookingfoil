@@ -40,5 +40,23 @@
     "literal": "한글",
     "reason": "A word of the shortcut's own file name (official release or Korean patch edition). It is part of the stored name and must stay the same text in every language, so it is not a dictionary entry.",
     "approved": "Session 4.2 (repo owner's integration), 2026-10-29"
+  },
+  {
+    "file": "src/security/pairing-approve.js",
+    "literal": "자동 등록",
+    "reason": "Label saved in the device record when the automatic approval lets a console in. store.js compares a record's label against it to tell an unnamed console, so the stored value must stay the same in every language.",
+    "approved": "Repo owner session 4.2, auth and account strings, 2026-10-29"
+  },
+  {
+    "file": "src/security/store.js",
+    "literal": "자동 등록",
+    "reason": "Compared against the label saved by pairing-approve.js to tell a console that was never named. Changing it would stop matching records already on disk.",
+    "approved": "Repo owner session 4.2, auth and account strings, 2026-10-29"
+  },
+  {
+    "file": "src/routes/pair.js",
+    "literal": "웹에서 받은 클라이언트",
+    "reason": "Label saved in the device record for a console enrolled through a web download. Existing records hold this value, so it is data, not a display string.",
+    "approved": "Repo owner session 4.2, auth and account strings, 2026-10-29"
   }
 ]
