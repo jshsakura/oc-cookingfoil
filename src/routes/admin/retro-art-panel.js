@@ -13,6 +13,7 @@ import { RETRO_PATCH_HTML, RETRO_PATCH_SCRIPT } from "./retro-patch-panel.js";
 import { RETRO_VARIANTS_CSS, RETRO_VARIANTS_HTML, RETRO_VARIANTS_SCRIPT } from "./retro-variants-panel.js";
 import { RQ_WORDS } from "./retro-requirements-words.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
+import { FOLDER_MARK } from "./files-panel.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <nav class="subtabs hide-bar" id="retro-subtabs" role="tablist" aria-label="레트로">
@@ -23,7 +24,9 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
     <button type="button" role="tab" data-sub="patch">${icon("upload")}${top("rpt.tab")}</button>
     <button type="button" role="tab" data-sub="dups">${icon("copy")}중복 버전</button>
     <button type="button" role="tab" data-sub="sets">${icon("monitor")}아케이드 세트</button>
+    <button type="button" role="tab" data-sub="folder">${icon("folder")}${top("m.files")}</button>
   </nav>
+  <div data-sub-panel="folder" hidden>${FOLDER_MARK}</div>
   <div data-sub-panel="art">
   <div class="hd"><h2 class="first">${top("ra.title")}</h2><button type="button" class="primary" id="ra-sync">${top("ra.syncAll")}</button></div>
   <p class="muted">${top("ra.lede")}</p>
@@ -152,14 +155,17 @@ export const RETRO_ART_SCRIPT = /* js */ `
 let raData=null,raGame=null,raTimer=null;
 // One sub-tab at a time; the choice is remembered in this browser only.
 // var, not let: the tab can open while the page's script is still being read.
-var RETRO_SUBS=['art','ratings','cores','names','patch','dups','sets'];
+var RETRO_SUBS=['art','ratings','cores','names','patch','dups','sets','folder'];
 var retroSub=(()=>{try{const v=localStorage.getItem('cf-retro-sub');return RETRO_SUBS.includes(v)?v:'art';}catch{return 'art';}})();
 function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
-  try{localStorage.setItem('cf-retro-sub',retroSub);}catch{}
-  const next=new URL(location.href);if(next.searchParams.get('view')!==retroSub){next.searchParams.set('view',retroSub);history.replaceState(null,'',next);}
+  try{if(retroSub!=='folder')localStorage.setItem('cf-retro-sub',retroSub);}catch{}
+  if(retroSub!=='folder'){const next=new URL(location.href);
+    if(next.searchParams.get('view')!==retroSub||next.searchParams.has('tab')||next.searchParams.has('path')){
+      next.searchParams.set('view',retroSub);next.searchParams.delete('tab');next.searchParams.delete('path');history.replaceState(null,'',next);}}
   for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===retroSub));
-  const panel=['art','ratings','cores','names','patch'].includes(retroSub)?retroSub:'versions';
+  const panel=['art','ratings','cores','names','patch','folder'].includes(retroSub)?retroSub:'versions';
   for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=p.dataset.subPanel!==panel;
+  if(panel==='folder')fbOpen('retro');
   if(panel==='names')loadRetroKo();
   if(panel==='patch')loadRetroPatch();
   if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});}

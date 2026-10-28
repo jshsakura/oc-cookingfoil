@@ -7,7 +7,7 @@ const HASHES: [string, string][] = [
   ['#alerts', 'tab-alerts'], ['#logs', 'xf-cards'], ['#featured', 'tab-featured'], ['#library', 'tab-library'],
   ['#nsz', 'tab-nsz'], ['#upload', 'tab-upload'], ['#inbox', 'tab-inbox'], ['#homebrew', 'tab-homebrew'], ['#retro', 'tab-retro'],
   ['#library/files', 'tab-library'], ['#organize', 'tab-organize'], ['#library/verify', 'tab-library'],
-  ['#library/patches', 'tab-library'], ['#library/saves', 'tab-library'], ['#library/info', 'tab-library'], ['#library/server', 'tab-library'],
+  ['#patches', 'tab-patches'], ['#saves', 'tab-saves'], ['#library/info', 'tab-library'], ['#library/server', 'tab-library'],
   ['#users/google', 'tab-users'], ['#devices/approved', 'tab-devices'], ['#devices/clients', 'tab-devices'],
   ['#homebrew/reco', 'tab-homebrew'], ['#homebrew/sources', 'tab-homebrew'],
   ['#settings/integrations', 'intg-h'], ['#settings/security', 'tfa'], ['#settings/tokens', 'mcp-on'],
@@ -24,7 +24,7 @@ test('every earlier admin hash still opens its section', async ({ page }) => {
 
 test('library sub-pages open the panel their hash names', async ({ page }) => {
   await signIn(page);
-  for (const sub of ['files', 'verify', 'patches', 'saves', 'info', 'server']) {
+  for (const sub of ['files', 'folder', 'verify', 'info', 'server']) {
     await page.goto(`/admin#library/${sub}`);
     await expect(page.locator(`[data-lib-panel="${sub}"]`), sub).toBeVisible();
   }

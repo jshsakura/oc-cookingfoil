@@ -33,7 +33,7 @@ test('the 검수 pill on a patch row and a save row marks them for the library a
   await expect.poll(() => listed(page, 'patches', '게임 데이터')).toBe(false);
   await expect(pill).toHaveAttribute('aria-pressed', 'false');
 
-  await page.getByRole('tab', { name: '세이브' }).click();
+  await page.goto('/admin/saves');
   const save = page.locator('#lib-saves .pt-row', { hasText: 'All unlocked' }).getByRole('button', { name: 'All unlocked 검수됨', exact: true });
   await save.click();
   await expect.poll(() => listed(page, 'saves', 'All unlocked')).toBe(true);

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
 import { freshCode, signIn } from './admin-sign-in';
 
 // Stage A of the admin redesign: every job has a real URL, the sidebar owns the
@@ -44,15 +45,16 @@ test('every page opens its own section, marks the sidebar and keeps its address 
   }
 });
 
-test('the retro page lists its seven jobs as tabs and keeps the chosen one in its address', async ({ page }) => {
+test('the retro page lists its eight jobs as tabs and keeps the chosen one in its address', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
   await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('레트로 게임');
   await expect(page.locator('#retro-subtabs [data-sub="cores"]')).toHaveAttribute('aria-selected', 'true');
   const items = page.locator('#retro-subtabs [data-sub]');
-  await expect(items).toHaveCount(7);
+  await expect(items).toHaveCount(8);
   await expect(items.first()).toHaveAttribute('data-sub', 'art');
+  await expect(items.last()).toHaveAttribute('data-sub', 'folder');
 });
 
 test('a settings page opens its own area', async ({ page }) => {
@@ -208,7 +210,7 @@ test('the header names every page by its menu path', async ({ page }) => {
   await signIn(page);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/admin/retro?view=ratings');
-  await expect(page.locator('#adm-crumb')).toHaveText(/레트로 게임\s*평점/);
+  await expect(page.locator('#adm-crumb')).toHaveText(/라이브러리\s*레트로 게임/);
   await page.goto('/admin/devices');
   await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('기기');
   await page.goto('/admin');
@@ -236,7 +238,7 @@ test('dictionary text keeps its links and never shows a raw key or source', asyn
 test('the addresses the menu plan retired redirect to where their job lives now', async ({ page }) => {
   await signIn(page);
   const moved: [string, string][] = [
-    ['/admin/patches', '/admin/games?view=patches'], ['/admin/saves', '/admin/games?view=saves'], ['/admin/titles', '/admin/games?view=info'],
+    ['/admin/titles', '/admin/games?view=info'],
     ['/admin/integrity', '/admin/games?view=verify'], ['/admin/organize', '/admin/incoming/temp'],
   ];
   for (const [from, to] of moved) {
@@ -244,6 +246,54 @@ test('the addresses the menu plan retired redirect to where their job lives now'
     expect(res.status(), from).toBe(302);
     expect(res.headers().location, from).toBe(to);
   }
-  await page.goto('/admin/patches');
-  await expect(page.locator('#lib-subtabs [data-lsub="patches"]')).toHaveAttribute('aria-selected', 'true');
+  // Patches and saves were views of the games page: their old links land on the pages of their own.
+  for (const name of ['patches', 'saves']) {
+    for (const old of [`/admin/games?view=${name}`, `/admin/games#library/${name}`]) {
+      await page.goto(old);
+      await expect(page, old).toHaveURL(new RegExp(`/admin/${name}(#|\\?|$)`));
+      await expect(page.locator(`#${name}-subtabs [data-sub="list"]`)).toHaveAttribute('aria-selected', 'true');
+    }
+  }
+  // The standalone file browser is gone: /admin/files lands on the "파일" tab of the folder's page.
+  const files: [string, string][] = [
+    ['/admin/files?root=games&path=a', '/admin/games?tab=folder&path=a'], ['/admin/files?root=retro', '/admin/retro?tab=folder'],
+    ['/admin/files?root=homebrew', '/admin/homebrew?tab=folder'], ['/admin/files?root=patches', '/admin/patches?tab=folder'],
+    ['/admin/files?root=saves', '/admin/saves?tab=folder'], ['/admin/files?root=incoming', '/admin/incoming/temp'], ['/admin/files', '/admin/games?tab=folder'],
+  ];
+  for (const [from, to] of files) {
+    const res = await page.request.get(from, { maxRedirects: 0 });
+    expect(res.status(), from).toBe(302);
+    expect(res.headers().location, from).toBe(to);
+  }
 });
+
+// Every library page has a "파일" tab: the file browser of its own folder, no root switcher, the crumb starting at the folder.
+const FOLDER_PAGES: [string, string, string][] = [
+  ['/admin/games', 'games', '#lib-subtabs [data-lsub="folder"]'], ['/admin/retro', 'retro', '#retro-subtabs [data-sub="folder"]'],
+  ['/admin/homebrew', 'homebrew', '#homebrew-subtabs [data-sub="folder"]'], ['/admin/patches', 'patches', '#patches-subtabs [data-sub="folder"]'],
+  ['/admin/saves', 'saves', '#saves-subtabs [data-sub="folder"]'],
+];
+const FOLDER_NAMES: Record<string, string> = { games: '게임', retro: '레트로 게임', homebrew: '홈브류', patches: '패치', saves: '세이브' };
+for (const [path, root, tab] of FOLDER_PAGES) {
+  test(`the ${root} page has a 파일 tab that lists its folder and keeps the place in the address`, async ({ page }) => {
+    await signIn(page);
+    const dir = { games: process.env.COOK_GAMES_DIR, retro: process.env.COOK_RETRO_DIR, homebrew: process.env.COOK_HOMEBREW_DIR, patches: process.env.COOK_PATCHES_DIR, saves: process.env.COOK_SAVES_DIR }[root];
+    expect(dir, `${root} folder of the test server`).toBeTruthy();
+    const name = `folder-tab-${root}.txt`;
+    fs.mkdirSync(dir!, { recursive: true });
+    fs.writeFileSync(`${dir}/${name}`, 'x');
+    try {
+      await page.goto(path);
+      await page.locator(tab).click();
+      await expect(page.locator(tab)).toHaveText('파일');
+      await expect(page).toHaveURL(/tab=folder/);
+      await expect(page.locator('#fb-rows tr', { hasText: name })).toBeVisible();
+      await expect(page.locator('#fb-roots')).toHaveCount(0);
+      await expect(page.locator('#fb-crumb li').first()).toHaveText(FOLDER_NAMES[root]);
+      await page.reload();
+      await expect(page.locator('#fb-rows tr', { hasText: name })).toBeVisible();
+    } finally {
+      fs.rmSync(`${dir}/${name}`, { force: true });
+    }
+  });
+}

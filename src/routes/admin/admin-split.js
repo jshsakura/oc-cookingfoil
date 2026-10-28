@@ -27,7 +27,7 @@ import { CHAT_WIDGET_CSS, CHAT_WIDGET_HTML, CHAT_WIDGET_SCRIPT } from "./chat-wi
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { BRAND_MOTION_CSS } from "../../views/brand-motion.js";
-import { ICON_CSS } from "../../views/icons.js";
+import { ICON_CSS, icon } from "../../views/icons.js";
 import { GRID_CSS, GRID_HEAD, GRID_SCRIPT } from "./grid.js";
 import { ADMIN_TITLE_HTML, ASK_DIALOG_HTML, PAGE_CSS, adminChrome } from "./dashboard-page.js";
 import { POLISH_CSS, POLISH_SCRIPT } from "./polish.js";
@@ -41,7 +41,8 @@ import { CHROME_SCRIPT } from "./chrome-script.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
 import { NSZ_CSS, NSZ_HTML, NSZ_SCRIPT } from "./nsz-panel.js";
 import { TRASH_CSS, TRASH_HTML, TRASH_SCRIPT } from "./trash-panel.js";
-import { FILES_CSS, FILES_HTML, FILES_SCRIPT } from "./files-panel.js";
+import { FILES_CSS, FOLDER_HTML, FOLDER_MARK, FILES_SCRIPT } from "./files-panel.js";
+import { PATCHES_HTML, SAVES_HTML } from "./patches-panel.js";
 import { PLUGINS_CSS, PLUGINS_HTML, PLUGINS_SCRIPT } from "./plugins-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SCRIPT, LOGS_SECURITY_HTML } from "./logs-pages.js";
@@ -60,7 +61,7 @@ function splitPage(page, { css = "", body = "", script = "", init = "" }, view =
   // The panel sections ship with `hidden` for the whole-page tab switching;
   // on a page of their own the one section is the page, so it opens.
   const markup = typeof body === 'function' ? body() : body;
-  const open = markup.replace(/(<section id="tab-[a-z-]+") hidden>/, "$1>");
+  const open = markup.replace(FOLDER_MARK, FOLDER_HTML).replace(/(<section id="tab-[a-z-]+") hidden>/, "$1>");
   return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 ${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${BRAND_MOTION_CSS}${PAGE_CSS}${POLISH_CSS}${ACTIVITY_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}${css}${page.path === "/admin/chat" ? "" : CHAT_WIDGET_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
@@ -79,20 +80,36 @@ ${page.path === "/admin/chat" ? "" : CHAT_WIDGET_HTML}
 
 const bundle = (extra) => extra;
 
+/** The pages whose "파일" tab is the file browser of their own folder: each bundle adds its CSS and script. */
+const withFolder = (extra) => ({ ...extra, css: (extra.css ?? "") + FILES_CSS, script: FILES_SCRIPT + (extra.script ?? "") });
+
+/** A list page of its own (patches, saves): the list and the folder as tabs. */
+const listPage = (tab, root, listHtml) => withFolder({
+  css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS,
+  body: `<section id="tab-${tab}"><nav class="subtabs hide-bar" id="${tab}-subtabs" role="tablist" data-top-label="m.${tab}">
+    <button type="button" role="tab" data-sub="list" aria-selected="true">${icon(tab === "patches" ? "puzzle" : "save")}${top("m.list")}</button>
+    <button type="button" role="tab" data-sub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button></nav>
+  <div data-sub-panel="list">${listHtml}</div><div data-sub-panel="folder" hidden>${FOLDER_MARK}</div></section>${CONTENT_DIALOG_HTML}`,
+  script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+PATCHES_SCRIPT,
+  init: `fbTabs('${tab}','${root}');loadPatches();`,
+});
+
 /** The first bundle's pages, by the path the router already knows. */
 export const SPLIT_PAGES = {
-  "/admin/games": bundle({
+  "/admin/games": withFolder({
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+LIBRARY_FILES_CSS,
     body: LIBRARY_HTML+CONTENT_DIALOG_HTML,
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT,
     init: "libShowSub(location.hash.split('/')[1]||'files',true);loadLibrary();",
   }),
-  "/admin/homebrew": bundle({
+  "/admin/homebrew": withFolder({
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS,
     body: HOMEBREW_HTML+HOMEBREW_DIALOG_HTML+CONTENT_DIALOG_HTML,
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+HOMEBREW_SCRIPT+CONTENT_EDITOR_SCRIPT,
-    init: "subtabs('homebrew');SUBTABS.homebrew.show(location.hash.split('/')[1]||'apps');loadHomebrew();",
+    init: "fbTabs('homebrew','homebrew');loadHomebrew();",
   }),
+  "/admin/patches": listPage("patches", "patches", PATCHES_HTML),
+  "/admin/saves": listPage("saves", "saves", SAVES_HTML),
   // The overview's added patches open the patches page's edit dialog.
   "/admin": bundle({
     css: OVERVIEW_CSS+PATCHES_CSS+GAME_PICKER_CSS, body: OVERVIEW_HTML+CONTENT_DIALOG_HTML,
@@ -105,7 +122,6 @@ export const SPLIT_PAGES = {
   "/admin/chat": bundle({ css: CHAT_CSS, body: CHAT_HTML, script: CHAT_SCRIPT, init: "loadChat();" }),
   "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
-  "/admin/files": bundle({ css: FILES_CSS, body: FILES_HTML, script: FILES_SCRIPT, init: "loadFiles();" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
   "/admin/incoming/temp": bundle({ css: ORGANIZE_CSS, body: '<section id="tab-organize">'+ORGANIZE_HTML+'</section>', script: ORGANIZE_SCRIPT, init: "loLoad();" }),
   "/admin/inbox": bundle({ css: INBOX_CSS, body: INBOX_HTML, script: INBOX_SCRIPT, init: "loadInbox();" }),
@@ -148,7 +164,7 @@ export const SPLIT_PAGES = {
     script: TOKENS_SCRIPT, init: "loadTokens();loadMcp();",
   }),
   // The retro games page: all eight sub-views in one section with their own subtabs.
-  "/admin/retro": bundle({
+  "/admin/retro": withFolder({
     css: RETRO_ART_CSS, body: RETRO_ART_HTML, script: RETRO_ART_SCRIPT,
     init: "setTimeout(retroOpen,0);",
   }),

@@ -232,7 +232,7 @@ test('a patch is switched between required and optional from the patch list and 
   await page.locator('#pt-only').click();
 
   // The game editor lists the same game's patches with the same switch.
-  await page.getByRole('tab', { name: '이름과 소개' }).click();
+  await page.goto('/admin/games?view=info');
   await page.locator('#gd-game').fill('Test Game [0100000000010000]');
   await page.locator('#gd-game').dispatchEvent('change');
   const inGame = page.locator('#gd-patches').getByRole('switch', { name: '게임 데이터 필수' });
@@ -240,7 +240,7 @@ test('a patch is switched between required and optional from the patch list and 
   await inGame.click();
   await expect(inGame).toHaveAttribute('aria-checked', 'true');
   await page.locator('#gd-patches').screenshot({ path: 'out/web/admin-game-patches.png' });
-  await page.getByRole('tab', { name: '패치' }).click();
+  await page.goto('/admin/patches');
   await expect(data).toHaveAttribute('aria-checked', 'true');
   expect(await required('게임 데이터')).toBe(true);
 });
@@ -277,7 +277,7 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
   await expect(page.locator('#lib-patches')).not.toContainText('Korean patch');
   expect((await patches('en')).some((p) => p.name === 'Korean patch')).toBe(false);
 
-  await page.getByRole('tab', { name: '세이브' }).click();
+  await page.goto('/admin/saves');
   const save = page.locator('#lib-saves .pt-row', { hasText: 'All unlocked' });
   await save.getByRole('button', { name: 'All unlocked 편집' }).click();
   await page.locator('#ct-name-ko').fill('전부 열림');
