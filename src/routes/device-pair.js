@@ -12,7 +12,8 @@
  *
  * This account's consoles:
  *   GET  /pair/api/mine                    the consoles it approved (sends: its client reads sends) and its client downloads
- *   POST /pair/api/devices/revoke  { deviceKey }  a QR console this account approved
+ *   POST /pair/api/devices/revoke  { deviceKey }  a console of this account
+ *   POST /pair/api/devices/label   { deviceKey, label }  rename a console of this account
  *
  * The CookingFoil client, ready to connect (needs device pairing):
  *   POST /pair/api/client-bundle           a zip of switch/cookingfoil/cookingfoil.nro and a config.json
@@ -101,7 +102,7 @@ function mountMineApi(router) {
     if (!approver) return res.status(401).json({ error: "sign in first" });
     const devices = store.devicesSnapshot().approved
       .filter((d) => ownsApproval(req, approver, d.addedBy))
-      .map(({ deviceKey, label, addedAt }) => ({ deviceKey, label, addedAt, sends: deviceSends.canReceive(deviceKey) }));
+      .map(({ deviceKey, label, addedAt, lastSeenAt }) => ({ deviceKey, code: deviceCode(deviceKey), label, addedAt, lastSeenAt: lastSeenAt ?? null, sends: deviceSends.canReceive(deviceKey) }));
     res.json({ devices, clients: clientRows({ owner: approver }) });
   });
 
@@ -149,14 +150,29 @@ function mountMineApi(router) {
   mountWebSends(router, { guardWrite, approverOf, ownsApproval });
   mountWebWishlist(router, { guardWrite, approverOf });
 
+  // A console of this account, or null: another account's console is answered as missing.
+  const ownConsole = (req, approver) => {
+    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
+    return deviceKey && store.devicesSnapshot().approved.some((d) => d.deviceKey === deviceKey && ownsApproval(req, approver, d.addedBy)) ? deviceKey : null;
+  };
+
   router.post("/api/devices/revoke", json, (req, res) => {
     const approver = guardWrite(req, res);
     if (!approver) return;
-    const deviceKey = normalizeDeviceKey(req.body?.deviceKey);
-    const mine = deviceKey && store.devicesSnapshot().approved.some((d) => d.deviceKey === deviceKey && ownsApproval(req, approver, d.addedBy));
-    if (!mine) return res.status(404).json({ error: "no such device" });
+    const deviceKey = ownConsole(req, approver);
+    if (!deviceKey) return res.status(404).json({ error: "no such device" });
     store.revokeDevice(deviceKey);
     res.json({ ok: true });
+  });
+
+  router.post("/api/devices/label", json, (req, res) => {
+    const approver = guardWrite(req, res);
+    if (!approver) return;
+    const deviceKey = ownConsole(req, approver);
+    if (!deviceKey) return res.status(404).json({ error: "no such device" });
+    if (typeof req.body?.label !== "string" || !req.body.label.trim()) return res.status(400).json({ error: "label is required" });
+    store.renameDevice(deviceKey, req.body.label);
+    res.json({ ok: true, label: req.body.label.slice(0, 64).trim() });
   });
 }
 

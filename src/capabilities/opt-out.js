@@ -21,6 +21,8 @@ export const OPT_OUT_REASONS = {
 
 /** "METHOD /path" -> reason, one of OPT_OUT_REASONS other than legacy-unregistered. */
 export const OPT_OUT = {
+  // A person renames their own console on /pair; the admin's device_set renames any.
+  "POST /pair/api/devices/label": "token-blocked",
   // First-run setup picks the recommended plugins in the browser, before any token exists.
   "POST /setup/api/plugins": "browser-only",
   // The console client's strings for a language it shows (meta/client-strings.js).

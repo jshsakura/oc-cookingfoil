@@ -154,6 +154,22 @@ test("a console that never got its enroll answer repeats it with the same downlo
   assert.equal(body.owner.displayName, "carol");
 });
 
+test("a person renames their own console from /pair; another account's console is answered as missing", async () => {
+  const key = "D7".repeat(32);
+  assert.equal((await enrollAs("bob", key, "bob's")).status, 200);
+  const rename = async (who, label) => { webUser = who; return post("/pair/api/devices/label", { Origin: base }, { deviceKey: key, label }); };
+  assert.equal((await rename("alice", "taken")).status, 404);
+  assert.equal((await rename("bob", "   ")).status, 400);
+  const ok = await rename("bob", "  Den  ");
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.json()).label, "Den");
+  webUser = "bob";
+  const listed = (await (await fetch(`${base}/pair/api/mine`)).json()).devices.find((d) => d.deviceKey === key);
+  assert.equal(listed.label, "Den");
+  assert.match(listed.code, /^[0-9A-F]{8}$/);
+  assert.ok("lastSeenAt" in listed);
+});
+
 test("the admin gives a console no account holds to an account; it keeps its key", async () => {
   const { giveToAccount, ownerChoices } = await import("../../src/security/device-owner.js");
   const key = "C1".repeat(32);
