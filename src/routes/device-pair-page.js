@@ -11,36 +11,53 @@ import { PAIR_TEXT } from "./device-pair-text.js";
 import { tableLang } from "../meta/langs.js";
 import { enrollPerHour } from "../helpers/envs.js";
 
-const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#16161A;--muted:#55555E;--line:#E2E0DA;--soft:#F2F1EE;--accent:#FFC23D;--bad:#982929;font-family:'IBM Plex Sans KR',system-ui,sans-serif}
-@media (prefers-color-scheme:dark){:root{--bg:#121214;--card:#1C1C20;--ink:#F2F1EE;--muted:#A9A9B2;--line:#2E2E34;--soft:#26262B;--bad:#FF8A80}}
-*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--ink)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;width:min(100%,460px)}
-.brand{display:flex;align-items:center;gap:12px;margin:0 0 24px;text-decoration:none;color:inherit}.brand .wm{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:28px;letter-spacing:-.02em}.brand .dot{color:var(--accent)}
-h1{font-size:26px;margin:0 0 12px}p{font-size:17px;line-height:1.6;color:var(--muted);margin:0 0 16px;word-break:keep-all}
-.who{font-size:15px;background:var(--soft);border-radius:10px;padding:10px 14px}
+const STYLE = `:root{color-scheme:light dark;--bg:#F2F1EE;--card:#fff;--ink:#16161A;--muted:#55555E;--line:#E2E0DA;--soft:#F2F1EE;--accent:#FFC23D;--bad:#982929;--good:#2E7D4F;font-family:'IBM Plex Sans KR',system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#121214;--card:#1C1C20;--ink:#F2F1EE;--muted:#A9A9B2;--line:#2E2E34;--soft:#26262B;--bad:#FF8A80;--good:#7BD69D}}
+*{box-sizing:border-box}body{margin:0;min-height:100svh;background:var(--bg);color:var(--ink)}
+.top{display:flex;align-items:center;gap:16px;max-width:1120px;margin:0 auto;padding:20px 32px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;margin-right:auto}.brand .wm{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:26px;letter-spacing:-.02em}.brand .dot{color:var(--accent)}
+.who{font-size:15px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;margin:0;color:var(--muted)}.who strong{color:var(--ink)}
+.top .back{color:var(--muted);font-size:15px;white-space:nowrap}
+.wrap{max-width:1120px;margin:0 auto;padding:8px 32px 48px}
+.intro{margin:0 0 24px}h1{font-size:30px;margin:0 0 8px}p{font-size:17px;line-height:1.6;color:var(--muted);margin:0 0 16px;word-break:keep-all}.intro p{margin:0}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;align-items:start}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px}
+.panel h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:10px}.panel h2 .count{font-size:15px;font-weight:600;color:var(--muted)}
+.panel>p{font-size:16px}
+.method{border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0 0}.method h3{font-size:18px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.tag{font-size:13px;font-weight:700;background:var(--accent);color:#16161A;border-radius:999px;padding:2px 10px}
+.method p{font-size:15px;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;width:min(100%,520px);margin:24px auto}
 .device-code{display:block;font:700 30px monospace;letter-spacing:3px;padding:18px;text-align:center;background:var(--soft);border-radius:12px;margin:20px 0}
-.viewer{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:1;margin:0 0 12px}.viewer video{width:100%;height:100%;object-fit:cover;display:block}
+.viewer{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:1;max-width:360px;margin:0 auto 12px}.viewer video{width:100%;height:100%;object-fit:cover;display:block}
 .viewer::after{content:"";position:absolute;inset:18%;border:3px solid var(--accent);border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
-.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:15px;margin:22px 0 14px}.divider::before,.divider::after{content:"";flex:1;border-top:1px solid var(--line)}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:15px;margin:18px 0 6px}.divider::before,.divider::after{content:"";flex:1;border-top:1px solid var(--line)}
 label{display:block;font-size:16px;margin:14px 0 8px}label span{color:var(--muted)}
 input{font:inherit;font-size:19px;width:100%;border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card);color:var(--ink)}
 #code{text-align:center;letter-spacing:4px;font-family:monospace;text-transform:uppercase}
-.hint{font-size:14px;margin:6px 0 0}
+.hint{font-size:14px;margin:6px 0 0;color:var(--muted)}
 button,.button{display:block;text-align:center;text-decoration:none;font:inherit;font-weight:700;font-size:18px;width:100%;border:0;border-radius:10px;padding:15px;background:var(--accent);color:#16161A;margin:16px 0 0;cursor:pointer}
 button.ghost,.button.ghost{background:var(--soft);color:var(--ink)}button:disabled{opacity:.6;cursor:wait}
-input:focus-visible,button:focus-visible,a:focus-visible{outline:4px solid #0AB4E8;outline-offset:3px}
-.ok{color:#2E7D4F;margin:12px 0 0;font-size:16px}.ok:empty{display:none}
-.block{border-top:1px solid var(--line);margin:28px 0 0;padding:24px 0 0}h2{font-size:20px;margin:0 0 10px}
-.mine{list-style:none;margin:0;padding:0}.mine li{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
-.mine li:last-child{border-bottom:0}.mine li div{display:flex;flex-direction:column;gap:2px;min-width:0}.mine .hint{margin:0}
-button.small{width:auto;font-size:15px;padding:9px 14px;margin:0;background:var(--soft);color:var(--bad);flex:none}
+input:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:4px solid #0AB4E8;outline-offset:3px}
+.ok{color:var(--good);margin:12px 0 0;font-size:16px}.ok:empty{display:none}
+.list{list-style:none;margin:12px 0 0;padding:0}.list li{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.list li:last-child{border-bottom:0}.list .info{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}.list .info strong{font-size:17px;overflow-wrap:anywhere}
+.list .meta{font-size:14px;color:var(--muted)}.list .empty{color:var(--muted);font-size:15px}
+.ico{flex:none;width:44px;height:44px;border-radius:12px;background:var(--soft);display:grid;place-items:center;font:700 13px monospace;color:var(--muted)}
+.acts{display:flex;gap:8px;flex:none}
+button.small{width:auto;font-size:15px;padding:9px 14px;margin:0;background:var(--soft);color:var(--ink);flex:none}button.small.bad{color:var(--bad)}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--soft);color:var(--good);margin-left:6px;vertical-align:2px}
+.sub{margin:24px 0 0;padding:20px 0 0;border-top:1px solid var(--line)}.sub h3{font-size:17px;margin:0}
+details{margin:8px 0 0}summary{cursor:pointer;color:var(--muted);font-size:15px;padding:6px 0}
 #error{color:var(--bad);margin:12px 0 0;font-size:16px}#error:empty{display:none}
-.back{display:block;text-align:center;margin:20px 0 0;color:var(--muted);font-size:15px}
-.client-card{display:flex;align-items:center;gap:16px;padding:16px;margin:0 0 16px;border:1px solid var(--line);border-radius:16px;background:var(--soft)}
-.client-card img{width:64px;height:64px;border-radius:16px;flex:none;background:var(--card);object-fit:cover}
+.client-card{display:flex;align-items:center;gap:16px;padding:14px;margin:0 0 12px;border-radius:14px;background:var(--soft)}
+.client-card img{width:56px;height:56px;border-radius:14px;flex:none;background:var(--card);object-fit:cover}
 .client-card div{display:flex;flex-direction:column;gap:2px;min-width:0}.client-card strong{font-size:18px}.client-card .hint{font-weight:600;margin:0}
+dialog{border:1px solid var(--line);border-radius:18px;padding:24px;background:var(--card);color:var(--ink);width:min(92vw,420px)}dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog p{color:var(--ink);margin:0 0 4px}dialog .row{display:flex;gap:10px;margin:18px 0 0}dialog .row button{margin:0}
 [hidden]{display:none!important}
-@media(max-width:420px){body{padding:16px}.card{padding:22px}}`;
+@media(max-width:880px){.grid{grid-template-columns:1fr}.top{padding:16px}.wrap{padding:4px 16px 32px}.panel{padding:22px}.card{padding:22px;margin:12px auto}h1{font-size:26px}}
+@media(max-width:560px){.top{flex-wrap:wrap;gap:10px}.who{order:3;width:100%;border-radius:12px}.list li{flex-wrap:wrap}.acts{width:100%;justify-content:flex-end}}`;
 
 function form(t, { withCode, code }) {
   return `<form id="approve" novalidate>
@@ -49,35 +66,45 @@ ${withCode ? `<label for="code">${t.codeLabel}</label><input id="code" name="cod
 <button type="submit">${t.approve}</button></form>`;
 }
 
-function clientSection(t) {
-  return `<section class="block" id="client"><h2>${t.clientTitle}</h2>
-<div class="client-card"><img id="client-icon" src="/api/client/icon" alt="" width="64" height="64" decoding="async">
+function clientMethod(t) {
+  return `<div class="method" id="client"><h3>${t.clientTitle} <span class="tag">${t.recommended}</span></h3>
+<div class="client-card"><img id="client-icon" src="/api/client/icon" alt="" width="56" height="56" decoding="async">
 <div><strong>CookingFoil</strong><span class="hint" id="client-meta"></span></div></div>
-<p>${t.clientLead}</p><button type="button" id="get-client">${t.clientGet}</button><p class="hint">${t.clientHint.replace("{n}", enrollPerHour)}</p></section>`;
+<p>${t.clientLead}</p><button type="button" id="get-client">${t.clientGet}</button><p class="hint">${t.clientHint.replace("{n}", enrollPerHour)}</p></div>`;
+}
+
+function qrMethod(t) {
+  return `<div class="method"><h3>${t.qrTitle}</h3><p>${t.lead}</p>
+<div id="viewer" class="viewer" hidden><video id="video" playsinline muted></video></div>
+<p id="camera-note" class="hint" hidden></p>
+<button type="button" id="scan">${t.scan}</button>
+<div class="divider">${t.or}</div>${form(t, { withCode: true })}<p id="status" class="ok" role="status"></p></div>`;
 }
 
 function mineSection(t) {
-  return `<section class="block"><h2>${t.mineTitle}</h2><ul id="mine" class="mine"><li class="hint">${t.mineEmpty}</li></ul></section>`;
+  return `<section class="panel" aria-labelledby="mine-title"><h2 id="mine-title">${t.mineTitle} <span class="count" id="mine-count"></span></h2>
+<ul id="mine" class="list"><li class="empty">${t.mineEmpty}</li></ul>
+<div class="sub" id="downloads" hidden><h3>${t.downloadsTitle}</h3><ul id="dl-live" class="list"></ul>
+<details id="dl-ended-box" hidden><summary id="dl-ended-sum"></summary><ul id="dl-ended" class="list"></ul></details></div></section>`;
 }
 
-function body(view, t, { code, approver, pairing = true, repair = null }) {
-  const who = approver === "admin" ? t.asAdmin : t.asUser.replace("{user}", `<strong>${escapeHtml(approver)}</strong>`);
+const ASK = `<dialog id="ask" aria-labelledby="ask-text"><p id="ask-text"></p><input id="ask-input" maxlength="64" autocomplete="off" aria-labelledby="ask-text" hidden>
+<div class="row"><button type="button" class="ghost" id="ask-no"></button><button type="button" id="ask-ok"></button></div></dialog>`;
+
+function body(view, t, { code, pairing = true, repair = null }) {
   switch (view) {
     case "done":
-      return `<h1>${t.doneTitle}</h1><p>${t.doneBody}</p><a class="button ghost" href="/pair">${t.another}</a>`;
+      return `<div class="card"><h1>${t.doneTitle}</h1><p>${t.doneBody}</p><a class="button ghost" href="/pair">${t.another}</a></div>`;
     case "expired":
-      return `<h1>${t.expiredTitle}</h1><p>${t.expiredBody}</p><a class="button ghost" href="/pair">${t.another}</a>`;
+      return `<div class="card"><h1>${t.expiredTitle}</h1><p>${t.expiredBody}</p><a class="button ghost" href="/pair">${t.another}</a></div>`;
     case "signin":
-      return `<h1>${t.title}</h1><p>${t.signIn}</p><a class="button" href="/admin">${t.openAdmin}</a>`;
+      return `<div class="card"><h1>${t.title}</h1><p>${t.signIn}</p><a class="button" href="/admin">${t.openAdmin}</a></div>`;
     case "confirm":
-      return `<h1>${t.title}</h1>${repair ? `<p>${t[repair]}</p>` : ""}<p>${t.confirmLead}</p><p class="who">${who}</p>${form(t, { withCode: false, code })}`;
+      return `<div class="card"><h1>${t.title}</h1>${repair ? `<p>${t[repair]}</p>` : ""}<p>${t.confirmLead}</p>${form(t, { withCode: false, code })}<p id="error" role="alert"></p></div>`;
     default:
-      return `<h1>${t.title}</h1><p>${t.lead}</p><p class="who">${who}</p>
-${pairing ? `<div id="viewer" class="viewer" hidden><video id="video" playsinline muted></video></div>
-<p id="camera-note" class="hint" hidden></p>
-<button type="button" id="scan">${t.scan}</button>
-<div class="divider">${t.or}</div>${form(t, { withCode: true })}<p id="status" class="ok" role="status"></p>` : ""}
-${pairing ? clientSection(t) : ""}${mineSection(t)}`;
+      return `<div class="intro"><h1>${t.title}</h1><p>${t.pageLead}</p></div>
+<div class="grid">${pairing ? `<section class="panel" aria-labelledby="connect-title"><h2 id="connect-title">${t.connectTitle}</h2><p>${t.connectLead}</p>${clientMethod(t)}${qrMethod(t)}<p id="error" role="alert"></p></section>` : `<p id="error" role="alert"></p>`}
+${mineSection(t)}</div>${ASK}`;
   }
 }
 
@@ -85,8 +112,8 @@ ${pairing ? clientSection(t) : ""}${mineSection(t)}`;
 function clientText(t) {
   const keys = ["scan", "stop", "aim", "noCamera", "cameraDenied", "wrongQr", "doneTitle", "doneBody", "another",
     "errNotFound", "errUsed", "errAuth", "errOther", "errNetwork", "expiredBody", "mineEmpty", "kindQr",
-    "revoke", "revokeConfirm", "unnamed",
-    "kindClient", "clientWaiting", "clientUsed", "clientExpired", "clientRevoked", "errNoBuild", "clientCancelConfirm", "cancel"];
+    "revoke", "revokeConfirm", "unnamed", "rename", "renamePrompt", "save", "lastSeen", "neverSeen", "canSend", "deviceCount", "endedDownloads", "codeIs",
+    "kindClient", "clientWaiting", "clientUsed", "clientExpired", "clientRevoked", "errNoBuild", "clientCancelConfirm", "cancel", "keep"];
   return JSON.stringify(Object.fromEntries(keys.map((k) => [k, t[k]]))).replace(/</g, "\\u003c");
 }
 
@@ -139,33 +166,48 @@ if(scanButton){
   else scanButton.addEventListener('click',()=>stream?(stopCamera(),say('')):startCamera());}
 window.addEventListener('pagehide',stopCamera);
 
+// ── asking in the page (closes only by its buttons) ──
+const askBox=document.getElementById('ask');
+function ask(text,{value=null,ok=T.revoke,no=T.keep}={}){if(!askBox)return Promise.resolve(null);
+  const input=document.getElementById('ask-input'),yes=document.getElementById('ask-ok'),nope=document.getElementById('ask-no');
+  document.getElementById('ask-text').textContent=text;yes.textContent=ok;nope.textContent=no;
+  input.hidden=value===null;input.value=value??'';
+  return new Promise((resolve)=>{const done=(v)=>{yes.onclick=nope.onclick=askBox.oncancel=input.onkeydown=null;askBox.close();resolve(v);};
+    yes.onclick=()=>done(value===null?true:input.value);nope.onclick=()=>done(null);askBox.oncancel=(e)=>{e.preventDefault();};
+    input.onkeydown=(e)=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();done(input.value);}};
+    askBox.showModal();(value===null?nope:input).focus();});}
+
 // ── my devices ──
 const mine=document.getElementById('mine');
 const post=(url,body)=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body||{})});
 const when=(ms)=>ms?new Date(ms).toLocaleString(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}):null;
 const CLIENT_STATE={used:T.clientUsed,expired:T.clientExpired,revoked:T.clientRevoked};
-function clientRow(item){const li=document.createElement('li');const info=document.createElement('div');
-  const name=document.createElement('strong');name.textContent=T.kindClient+' · '+when(item.createdAt);
-  const meta=document.createElement('span');meta.className='hint';
-  meta.textContent=item.state==='waiting'?T.clientWaiting.replace('{time}',when(item.expiresAt)):[CLIENT_STATE[item.state],item.code,item.state==='used'?when(item.usedAt):null].filter(Boolean).join(' · ');
-  info.append(name,meta);li.append(info);
-  if(item.state==='waiting'){const b=document.createElement('button');b.type='button';b.className='small';b.textContent=T.cancel;
-    b.addEventListener('click',async()=>{if(!confirm(T.clientCancelConfirm))return;b.disabled=true;
-      const r=await post('/pair/api/clients/'+item.id+'/revoke').catch(()=>null);if(r&&r.ok)loadMine();else{b.disabled=false;error.textContent=T.errOther;}});
-    li.append(b);}
+const make=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;};
+const small=(text,fn,bad)=>{const b=make('button','small'+(bad?' bad':''),text);b.type='button';b.addEventListener('click',()=>fn(b));return b;};
+async function act(b,url,body){b.disabled=true;const r=await post(url,body).catch(()=>null);if(r&&r.ok){loadMine();return true;}b.disabled=false;error.textContent=T.errOther;return false;}
+function clientRow(item){const li=make('li');const info=make('div','info');
+  info.append(make('strong',null,T.kindClient+' · '+when(item.createdAt)),
+    make('span','meta',item.state==='waiting'?T.clientWaiting.replace('{time}',when(item.expiresAt)):[CLIENT_STATE[item.state],item.code,item.state==='used'?when(item.usedAt):null].filter(Boolean).join(' · ')));
+  li.append(info);
+  if(item.state==='waiting')li.append(small(T.cancel,async(b)=>{if(await ask(T.clientCancelConfirm,{ok:T.cancel}))act(b,'/pair/api/clients/'+item.id+'/revoke');},true));
   return li;}
-function row(item){if(item.kind==='client')return clientRow(item);const li=document.createElement('li');const info=document.createElement('div');
-  const name=document.createElement('strong');name.textContent=item.label||T.unnamed;
-  const meta=document.createElement('span');meta.className='hint';
-  meta.textContent=[T.kindQr,when(item.addedAt)].join(' · ');
-  info.append(name,meta);const b=document.createElement('button');b.type='button';b.className='small';b.textContent=T.revoke;
-  b.addEventListener('click',async()=>{if(!confirm(T.revokeConfirm))return;b.disabled=true;
-    const r=await post('/pair/api/devices/revoke',{deviceKey:item.deviceKey}).catch(()=>null);
-    if(r&&r.ok)loadMine();else{b.disabled=false;error.textContent=T.errOther;}});
-  li.append(info,b);return li;}
+function deviceRow(item){const li=make('li');li.append(make('span','ico',(item.code||'').slice(0,4)));
+  const info=make('div','info');const name=make('strong',null,item.label||T.unnamed);if(item.sends)name.append(make('span','pill',T.canSend));
+  info.append(name,make('span','meta',[T.codeIs.replace('{code}',item.code||'—'),item.lastSeenAt?T.lastSeen.replace('{time}',when(item.lastSeenAt)):T.neverSeen].join(' · ')));
+  const acts=make('div','acts');
+  acts.append(small(T.rename,async(b)=>{const label=await ask(T.renamePrompt,{value:item.label||'',ok:T.save,no:T.cancel});if(label&&label.trim())act(b,'/pair/api/devices/label',{deviceKey:item.deviceKey,label});}),
+    small(T.revoke,async(b)=>{if(await ask(T.revokeConfirm))act(b,'/pair/api/devices/revoke',{deviceKey:item.deviceKey});},true));
+  li.append(info,acts);return li;}
 async function loadMine(){if(!mine)return;try{const r=await fetch('/pair/api/mine',{credentials:'same-origin'});if(!r.ok)return;const d=await r.json();
-  const items=[...(d.clients||[]).map((x)=>({...x,kind:'client'})),...d.devices.map((x)=>({...x,kind:'qr'}))];
-  mine.replaceChildren(...(items.length?items.map(row):[Object.assign(document.createElement('li'),{className:'hint',textContent:T.mineEmpty})]));}catch{}}
+  const devices=d.devices||[];
+  mine.replaceChildren(...(devices.length?devices.map(deviceRow):[make('li','empty',T.mineEmpty)]));
+  document.getElementById('mine-count').textContent=devices.length?T.deviceCount.replace('{n}',devices.length):'';
+  const clients=d.clients||[],live=clients.filter((c)=>c.state==='waiting'),ended=clients.filter((c)=>c.state!=='waiting');
+  document.getElementById('downloads').hidden=!clients.length;
+  document.getElementById('dl-live').replaceChildren(...live.map(clientRow));
+  document.getElementById('dl-ended-box').hidden=!ended.length;
+  document.getElementById('dl-ended-sum').textContent=T.endedDownloads.replace('{n}',ended.length);
+  document.getElementById('dl-ended').replaceChildren(...ended.map(clientRow));}catch{}}
 // The client with this server and a one-hour connection key inside, as one zip.
 const getClient=document.getElementById('get-client');
 if(getClient)getClient.addEventListener('click',async()=>{getClient.disabled=true;error.textContent='';
@@ -188,9 +230,10 @@ export function devicePairPage({ view = "scan", lang = "en", code = "", approver
   const shown = tableLang(PAIR_TEXT, lang);
   const t = PAIR_TEXT[shown];
   const interactive = view === "scan" || view === "confirm";
+  const who = !approver ? "" : approver === "admin" ? `<p class="who">${t.asAdmin}</p>` : `<p class="who">${t.asUser.replace("{user}", `<strong>${escapeHtml(approver)}</strong>`)}</p>`;
   return `<!doctype html><html lang="${shown}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
 <title>${t.title} · CookingFoil</title><link rel="icon" href="/assets/cookingfoil.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/fonts.css"><style>${STYLE}</style></head>
-<body><main class="card"><a class="brand" href="/"><img src="/assets/cookingfoil.svg" alt="" width="40" height="40"><span class="wm">cookingfoil<span class="dot">.</span></span></a>
-<div class="content">${body(view, t, { code, approver, pairing, repair })}</div><p id="error" role="alert"></p><a class="back" href="/">${t.back}</a></main>
+<body><header class="top"><a class="brand" href="/"><img src="/assets/cookingfoil.svg" alt="" width="36" height="36"><span class="wm">cookingfoil<span class="dot">.</span></span></a>${who}<a class="back" href="/">${t.back}</a></header>
+<main class="wrap"><div class="content">${body(view, t, { code, pairing, repair })}</div></main>
 ${interactive ? `<script type="application/json" id="pair-text">${clientText(t)}</script><script>${SCRIPT}</script>` : ""}</body></html>`;
 }

@@ -48,3 +48,56 @@ test('a configuration file can be downloaded without exposing authentication sec
   expect(configuration.installTarget).toBe('sd');
   expect(configuration).not.toHaveProperty('accessKeys');
 });
+
+test('/pair lays connecting and my consoles side by side on a desktop and stacks them on a phone', async ({ page, request }) => {
+  const { signIn } = await import('./admin-sign-in');
+  const { removeAccount } = await import('./web-session');
+  const NAME = 'pair-e2e', PASSWORD = 'pair-password-123';
+  await page.setViewportSize({ width:1440, height:900 });
+  const adminCookie = await signIn(page);
+  expect((await page.request.post('/admin/api/users', { data:{ name:NAME, password:PASSWORD }, headers:{ Origin:new URL(page.url()).origin } })).status()).toBe(201);
+  try {
+  await page.goto('/login?next=/pair');
+  await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
+  await page.getByLabel(/^(비밀번호|Password)$/).fill(PASSWORD);
+  await page.getByRole('button', { name:/^(로그인|Sign in)$/ }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith('/login'));
+  const headers = { 'X-Device-Key': crypto.randomBytes(32).toString('hex') };
+  const pending = await (await request.get('/api/pair/status', { headers })).json();
+  await page.goto('/pair?lang=ko');
+  const connect = page.getByRole('region', { name:'새 기기 연결' });
+  const mine = page.getByRole('region', { name:/^내 기기/ });
+  await expect(connect).toBeVisible();
+  await expect(mine).toBeVisible();
+  const [a, b] = [await connect.boundingBox(), await mine.boundingBox()];
+  expect(b!.x).toBeGreaterThan(a!.x + a!.width - 1);
+  await page.locator('#code').fill(pending.pairCode);
+  await page.locator('#label').fill('Desk console');
+  await page.getByRole('button', { name:'이 기기를 연결합니다', exact:true }).click();
+  const row = mine.getByRole('listitem').filter({ hasText:'Desk console' });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText(`코드 ${pending.pairCode}`);
+  await row.getByRole('button', { name:'이름 변경' }).click();
+  await page.locator('#ask-input').fill('Den console');
+  await page.locator('#ask-ok').click();
+  await expect(mine.getByRole('listitem').filter({ hasText:'Den console' })).toBeVisible();
+  fs.mkdirSync('out/web', { recursive:true });
+  await page.screenshot({ path:'out/web/pair-desktop.png', fullPage:true });
+
+  await page.setViewportSize({ width:390, height:844 });
+  const [c, d] = [await connect.boundingBox(), await mine.boundingBox()];
+  expect(d!.y).toBeGreaterThan(c!.y + c!.height - 1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path:'out/web/pair-mobile.png', fullPage:true });
+
+  const den = mine.getByRole('listitem').filter({ hasText:'Den console' });
+  await den.getByRole('button', { name:'연결 해제' }).click();
+  await page.locator('#ask-no').click();
+  await expect(den).toBeVisible();
+  await den.getByRole('button', { name:'연결 해제' }).click();
+  await page.locator('#ask-ok').click();
+  await expect(den).toHaveCount(0);
+  } finally {
+    await removeAccount(request, NAME, PASSWORD, adminCookie);
+  }
+});
