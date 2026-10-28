@@ -58,6 +58,8 @@ export const SERVICES = {
       approvers: { env: () => env.telegramApprovers, re: /^\d{1,20}(,\d{1,20})*$/, optional: true },
       // The language alerts are written in (alert-messages.js); Korean when empty.
       lang: { env: () => env.telegramLang, re: /^(ko|en|ja|zh)$/, optional: true },
+      // The admin account that saved these settings: a console approved from the chat is given to it.
+      owner: { env: () => "", re: /^[^\s,]{1,200}$/, optional: true },
     },
   },
 };

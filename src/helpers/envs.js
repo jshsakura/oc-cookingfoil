@@ -306,11 +306,9 @@ const passwordLoginForced = envBool("COOK_PASSWORD_LOGIN_FORCE", false);
 // is approved on the spot (no QR scan), and gets its access key on its next
 // pairing poll. Consoles with no sign-in still wait for approval. On unless set
 // to false, which makes every console wait for the admin (manual approval).
-// "all" approves every console that asks, signed in or not: for a server only
-// your own consoles can reach.
+// The old "all" (approve anyone) reads as on: a console no account holds is not made any more.
 const autoApproveMode = envString("COOK_DEVICE_AUTO_APPROVE", "true").trim().toLowerCase();
 let deviceAutoApprove = !["false", "0", "no", "off"].includes(autoApproveMode);
-let deviceAutoApproveAll = autoApproveMode === "all";
 // How many approved consoles one account may hold, however they were approved
 // (security/device-limit.js). 0 is no limit.
 let deviceLimit = envNumber("COOK_DEVICE_LIMIT", 10, { min: 0, max: 1000, integer: true });
@@ -416,7 +414,7 @@ let trashNoticeDays = envNumber("COOK_TRASH_NOTICE_DAYS", 30, { min: 1, max: 365
 const ENV_SETTINGS = Object.freeze({
   devicePairing,
   passwordLogin,
-  deviceApproval: deviceAutoApproveAll ? "all" : deviceAutoApprove ? "signin" : "manual",
+  deviceApproval: deviceAutoApprove ? "signin" : "manual",
   deviceLimit,
   enrollPerHour,
   uploadsEnabled,
@@ -476,7 +474,6 @@ function applyServerSettings(saved = {}) {
   devicePairing = v.devicePairing;
   passwordLogin = v.passwordLogin;
   deviceAutoApprove = v.deviceApproval !== "manual";
-  deviceAutoApproveAll = v.deviceApproval === "all";
   deviceLimit = v.deviceLimit;
   enrollPerHour = v.enrollPerHour;
   uploadsEnabled = v.uploadsEnabled;
@@ -636,7 +633,6 @@ export {
   passwordLogin,
   passwordLoginForced,
   deviceAutoApprove,
-  deviceAutoApproveAll,
   deviceLimit,
   enrollPerHour,
 };

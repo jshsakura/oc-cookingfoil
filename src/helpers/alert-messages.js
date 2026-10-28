@@ -245,6 +245,7 @@ const M = {
   spent: { ko: "이미 처리했거나 만료된 요청입니다", en: "This request was already handled or has expired", ja: "処理済みか期限切れのリクエストです", zh: "该请求已处理或已过期" },
   handled: { ko: "이미 관리 화면에서 처리한 요청입니다", en: "This request was already handled on the admin page", ja: "管理画面ですでに処理したリクエストです", zh: "该请求已在管理页面处理" },
   approved: { ko: "승인했습니다", en: "Approved", ja: "承認しました", zh: "已批准" },
+  needOwner: { ko: "어느 계정에 붙일지 정해지지 않았습니다. 관리자 화면에서 승인하거나, 알림 설정을 관리자 계정으로 한 번 저장해 주세요", en: "No account is set to receive this console. Approve it on the admin page, or save the alert settings once from an admin account", ja: "この本体を登録するアカウントが決まっていません。管理画面で承認するか、管理者アカウントで通知設定を一度保存してください", zh: "尚未指定接收这台主机的账户。请在管理页面批准，或用管理员账户保存一次提醒设置" },
   deviceLimit: { ko: ({ n }) => `이 계정은 기기를 최대 ${n}대까지 등록할 수 있습니다. 쓰지 않는 기기를 해제한 뒤 다시 승인해 주세요`, en: ({ n }) => `This account can register up to ${n} consoles. Remove a console it no longer uses, then approve again`, ja: ({ n }) => `このアカウントに登録できる本体は最大 ${n} 台です。使っていない本体を解除してから、もう一度承認してください`, zh: ({ n }) => `此账户最多可以登记 ${n} 台主机。请先解除不再使用的主机，然后重新批准` },
   refusedDevice: { ko: "거절했습니다. 기기가 다시 요청하면 또 알립니다", en: "Refused. If the console asks again, you will hear again", ja: "拒否しました。本体がもう一度リクエストしたらまた通知します", zh: "已拒绝。主机再次请求时会再次通知" },
   refusedAccount: { ko: "거절했습니다. 계정은 사용 중지 상태가 됩니다", en: "Refused. The account is now disabled", ja: "拒否しました。アカウントは利用停止になります", zh: "已拒绝。该账号已停用" },
