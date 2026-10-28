@@ -5,9 +5,9 @@ import { top, topLabel, topPh } from "./top-i18n.js";
 import { FOLDER_MARK } from "./files-panel.js";
 export const HOMEBREW_HTML = /* html */ `<section id="tab-homebrew" hidden>
   <div class="subtabs hide-bar" id="homebrew-subtabs" role="tablist" aria-label="홈브류 구역">
-    <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}앱</button>
-    <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}추천 홈브류</button>
-    <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}GitHub 저장소</button>
+    <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}${top("ht.apps")}</button>
+    <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}${top("ht.reco")}</button>
+    <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}${top("hb.addRepoTitle")}</button>
     <button type="button" role="tab" data-sub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button>
   </div>
   <div data-sub-panel="apps">

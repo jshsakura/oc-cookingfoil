@@ -7,7 +7,7 @@ import { icon } from "../../views/icons.js";
 import { top, topHtml, topPh, topLabel } from "./top-i18n.js";
 
 export const ALERTS_HTML = `<section id="tab-alerts" hidden>
-  <h2 class="first">${top("al.h2")}</h2>
+  <h2 class="first">${top("m.alerts")}</h2>
   <p class="muted">${top("al.lede")}</p>
   <div class="al-status" id="al-status"><span class="al-dot"></span><div><strong>${top("loading")}</strong><span></span></div></div>
   <div class="subtabs hide-bar" id="alerts-subtabs" role="tablist" aria-label="알림 구역">

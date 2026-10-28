@@ -13,7 +13,7 @@ import { CONTENT_EDITOR_SCRIPT } from "./content-editor.js";
  */
 import { top, topPh } from "./top-i18n.js";
 
-export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
+export const PATCHES_HTML = `<h2 class="first">${top("m.patches")}</h2>
   <p class="muted" data-top="pt.intro">${top("pt.intro")}</p>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" placeholder="게임 이름, 타이틀 ID, 패치 이름" aria-label="패치 찾기">
@@ -23,7 +23,7 @@ export const PATCHES_HTML = `<h2 class="first">게임 패치</h2>
   <p class="muted" id="pt-count"></p>
   <div id="lib-patches" data-skel></div>`;
 
-export const SAVES_HTML = `  <h2 class="first">게임 세이브</h2>
+export const SAVES_HTML = `  <h2 class="first">${top("m.saves")}</h2>
   <p class="muted" data-top="sv.intro">${top("sv.intro")}</p>
   <div id="lib-saves" data-skel></div>`;
 

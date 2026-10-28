@@ -17,12 +17,12 @@ import { FOLDER_MARK } from "./files-panel.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <nav class="subtabs hide-bar" id="retro-subtabs" role="tablist" aria-label="레트로">
-    <button type="button" role="tab" data-sub="art">${icon("image")}표지·베젤</button>
-    <button type="button" role="tab" data-sub="ratings">${icon("star")}평점</button>
-    <button type="button" role="tab" data-sub="cores">${icon("package")}코어</button>
+    <button type="button" role="tab" data-sub="art">${icon("image")}${top("ra.title")}</button>
+    <button type="button" role="tab" data-sub="ratings">${icon("star")}${top("rt.ratings")}</button>
+    <button type="button" role="tab" data-sub="cores">${icon("package")}${top("ra.coresTitle")}</button>
     <button type="button" role="tab" data-sub="names">${icon("tag")}${top("rk.tab")}</button>
     <button type="button" role="tab" data-sub="patch">${icon("upload")}${top("rpt.tab")}</button>
-    <button type="button" role="tab" data-sub="dups">${icon("copy")}중복 버전</button>
+    <button type="button" role="tab" data-sub="dups">${icon("copy")}${top("rv.title")}</button>
     <button type="button" role="tab" data-sub="sets">${icon("monitor")}아케이드 세트</button>
     <button type="button" role="tab" data-sub="folder">${icon("folder")}${top("m.files")}</button>
   </nav>

@@ -351,6 +351,15 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     fs.rmSync(extra);
     assert.equal(untar(Buffer.from(await pack.arrayBuffer())).get("switch/retroarch_switch.nro"), "NRO");
     assert.equal((await get("/api/retro/base-pack")).status, 200, "the older path still works");
+    // A file renamed on disk after the manifest was read is served under its new name.
+    const renamed = path.join(dir, "retroarch/config/Mupen64Plus-Next/슈퍼 마리오 64 [J-K 한글].opt");
+    fs.mkdirSync(path.dirname(renamed), { recursive: true });
+    fs.writeFileSync(renamed, "OPT");
+    const renamedUrl = "/api/retro/base-pack/file/" + "retroarch/config/Mupen64Plus-Next/슈퍼 마리오 64 [J-K 한글].opt".split("/").map(encodeURIComponent).join("/");
+    const got = await get(renamedUrl);
+    assert.equal(got.status, 200, "a file the manifest has not caught up with yet is still served");
+    assert.equal(await got.text(), "OPT");
+    fs.rmSync(path.dirname(renamed), { recursive: true });
     // A listed file taken off the disk: its GET is 404 and the next manifest no longer lists it.
     const font = path.join(dir, "retroarch/assets/fonts/korean.ttf");
     fs.rmSync(font);

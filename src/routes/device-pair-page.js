@@ -113,7 +113,7 @@ function clientText(t) {
   const keys = ["scan", "stop", "aim", "noCamera", "cameraDenied", "wrongQr", "doneTitle", "doneBody", "another",
     "errNotFound", "errUsed", "errAuth", "errOther", "errNetwork", "expiredBody", "mineEmpty", "kindQr",
     "revoke", "revokeConfirm", "unnamed", "rename", "renamePrompt", "save", "lastSeen", "neverSeen", "canSend", "deviceCount", "endedDownloads", "codeIs",
-    "kindClient", "clientWaiting", "clientUsed", "clientExpired", "clientRevoked", "errNoBuild", "clientCancelConfirm", "cancel", "keep"];
+    "kindClient", "clientWaiting", "clientUsed", "clientExpired", "clientRevoked", "errNoBuild", "clientCancelConfirm", "cancel", "keep", "clientGet", "clientPreparing", "clientStarted"];
   return JSON.stringify(Object.fromEntries(keys.map((k) => [k, t[k]]))).replace(/</g, "\\u003c");
 }
 
@@ -210,12 +210,13 @@ async function loadMine(){if(!mine)return;try{const r=await fetch('/pair/api/min
   document.getElementById('dl-ended').replaceChildren(...ended.map(clientRow));}catch{}}
 // The client with this server and a one-hour connection key inside, as one zip.
 const getClient=document.getElementById('get-client');
-if(getClient)getClient.addEventListener('click',async()=>{getClient.disabled=true;error.textContent='';
+if(getClient)getClient.addEventListener('click',async()=>{getClient.disabled=true;getClient.setAttribute('aria-busy','true');getClient.textContent=T.clientPreparing;error.textContent='';let started=false;
   try{const r=await post('/pair/api/client-bundle');
     if(!r.ok){error.textContent=r.status===404?T.errNoBuild:T.errOther;return;}
     const name=((r.headers.get('Content-Disposition')||'').match(/filename="([^"]+)"/)||[])[1]||'CookingFoil.zip';
-    const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);loadMine();}
-  catch{error.textContent=T.errNetwork;}finally{getClient.disabled=false;}});
+    const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);started=true;getClient.textContent=T.clientStarted;loadMine();}
+  catch{error.textContent=T.errNetwork;}finally{getClient.removeAttribute('aria-busy');getClient.disabled=false;
+    if(started)setTimeout(()=>{getClient.textContent=T.clientGet;},3000);else getClient.textContent=T.clientGet;}});
 if(location.hash==='#client'&&getClient)getClient.scrollIntoView({block:'center'});
 // The build on offer: its version and size beside the icon; no build, no card.
 if(getClient)fetch('/api/client/latest',{credentials:'same-origin'}).then((r)=>r.ok?r.json():null).then((b)=>{

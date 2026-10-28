@@ -142,7 +142,7 @@ export const SPLIT_PAGES = {
     init: "subtabs('alerts');SUBTABS.alerts.show('setup');loadAlerts();",
   }),
   "/admin/logs/alerts": bundle({
-    css: ALERTS_CSS + "#alerts-subtabs{display:none}", body: ALERTS_HTML, script: ALERTS_SCRIPT,
+    css: ALERTS_CSS + "#alerts-subtabs{display:none}", body: ALERTS_HTML.replace(top("m.alerts"), top("m.alertLog")), script: ALERTS_SCRIPT,
     init: "subtabs('alerts');SUBTABS.alerts.show('history');loadAlerts();",
   }),
   "/admin/client": bundle({

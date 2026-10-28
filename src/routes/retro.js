@@ -889,8 +889,14 @@ export default function retroRouter() {
     const sd = req.params[0];
     // Only paths the pack lists: a request never becomes a path on disk by itself.
     const fresh = manifest?.off === coreSettings.offKey() ? manifest.sources : null;
-    const listed = (fresh ?? new Map((await listPack(packDir(), { off: coreSettings.off() })).map((f) => [f.path, f]))).get(sd);
+    const fromDisk = async () => new Map((await listPack(packDir(), { off: coreSettings.off() })).map((f) => [f.path, f])).get(sd);
+    // A file renamed on disk is missing from a manifest read before the rename: look at the disk once more.
+    const listed = (fresh && fresh.get(sd)) ?? await fromDisk();
     if (!listed) return res.status(404).json({ error: "not in the base pack" });
+    if (fresh && !fresh.has(sd)) {
+      manifest = null;
+      rebuildManifest().catch((err) => debug.error("retro: base pack manifest failed: %s", err.message));
+    }
     if (!fs.existsSync(listed.abs)) {
       // Taken off the disk after the manifest was read: the next manifest must not list it again.
       if (fresh) manifest = null;

@@ -101,3 +101,35 @@ test('/pair lays connecting and my consoles side by side on a desktop and stacks
     await removeAccount(request, NAME, PASSWORD, adminCookie);
   }
 });
+
+test('the client download button says it is preparing the file, then that the download started', async ({ page, request }) => {
+  const { signIn } = await import('./admin-sign-in');
+  const { removeAccount } = await import('./web-session');
+  const NAME = 'dl-feedback-e2e', PASSWORD = 'dl-feedback-password-123';
+  const adminCookie = await signIn(page);
+  expect((await page.request.post('/admin/api/users', { data:{ name:NAME, password:PASSWORD }, headers:{ Origin:new URL(page.url()).origin } })).status()).toBe(201);
+  try {
+    await page.goto('/login?next=/pair');
+    await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
+    await page.getByLabel(/^(비밀번호|Password)$/).fill(PASSWORD);
+    await page.getByRole('button', { name:/^(로그인|Sign in)$/ }).click();
+    await page.waitForURL((u) => !u.pathname.startsWith('/login'));
+    await page.route('**/api/client/latest', (r) => r.fulfill({ json:{ version:'9.9.9', size:1048576 } }));
+    let release: () => void = () => {};
+    const held = new Promise<void>((done) => { release = done; });
+    await page.route('**/pair/api/client-bundle', async (r) => { await held;
+      await r.fulfill({ body:Buffer.from('PK'), headers:{ 'Content-Type':'application/zip', 'Content-Disposition':'attachment; filename="CookingFoil.zip"' } }); });
+    await page.goto('/pair?lang=ko');
+    const button = page.locator('#get-client');
+    await expect(button).toHaveText('클라이언트 다운로드');
+    await button.click();
+    await expect(button).toHaveText('파일을 준비하고 있습니다…');
+    await expect(button).toBeDisabled();
+    release();
+    await expect(button).toHaveText('다운로드를 시작했습니다');
+    await expect(button).toHaveText('클라이언트 다운로드', { timeout:6000 });
+    await expect(button).toBeEnabled();
+  } finally {
+    await removeAccount(request, NAME, PASSWORD, adminCookie);
+  }
+});

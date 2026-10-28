@@ -50,7 +50,7 @@ test('the library tab shows the file check counts and its full hash button', asy
   await signIn(page);
   await page.goto("/admin/games");
   await page.getByRole('tab', { name: '검사' }).click();
-  await expect(page.getByRole('heading', { name: '파일 검사' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '검사', exact: true })).toBeVisible();
   await expect(page.locator('#lv-cards .card')).toHaveCount(5);
   await expect(page.locator('#lv-list')).toContainText('수정되거나 손상된 파일, 이름이 다른 파일이 없습니다.');
   // No nstool: the check says so instead of running.

@@ -6,7 +6,7 @@
  */
 export const RETRO_ART_WORDS = {
   ko: {
-    "ra.title": "표지와 베젤",
+    "ra.title": "표지·베젤",
     "ra.syncAll": "빠진 것 모두 다운로드",
     "ra.lede": "파일 이름의 영어 제목으로 libretro 표지 목록에서 짝을 찾고, 표지와 베젤 프로젝트의 베젤을 받습니다. 이미 있는 파일은 건드리지 않습니다. 업로드한 뒤에는 그 시스템만 저절로 받습니다. 그 게임의 베젤이 없으면 같은 제목의 다른 지역판 베젤을, 그것도 없으면 시스템 기본 베젤을 씁니다. 아케이드 세트에 표지가 없으면 같은 게임의 다른 세트 표지를 보여 줍니다.",
     "ra.ghWarn": "GitHub 토큰이 없습니다. 베젤 목록을 읽다 시간당 60번 한도에 걸리면 다른 지역판 베젤로 폴백하지 못합니다.",
@@ -16,7 +16,7 @@ export const RETRO_ART_WORDS = {
     "ra.missingLede": "자동으로 짝을 찾지 못한 항목입니다. 맞추기를 눌러 제목을 검색하고 고르면 표지와 베젤이 그 이름을 따라갑니다. 이름으로 찾으면 표지가 있는 항목도 나와서 표지를 바꿀 수 있습니다.",
     "ra.ratingsBtn": "평점 갱신",
     "ra.ratingsLede": "LaunchBox 게임 데이터베이스의 사용자 평점을 원제로 맞춰 붙입니다. 자료 파일이 100MB 쯤이라 몇 분 걸립니다. 일주일마다 저절로 갱신합니다.",
-    "ra.coresTitle": "RetroArch 코어",
+    "ra.coresTitle": "코어",
     "ra.reload": "다시 읽기",
     "ra.uploadCore": "코어 올리기",
     "ra.coresLede1": "retroarch/cores/ 에 있는 코어입니다. 공식 RetroArch ",
