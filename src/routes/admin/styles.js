@@ -58,6 +58,8 @@ tr:last-child td{border-bottom:none}
 .pill.off{background:rgba(var(--bad-rgb),.12);color:var(--bad)}
 .pill.warn{background:rgba(var(--accent-rgb),.22);color:var(--warn)}
 .ip{color:var(--muted);font-size:var(--fs-xs);font-family:ui-monospace,monospace;word-break:break-all}
+.ip-wrap{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px 6px}
+.ip-lan{font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--muted);border:1px solid var(--line);border-radius:var(--r-pill);padding:0 7px;line-height:1.5;white-space:nowrap}
 /* A button and a field are one box: same height (40), corner and fill, so a toolbar reads as one row.
    The client's secondary button is a sunk fill, not an outline. */
 button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;padding:9px 16px;border:1px solid transparent;

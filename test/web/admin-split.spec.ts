@@ -14,7 +14,7 @@ const SPLIT: [string, string, string[], RegExp][] = [
   ['/admin/settings/login', '#google-form', ['#tfa', '#ap-form', '#users', '#warnings'], /^\/admin\/api\/(google|counts)/],
   ['/admin/settings/admin', '#tfa', ['#google-form', '#users', '#warnings'], /^\/admin\/api\/(2fa|counts)/],
   ['/admin/featured', '#f-list', ['#users', '#lib-files', '#up-form', '#warnings'], /^\/admin\/api\/(featured|games\/search|counts)/],
-  ['/admin/settings/server', '#ss-list', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(server-settings|server\/status|counts)/],
+  ['/admin/settings/server', '#ss-list', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(server-settings|server\/status|library|counts)/],
   ['/admin/settings/integrations', '#intg-h', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(integrations|counts)/],
   ['/admin/settings/automation', '#mcp-on', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(tokens|server-settings|counts)/],
   ['/admin/settings/notifications', '#al-form', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(alerts|counts)/],

@@ -27,12 +27,27 @@ const num=(n)=>Number(n||0).toLocaleString(loc());
 // ago in the page's language (top-i18n.js).
 const agoT=(t)=>{if(!t)return '—';const s=Math.max(0,Math.round((Date.now()-t)/1000));
   return s<60?topFill('acc.ago.s',{n:s}):s<3600?topFill('acc.ago.m',{n:Math.round(s/60)}):s<86400?topFill('acc.ago.h',{n:Math.round(s/3600)}):topFill('acc.ago.d',{n:Math.round(s/86400)});};
+// An address as people read it: this machine is "this server", a v4-mapped v6 address is its v4 form, the
+// private ranges carry a small chip, nothing is a dash. The raw address stays in the title.
+function ipInfo(ip){const raw=String(ip||'').trim();if(!raw)return {text:'—',raw:'',empty:true};
+  const low=raw.toLowerCase(),a=low.replace(/^::ffff:(?=\\d)/,''),v4=/^\\d{1,3}(\\.\\d{1,3}){3}$/.test(a);
+  if(low==='::1'||(v4&&a.startsWith('127.')))return {text:topText('ip.self'),raw,self:true};
+  let lan=false;
+  if(v4){const [x,y]=a.split('.').map(Number);lan=x===10||(x===172&&y>=16&&y<=31)||(x===192&&y===168);}
+  else lan=/^f[cd][0-9a-f]{2}:/.test(low)||/^fe[89ab][0-9a-f]:/.test(low);
+  return {text:v4?a:raw,raw,lan};}
+const ipChip=(i)=>i.lan?el('span',topText('ip.lan'),'ip-lan'):null;
+function ipNode(ip){const i=ipInfo(ip);if(i.empty)return el('span','—','dim');
+  const w=el('span',null,'ip-wrap'),t=el('span',i.text,'ip');if(i.raw!==i.text)t.title=i.raw;w.append(t);const c=ipChip(i);if(c)w.append(c);return w;}
+function ipCell(ip){const c=td();c.append(ipNode(ip));return c;}
 // A last sign-in: when, relative with the exact time on hover, and how; its address opens the account's sign-ins.
 function loginCell(at,method,ip,open){if(!at)return td('—','dim');
   const c=td();const s=el('span',agoT(at)+(method?' · '+topText('acc.method.'+method):''));s.title=fmt(at);c.append(s);
-  if(open){c.append(el('br'),ipButton(ip||topText('acc.loginHistory'),'acc.loginHistory',open));}return c;}
-function ipButton(txt,label,open){const b=el('button',txt,'ip-more');b.type='button';b.title=topText(label);b.setAttribute('aria-label',txt+' · '+topText(label));
-  b.addEventListener('click',open);return b;}
+  if(open){c.append(el('br'),ipButton(ip,'acc.loginHistory',open));}return c;}
+// The address is the button; with none known it reads as the history link.
+function ipButton(ip,label,open){const i=ipInfo(ip),txt=i.empty?topText(label):i.text;
+  const b=el('button',txt,'ip-more');b.type='button';b.title=i.empty||i.raw===i.text?topText(label):i.raw+' · '+topText(label);b.setAttribute('aria-label',txt+' · '+topText(label));
+  b.addEventListener('click',open);const c=i.empty?null:ipChip(i);if(!c)return b;const w=el('span',null,'ip-wrap');w.append(b,c);return w;}
 // Where a console or an account connected from, in a dialog. Every value goes in as text.
 function ipDialog(title,hint,rows){$('ip-title').textContent=title;$('ip-hint').textContent=hint;
   $('ip-list').replaceChildren(...(rows.length?rows:[el('p',topText('acc.noHistory'),'muted')]));$('ip-dialog').showModal();}

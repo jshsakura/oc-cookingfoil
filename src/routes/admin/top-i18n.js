@@ -83,7 +83,7 @@ const BASE_WORDS = {
     "g.overview": "개요", "g.games": "파일·정리", "g.retro": "레트로", "g.homebrew": "홈브류", "g.people": "계정·기기", "g.ops": "운영",
     "s.library": "파일", "s.nsz": "압축", "s.upload": "업로드", "s.inbox": "임시 공유", "s.featured": "홈 추천",
     "s.users": "계정", "s.devices": "기기", "s.logs": "로그", "s.alerts": "알림", "s.settings": "서버 설정",
-    "m.overview": "서버 현황", "m.library": "라이브러리", "m.patches": "패치", "pt.upload": "패치 올리기", "m.upload": "올리기", "m.nsz": "파일 압축", "m.inbox": "임시 공유",
+    "m.overview": "서버 현황", "m.library": "라이브러리", "m.patches": "패치", "pt.upload": "패치 올리기", "m.upload": "업로드", "m.nsz": "파일 압축", "m.inbox": "임시 공유",
     "m.featured": "홈 화면 구성", "m.trash": "휴지통", "m.retro": "레트로 게임", "m.people": "계정과 기기",
     "m.alerts": "알림 설정", "m.alertLog": "알림 기록", "m.saves": "세이브", "m.titles": "이름과 소개", "m.integrity": "무결성 검사", "m.organize": "임시 폴더", "m.client": "클라이언트 배포", "m.xfer": "다운로드 기록", "m.clients": "클라이언트 로그", "m.deny": "차단과 거부",
     "m.grpGames": "게임", "m.grpOps": "기록", "m.grpSet": "설정", "m.grpFiles": "파일 관리", "m.grpSec": "보안", "m.menu": "메뉴",

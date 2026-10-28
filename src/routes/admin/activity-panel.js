@@ -17,7 +17,7 @@ import { icon } from "../../views/icons.js";
 export const ACTIVITY_CSS = /* css */ `
 .hdr-right{display:flex;align-items:center;gap:8px}
 .activity-account{position:relative}
-.activity-account>.pop-list{width:min(440px,calc(100vw - 24px));min-width:0;max-height:min(80dvh,760px);overflow:auto}
+.activity-account>.pop-list{width:min(300px,calc(100vw - 24px));min-width:0;max-height:min(80dvh,760px);overflow:auto}
 .activity-account .ico{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .activity-account [hidden]{display:none!important}
 .activity-account .account-links{display:grid;gap:2px}

@@ -311,10 +311,11 @@ export default function adminPageRouter() {
       const raw = page.param === "tab" ? req.query.tab : req.query.view;
       const view = typeof raw === "string" ? raw.slice(0, 40) : "";
       // Patches and saves were views of the games page before they got pages of their own.
-      if (page.path === "/admin/games" && (view === "patches" || view === "saves")) {
+      // Its server tab went into the server settings page.
+      if (page.path === "/admin/games" && (view === "patches" || view === "saves" || view === "server")) {
         const rest = { ...req.query };
         delete rest.view;
-        return redirectKeeping(res, `/admin/${view}`, rest);
+        return redirectKeeping(res, view === "server" ? "/admin/settings/server" : `/admin/${view}`, rest);
       }
       // The split pages of the redesign carry only their own markup and script.
       const split = splitPageFor(page, view);

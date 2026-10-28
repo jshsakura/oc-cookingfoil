@@ -37,23 +37,22 @@ export const ADMIN_PAGES = [
   // people
   { path: "/admin/users", tab: "users", label: "s.users", group: "people", icon: "users", count: "account-count" },
   { path: "/admin/devices", tab: "devices", label: "s.devices", group: "people", icon: "device", count: "pending-count" },
-  // records and jobs
-  { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops", icon: "download" },
+  { path: "/admin/client", tab: "client", label: "m.client", group: "people", icon: "download" },
+  // jobs and records
   { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "ops", icon: "shrink" },
+  { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops", icon: "download" },
   { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops", icon: "device" },
   { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", icon: "lock", count: "lock-count" },
   { path: "/admin/logs/alerts", tab: "alerts", sub: "history", label: "m.alertLog", group: "ops", icon: "bell" },
-  // settings: how the server runs
+  // settings: how the server runs, who may sign in, how the admin signs in, the tokens automation uses.
+  // Login and admin security still share the old "security" area until Stage B splits it.
   { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", group: "set", icon: "sliders" },
+  { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", group: "set", icon: "login", shared: true },
+  { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", group: "set", icon: "lock", shared: true },
+  { path: "/admin/settings/notifications", tab: "alerts", label: "m.alerts", group: "set", icon: "bell" },
   { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", group: "set", icon: "package" },
   { path: "/admin/settings/plugins", tab: "settings", sub: "plugins", label: "m.setPlugins", group: "set", icon: "puzzle" },
-  { path: "/admin/settings/notifications", tab: "alerts", label: "m.alerts", group: "set", icon: "bell" },
-  { path: "/admin/client", tab: "overview", label: "m.client", anchor: "client-release", group: "set", icon: "download" },
-  // security: who may sign in, how the admin signs in, the tokens automation uses.
-  // Login and admin security still share the old "security" area until Stage B splits it.
-  { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", group: "sec", icon: "login", shared: true },
-  { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", group: "sec", icon: "lock", shared: true },
-  { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "sec", icon: "key" },
+  { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "set", icon: "key" },
 ];
 
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
@@ -67,7 +66,6 @@ const GROUPS = {
   people: { label: "m.people", sum: "people", icon: "users" },
   ops: { label: "m.grpOps", sum: "ops", icon: "log" },
   set: { label: "m.grpSet", icon: "sliders" },
-  sec: { label: "m.grpSec", icon: "lock" },
 };
 
 /** The page a legacy "#tab" hash belongs to, so old links land on real paths. */
@@ -75,7 +73,7 @@ export const PATH_FOR_TAB = {
   overview: "/admin", users: "/admin/users", devices: "/admin/devices", settings: "/admin/settings/server",
   alerts: "/admin/settings/notifications", logs: "/admin/logs/downloads", featured: "/admin/featured",
   library: "/admin/games", organize: "/admin/incoming/temp", nsz: "/admin/convert", upload: "/admin/upload", inbox: "/admin/inbox",
-  homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash", patches: "/admin/patches", saves: "/admin/saves",
+  homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash", client: "/admin/client", patches: "/admin/patches", saves: "/admin/saves",
 };
 
 const countSpan = (id, withIds) => `<span class="count"${withIds ? ` id="${id}"` : ` data-count-id="${id}"`} hidden></span>`;
@@ -249,7 +247,7 @@ function pathForHash(parts){const [tab,sub]=parts;
   if(tab==='logs')return ({client:'/admin/logs/clients',deny:'/admin/logs/security'})[sub]||'/admin/logs/downloads';
   return H2P[tab]||'/admin';}
 // The temp folder, patches and saves were tabs of the games page; each is a page of its own now.
-if(PAGE.path==='/admin/games'){const gone={organize:'/admin/incoming/temp',patches:'/admin/patches',saves:'/admin/saves'};
+if(PAGE.path==='/admin/games'){const gone={organize:'/admin/incoming/temp',patches:'/admin/patches',saves:'/admin/saves',server:'/admin/settings/server'};
   const q=new URLSearchParams(location.search);const to=gone[q.get('view')]||gone[location.hash.split('/')[1]];
   if(to&&(q.get('view')||location.hash.startsWith('#library/'))){q.delete('view');const s=q.toString();location.replace(to+(s?'?'+s:''));return;}}
 const legacy=location.hash.slice(1).split('/');
