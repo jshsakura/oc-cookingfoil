@@ -132,7 +132,7 @@ function renderApproved(){const d=devicesShown;if(!d)return;
   const approved=(d.approved||[]).filter(unused).sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
   const counts={};for(const a of approved)counts[whose(a)]=(counts[whose(a)]||0)+1;
   const devRows=(slice)=>{const rows=[];let group=null;
-  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+topFill('pp.count',{n:counts[group]}));c.colSpan=8;h.append(c);rows.push(h);}
+  for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+topFill('pp.count',{n:counts[group]})+(a.suspended?' · '+topText(a.suspended==='account-gone'?'pp.suspendedGone':'pp.suspendedOff'):''));c.colSpan=8;h.append(c);rows.push(h);}
     const tr=el('tr');
     const ipc=td(a.lastIp?null:'—',a.lastIp?'':'dim');if(a.lastIp)ipc.append(ipButton(a.lastIp,'acc.ipHistory',()=>openDeviceIps(a)));
     tr.append(td(a.label||'—'),seenCell(a),ipc,td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));

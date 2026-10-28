@@ -25,7 +25,7 @@
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
  * anything" is no longer a reachable state.
  */
-import { bindingOf, giveToAccount, ownerChoices } from "../security/device-owner.js";
+import { bindingOf, giveToAccount, ownerChoices, suspension } from "../security/device-owner.js";
 import { pluginEvents } from "../plugins/instance.js";
 import { gravatarUrl } from "../helpers/gravatar.js";
 import { clientRows } from "./device-pair.js";
@@ -474,7 +474,7 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     const snapshot = store.devicesSnapshot();
     const withCode = (row) => ({ ...row, code: deviceCode(row.deviceKey) });
-    const approved = snapshot.approved.map(withCode);
+    const approved = snapshot.approved.map((row) => ({ ...withCode(row), suspended: suspension(row.deviceKey) }));
     res.json({ pairingEnabled: devicePairing, ...snapshot, pending: snapshot.pending.map(withCode), approved: req.apiToken ? approved.map(withoutIps) : approved, clients: clientRows(), owners: ownerChoices() });
   });
 

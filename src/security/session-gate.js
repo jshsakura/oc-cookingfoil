@@ -13,12 +13,15 @@
  *   revoked   the account or console may no longer sign in, its password changed,
  *             or pairing was switched off
  *   invalid   not one of ours, or from another console
+ * A console whose account is turned off or removed is answered 403 with
+ * X-CookingFoil-Session: suspended and { error: "suspended", reason } (device-owner.js
+ * suspension), on every lane: it keeps its key and is let in again once the account is.
  * Only "invalid" is written to the denial log. A locked-out address gets the
  * same 429 as at the sign-in wall. The device key is a header, not a secret:
  * tying a token to it stops casual reuse, and its expiry is what bounds a
  * token taken off the network.
  */
-import { deviceOwner } from "./device-owner.js";
+import { deviceOwner, suspension } from "./device-owner.js";
 import * as session from "./session-token.js";
 import { stillAllowed } from "./link-identity.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
@@ -43,6 +46,14 @@ function refuse(req, res, verdict, why = verdict) {
   return res.status(401).json({ error: `session ${verdict}` });
 }
 
+/** Refuses a console whose account is off or removed, saying why; the console keeps its key (see above). */
+export function refuseSuspended(req, res, reason) {
+  noteRefusal(req, res, 403, `suspended-${reason}`, { proven: true });
+  res.set("Cache-Control", "no-store");
+  res.set(SESSION_HEADER, "suspended");
+  return res.status(403).json({ error: "suspended", reason });
+}
+
 export default function sessionGate({ now = () => Date.now() } = {}) {
   return (req, res, next) => {
     const token = session.presented(req.headers.authorization);
@@ -59,6 +70,8 @@ export default function sessionGate({ now = () => Date.now() } = {}) {
     if (!stillAllowed(sub)) return refuse(req, res, "revoked");
     // A paired console's session needs pairing to still be on.
     if (!sub.acct && !devicePairing) return refuse(req, res, "revoked", "revoked-pairing-off");
+    const suspended = sub.acct ? null : suspension(sub.dev);
+    if (suspended) return refuseSuspended(req, res, suspended);
     req.sessionLane = true;
     vouch(res);
     // The console the token was made for, checked against its header above (device-admin.js).
