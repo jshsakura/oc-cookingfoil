@@ -86,6 +86,8 @@ test('the game picker keeps its list through Korean typing, shows a filled value
 
 // The home picks row: a list of every game with a tick box, filtered by its own search box.
 test('a home picks row marks games from its list, one found by search, unmarks one, and saves', async ({ page }) => {
+  // Two rescans and their polls do not fit the default 30 s on a loaded machine.
+  test.slow();
   const cookie = await signIn(page);
   const headers = await headersOf(page, cookie);
   fs.writeFileSync(secondFile, '');
@@ -137,8 +139,9 @@ test('a home picks row marks games from its list, one found by search, unmarks o
     await expect.poll(async () => (await (await page.request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
       .toEqual([SECOND, ID]);
   } finally {
-    await page.request.put('/admin/api/featured', { data: { collections: [] }, headers });
+    // First and without a request, so the extra game leaves the disk even if the test ran out of time.
     fs.rmSync(secondFile, { force: true });
+    await page.request.put('/admin/api/featured', { data: { collections: [] }, headers });
     // The next specs count the library's files: wait until the extra game is gone from it.
     await page.request.post('/admin/api/library/rescan', { headers, data: {} });
     await expect.poll(async () => (await (await page.request.get(`/admin/api/games/search?q=${SECOND}`, { headers })).json()).total, { timeout: 15_000 }).toBe(0);
