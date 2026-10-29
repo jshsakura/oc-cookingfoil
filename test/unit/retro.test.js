@@ -98,6 +98,25 @@ test("the pack list leaves out a trash folder and a partial copy wherever they s
   assert.deepEqual((await listPack(dir)).map((f) => f.path), ["retroarch/cores/a_libretro_libnx.nro"]);
 });
 
+test("the pack list sends a core's own config and options but no game's", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "retro-pack-gamecfg-"));
+  const rels = [
+    "config/global.cfg",
+    "config/Mupen64Plus-Next/Mupen64Plus-Next.opt",
+    "config/Mupen64Plus-Next/Mupen64Plus-Next.cfg",
+    "config/Mupen64Plus-Next/슈퍼 마리오 64 (Super Mario 64) [J-K v1 한글].opt",
+    "config/Snes9x/Super Mario World (USA).cfg",
+    "config/Snes9x/Super Mario World (USA).rmp",
+    "config/Snes9x/extra/Snes9x.opt",
+  ];
+  for (const rel of rels) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), "x");
+  }
+  assert.deepEqual((await listPack(dir)).map((f) => f.path), ["retroarch/config/Mupen64Plus-Next/Mupen64Plus-Next.cfg", "retroarch/config/Mupen64Plus-Next/Mupen64Plus-Next.opt", "retroarch/config/global.cfg"]);
+  assert.equal(sdPathOf("config/Snes9x/Super Mario World (USA).cfg"), null, "a game's own config belongs to its bundle");
+});
+
 test("bezel configs follow the Bezel Project layout and keep the core's aspect ratio", () => {
   const systems = loadSystems("/nonexistent");
   const game = { system: "snes", rel: "Super Mario World (USA).sfc", name: "Super Mario World (USA)" };
@@ -352,10 +371,10 @@ test("the retro API lists, pages, bundles and serves the base pack", async () =>
     assert.equal(untar(Buffer.from(await pack.arrayBuffer())).get("switch/retroarch_switch.nro"), "NRO");
     assert.equal((await get("/api/retro/base-pack")).status, 200, "the older path still works");
     // A file renamed on disk after the manifest was read is served under its new name.
-    const renamed = path.join(dir, "retroarch/config/Mupen64Plus-Next/슈퍼 마리오 64 [J-K 한글].opt");
+    const renamed = path.join(dir, "retroarch/config/Mupen64Plus-Next/Mupen64Plus-Next.opt");
     fs.mkdirSync(path.dirname(renamed), { recursive: true });
     fs.writeFileSync(renamed, "OPT");
-    const renamedUrl = "/api/retro/base-pack/file/" + "retroarch/config/Mupen64Plus-Next/슈퍼 마리오 64 [J-K 한글].opt".split("/").map(encodeURIComponent).join("/");
+    const renamedUrl = "/api/retro/base-pack/file/" + "retroarch/config/Mupen64Plus-Next/Mupen64Plus-Next.opt".split("/").map(encodeURIComponent).join("/");
     const got = await get(renamedUrl);
     assert.equal(got.status, 200, "a file the manifest has not caught up with yet is still served");
     assert.equal(await got.text(), "OPT");
