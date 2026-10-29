@@ -11,6 +11,7 @@
  * A console already waiting is always let through: its own polling never counts.
  * In memory only, with a bounded table.
  */
+import { clientVersionOf } from "./client-version.js";
 import * as store from "./store.js";
 import { clientIp } from "./deny.js";
 
@@ -74,7 +75,7 @@ export function resetForTests() {
 export function recordPending(req, deviceKey, { message, name, download } = {}, now = Date.now()) {
   const verdict = limit.admit(clientIp(req), deviceKey, now);
   if (!verdict.ok) return verdict;
-  store.recordPendingDevice(deviceKey, { message, name, download, quiet: verdict.quiet, from: { ip: clientIp(req), agent: req.get?.("user-agent") ?? req.headers?.["user-agent"] ?? null } });
+  store.recordPendingDevice(deviceKey, { message, name, download, quiet: verdict.quiet, from: { ip: clientIp(req), agent: req.get?.("user-agent") ?? req.headers?.["user-agent"] ?? null, version: clientVersionOf(req) } });
   return { ok: true };
 }
 

@@ -6,6 +6,7 @@
  * became undiagnosable. Now every deny is recorded, labelled, and echoed back
  * on the response.
  */
+import { clientVersionOf } from "./client-version.js";
 import * as store from "./store.js";
 import { DENY, hintFor } from "./deny-reasons.js";
 import debug from "../debug.js";
@@ -37,6 +38,7 @@ export function recordDeny(req, { reason, status, deviceKey = null, user = null,
     method: req?.method ?? null,
     path: pathForLog(req),
     ua: (req?.get?.("user-agent") || "").slice(0, 120) || null,
+    version: clientVersionOf(req),
     deviceKey,
     user,
     detail,
