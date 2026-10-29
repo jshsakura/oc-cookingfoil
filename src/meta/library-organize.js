@@ -342,6 +342,7 @@ export async function moveAcross(from, to) {
  *                      a failed read is tried again when nacpEpoch() changes or a sweep asks to retry
  *   nacpEpoch()        what a NACP read depends on (keys, nstool), as a comparable value
  *   retroDir, homebrewDir, systems()   where the other files go, and loadSystems()
+ *   identifyRoms(files, refs, systems)   rel → { systems, name } for the files a hash database lists (drop-hash.js); optional
  *   readRefs(abs)      the files a .cue / .m3u names, relative to its folder
  *   begin(kind, opts)  an activity job
  *   rescan()           after games moved; rescanRetro(), rescanHomebrew() after those
@@ -429,7 +430,8 @@ export function createOrganizer(deps) {
     const plan = planOrganize({ incoming: items, romsRels: await deps.romsRels(), adminName, titledbName, now });
     const refs = await listRefs(others);
     const systems = deps.systems();
-    const extras = planExtras({ items: others, refs, sniffed: await sniffSystems(others, refs, systems), systems });
+    const identified = deps.identifyRoms ? await deps.identifyRoms(others, refs, systems).catch(() => new Map()) : new Map();
+    const extras = planExtras({ items: others, refs, sniffed: await sniffSystems(others, refs, systems), identified, systems });
     const moves = [...plan.moves.map((m) => ({ ...m, root: "games" })), ...extras.moves];
     const rootDir = { games: deps.romsDir, retro: deps.retroDir, homebrew: deps.homebrewDir };
     const movedIn = { games: 0, retro: 0, homebrew: 0 };

@@ -15,6 +15,8 @@ import { keysFile } from "../../security/prod-keys.js";
 import { createOrganizer } from "../../meta/library-organize.js";
 import { cleanName, nameIn } from "../../meta/organize-naming.js";
 import { loadSystems } from "../../retro/systems.js";
+import { hashDb } from "../../retro/hash-db.js";
+import { createDropHasher } from "../../meta/drop-hash.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { refreshManual } from "../homebrew.js";
 import fsp from "fs/promises";
@@ -44,6 +46,8 @@ async function nacpEpoch() {
   return `${keys}|${(await resolveBinary()) ?? "none"}`;
 }
 
+const dropHasher = createDropHasher({ lookup: hashDb.lookup });
+
 export const defaultOrganizer = createOrganizer({
   incomingDir: env.incomingDir,
   romsDir: env.romsDirPath,
@@ -58,6 +62,10 @@ export const defaultOrganizer = createOrganizer({
   retroDir: env.retroDir,
   homebrewDir: env.homebrewDir,
   systems: () => loadSystems(env.retroDir),
+  identifyRoms: (files, refs, systems) => {
+    hashDb.ensureFresh(systems);
+    return dropHasher.identify(files, refs, systems);
+  },
   readRefs: async (abs) => retroCatalog.referencedFiles(path.extname(abs).toLowerCase(), await fsp.readFile(abs, "utf8")),
   begin: activity.begin,
   rescan: () => libraryCache.invalidate({ rescan: true }),
