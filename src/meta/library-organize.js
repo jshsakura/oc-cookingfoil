@@ -30,6 +30,7 @@ import path from "path";
 import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { EXTRA_REASON_TEXT, planExtras } from "./incoming-extras.js";
+import { sniffSystems } from "./drop-sniff.js";
 import { cleanName, firstName, freeFileName, isMeaningless, nameFromFile } from "./organize-naming.js";
 import { fileKey } from "../helpers/hash-cache.js";
 import { dlcDisplayName } from "./dlc-name.js";
@@ -426,7 +427,9 @@ export function createOrganizer(deps) {
     const present = new Set(files.map((f) => f.abs));
     for (const abs of nacpNames.keys()) if (!present.has(abs)) nacpNames.delete(abs);
     const plan = planOrganize({ incoming: items, romsRels: await deps.romsRels(), adminName, titledbName, now });
-    const extras = planExtras({ items: others, refs: await listRefs(others), systems: deps.systems() });
+    const refs = await listRefs(others);
+    const systems = deps.systems();
+    const extras = planExtras({ items: others, refs, sniffed: await sniffSystems(others, refs, systems), systems });
     const moves = [...plan.moves.map((m) => ({ ...m, root: "games" })), ...extras.moves];
     const rootDir = { games: deps.romsDir, retro: deps.retroDir, homebrew: deps.homebrewDir };
     const movedIn = { games: 0, retro: 0, homebrew: 0 };

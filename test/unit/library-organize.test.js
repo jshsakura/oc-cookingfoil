@@ -395,7 +395,7 @@ test("every hold reason and the drop box's own words are in ko, en, ja and zh", 
   }
   // `reason` is English (a token, a script); the panel says it in its language by the code.
   assert.equal(REASONS.waitBase, REASON_TEXT.en.waitBase);
-  assert.equal(REASONS.noSystemHint, REASON_TEXT.en.noSystemHint, "the other files' reasons are part of it");
+  assert.equal(REASONS.noSystem, REASON_TEXT.en.noSystem, "the other files' reasons are part of it");
 });
 
 test("the NACP cache knows a file by its inode and ctime too, and retries a failed read", async () => {
