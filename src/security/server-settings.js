@@ -60,6 +60,8 @@ export const SETTINGS = {
   titledbSource: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || URL_RE.test(v) },
   ratingSync: bool,
   retroMeta: bool,
+  // Download the retro hash lists the drop box recognizes ROMs by (retro/hash-db.js).
+  retroDb: bool,
   // Ready-made ROM and BIOS folders (retro/scaffold.js).
   retroScaffold: bool,
   // The RetroArch bundle's address; empty is the official one in the pack lock. The lock's SHA-256 decides what is accepted.

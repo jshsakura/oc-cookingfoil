@@ -47,7 +47,7 @@ export function createDropHasher({ lookup }) {
       for (const { crc32, size } of hit.crcs) {
         const dumps = lookup(crc32, size).filter((d) => systems[d.system]);
         if (!dumps.length) continue;
-        out.set(f.rel, { systems: [...new Set(dumps.map((d) => d.system))], name: dumps[0].name });
+        out.set(f.rel, { systems: [...new Set(dumps.map((d) => d.system))], name: dumps[0].name, crc32 });
         break;
       }
     }

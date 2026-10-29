@@ -15,6 +15,7 @@ import { keysFile } from "../../security/prod-keys.js";
 import { createOrganizer } from "../../meta/library-organize.js";
 import { cleanName, nameIn } from "../../meta/organize-naming.js";
 import { loadSystems } from "../../retro/systems.js";
+import { koreanName } from "../../retro/ko-names.js";
 import { hashDb } from "../../retro/hash-db.js";
 import { createDropHasher } from "../../meta/drop-hash.js";
 import * as retroCatalog from "../../retro/catalog.js";
@@ -63,8 +64,14 @@ export const defaultOrganizer = createOrganizer({
   homebrewDir: env.homebrewDir,
   systems: () => loadSystems(env.retroDir),
   identifyRoms: (files, refs, systems) => {
-    hashDb.ensureFresh(systems);
-    return dropHasher.identify(files, refs, systems);
+    if (env.retroDb) hashDb.ensureFresh(systems);
+    return dropHasher.identify(files, refs, systems).then((found) => {
+      for (const dump of found.values()) {
+        const ko = dump.systems.length === 1 ? koreanName(dump.systems[0], { crc32: dump.crc32 })?.ko : null;
+        if (ko) dump.ko = ko;
+      }
+      return found;
+    });
   },
   readRefs: async (abs) => retroCatalog.referencedFiles(path.extname(abs).toLowerCase(), await fsp.readFile(abs, "utf8")),
   begin: activity.begin,

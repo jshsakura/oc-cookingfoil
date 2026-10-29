@@ -27,6 +27,7 @@
 import { constants } from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import debug from "../debug.js";
 import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { EXTRA_REASON_TEXT, planExtras } from "./incoming-extras.js";
@@ -453,6 +454,16 @@ export function createOrganizer(deps) {
         failed.push(err.code === "ECHANGED" ? heldItem(m.from, "settling", m) : heldItem(m.from, "moveFailed", m, err.code ?? err.message));
       }
       job?.step(i + 1, m.to);
+    }
+    const placed = new Set(moves.filter((m) => !failed.some((f) => f.rel === m.from)).map((m) => m.to));
+    for (const w of extras.writes) {
+      if (!w.after.every((t) => placed.has(t))) continue;
+      const to = path.join(rootDir[w.root], w.to);
+      try {
+        await fsp.writeFile(to, w.content, { flag: "wx" });
+      } catch (err) {
+        if (err.code !== "EEXIST") debug.error("organize: could not write %s: %s", to, err.message);
+      }
     }
     const moved = movedIn.games + movedIn.retro + movedIn.homebrew;
     job?.done(activityText("act.organized", { n: moved }));

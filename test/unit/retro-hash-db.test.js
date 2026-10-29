@@ -100,10 +100,93 @@ test("a sweep sorts ROMs by their hash, ahead of the extension and the folder th
     // After: the hash decides.
     const after = make((files, refs, systems) => hasher.identify(files, refs, systems));
     assert.equal((await after.sweep()).moved, 2);
-    assert.ok(fs.existsSync(path.join(root, "retro/roms/md/in-wrong-folder.bin")));
-    assert.ok(fs.existsSync(path.join(root, "retro/roms/md/loose.bin")));
+    assert.ok(fs.existsSync(path.join(root, "retro/roms/md/Sonic (USA).bin")));
+    assert.ok(fs.existsSync(path.join(root, "retro/roms/md/Columns (USA).bin")));
     assert.deepEqual(after.view().recent.slice(0, 2).map((m) => [m.by, m.dbName]).sort(), [["hash", "Columns (USA)"], ["hash", "Sonic (USA)"]]);
     assert.deepEqual(after.view().held.map((h) => h.rel), ["unknown.bin"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+const setup = (files, lists, { cue = false } = {}) => {
+  const root = tmp();
+  const old = (Date.now() - 10 * 60_000) / 1000;
+  for (const [rel, body] of Object.entries(files)) {
+    const abs = path.join(root, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, body);
+    fs.utimesSync(abs, old, old);
+  }
+  const hasher = createDropHasher({ lookup: (crc) => lists[crc] ?? [] });
+  const org = createOrganizer({
+    incomingDir: path.join(root, "incoming"),
+    romsDir: path.join(root, "games"),
+    retroDir: path.join(root, "retro"),
+    homebrewDir: path.join(root, "homebrew"),
+    systems: () => DEFAULT_SYSTEMS,
+    readRefs: async (abs) => (cue ? [fs.readFileSync(abs, "latin1").match(/FILE "([^"]+)"/)[1]] : []),
+    romsRels: async () => [],
+    ...createIdentifier({ readIdentity: async () => null, readTicketNames: async () => [] }),
+    nameOf: () => null,
+    begin: () => ({ step() {}, done() {} }),
+    rescan: () => {},
+    rescanRetro: () => {},
+    rescanHomebrew: () => {},
+    identifyRoms: async (f, r, s) => {
+      const found = await hasher.identify(f, r, s);
+      for (const d of found.values()) if (d.name.startsWith("Dragon")) d.ko = "드래곤 퀘스트";
+      return found;
+    },
+  });
+  return { root, org };
+};
+
+test("a game's discs go into one folder named after the list, with an .m3u made for it", async () => {
+  const d1 = Buffer.from("disc one"), d2 = Buffer.from("disc two");
+  const { root, org } = setup(
+    { "incoming/a.chd": d1, "incoming/b.chd": d2, "incoming/lone.chd": Buffer.from("lone") },
+    {
+      [crcOf(d1)]: [{ system: "ps1", name: "Final Fantasy VII (USA) (Disc 1)" }],
+      [crcOf(d2)]: [{ system: "ps1", name: "Final Fantasy VII (USA) (Disc 2)" }],
+      [crcOf(Buffer.from("lone"))]: [{ system: "ps1", name: "Crash Bandicoot (USA)" }],
+    },
+  );
+  try {
+    assert.equal((await org.sweep()).moved, 3);
+    const dir = path.join(root, "retro/roms/ps1/Final Fantasy VII (USA)");
+    assert.deepEqual(fs.readdirSync(dir).sort(), ["Final Fantasy VII (USA) (Disc 1).chd", "Final Fantasy VII (USA) (Disc 2).chd", "Final Fantasy VII (USA).m3u"]);
+    assert.equal(fs.readFileSync(path.join(dir, "Final Fantasy VII (USA).m3u"), "utf8"), "Final Fantasy VII (USA) (Disc 1).chd\nFinal Fantasy VII (USA) (Disc 2).chd\n");
+    assert.ok(fs.existsSync(path.join(root, "retro/roms/ps1/Crash Bandicoot (USA).chd")), "a single disc stays a file");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a cue and its tracks keep their file names inside a folder named after the list, and a known Korean title leads the name", async () => {
+  const bin = Buffer.from("track one");
+  const rom = Buffer.from("a rom");
+  const { root, org } = setup(
+    { "incoming/x.cue": 'FILE "x.bin" BINARY\n', "incoming/x.bin": bin, "incoming/dq.sfc": rom },
+    { [crcOf(bin)]: [{ system: "ps1", name: "Wild Arms (USA)" }], [crcOf(rom)]: [{ system: "snes", name: "Dragon Quest III (Japan)" }] },
+    { cue: true },
+  );
+  try {
+    assert.equal((await org.sweep()).moved, 3);
+    assert.deepEqual(fs.readdirSync(path.join(root, "retro/roms/ps1/Wild Arms (USA)")).sort(), ["x.bin", "x.cue"]);
+    assert.ok(fs.existsSync(path.join(root, "retro/roms/snes/드래곤 퀘스트 (Dragon Quest III (Japan)).sfc")));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a disc whose sibling is not in the drop box stays one file named after the list", async () => {
+  const d1 = Buffer.from("only disc one");
+  const { root, org } = setup({ "incoming/a.chd": d1 }, { [crcOf(d1)]: [{ system: "ps1", name: "Xenogears (USA) (Disc 1)" }] });
+  try {
+    await org.sweep();
+    assert.ok(fs.existsSync(path.join(root, "retro/roms/ps1/Xenogears (USA) (Disc 1).chd")));
+    assert.ok(!fs.existsSync(path.join(root, "retro/roms/ps1/Xenogears (USA)")));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
