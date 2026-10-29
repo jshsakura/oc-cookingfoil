@@ -290,7 +290,8 @@ const telegramLang = envString("COOK_TELEGRAM_LANG", "").trim().toLowerCase();
 // Telegram user ids who may press them in a group chat (comma list).
 const telegramApprovers = envString("COOK_TELEGRAM_APPROVERS", "").replace(/\s+/g, "");
 // Hours between release checks of each followed repository; "check now" on the admin page ignores it.
-const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 6, { min: 1 });
+// A check is a conditional request, and GitHub does not count an unchanged answer (304) to a request with a token.
+const homebrewCheckHours = envNumber("COOK_HOMEBREW_CHECK_HOURS", 0.5, { min: 0.25 });
 
 // Device pairing: the /api/pair/* endpoints, and an approved (deviceKey + accessKey)
 // pair is how a console connects. On unless set to false.

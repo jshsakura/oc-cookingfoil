@@ -39,7 +39,9 @@ import { fileKey } from "../helpers/hash-cache.js";
 import { isTrashName } from "../library/trash.js";
 
 /** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
-export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+export const CHECK_INTERVAL_MS = 30 * 60 * 1000;
+// What a download or a release read answers when the release or its file was deleted on GitHub.
+const GONE = new Set([404, 410]);
 const MAX_NRO_BYTES = 128 * 1024 * 1024;
 const RELEASE_NOTES_MAX = 6000;
 const REPO_FACTS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -782,7 +784,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     return { "User-Agent": USER_AGENT, Accept: "application/vnd.github+json", ...(auth ? { Authorization: `Bearer ${auth}` } : {}), ...extra };
   };
 
-  async function check(id, { force = false, onAsk = null } = {}) {
+  async function check(id, { force = false, onAsk = null, fetchBuild = true } = {}) {
     const repo = wanted.get(id);
     const prev = states.get(id);
     // A failing repository is retried hourly (not on every poll), a healthy one once per check interval.
@@ -801,10 +803,10 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     if (res.status === 304) {
       save(id, { ...prev, checked_at: now(), error: null });
       // The first build may have failed to arrive; without it the app is not listed.
-      if (prev.cached?.layout !== LAYOUT_RULES) await ensureDownloaded(id);
+      if (fetchBuild && prev.cached?.layout !== LAYOUT_RULES) await ensureDownloaded(id);
       return;
     }
-    if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`GitHub answered ${res.status}`), { status: res.status });
     const release = await res.json();
     let asset = pickAsset(release, repo, pattern);
     const assets = usableAssets(release).map((a) => a.name);
@@ -833,7 +835,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       candidates: candidates.map(brief),
       candidate_key: candidateKey && prev?.candidate_key === candidateKey ? candidateKey : null,
     });
-    if (prev?.cached?.layout !== LAYOUT_RULES) await ensureDownloaded(id);
+    if (fetchBuild && prev?.cached?.layout !== LAYOUT_RULES) await ensureDownloaded(id);
   }
 
   /** Fetches one release file to `part`, checking its size and digest against the release. */
@@ -844,7 +846,7 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
       headers: { "User-Agent": USER_AGENT },
       signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(`download answered ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`download answered ${res.status}`), { status: res.status });
     // Stop as soon as the body runs past what the release promised.
     let received = 0;
     const capped = async function* (source) {
@@ -957,8 +959,12 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     }
   }
 
-  /** The current build on disk ({ path, sha256 }), fetching it first when needed. */
-  async function ensureDownloaded(id) {
+  /**
+   * The current build on disk ({ path, sha256 }), fetching it first when needed. A release deleted on GitHub
+   * leaves its file answering 404: the latest release is read again once and its file fetched instead. When
+   * that still finds nothing the error carries status 404.
+   */
+  async function ensureDownloaded(id, { reread = true } = {}) {
     const state = states.get(id);
     if (!wanted.has(id) || !state?.asset) throw new Error("unknown homebrew");
     const current = () => {
@@ -968,7 +974,16 @@ export function createTracker({ repos = [], sources = null, stateDir, fetchImpl 
     };
     if (current() && fs.existsSync(current().path)) return current();
     if (!downloads.has(id)) downloads.set(id, download(id).finally(() => downloads.delete(id)));
-    await downloads.get(id);
+    try {
+      await downloads.get(id);
+    } catch (err) {
+      if (!GONE.has(err.status)) throw err;
+      const was = states.get(id).asset?.id;
+      if (reread) await check(id, { force: true, fetchBuild: false });
+      if (!reread || states.get(id).asset?.id === was) throw Object.assign(new Error(`the release file is gone (${err.message})`), { status: 404 });
+      debug.log("homebrew: %s: the release file was gone, fetching %s instead", wanted.get(id), states.get(id).tag);
+      return ensureDownloaded(id, { reread: false });
+    }
     const file = current();
     if (!file) throw new Error("a newer release arrived during the download");
     return file;

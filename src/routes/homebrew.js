@@ -580,6 +580,8 @@ export function homebrewRouter({ service = defaultService } = {}) {
       file = await service.download(req.params.id);
     } catch (err) {
       debug.error("homebrew: %s download failed: %s", req.params.id, err.message);
+      // Gone on GitHub, even after reading the latest release again: there is no build to fetch.
+      if (err.status === 404) return res.status(404).json({ error: "the build is no longer on GitHub" });
       return res.status(502).json({ error: "the build could not be fetched" });
     }
     if (!file) return res.status(404).json({ error: "no such homebrew" });
