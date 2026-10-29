@@ -20,7 +20,7 @@ export function adminActor(req) {
 /** What a device approved from /admin records as its approver: the signed-in account, else "admin". */
 export function adminApprover(req) {
   const actor = adminActor(req);
-  if (actor?.kind === "google") return `google:${actor.email}`;
+  if (actor?.kind === "google") return googleAccounts.ownerOf(actor.sub);
   return actor?.name ?? "admin";
 }
 
@@ -40,7 +40,5 @@ export const isSelf = (req, kind, id) => {
 /** What a device approved by an automation token records as approver: the owner as adminApprover would write it. */
 export function tokenApprover(owner) {
   if (typeof owner !== "string" || !owner) return "admin";
-  if (!owner.startsWith("google:")) return owner;
-  const email = googleAccounts.get(owner.slice(7))?.email;
-  return email ? `google:${email}` : owner;
+  return googleAccounts.canonicalOwner(owner);
 }

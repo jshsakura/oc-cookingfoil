@@ -62,7 +62,7 @@ export function locate(abs) {
 /** Who asked, as the trash and the journal record it. */
 export function actorOf(req) {
   if (req?.apiToken) return { type: "token", name: req.apiToken.label || req.apiToken.id, id: req.apiToken.id };
-  const name = req?.webUser?.kind === "google" ? `google:${req.webUser.email ?? req.webUser.sub}` : req?.webUser?.name ?? req?.auth?.user ?? "admin";
+  const name = req?.webUser?.kind === "google" ? `google:${req.webUser.sub}` : req?.webUser?.name ?? req?.auth?.user ?? "admin";
   return { type: "admin", name };
 }
 export const job = (name) => ({ type: "job", name });

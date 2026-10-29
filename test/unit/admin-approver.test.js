@@ -5,8 +5,8 @@ import { adminApprover } from "../../src/security/admin-actor.js";
 // A console approved from /admin is recorded under the account that approved it,
 // so a Google-only library never files consoles under "관리자".
 test("an approval from /admin is recorded under the signed-in Google account", () => {
-  const req = { webUser: { kind: "google", sub: "1", email: "admin@example.com", approver: "google:admin@example.com" } };
-  assert.equal(adminApprover(req), "google:admin@example.com");
+  const req = { webUser: { kind: "google", sub: "1", email: "admin@example.com", approver: "google:1" } };
+  assert.equal(adminApprover(req), "google:1", "by its sub, which an email change keeps");
 });
 
 test("an approval from /admin by a password account is recorded under its name", () => {

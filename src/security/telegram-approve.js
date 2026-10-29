@@ -29,7 +29,7 @@ import { ownerChoices } from "./device-owner.js";
 export const SPENT = translator()("spent");
 
 const isAdminChoice = ({ owner, kind }) =>
-  kind === "user" ? users.isAdmin(owner) : accounts.list().some((a) => `google:${a.email}` === owner && a.status === "approved" && a.role === "admin");
+  kind === "user" ? users.isAdmin(owner) : accounts.isAdmin(accounts.accountOfOwner(owner)?.sub);
 
 /** The owner to keep when `saver` saves the alert settings: the saver when it is an account, else what was kept. Pure over ownerChoices. */
 export function approvalOwnerFor(saver, kept) {
@@ -39,7 +39,8 @@ export function approvalOwnerFor(saver, kept) {
 /** The account a console approved from the chat goes to, or null: the saved owner while it is an active admin, else the only admin account. */
 export function approvalOwner(conf = integrations.get("telegram")) {
   const admins = ownerChoices().filter(isAdminChoice);
-  if (admins.some((c) => c.owner === conf.owner)) return conf.owner;
+  const kept = accounts.canonicalOwner(conf.owner);
+  if (admins.some((c) => c.owner === kept)) return kept;
   return admins.length === 1 ? admins[0].owner : null;
 }
 

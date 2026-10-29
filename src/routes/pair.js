@@ -125,13 +125,13 @@ import { recordDeny, DENY } from "../security/deny.js";
 import { passwordOwnerOk } from "../security/password-policy.js";
 
 
-/** Whether the account behind an approval may still sign in: "admin", a library account, or "google:<email>". */
+/** Whether the account behind an approval may still sign in: "admin", a library account, or "google:<sub>". */
 function ownerAllowed(owner) {
   if (owner === "admin") return true;
   if (typeof owner !== "string") return false;
   if (owner.startsWith("google:")) {
-    const email = owner.slice("google:".length);
-    return googleAccounts.list().some((a) => a.email === email && googleAccounts.isApproved(a.sub));
+    const a = googleAccounts.accountOfOwner(owner);
+    return Boolean(a) && googleAccounts.isApproved(a.sub);
   }
   // An enrollment an ID-and-password account made is not spent while that sign-in is off.
   return passwordOwnerOk() && users.isActive(owner);

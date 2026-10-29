@@ -5,7 +5,7 @@
  * disabled or given a new password, both are revoked with it.
  *
  * `owner` is what the server records as the approver: an account name, or
- * "google:<email>" for a Google account.
+ * "google:<sub>" for a Google account.
  */
 import * as store from "./store.js";
 import * as enrollTokens from "./enroll-tokens.js";

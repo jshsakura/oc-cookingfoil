@@ -73,6 +73,26 @@ export function signIn({ sub, email }, now = Date.now()) {
   return added;
 }
 
+/** What a Google account's consoles, downloads and lists are filed under: its sub, which never changes. */
+export const ownerOf = (sub) => `google:${sub}`;
+
+/**
+ * The account an owner string names, or null: "google:<sub>", or "google:<email>" as records made
+ * before ownerOf were filed (google-owner-migration.js rewrites those it can match at start).
+ */
+export function accountOfOwner(owner) {
+  if (typeof owner !== "string" || !owner.startsWith("google:")) return null;
+  const id = owner.slice("google:".length);
+  const a = accounts.get(id) ?? (id.includes("@") ? [...accounts.values()].find((x) => x.email?.toLowerCase() === id.toLowerCase()) : null);
+  return a ? { ...a } : null;
+}
+
+/** `owner` in the "google:<sub>" form when it names a known Google account, else as it is. */
+export const canonicalOwner = (owner) => {
+  const a = accountOfOwner(owner);
+  return a ? ownerOf(a.sub) : owner;
+};
+
 export function get(sub) {
   const a = accounts.get(sub);
   return a ? { ...a } : null;
