@@ -54,7 +54,7 @@ $('fb-crumb').addEventListener('click',(e)=>{if(!e.target.closest('button'))fbAd
 $('fb-addr').addEventListener('keydown',(e)=>{if(e.key==='Escape'){e.preventDefault();fbAddrClose();}
   else if(e.key==='Enter'){e.preventDefault();const to=$('fb-addr').value.split('/').map((p)=>p.trim()).filter(Boolean).join('/');fbAddrClose();fbGo(fb.root,to);}});
 $('fb-addr').addEventListener('blur',fbAddrClose);
-$('fb-deep').addEventListener('change',(e)=>{fb.deep=e.target.checked;if(fb.q){fb.page=1;fbLoad();}});
+$('fb-deep').addEventListener('change',(e)=>{fb.deep=e.target.checked;if(fb.q){fbLoad();}});
 // Letters typed on a row go to the first name that starts with them; one letter again steps to the next such name.
 const fbType={buf:'',t:0};
 $('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.length!==1||e.key===' '||e.ctrlKey||e.metaKey||e.altKey)return;
@@ -71,8 +71,7 @@ function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fb.clip={mod
   toast(topFill(mode==='cut'?'fb.clipCut':'fb.clipCopy',{n:num(rels.length)}));}
 async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,path:fb.path};
   if(c.mode==='cut'){fb.clip=null;await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
-  toast(topText('fb.copying'));
-  try{const out=await api('/admin/api/files/copy',{method:'POST',body:{root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path}});
+  try{const out=await fbCopyRun({root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path});
     if(out.copied.length)fbUndoPush({trash:{root:to.root,paths:out.copied.map((x)=>x.to)}});
     toast(out.skipped.length?topFill('fb.copiedSome',{n:num(out.copied.length),s:num(out.skipped.length)}):topFill('fb.copied',{n:num(out.copied.length)}));fbLoad();}
   catch(err){toast(err.message);}}

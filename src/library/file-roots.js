@@ -197,13 +197,13 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return { entries, cut: false };
   }
 
-  async function list(key, rel, { q = "", deep = false, sort = "name", order = "asc", page = 1, perPage = PER_PAGE, label = null } = {}) {
+  async function list(key, rel, { q = "", deep = false, sort = "name", order = "asc", page = 1, perPage = PER_PAGE, label = null, dirsOnly = false } = {}) {
     const at = await folder(key, rel);
     if (!SORTS.has(sort)) fail("bad-param");
     const size = Math.min(Math.max(1, Number(perPage) || PER_PAGE), MAX_PER_PAGE);
     const needle = String(q ?? "").trim().toLowerCase();
     const found = deep && needle ? await deepFind(at, needle, label) : { entries: await entriesOf(at.real, at.rel, at.walls, needle, label), cut: false };
-    const entries = found.entries;
+    const entries = dirsOnly ? found.entries.filter((e) => e.type === "dir") : found.entries;
     const dir = order === "desc" ? -1 : 1;
     // A title id folder sorts by the game it names.
     const byName = (a, b) => collator.compare(a.title ?? a.name, b.title ?? b.name);
@@ -347,7 +347,8 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
    * A name the folder already has (a copy into the same folder, most of all) gets the first free number,
    * so nothing is ever overwritten. A folder into itself is refused. { copied: [{ from, to }], skipped }.
    */
-  async function copy(key, rels, toKey, toRel) {
+  /** progress.started(part) as each copy begins in its partial, progress.placed(abs) once it is in place. */
+  async function copy(key, rels, toKey, toRel, progress = null) {
     const dest = await folder(toKey, toRel);
     const copied = [];
     const skipped = [];
@@ -377,13 +378,17 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
         if (await fsp.lstat(abs).then(() => true, () => false)) continue;
         // The copy runs outside the lock (a game takes minutes); only putting it in place holds the folder.
         const placed = await withPartial(at.real, abs, async (part) => {
+          progress?.started(part);
           await copyChecked(at.real, part);
           return withLocks([dest.root.dir], async () => {
             await still(dest);
             return moveNoClobber(part, abs);
           });
         });
-        if (placed) to = dest.rel ? `${dest.rel}/${next}` : next;
+        if (placed) {
+          to = dest.rel ? `${dest.rel}/${next}` : next;
+          progress?.placed(abs);
+        }
       }
       if (to) copied.push({ from: at.rel, to });
       else skipped.push({ rel, code: "exists" });

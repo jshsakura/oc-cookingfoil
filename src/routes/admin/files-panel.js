@@ -12,6 +12,7 @@
 import { icon } from "../../views/icons.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
 import { EXPLORE_CSS, EXPLORE_SCRIPT } from "./files-explore.js";
+import { LIBRARY_CSS, LIBRARY_SCRIPT } from "./files-library.js";
 
 const ROOT_ICONS = { games: "grid", incoming: "inbox", retro: "joystick", homebrew: "package", patches: "puzzle", saves: "save" };
 
@@ -80,9 +81,6 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-info{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 #fb .fb-foot[data-sel] .fb-info{color:var(--text);font-weight:700}
 #fb .fb-sel-act{display:flex;gap:6px}#fb .fb-foot:not([data-sel]) .fb-sel-act{display:none}
-#fb .fb-pager{margin-left:auto;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
-#fb .fb-pager[hidden]{display:none}
-#fb .fb-pager button{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 #fb .fb-note{margin:0;font-size:var(--fs-xs)}
 /* Files dragged over the list: the list is the target, outlined, with what dropping does said on it. */
 #fb .fb-wrap{position:relative}
@@ -137,6 +135,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 }
 @media (prefers-reduced-motion:reduce){#fb *{transition:none!important}}
 ${EXPLORE_CSS}
+${LIBRARY_CSS}
 `;
 
 /** Where a page puts its file browser; the split page swaps the marker for FOLDER_HTML (ids stay unique). */
@@ -156,6 +155,8 @@ export const FOLDER_HTML = `<div id="fb">
     <div class="fb-views" role="group">
       <button type="button" class="ib" id="fb-v-list" aria-pressed="true" ${topLabel("fb.viewList")}>${icon("log")}</button>
       <button type="button" class="ib" id="fb-v-grid" aria-pressed="false" ${topLabel("fb.viewGrid")}>${icon("grid")}</button>
+      <button type="button" class="ib" id="fb-t-tree" aria-pressed="false" ${topLabel("fb.tree")}>${icon("folder")}</button>
+      <button type="button" class="ib" id="fb-t-side" aria-pressed="false" ${topLabel("fb.side")}>${icon("info")}</button>
     </div>
     <button type="button" id="fb-mkdir">${icon("plus")}${top("fb.newFolder")}</button>
     <button type="button" id="fb-upload">${icon("upload")}${top("fb.upload")}</button>
@@ -163,6 +164,9 @@ export const FOLDER_HTML = `<div id="fb">
     <input type="file" id="fb-file" multiple tabindex="-1" aria-hidden="true">
     <input type="file" id="fb-dir" webkitdirectory multiple tabindex="-1" aria-hidden="true">
   </div>
+  <div class="fb-body">
+  <nav class="fb-tree" id="fb-tree" ${topLabel("fb.tree")}></nav>
+  <div class="fb-main">
   <div class="fb-wrap"><table>
     <thead><tr>
       <th class="c-sel"><input type="checkbox" id="fb-all" ${topLabel("fb.selectAll")}></th>
@@ -173,6 +177,10 @@ export const FOLDER_HTML = `<div id="fb">
     </tr></thead>
     <tbody id="fb-rows"></tbody>
   </table><div class="fb-empty" id="fb-empty" hidden></div><div class="fb-drop" aria-hidden="true">${top("fb.dropHere")}</div></div>
+  <div class="fb-more" id="fb-more"></div>
+  </div>
+  <aside class="fb-side" id="fb-side" ${topLabel("fb.side")} aria-live="polite"></aside>
+  </div>
   <div id="fb-menu" role="menu" hidden ${topLabel("fb.menu")}></div>
   <p class="muted fb-note">${top("fb.note")}</p>
   <div class="fb-foot" id="fb-foot">
@@ -191,11 +199,7 @@ export const FOLDER_HTML = `<div id="fb">
       <button type="button" id="fb-trash-btn" class="danger">${top("fb.trash")}</button>
       <button type="button" id="fb-clear">${top("fb.clear")}</button>
     </div>
-    <nav class="fb-pager" id="fb-pager" hidden>
-      <button type="button" id="fb-prev" ${topLabel("fb.prev")}>${icon("chevleft")}</button>
-      <span id="fb-page"></span>
-      <button type="button" id="fb-next" ${topLabel("fb.next")}>${icon("chevright")}</button>
-    </nav>
+    <span class="fb-job" id="fb-job" hidden><progress max="100" value="0"></progress><span aria-live="polite"></span></span>
   </div>
 </div>
 <dialog id="fb-view" aria-labelledby="fb-v-title">
@@ -224,16 +228,17 @@ export const FOLDER_HTML = `<div id="fb">
 </dialog>`;
 
 export const FILES_SCRIPT = /* js */ `
-const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), open: icon("folder"), download: icon("download"), rename: icon("tag"), move: icon("chevright"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("arrowright"), copy: icon("copy"), paste: icon("inbox"), undo: icon("undo"), props: icon("info"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
+const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), rename: icon("tag"), move: icon("chevright"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("arrowright"), copy: icon("copy"), paste: icon("inbox"), undo: icon("undo"), props: icon("info"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
 const FB_PER=100;
 const FB_SKEL_MS=120;
-const fb={roots:[],root:'',path:'',page:1,sort:'name',order:'asc',q:'',sel:new Set(),anchor:null,focus:null,drag:null,hi:0,hmax:0,deep:false,clip:null,undos:[],seq:0,data:null,timer:null};
+const FB_MAX_PAGES=5;
+const fb={roots:[],root:'',path:'',sort:'name',order:'asc',q:'',sel:new Set(),anchor:null,focus:null,drag:null,hi:0,hmax:0,deep:false,clip:null,undos:[],seq:0,data:null,timer:null};
 const fbSize=(n)=>{if(n==null)return '';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const fbDate=(ms)=>ms?new Date(ms).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'';
 const fbRootName=(k)=>topText('fb.root.'+k);
 function fbUrl(){const u=new URL(location.href);u.searchParams.delete('root');u.searchParams.delete('view');u.searchParams.set('tab','folder');
   if(fb.path)u.searchParams.set('path',fb.path);else u.searchParams.delete('path');return u.pathname+u.search+u.hash;}
-function fbGo(root,path,{push=true}={}){fb.root=root;fb.path=path||'';fb.page=1;fb.q='';$('fb-q').value='';fb.sel.clear();fb.anchor=fb.focus=null;
+function fbGo(root,path,{push=true}={}){fb.root=root;fb.path=path||'';fb.q='';$('fb-q').value='';fb.sel.clear();fb.anchor=fb.focus=null;
   if(push&&location.pathname+location.search+location.hash!==fbUrl()){fb.hi++;fb.hmax=fb.hi;history.pushState({fbi:fb.hi},'',fbUrl());}fbLoad();}
 function fbRootButtons(mount,current,pick){mount.replaceChildren();for(const r of fb.roots){const b=el('button');b.type='button';
   b.innerHTML=FB_ICON[r.key]||'';b.append(el('span',fbRootName(r.key)));b.setAttribute('aria-pressed',String(r.key===current));
@@ -262,7 +267,7 @@ function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-s
   else{const s=el('span',f.name);s.title=f.name;n.append(s);if(f.title)n.append(el('span',f.title,'fb-where'));}
   // A search through folders below names where each find is.
   const at=f.rel.split('/').slice(0,-1).join('/');if(fb.data?.deep&&at!==fb.path){const w=el('span',at,'fb-where');w.title=at;n.append(w);}
-  cn.append(n);if(fbClipped(f.rel))tr.classList.add('fb-cut');
+  fbDecorate(n,f);cn.append(n);if(fbClipped(f.rel))tr.classList.add('fb-cut');
   const ca=td(null,'c-act');const act=el('div',null,'fb-act');
   act.append(tbtn('rename','fb.rename',()=>fbRename(f)));
   if(f.type==='file'){const d=tbtn('download','fb.download',()=>fbDownload(f));d.classList.add('fb-dl');act.append(d);}
@@ -289,23 +294,27 @@ function fbFoot(){const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   $('fb-info').textContent=n?topFill('fb.selected',{n:num(n)}):d?topFill('fb.counts',{dirs:num(d.counts.dirs),files:num(d.counts.files)}):'';
   const rows=[...document.querySelectorAll('#fb-rows tr')];const all=$('fb-all');
   all.checked=rows.length>0&&rows.every((r)=>fb.sel.has(r.dataset.rel));all.indeterminate=!all.checked&&rows.some((r)=>fb.sel.has(r.dataset.rel));
-  const pg=$('fb-pager');pg.hidden=!d||d.pages<=1;if(d){$('fb-page').textContent=topFill('fb.pageOf',{page:num(d.page),pages:num(d.pages)});$('fb-prev').disabled=d.page<=1;$('fb-next').disabled=d.page>=d.pages;}}
+  if(!n&&d&&d.items.length<d.total)$('fb-info').textContent+=' · '+topFill('fb.shown',{shown:num(d.items.length)});
+  fbSide();}
 // Placeholder rows while another folder, page or search loads; a refresh of the same view keeps its rows.
 function fbSkel(){$('fb-empty').hidden=true;$('fb-rows').replaceChildren(...Array.from({length:8},()=>{const tr=el('tr',null,'fb-skel');const c=td(null);c.colSpan=5;c.append(el('span'));tr.append(c);return tr;}));}
-async function fbLoad(){if(!fb.root)return;const n=++fb.seq;
-  const qs=new URLSearchParams({root:fb.root,path:fb.path,page:String(fb.page),perPage:String(FB_PER),sort:fb.sort,order:fb.order});if(fb.q)qs.set('q',fb.q);if(fb.q&&fb.deep)qs.set('deep','1');
+// The first page; the rest come as the list scrolls (fbMore).
+// A refresh of the same view asks for as many rows as were shown, so the list does not shrink under the reader.
+async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
+  const qs=new URLSearchParams({root:fb.root,path:fb.path,sort:fb.sort,order:fb.order});if(fb.q)qs.set('q',fb.q);if(fb.q&&fb.deep)qs.set('deep','1');
   fbNav();fbCrumb($('fb-crumb'),fb.root,fb.path,(to)=>fbGo(fb.root,to));fbSortHeads();
-  const view=fb.root+'|'+qs;const skel=view!==fb.view?setTimeout(()=>{if(n===fb.seq)fbSkel();},FB_SKEL_MS):null;
+  const view=fb.root+'|'+qs;const pages=view===fb.view&&fb.data?Math.min(FB_MAX_PAGES,Math.max(1,fb.data.page)):1;
+  qs.set('page','1');qs.set('perPage',String(FB_PER*pages));const skel=view!==fb.view?setTimeout(()=>{if(n===fb.seq)fbSkel();},FB_SKEL_MS):null;
   let d;try{d=await api('/admin/api/files/list?'+qs);}catch(err){clearTimeout(skel);if(n!==fb.seq)return;
     // A folder that is gone (moved elsewhere, a stale link) leads back to the top of its storage.
     if(err.code==='not-found'&&fb.path){toast(err.message);fbGo(fb.root,'',{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());return;}
     fb.data=null;$('fb-rows').replaceChildren();const e=$('fb-empty');e.hidden=false;e.textContent=topFill('fb.loadFail',{msg:err.message});fbFoot();return;}
-  clearTimeout(skel);if(n!==fb.seq)return;fb.data=d;fb.page=d.page;fb.view=view;
+  clearTimeout(skel);if(n!==fb.seq)return;d.page=pages;d.pages=Math.max(1,Math.ceil(d.total/FB_PER));fb.data=d;fb.view=view;
   const live=new Set(d.items.map((f)=>f.rel));for(const r of [...fb.sel])if(!live.has(r))fb.sel.delete(r);
   if(!live.has(fb.focus))fb.focus=d.items[0]?.rel??null;if(!live.has(fb.anchor))fb.anchor=null;
   $('fb-rows').replaceChildren(...d.items.map(fbRow));
   const e=$('fb-empty');e.hidden=d.items.length>0;e.textContent=fb.q?topText('fb.noMatch'):topText('fb.empty');fbFoot();
-  if(d.cut)toast(topText('fb.deepCut'));fbThumbs();}
+  if(d.cut)toast(topText('fb.deepCut'));fbThumbs();fbTreeSync();}
 async function fbRename(f){const name=await askText(topText('fb.renameAsk'),f.name);if(name==null||!name.trim()||name.trim()===f.name)return;
   try{const out=await api('/admin/api/files/rename',{method:'POST',body:{root:fb.root,path:f.rel,name:name.trim()}});fb.sel.delete(f.rel);
     fbUndoPush({journal:[out.undo]});toast(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
@@ -450,15 +459,13 @@ $('fb-view').addEventListener('close',()=>{fbv.seq++;fbViewFree();$('fb-v-body')
 function fbAll(on){for(const rel of fbRels()){if(on)fb.sel.add(rel);else fb.sel.delete(rel);}fbPaint();}
 $('fb-all').addEventListener('change',(e)=>fbAll(e.target.checked));
 for(const b of document.querySelectorAll('#fb thead [data-sort]'))b.addEventListener('click',()=>{const s=b.dataset.sort;
-  if(fb.sort===s)fb.order=fb.order==='asc'?'desc':'asc';else{fb.sort=s;fb.order=s==='name'?'asc':'desc';}fb.page=1;fbLoad();});
-$('fb-q').addEventListener('input',()=>{clearTimeout(fb.timer);fb.timer=setTimeout(()=>{const q=$('fb-q').value.trim();if(q===fb.q)return;fb.q=q;fb.page=1;fbLoad();},250);});
+  if(fb.sort===s)fb.order=fb.order==='asc'?'desc':'asc';else{fb.sort=s;fb.order=s==='name'?'asc':'desc';}fbLoad();});
+$('fb-q').addEventListener('input',()=>{clearTimeout(fb.timer);fb.timer=setTimeout(()=>{const q=$('fb-q').value.trim();if(q===fb.q)return;fb.q=q;fbLoad();},250);});
 $('fb-mkdir').addEventListener('click',fbMkdir);
 $('fb-move-btn').addEventListener('click',fbMove);
 $('fb-zip-btn').addEventListener('click',()=>fbZip([...fb.sel]));
 $('fb-trash-btn').addEventListener('click',()=>fbTrash([...fb.sel]));
 $('fb-clear').addEventListener('click',()=>{fb.sel.clear();fb.anchor=null;fbPaint();});
-$('fb-prev').addEventListener('click',()=>{if(fb.page>1){fb.page--;fbLoad();window.scrollTo({top:0});}});
-$('fb-next').addEventListener('click',()=>{if(fb.data&&fb.page<fb.data.pages){fb.page++;fbLoad();window.scrollTo({top:0});}});
 window.addEventListener('popstate',(e)=>{const p=new URLSearchParams(location.search);fb.hi=e.state?.fbi??0;
   if(fb.root&&p.get('tab')==='folder')fbGo(fb.root,p.get('path')||'',{push:false});});
 // On a focused row: the arrows, Home and End walk the list (Shift stretches the pick, Ctrl or Cmd only moves),
@@ -528,4 +535,5 @@ function fbTabs(tab,root){subtabs(tab);const st=SUBTABS[tab];if(!st)return;const
 // A language switch redraws the path, the dates and the counts.
 function fbRelabel(){if(typeof fb==='undefined')return;if(!fb.root)return;fbLoad();}
 ${EXPLORE_SCRIPT}
+${LIBRARY_SCRIPT}
 `;
