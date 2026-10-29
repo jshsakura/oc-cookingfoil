@@ -1,16 +1,18 @@
 /**
  * What the library knows about the entries of a file listing (admin file browser):
  *   titleLabel(lang)(name)      the game a title id at the start of a name stands for (saves, patches folders)
- *   createFileFacts()(key, items)  each item with { titleId, kind, version, latest, check } where known:
+ *   createFileFacts()(key, items, lang)  each item with { titleId, kind, version, latest, check, why } where known:
  *     titleId  the base game, for its icon: a scanned game file's, the first one under a games folder's,
  *              or the one a name starts with
  *     kind     "base" | "update" | "dlc" for a scanned game file, version its version
  *     latest   an update: whether it is the newest titledb knows (null when titledb does not say)
  *     check    "damaged" | "modified" when the integrity check found the file so
+ *     why      that finding's label, whether the install surely fails, and its help, in `lang`
  * Pure over the library cache, the integrity findings and titledb; nothing is read from disk.
  */
 import * as libraryCache from "../meta/library-cache.js";
-import { integrityOf } from "../meta/file-integrity.js";
+import { findingOf } from "../meta/file-integrity.js";
+import { explain } from "../meta/integrity-help.js";
 import { latestVersion } from "../meta/titledb-versions.js";
 import { baseTitleIdOf } from "../meta/image-cache.js";
 import { namesOf } from "../meta/titledb-store.js";
@@ -35,8 +37,8 @@ export function titleLabel(lang, names = namesOf) {
   };
 }
 
-export function createFileFacts({ files = libraryCache.files, integrity = integrityOf, latest = latestVersion } = {}) {
-  return (key, items) => {
+export function createFileFacts({ files = libraryCache.files, integrity = findingOf, latest = latestVersion } = {}) {
+  return (key, items, lang = "en") => {
     const byRel = new Map();
     const dirBase = new Map();
     if (key === "games") {
@@ -58,11 +60,12 @@ export function createFileFacts({ files = libraryCache.files, integrity = integr
       if (f) {
         const base = f.baseTitleId ?? (f.titleId ? baseTitleIdOf(f.titleId) : null);
         const newest = f.kind === "update" && base ? latest(base) : null;
-        const verdict = integrity(item.rel);
+        const finding = integrity(item.rel);
+        const check = CHECKS.has(finding?.verdict) ? finding.verdict : null;
         return {
           ...item, titleId: base, kind: f.kind ?? null, version: f.version ?? null,
           latest: newest != null && f.version != null ? f.version >= newest : null,
-          check: CHECKS.has(verdict) ? verdict : null,
+          check, ...(check ? { why: explain(finding, lang) } : {}),
         };
       }
       const named = titleIdIn(item.name);

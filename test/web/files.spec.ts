@@ -463,14 +463,19 @@ test('a long folder keeps loading as it scrolls instead of paging', async ({ pag
 });
 
 test("a game file shows its game's icon, kind, version and what its check found", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
   await signIn(page);
   expect((await page.request.get('/api/library/icon/0100000000010000?size=sm')).status()).not.toBe(401);
   await page.route('**/admin/api/files/list?*', (r) => {
     if (!r.request().url().includes('Gamey')) return r.continue();
-    return r.fulfill({ json: { root: 'games', path: 'fb-test/Gamey', parent: 'fb-test', total: 1, page: 1, perPage: 100, pages: 1, deep: false, cut: false,
-      counts: { dirs: 0, files: 1 },
+    return r.fulfill({ json: { root: 'games', path: 'fb-test/Gamey', parent: 'fb-test', total: 2, page: 1, perPage: 100, pages: 1, deep: false, cut: false,
+      counts: { dirs: 0, files: 2 },
       items: [{ name: 'Gamey [0100AAAA00000800][v65536].nsp', rel: 'fb-test/Gamey/Gamey [0100AAAA00000800][v65536].nsp', type: 'file', size: 10, mtime: Date.now(), ext: 'nsp',
-        titleId: '0100AAAA00000000', kind: 'update', version: 65536, latest: false, check: 'damaged' }] } });
+        titleId: '0100AAAA00000000', kind: 'update', version: 65536, latest: false, check: 'damaged',
+        why: { label: '손상됨', certain: true, help: { title: '파일이 잘렸습니다', body: '이 파일은 원래 크기의 40%만 있습니다.\n\n받다가 끊긴 파일입니다.' } } },
+      { name: 'Gamey KO [0100AAAA00000000][v0].nsp', rel: 'fb-test/Gamey/Gamey KO [0100AAAA00000000][v0].nsp', type: 'file', size: 10, mtime: Date.now(), ext: 'nsp',
+        titleId: '0100AAAA00000000', kind: 'base', version: 0, check: 'modified',
+        why: { label: '수정됨', certain: false, help: { title: '수정된 파일입니다', body: '손상과는 다릅니다.' } } }] } });
   });
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
   await page.route('**/api/library/icon/**', (r) => r.fulfill({ contentType: 'image/png', body: png }));
@@ -479,7 +484,14 @@ test("a game file shows its game's icon, kind, version and what its check found"
   await expect(r.locator('img.fb-gicon')).toHaveAttribute('src', /\/api\/library\/icon\/0100AAAA00000000\?size=md/);
   await expect(r).toContainText('업데이트 v65536');
   await expect(r).toContainText('구버전');
-  await expect(r).toContainText('손상');
+  await expect(r.locator('.fb-badge', { hasText: '손상됨' })).toHaveAttribute('data-tone', 'bad');
+  // Modified is not damage: it is not painted as one.
+  const mod = page.locator('#fb-rows tr', { hasText: 'Gamey KO' });
+  await expect(mod.locator('.fb-badge', { hasText: '수정됨' })).not.toHaveAttribute('data-tone', /./);
+  // The details pane says why, in the words the console shows.
+  await r.locator('.fb-name').click();
+  await expect(page.locator('#fb-side .fb-s-why')).toContainText('파일이 잘렸습니다');
+  await expect(page.locator('#fb-side .fb-s-why')).toContainText('원래 크기의 40%');
 });
 
 test('a folder row shows its size, and the details pane what it holds', async ({ page }) => {

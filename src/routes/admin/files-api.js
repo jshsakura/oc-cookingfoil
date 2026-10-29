@@ -95,11 +95,12 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
   router.get("/api/files/list", handle(async (req, res) => {
     const { q, sort, order, page, perPage } = req.query;
     const deep = str(req.query.deep) === "1";
-    const label = titleLabel(requestLang(req));
+    const lang = requestLang(req);
+    const label = titleLabel(lang);
     const root = str(req.query.root);
     const dirsOnly = str(req.query.only) === "dirs";
     const out = await files.list(root, str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label, dirsOnly });
-    res.json({ ...out, items: facts(root, out.items) });
+    res.json({ ...out, items: facts(root, out.items, lang) });
   }));
 
   router.get("/api/files/download", handle(async (req, res) => {
