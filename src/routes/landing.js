@@ -96,10 +96,19 @@ export function pageForOrigin(html, origin) {
   return html.replaceAll("__ORIGIN__", SAFE_ORIGIN.test(origin ?? "") ? origin : "");
 }
 
-async function prepare(origin) {
+/** The encoded page for `origin`. Requests that arrive while it is encoded share the one promise. */
+function prepare(origin) {
   const key = SAFE_ORIGIN.test(origin ?? "") ? origin : "";
   const hit = encodedByOrigin.get(key);
   if (hit) return hit;
+  const encoding = encode(key);
+  if (encodedByOrigin.size >= MAX_ORIGINS) encodedByOrigin.delete(encodedByOrigin.keys().next().value);
+  encodedByOrigin.set(key, encoding);
+  encoding.catch(() => { if (encodedByOrigin.get(key) === encoding) encodedByOrigin.delete(key); });
+  return encoding;
+}
+
+async function encode(key) {
   const identity = Buffer.from(pageForOrigin(await loadTemplate(), key));
   const etag = `"${crypto.createHash("sha1").update(identity).digest("base64url")}"`;
   // brotli at quality 5 hits a sweet spot for 30–80 KB HTML: ~10ms to
@@ -111,8 +120,6 @@ async function prepare(origin) {
     }),
   ]);
   const encoded = { identity, gzip, br, etag };
-  if (encodedByOrigin.size >= MAX_ORIGINS) encodedByOrigin.delete(encodedByOrigin.keys().next().value);
-  encodedByOrigin.set(key, encoded);
   debug.log(
     "landing: encoded for %s (identity=%d B, gzip=%d B, br=%d B)",
     key || "(relative)", identity.length, gzip.length, br.length

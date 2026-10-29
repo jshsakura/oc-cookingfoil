@@ -81,7 +81,7 @@ const LIBRARY_CACHE_DIR = path.join(dataDir, "library-cache");
 // rebuild so variants never outlive the base snapshot they derive from.
 const ORIGIN_MEMO_MAX = 16;
 const DIRECT_MEMO_MAX = 16;
-const newMemo = () => ({ plain: new Map(), direct: new Map() }); // key -> { identity, gzip, brotli, etag }
+const newMemo = () => ({ plain: new Map(), direct: new Map() }); // key -> Promise of { identity, gzip, brotli, etag }
 const originMemo = newMemo();
 
 // Sections view (/api/library/sections), built lazily from the
@@ -97,15 +97,20 @@ function clearMemo(memo) {
   memo.direct.clear();
 }
 
-/** The memoized variant for `origin` and `link`, made by `make()` the first time. */
-async function memoized(memo, origin, link, make) {
+/**
+ * The memoized variant for `origin` and `link`, made by `make()` the first time. The promise is kept
+ * at once, so requests that arrive while it is made share it, and a rebuild that clears the map
+ * while it runs leaves the old result out of the cleared map. A failure is not kept.
+ */
+function memoized(memo, origin, link, make) {
   const map = link ? memo.direct : memo.plain;
   const key = memoKey(origin, link);
   let variant = map.get(key);
   if (!variant) {
-    variant = await make();
+    variant = make();
     map.set(key, variant);
     if (map.size > (link ? DIRECT_MEMO_MAX : ORIGIN_MEMO_MAX)) map.delete(map.keys().next().value);
+    variant.catch(() => { if (map.get(key) === variant) map.delete(key); });
   }
   return variant;
 }
