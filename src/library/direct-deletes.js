@@ -38,6 +38,7 @@ export const DIRECT_DELETES = Object.freeze({
   "src/retro/art/ratings.js": { count: 1, why: "a downloaded ratings file being replaced" },
   "src/retro/art/sync.js": { count: 1, why: "a picture the server fetched; a person's goes to the trash first" },
   "src/retro/auto-cores.js": { count: 11, why: "cores the server installed, checked by hash; a person's own core goes to the trash" },
+  "src/retro/hash-db.js": { count: 1, why: "the temporary download of a list, which is only read to build the index" },
   "src/retro/core-files.js": { count: 1, why: "a core's source once it is linked into place" },
   "src/retro/meta/screenshots.js": { count: 1, why: "downloaded screenshots" },
   "src/retro/no-clobber.js": { count: 1, why: "a half-written file" },

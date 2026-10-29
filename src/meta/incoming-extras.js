@@ -85,10 +85,11 @@ export function setFolderOf(fileName) {
  * The plan for the drop box's other files. `items` is [{ rel }] (settled, not
  * Switch packages), `refs` maps a .cue/.m3u rel to the rels it names (resolved
  * inside the drop box), `sniffed` maps a rel to the console its bytes name (drop-sniff.js),
+ * `identified` maps a rel to the dump a hash database lists for it, { systems, name } (drop-hash.js),
  * `systems` is loadSystems(). Moves are
  * { from, root: "retro" | "homebrew", to, system? }; `to` is relative to that root. Pure.
  */
-export function planExtras({ items = [], refs = new Map(), sniffed = new Map(), systems = {} }) {
+export function planExtras({ items = [], refs = new Map(), sniffed = new Map(), identified = new Map(), systems = {} }) {
   const moves = [];
   const held = [];
   const rels = new Set(items.map((i) => i.rel));
@@ -116,9 +117,13 @@ export function planExtras({ items = [], refs = new Map(), sniffed = new Map(), 
       continue;
     }
     if (ext === ".scummvm") { held.push(heldExtra(rel, "scummvm")); continue; }
-    // An extension only one console uses names it, then what the bytes say, then the folder the file sits in.
+    // A listed dump names its console first; then an extension only one console uses, what the bytes say, and the folder the file sits in.
     const sole = LISTS.has(ext) || BY_CONTENT.has(ext) ? null : systemOfExtension(ext, systems);
-    const system = sole ?? sniffed.get(rel) ?? systemFromFolders(rel, systems);
+    const guessed = sole ?? sniffed.get(rel) ?? systemFromFolders(rel, systems);
+    const dump = identified.get(rel);
+    const listed = dump?.systems.length === 1 ? dump.systems[0] : dump?.systems.includes(guessed) ? guessed : null;
+    const system = listed ?? guessed;
+    const by = listed ? "hash" : sole ? "extension" : sniffed.has(rel) ? "bytes" : "folder";
     const romLike = LISTS.has(ext) || Object.values(systems).some((s) => s.extensions.includes(ext));
     const romHeld = (code) => heldExtra(rel, romLike ? code : "unknown", { system });
     if (!system) {
@@ -137,11 +142,11 @@ export function planExtras({ items = [], refs = new Map(), sniffed = new Map(), 
       const dir = path.posix.dirname(rel);
       for (const r of [rel, ...parts]) {
         const inner = dir === "." ? r : r.slice(dir.length + 1);
-        moves.push({ from: r, root: "retro", to: `roms/${base}/${set}/${inner}`, system });
+        moves.push({ from: r, root: "retro", to: `roms/${base}/${set}/${inner}`, system, by, ...(dump ? { dbName: dump.name } : {}) });
       }
       continue;
     }
-    moves.push({ from: rel, root: "retro", to: `roms/${base}/${name}`, system });
+    moves.push({ from: rel, root: "retro", to: `roms/${base}/${name}`, system, by, ...(dump ? { dbName: dump.name } : {}) });
   }
   return { moves, held };
 }
