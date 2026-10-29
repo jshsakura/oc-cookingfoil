@@ -237,7 +237,7 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     if (hit?.value && now() - hit.at < LIBRARY_INFO_FRESH_MS) return hit.value;
     if (hit?.pending) return hit.pending;
     const stale = hit?.value ?? null;
-    const pending = registry.callHook(id, "libraryInfo", { lang }, { lang, pick: (inst) => inst?.libraryInfo ?? inst?.shopInfo }).then((r) => {
+    const pending = registry.callHook(id, "libraryInfo", { lang }, { lang }).then((r) => {
       const v = r.value;
       const value = !r.error && !r.skipped && v && typeof v === "object"
         ? { features: Array.isArray(v.features) ? v.features.filter((f) => typeof f === "string" && /^[a-z0-9-]{1,40}$/.test(f)) : [], info: v.info && typeof v.info === "object" && !Array.isArray(v.info) ? v.info : {} }
@@ -250,7 +250,7 @@ export function createVariants(registry, { log = () => {}, now = Date.now } = {}
     return pending;
   }
 
-  /** { features, info } from every plugin that is on and answers libraryInfo (or shopInfo, its old name); info keys are the plugin's to claim, nothing is overwritten by the caller. */
+  /** { features, info } from every plugin that is on and answers libraryInfo; info keys are the plugin's to claim, nothing is overwritten by the caller. */
   async function libraryInfoExtras(lang) {
     const ids = registry.activeProviding("variant").concat(registry.activeProviding("metadata"), registry.activeProviding("art"), registry.activeProviding("task"));
     const unique = [...new Set(ids)].sort();

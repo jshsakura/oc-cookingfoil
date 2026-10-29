@@ -17,7 +17,7 @@
  * folder in it, or lies in another root or a fenced folder (the server's data
  * and keys) that sits inside this one, as in the old layout. Nothing is
  * ever overwritten: a taken name is "exists". After a write the root is read
- * again (`refresh`), so the library, the shop and the catalogs see the change.
+ * again (`refresh`), so the library and the catalogs see the change.
  */
 import fs from "fs";
 import fsp from "fs/promises";

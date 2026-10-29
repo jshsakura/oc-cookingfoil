@@ -28,8 +28,6 @@ import debug from "../debug.js";
 import { directUrl, forRequest } from "../security/download-links.js";
 
 const TITLE_ID_RE = /^[0-9A-F]{16}$/;
-// Catalog files an older version wrote next to the games (named as they were then); not user content.
-const SIDECAR_NAMES = new Set(["shop.json", "shop.tfl"]);
 
 function downloadUrl(relPath) {
   return "/" + relPath.split("/").map(encodeURIComponent).join("/");
@@ -73,7 +71,6 @@ export default async function extrasRoute(req, res) {
       const name = ent.name;
       if (name.startsWith(".")) continue;          // dotfiles
       if (isGameFile(name)) continue;              // installable → already in library
-      if (SIDECAR_NAMES.has(name) || name.toLowerCase().endsWith(".tfl")) continue;
       if (isReadme(name)) continue;                // the operator's notes, not the game's
       const rel = path.posix.join(dir.split(path.sep).join("/"), name);
       if (seen.has(rel)) continue;

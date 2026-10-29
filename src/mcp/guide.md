@@ -49,7 +49,7 @@ Open `/admin`. After sign-in it asks once more for the authenticator code or the
 - Overview: health, warnings, where game names come from.
 - Users: accounts, roles, Google accounts waiting for approval.
 - Devices: approve, reject, rename, disconnect or revoke consoles; make a login for one console.
-- Settings: device approval mode, uploads, public address, welcome message, name language order and regions, title data, ratings, downloads, safe restart, keys for outside services, Google sign-in, admin password, authenticator, automation tokens, Sync now, Back up now.
+- Settings: device approval mode, uploads, public address, name language order and regions, title data, ratings, downloads, safe restart, keys for outside services, Google sign-in, admin password, authenticator, automation tokens, Sync now, Back up now.
 - Alerts: Telegram alerts and which events they cover.
 - Logs: locked addresses, refused requests with reasons, client error reports.
 - Featured: the rows at the top of the client's home screen.

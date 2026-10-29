@@ -171,7 +171,6 @@ test("a console that lost its key gets a re-pair QR; approving it hands a new ke
   assert.ok(handed.body.accessKey);
   assert.equal(handed.body.status, "approved");
   assert.equal(handed.body.libraryUrl, BASE);
-  assert.equal(handed.body.shopUrl, BASE);
   assert.equal((await poll(console1, lost)).body.accessKey, undefined, "once");
   assert.equal(await library(console1, oldKey), 401, "the old key stops");
   assert.equal(await library(console1, handed.body.accessKey), 200);

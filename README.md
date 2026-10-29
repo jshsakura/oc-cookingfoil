@@ -221,7 +221,7 @@ Open `/admin`. After signing in, it asks once more for the authenticator code or
 | Overview | Server health, configuration warnings, and where game names come from |
 | Users | Accounts and roles; Google accounts waiting for approval |
 | Devices | Approve or reject consoles, rename or disconnect them, and make a login for one console |
-| Settings | Server behaviour (device approval, uploads, public address, welcome message, names and regions, title data, ratings, downloads, safe restart), outside-service keys, Google sign-in, the admin password, the authenticator and automation tokens |
+| Settings | Server behaviour (device approval, uploads, public address, names and regions, title data, ratings, downloads, safe restart), outside-service keys, Google sign-in, the admin password, the authenticator and automation tokens |
 | Alerts | Telegram alerts and which events they cover |
 | Logs | Locked addresses, refused requests with their reasons, and client error reports |
 | Featured | The rows at the top of the client's home screen |
@@ -366,7 +366,7 @@ To report a vulnerability, see [SECURITY.md](./SECURITY.md#english). Please do n
 
 Except for pairing, enrollment and `/healthz`, every endpoint needs a paired console's keys or session token, or a signed-in web page. A Basic `Authorization` header counts only on the pairing routes; everywhere else it authenticates nothing and no endpoint asks for one.
 
-Canonical catalog paths are `/api/library/*` for CookingFoil clients and `/games.json` for automation tokens. `/api/shop/*` and `/shop.json` remain temporary compatibility aliases with the same authentication and response format. Switch consumers to the canonical paths after deploying a server that provides them. The aliases will be removed only after both the client and scraper migrations are confirmed.
+Canonical catalog paths are `/api/library/*` for CookingFoil clients and `/games.json` for automation tokens.
 
 | Endpoint | |
 |---|---|

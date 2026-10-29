@@ -37,7 +37,7 @@ export default {
     try { a.keys.set("x", "y"); } catch { frozen = "yes"; }
     return { patches: [{ offset: 0, bytes: Buffer.from(frozen === "yes" ? "R" : "W") }] };
   },
-  shopInfo() { if (globalThis.__infoHangs) return new Promise(() => {}); return { features: ["from-plugin", "retro"], info: { level: 1 } }; },
+  libraryInfo() { if (globalThis.__infoHangs) return new Promise(() => {}); return { features: ["from-plugin", "retro"], info: { level: 1 } }; },
 };`;
 
 async function withTweaker(extra = {}) {

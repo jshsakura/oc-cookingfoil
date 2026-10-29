@@ -30,8 +30,8 @@
  *   GET  /api/pair/status?deviceKey=<64hex>   (or the X-Device-Key header)
  *        + the same pairSecret as the X-Pair-Secret header (or ?pairSecret=)
  *        → { status: "pending", passwordOnly: true, … }       while unapproved
- *        → { status: "approved", passwordOnly: true, accessKey, libraryUrl, shopUrl }
- *                                                             ONCE after approval, to the caller with the secret (libraryUrl: this server's address; shopUrl is its old name)
+ *        → { status: "approved", passwordOnly: true, accessKey, libraryUrl }
+ *                                                             ONCE after approval, to the caller with the secret (libraryUrl: this server's address)
  *        → { status: "approved", passwordOnly: true }         when no key is delivered and no valid secret came
  *        → { status: "pending", passwordOnly: true, repair: true, pairUrl, pairCode, expiresAt }
  *                                                             when no key is delivered but a valid secret (64 hex) came:
@@ -56,7 +56,7 @@
  *        up to enrollPerHour (server setting, 5 by default) per account in any rolling hour across
  *        all its downloads; with manual approval it enrolls one. A console
  *        refused asks /api/pair/status like a console with only the server address.
- *        → { status: "approved", accessKey, libraryUrl, shopUrl }
+ *        → { status: "approved", accessKey, libraryUrl }
  *        label: the console's own nickname, which names it once approved
  *        → 401 { error } + X-CookingFoil-Enroll: limit | used | expired | revoked | invalid
  *          and X-CookingFoil-Auth: enroll-<that>
@@ -351,7 +351,6 @@ export default function pairRouter() {
       out.accessKey = accessKey;
       const origin = resolveOrigin(req, publicBaseUrl);
       out.libraryUrl = origin || null;
-      out.shopUrl = out.libraryUrl; // old name of libraryUrl, still read by an older client release
       debug.log("pair: delivered accessKey to %s…", deviceKey.slice(0, 12));
     }
     res.json(out);
@@ -428,7 +427,7 @@ export default function pairRouter() {
     const origin = resolveOrigin(req, publicBaseUrl);
     vouch(res);
     // The client keeps its download token until it reads the binding here (bindingOf in device-owner.js).
-    res.json({ status: "approved", accessKey, libraryUrl: origin || null, shopUrl: origin || null, ...bindingOf(deviceKey) });
+    res.json({ status: "approved", accessKey, libraryUrl: origin || null, ...bindingOf(deviceKey) });
   });
 
   router.post("/rebind", async (req, res) => {
