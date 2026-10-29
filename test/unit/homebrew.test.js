@@ -177,6 +177,41 @@ test("a new release only announces itself; the build is fetched when someone dow
   assert.equal(fs.readdirSync(path.join(stateDir, announced.id)).filter((f) => f.endsWith(".nro")).length, 1);
 });
 
+test("a release deleted on GitHub is read again once and the newest file is fetched instead", async () => {
+  const gh = fakeGitHub("murat303/ytb-player");
+  gh.publish("v1.1.0", fakeNro("YTB Player", "1.1.0"));
+  let now = 0;
+  const tracker = createTracker({ repos: ["murat303/ytb-player"], stateDir: tmp("hb-gh-"), fetchImpl: gh.fetchImpl, now: () => now });
+  await tracker.checkAll();
+  gh.publish("v1.2.0", fakeNro("YTB Player", "1.2.0"));
+  now += CHECK_INTERVAL_MS;
+  await tracker.checkAll();
+  const { id } = tracker.entries()[0];
+  // v1.2.0 is deleted and v1.3.0 is the latest before anyone downloads: the remembered file answers 404.
+  const newest = fakeNro("YTB Player", "1.3.0");
+  gh.publish("v1.3.0", newest);
+  const before = gh.apiCalls().length;
+  const file = await tracker.ensureDownloaded(id);
+  assert.deepEqual(fs.readFileSync(file.path), newest);
+  assert.equal(gh.apiCalls().length, before + 1, "the release is read again once");
+  assert.equal(tracker.entries()[0].version, "1.3.0");
+});
+
+test("a release file that stays gone after reading the release again fails with status 404", async () => {
+  const gh = fakeGitHub("murat303/ytb-player");
+  gh.publish("v1.1.0", fakeNro("YTB Player", "1.1.0"));
+  let now = 0;
+  const tracker = createTracker({ repos: ["murat303/ytb-player"], stateDir: tmp("hb-gh-"), fetchImpl: gh.fetchImpl, now: () => now });
+  await tracker.checkAll();
+  gh.publish("v1.2.0", fakeNro("YTB Player", "1.2.0"));
+  now += CHECK_INTERVAL_MS;
+  await tracker.checkAll();
+  gh.state.release.files = {};
+  const before = gh.apiCalls().length;
+  await assert.rejects(tracker.ensureDownloaded(tracker.entries()[0].id), (err) => err.status === 404);
+  assert.equal(gh.apiCalls().length, before + 1, "one more read, no loop");
+});
+
 test("a build whose digest does not match is refused", async () => {
   const gh = fakeGitHub("a/ytb-player");
   gh.publish("v1", fakeNro("App", "1"));
@@ -247,7 +282,7 @@ test("a first build that failed to arrive is fetched again on the next check, ev
   assert.deepEqual(tracker.entries(), []);
 
   broken = false;
-  now += CHECK_INTERVAL_MS;
+  now += 60 * 60 * 1000; // a failed check waits an hour before the next try
   await tracker.checkAll();
   assert.equal(tracker.entries()[0]?.name, "YTB Player");
 });
@@ -559,8 +594,8 @@ test("a build cached before folder installs existed is looked at again and re-fe
   assert.equal(hub.downloads.length, fetched + 1, "only once");
 });
 
-test("the check interval defaults to six hours and can be set per server", async () => {
-  assert.equal(CHECK_INTERVAL_MS, 6 * 60 * 60 * 1000);
+test("the check interval defaults to thirty minutes and can be set per server", async () => {
+  assert.equal(CHECK_INTERVAL_MS, 30 * 60 * 1000);
   const gh = fakeGitHub("murat303/ytb-player");
   gh.publish("v1.1.0", fakeNro("YTB Player", "1.1.0"));
   let now = 0;

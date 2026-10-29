@@ -41,7 +41,7 @@ Google sign-in is also turned on in the Settings tab. Register the redirect addr
 
 ## 5. Homebrew (Homebrew tab)
 
-- Enter a GitHub repository address and it follows the latest release. The check interval is `COOK_HOMEBREW_CHECK_HOURS` (6 hours by default), and "Check now" looks right away.
+- Enter a GitHub repository address and it follows the latest release. The check interval is `COOK_HOMEBREW_CHECK_HOURS` (0.5, 30 minutes, by default), and "Check now" looks right away.
 - If the release zip is cleanly one `switch/<app>/` folder, it is sent as the folder, otherwise as a single `.nro`. The admin screen shows which one and why.
 
 ## 6. Upload and library (Upload and Library tabs)
