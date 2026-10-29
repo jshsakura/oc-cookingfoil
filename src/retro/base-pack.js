@@ -41,6 +41,8 @@ export function sdPathOf(rel) {
   // A README.md at the top of the BIOS folder is the operator's notes, not firmware for the console.
   if (parts.length === 2 && parts[0] === "system" && isReadme(parts[1])) return null;
   if (parts[0] === "system" && parts.length > 1) return `retroarch/system/${packFirmwarePath(parts.slice(1).join("/"))}`;
+  // config/<Core>/ carries the core's own <Core>.cfg and <Core>.opt; a file named for a game is that game's, and goes with its bundle.
+  if (parts[0] === "config" && parts.length >= 3 && (parts.length > 3 || parts[2].replace(/\.[^.]*$/, "") !== parts[1])) return null;
   return `retroarch/${rel}`;
 }
 
