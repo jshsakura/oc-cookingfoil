@@ -19,6 +19,7 @@
  * folder's .owner names who started it). Across all accounts there are at most
  * MAX_FOLDERS folders and MAX_TOTAL_BYTES of logs; past that the oldest logs go.
  */
+import { clientVersionOf } from "../security/client-version.js";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
@@ -165,7 +166,7 @@ export function mountClientLog(router) {
       const refusal = await folderRefusal(prefix, owner);
       if (refusal) return tooManyRequests(res, 3600).json({ error: refusal });
       const now = new Date();
-      const version = String(req.get("Version") ?? "").replace(/[^\w.+-]/g, "").slice(0, 40) || "unknown";
+      const version = clientVersionOf(req) ?? "unknown";
       const reason = cleanReason(req.get("X-Log-Reason"));
       const head = `# received ${now.toISOString()} · version ${version} · reason ${reason || "-"}\n`;
       const dir = path.join(LOGS_DIR, prefix);

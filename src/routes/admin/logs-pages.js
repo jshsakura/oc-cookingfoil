@@ -126,7 +126,7 @@ function renderSecurity(d){
     // A lock that has since been lifted is history, not a live block.
     if(x.reason==='ip-locked'&&!lockedNow.has(x.ip))r.append(' ',pill(topText('lg.lifted')));
     if(hint)r.append(el('div',hint,'muted'));tr.append(r);
-    tr.append(td(x.ua||'—'),td(x.path||'—','ip'),ipCell(x.ip));return tr;},topText('lg.denyEmpty'),{label:topText('lg.denyH'),placeholder:topText('lg.denyPh')});}
+    tr.append(td([x.version&&'v'+x.version,x.ua].filter(Boolean).join(' · ')||'—'),td(x.path||'—','ip'),ipCell(x.ip));return tr;},topText('lg.denyEmpty'),{label:topText('lg.denyH'),placeholder:topText('lg.denyPh')});}
 async function unlock(ip){if(!await ask(topFill('lg.unlockAsk',{ip})))return;
   try{await api('/admin/api/unlock',{method:'POST',body:{ip}});toast(topText('lg.unlocked'));secReload();}catch(err){toast(err.message);}}
 if($('unlock-all'))$('unlock-all').addEventListener('click',async()=>{if(!await ask(topText('lg.unlockAllAsk')))return;

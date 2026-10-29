@@ -433,9 +433,11 @@ export function getDeviceAccessKeyHash(deviceKey) {
   return state.devices.get(deviceKey)?.accessKeyHash ?? null;
 }
 
-export function approveDevice(deviceKey, { label, addedBy, accessKeyHash, admin }) {
+export function approveDevice(deviceKey, { label, addedBy, accessKeyHash, admin, version }) {
   const now = Date.now();
   const prev = state.devices.get(deviceKey);
+  // Approved from the admin page, the version is the one the console sent when it asked.
+  const client = version ?? pendingFrom.get(deviceKey)?.version ?? null;
   // A new key for the same console keeps it an admin device unless `admin` says otherwise.
   state.devices.set(deviceKey, deviceRecord({
     label: label ?? prev?.label ?? "",
@@ -445,7 +447,7 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash, admin 
     admin: admin ?? prev?.admin,
   }));
   dropPending(deviceKey);
-  appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, at: now });
+  appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, version: client, at: now });
   scheduleFlush();
   approvalsChanged("device");
   emitPluginEvent("deviceApproved", { isNew: !prev, admin: state.devices.get(deviceKey)?.admin === true }, { deviceKey });
@@ -599,7 +601,7 @@ export function addressPlace(ip, t = translator()) {
  * it named itself as. A console asks before it has any account, so this is the
  * best guess the server has; the admin still checks the code on the screen.
  */
-export function requesterFacts({ ip = null, agent = null } = {}, now = Date.now()) {
+export function requesterFacts({ ip = null, agent = null, version = null } = {}, now = Date.now()) {
   const names = ip
     ? Array.from(state.access.entries())
         .filter(([, v]) => (v.ips?.[ip] ?? 0) >= now - SAME_ADDRESS_MS)
@@ -611,15 +613,16 @@ export function requesterFacts({ ip = null, agent = null } = {}, now = Date.now(
     place: ip ? addressPlace(ip) : null,
     accounts: [...new Set(names)],
     app: String(agent ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, AGENT_MAX) || null,
+    version: version || null,
   };
 }
 
 export function requesterLines(from = {}, now = Date.now(), t = translator()) {
-  const { ip, accounts, app } = requesterFacts(from, now);
+  const { ip, accounts, app, version } = requesterFacts(from, now);
   const lines = [];
   if (ip) lines.push(t("requesterFrom", { ip, place: addressPlace(ip, t) }));
   if (accounts.length) lines.push(t("requesterAccounts", { names: accounts.slice(0, SAME_ADDRESS_MAX).join(", "), more: Math.max(0, accounts.length - SAME_ADDRESS_MAX) }));
-  if (app) lines.push(t("requesterApp", { app }));
+  if (app || version) lines.push(t("requesterApp", { app: [app, version && `v${version}`].filter(Boolean).join(" · ") }));
   return lines;
 }
 
@@ -652,7 +655,7 @@ export function recordPendingDevice(deviceKey, { message, name, download, quiet 
   const next = pendingRecord({ firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now, message: note,
     name: name || prev?.name, download: download ?? prev?.download });
   state.pending.set(deviceKey, next);
-  if (from.ip || from.agent) pendingFrom.set(deviceKey, { ip: from.ip ?? null, agent: from.agent ?? null });
+  if (from.ip || from.agent || from.version) pendingFrom.set(deviceKey, { ip: from.ip ?? null, agent: from.agent ?? null, version: from.version ?? null });
   if (state.pending.size > PENDING_MAX) evictOldestPending();
   scheduleFlush();
   const learned = Boolean(next.download && !prev?.download) || Boolean(next.name && !prev?.name);

@@ -94,6 +94,7 @@
  * (security/pairing-delivery.js). Mounted OUTSIDE the sign-in wall but
  * INSIDE rate-limiting + the probe access-guard.
  */
+import { clientVersionOf } from "../security/client-version.js";
 import express from "express";
 import { bindingOf } from "../security/device-owner.js";
 
@@ -172,13 +173,13 @@ function enrollFromRequest(req, deviceKey) {
   if (!spent || spent.refused || spent.full || spent.limit) {
     const known = enrollTokens.lookup(token);
     const limit = spent?.full ? "device" : spent?.limit ? "enroll" : undefined;
-    debug.log("pair: %s… asked with a download token that is %s", deviceKey.slice(0, 12), spent?.refused ? "another account's" : limit ? `at the ${limit} limit` : known?.state ?? "unknown");
+    debug.log("pair: %s… asked with a download token that is %s [client %s]", deviceKey.slice(0, 12), spent?.refused ? "another account's" : limit ? `at the ${limit} limit` : known?.state ?? "unknown", clientVersionOf(req) ?? "?");
     return { download: known, limit };
   }
   const accessKey = generateAccessKey();
-  store.approveDevice(deviceKey, { label: consoleName(req) ?? FROM_DOWNLOAD, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey) });
+  store.approveDevice(deviceKey, { label: consoleName(req) ?? FROM_DOWNLOAD, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey), version: clientVersionOf(req) });
   stageAccessKeyDelivery(deviceKey, accessKey);
-  debug.log("pair: %s… enrolled by %s's download %s (from its request)", deviceKey.slice(0, 12), spent.owner, spent.id);
+  debug.log("pair: %s… enrolled by %s's download %s (from its request) [client %s]", deviceKey.slice(0, 12), spent.owner, spent.id, clientVersionOf(req) ?? "?");
   return {};
 }
 
@@ -237,7 +238,7 @@ function repairResponse(req, res, deviceKey, secretHash) {
   if (verdict === "new") {
     const admitted = admitRepair(req, deviceKey);
     if (!admitted.ok) return tooManyConsoles(req, res, deviceKey, admitted.retryAfterSec);
-    debug.log("pair: %s… is approved but asked for a new key; showing a re-pair QR", deviceKey.slice(0, 12));
+    debug.log("pair: %s… is approved but asked for a new key; showing a re-pair QR [client %s]", deviceKey.slice(0, 12), clientVersionOf(req) ?? "?");
   }
   const out = pendingResponse(req, deviceKey);
   keepRepair(deviceKey, secretHash, out.expiresAt);
@@ -305,10 +306,10 @@ export default function pairRouter() {
       // A QR shown under the old secret must not hand a key to the new one: it gets a fresh link.
       store.replacePairSecret(deviceKey, secret.hash);
       dropPairLink(deviceKey);
-      debug.log("pair: %s… asked again with a new pairSecret", deviceKey.slice(0, 12));
+      debug.log("pair: %s… asked again with a new pairSecret [client %s]", deviceKey.slice(0, 12), clientVersionOf(req) ?? "?");
     }
     if (keepPairSecret(deviceKey, secret.hash) === "conflict") return secretConflict(req, res);
-    debug.log("pair: request from %s…", deviceKey.slice(0, 12));
+    debug.log("pair: request from %s… [client %s]", deviceKey.slice(0, 12), clientVersionOf(req) ?? "?");
     res.json(pendingResponse(req, deviceKey, auto === "limit" ? "device" : limit));
   });
 
@@ -351,7 +352,7 @@ export default function pairRouter() {
       out.accessKey = accessKey;
       const origin = resolveOrigin(req, publicBaseUrl);
       out.libraryUrl = origin || null;
-      debug.log("pair: delivered accessKey to %s…", deviceKey.slice(0, 12));
+      debug.log("pair: delivered accessKey to %s… [client %s]", deviceKey.slice(0, 12), clientVersionOf(req) ?? "?");
     }
     res.json(out);
   });
@@ -372,7 +373,7 @@ export default function pairRouter() {
     const checks = enrollChecks(deviceKey);
     const proves = verifyAccessKey(req.get("X-Access-Key"), store.getDeviceAccessKeyHash(deviceKey));
     if (store.isDeviceApproved(deviceKey) && systemApproved(deviceKey) && !proves && !enrollTokens.respend(req.body?.token, deviceKey, checks)) {
-      debug.log("pair: %s… enroll refused: approved already, no access key shown", deviceKey.slice(0, 12));
+      debug.log("pair: %s… enroll refused: approved already, no access key shown [client %s]", deviceKey.slice(0, 12), clientVersionOf(req) ?? "?");
       noteRefusal(req, res, 403, "enroll-needs-key", { proven: false });
       res.set("X-CookingFoil-Enroll", "needs-key");
       res.status(403).json({ error: "this console was let in without an account; enroll it with its current access key, or pair it again by QR" });
@@ -387,7 +388,7 @@ export default function pairRouter() {
       // in the queue under that account's name, for the admin to approve.
       const known = enrollTokens.lookup(req.body?.token, Date.now(), { multi: checks.multi });
       const reason = spent?.limit ? "limit" : spent?.full ? "device-limit" : known ? known.reason ?? "used" : "invalid";
-      debug.log("pair: %s… enroll refused: %s", deviceKey.slice(0, 12), reason);
+      debug.log("pair: %s… enroll refused: %s [client %s]", deviceKey.slice(0, 12), reason, clientVersionOf(req) ?? "?");
       if (known && !store.isDeviceApproved(deviceKey)) recordPending(req, deviceKey, { name: consoleName(req), download: known });
       res.set("X-CookingFoil-Enroll", reason === "device-limit" ? "limit" : reason);
       if (reason === "device-limit") {
@@ -401,7 +402,7 @@ export default function pairRouter() {
       return;
     }
     if (spent.refused) {
-      debug.log("pair: %s… enroll refused: the console is another account's", deviceKey.slice(0, 12));
+      debug.log("pair: %s… enroll refused: the console is another account's [client %s]", deviceKey.slice(0, 12), clientVersionOf(req) ?? "?");
       noteRefusal(req, res, 409, "enroll-other-account", { proven: true });
       res.status(409).json({ error: "this console belongs to another account" });
       return;
@@ -415,15 +416,16 @@ export default function pairRouter() {
     const binds = !fresh && proves && systemApproved(deviceKey) && !store.isDeviceAdmin(deviceKey);
     const keeps = !fresh && !binds && systemApproved(deviceKey);
     store.approveDevice(deviceKey, {
+      version: clientVersionOf(req),
       label: fresh ? consoleName(req) ?? FROM_DOWNLOAD : binds ? consoleName(req) ?? undefined : undefined,
       addedBy: keeps ? undefined : spent.owner,
       accessKeyHash: hashAccessKey(accessKey),
     });
-    if (binds) debug.log("pair: %s… was the system's; now bound to %s", deviceKey.slice(0, 12), spent.owner);
+    if (binds) debug.log("pair: %s… was the system's; now bound to %s [client %s]", deviceKey.slice(0, 12), spent.owner, clientVersionOf(req) ?? "?");
     store.clearPairSecret(deviceKey);
     dropRepair(deviceKey);
-    if (again) debug.log("pair: %s… re-enrolled with its own download %s", deviceKey.slice(0, 12), spent.id);
-    else debug.log("pair: %s… enrolled by %s's download %s", deviceKey.slice(0, 12), spent.owner, spent.id);
+    if (again) debug.log("pair: %s… re-enrolled with its own download %s [client %s]", deviceKey.slice(0, 12), spent.id, clientVersionOf(req) ?? "?");
+    else debug.log("pair: %s… enrolled by %s's download %s [client %s]", deviceKey.slice(0, 12), spent.owner, spent.id, clientVersionOf(req) ?? "?");
     const origin = resolveOrigin(req, publicBaseUrl);
     vouch(res);
     // The client keeps its download token until it reads the binding here (bindingOf in device-owner.js).
@@ -466,7 +468,7 @@ export default function pairRouter() {
       return;
     }
     const moved = store.rebindDevice(from, to);
-    debug.log("pair: rebind %s… → %s… (%s)", from.slice(0, 12), to.slice(0, 12), moved ? "moved" : "nothing to move");
+    debug.log("pair: rebind %s… → %s… (%s) [client %s]", from.slice(0, 12), to.slice(0, 12), moved ? "moved" : "nothing to move", clientVersionOf(req) ?? "?");
     res.json({ status: moved ? "moved" : "kept", deviceKey: to });
   });
 

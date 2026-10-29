@@ -122,3 +122,17 @@ test("a refusal is recorded without the query, so what a console sent about itse
   );
   assert.equal(entry.path, "/api/download/a.nsz");
 });
+
+test("a refusal and an approval keep the console client's version, cleaned, and none when it sent none", () => {
+  store.clearDenials();
+  const sent = recordDeny(fakeReq({ headers: { Version: "0.5.29<script>" } }), { reason: DENY.DEVICE_BAD_ACCESS_KEY, status: 403 });
+  assert.equal(sent.version, "0.5.29script");
+  assert.equal(recordDeny(fakeReq(), { reason: DENY.PROBE }).version, null);
+
+  const since = Date.now() - 1;
+  store.recordPendingDevice("VERSIONKEY", { quiet: true, from: { ip: "203.0.113.9", version: "0.5.37" } });
+  store.approveDevice("VERSIONKEY", { label: "deck", addedBy: "admin", accessKeyHash: "a".repeat(64) });
+  const approved = store.auditSince(since).find((e) => e.kind === "device-approve" && e.deviceKey === "VERSIONKEY");
+  assert.equal(approved.version, "0.5.37", "approved from the admin page, it keeps the version the console asked with");
+  assert.ok(store.requesterLines({ version: "0.5.37" }).some((l) => l.includes("v0.5.37")), "the approval alert names the version");
+});
