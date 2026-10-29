@@ -6,8 +6,8 @@ import { shot } from './shots';
 test('admin tables offer an order picker and filter chips', async ({ page }) => {
   await signIn(page);
   const mount = page.locator('.grid-mount:has(select.grid-sort):visible').first();
-  for (const tab of ['#homebrew', '#retro', '#users', '#logs', '#nsz', '#patches']) {
-    await page.goto('/admin' + tab);
+  for (const at of ['/homebrew?tab=apps', '/retro?view=art', '#users', '#logs', '#nsz', '/patches?tab=list']) {
+    await page.goto('/admin' + at);
     await page.waitForTimeout(800);
     if (await mount.count()) break;
   }

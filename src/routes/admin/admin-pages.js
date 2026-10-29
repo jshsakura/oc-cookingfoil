@@ -248,8 +248,8 @@ function pathForHash(parts){const [tab,sub]=parts;
   return H2P[tab]||'/admin';}
 // The temp folder, patches and saves were tabs of the games page; each is a page of its own now.
 if(PAGE.path==='/admin/games'){const gone={organize:'/admin/incoming/temp',patches:'/admin/patches',saves:'/admin/saves',server:'/admin/settings/server'};
-  const q=new URLSearchParams(location.search);const to=gone[q.get('view')]||gone[location.hash.split('/')[1]];
-  if(to&&(q.get('view')||location.hash.startsWith('#library/'))){q.delete('view');const s=q.toString();location.replace(to+(s?'?'+s:''));return;}}
+  const q=new URLSearchParams(location.search);const was=q.get('view')||location.hash.split('/')[1],to=gone[was];
+  if(to&&(q.get('view')||location.hash.startsWith('#library/'))){q.delete('view');if(was==='patches'||was==='saves')q.set('tab','list');const s=q.toString();location.replace(to+(s?'?'+s:''));return;}}
 const legacy=location.hash.slice(1).split('/');
 if(H2P[legacy[0]]&&(legacy[0]!==PAGE.tab||(['settings','logs'].includes(legacy[0])&&legacy[1]&&pathForHash(legacy)!==PAGE.path))){
   location.replace(pathForHash(legacy)+location.search+location.hash);return;}

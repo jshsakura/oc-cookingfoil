@@ -209,7 +209,7 @@ test('the admin writes a game description that the title detail shows instead of
 
 test('a patch is switched between required and optional from the patch list and from its game', async ({ page, request }) => {
   await signIn(page);
-  await page.goto('/admin#library/patches');
+  await page.goto('/admin/patches?tab=list');
   const required = async (name: string) =>
     ((await (await request.get('/api/patches')).json()).patches as { name: string; required: boolean }[]).find((p) => p.name === name)?.required;
   const group = page.locator('#lib-patches .pt-game', { hasText: '0100000000010000' });
@@ -242,14 +242,14 @@ test('a patch is switched between required and optional from the patch list and 
   await inGame.click();
   await expect(inGame).toHaveAttribute('aria-checked', 'true');
   await shot(page.locator('#gd-patches'), { path: 'out/web/admin-game-patches.png' });
-  await page.goto('/admin/patches');
+  await page.goto('/admin/patches?tab=list');
   await expect(data).toHaveAttribute('aria-checked', 'true');
   expect(await required('게임 데이터')).toBe(true);
 });
 
 test('an uploaded patch and save are edited, moved to another game and deleted from the library tab', async ({ page, request }) => {
   await signIn(page);
-  await page.goto('/admin#library/patches');
+  await page.goto('/admin/patches?tab=list');
   const patches = async (lang: string) => (await (await request.get(`/api/patches?lang=${lang}`)).json()).patches as { name: string; title_id: string; description: string | null }[];
   const row = page.locator('#lib-patches .pt-row', { hasText: '한글패치' });
   await row.getByRole('button', { name: '한글패치 편집' }).click();
@@ -279,7 +279,7 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
   await expect(page.locator('#lib-patches')).not.toContainText('Korean patch');
   expect((await patches('en')).some((p) => p.name === 'Korean patch')).toBe(false);
 
-  await page.goto('/admin/saves');
+  await page.goto('/admin/saves?tab=list');
   const save = page.locator('#lib-saves .pt-row', { hasText: 'All unlocked' });
   await save.getByRole('button', { name: 'All unlocked 편집' }).click();
   await page.locator('#ct-name-ko').fill('전부 열림');
@@ -292,7 +292,7 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
 
 test("a homebrew app's patch is edited from the homebrew tab with the patch dialog", async ({ page, request }) => {
   await signIn(page);
-  await page.goto('/admin#homebrew');
+  await page.goto('/admin/homebrew?tab=apps');
   const patch = async (lang: string) => ((await (await request.get(`/api/patches?lang=${lang}`)).json()).patches as
     { homebrew: string | null; name: string; description: string | null; version: string | null }[]).find((p) => p.homebrew === 'handapp');
   await expect.poll(async () => (await patch('en'))?.name).toBe('Turbo mod');
@@ -317,15 +317,15 @@ test("a homebrew app's patch is edited from the homebrew tab with the patch dial
   expect(await patch('en')).toMatchObject({ name: 'Turbo', description: 'Doubles the speed.', version: '1.1' });
   expect((await patch('ko'))?.description).toBe('속도를 두 배로 올립니다.');
   // A game patch opened afterwards gets its full dialog back.
-  await page.goto('/admin#library/patches');
+  await page.goto('/admin/patches?tab=list');
   await page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' }).getByRole('button', { name: '게임 데이터 편집' }).click();
   await expect(page.locator('#ct-update')).toBeVisible();
   await expect(page.locator('#ct-remove')).toBeVisible();
 });
 
-test('a homebrew app is turned off and on from the homebrew tab, which opens on the apps', async ({ page, request }) => {
+test('a homebrew app is turned off and on from the apps tab', async ({ page, request }) => {
   await signIn(page);
-  await page.goto('/admin#homebrew');
+  await page.goto('/admin/homebrew?tab=apps');
   const listed = async () => ((await (await request.get('/api/homebrew')).json()).homebrew as { file_name: string }[]).map((e) => e.file_name);
   await expect.poll(listed).toContain('handapp.nro');
   const row = page.locator('#hb-apps .src-card', { hasText: 'Hand App' });
@@ -348,7 +348,7 @@ test('a game file is found by name and deleted from the library tab', async ({ p
   fs.writeFileSync(file, '');
   await signIn(page);
   await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
-  await page.goto('/admin#library');
+  await page.goto('/admin/games?view=files');
   // The one file browser finds it across every kind, with the type filter on 전체.
   await expect(page.locator('#lb-tab-all')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(async () => {

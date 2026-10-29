@@ -317,7 +317,8 @@ export default function adminPageRouter() {
       if (page.path === "/admin/games" && (view === "patches" || view === "saves" || view === "server")) {
         const rest = { ...req.query };
         delete rest.view;
-        return redirectKeeping(res, view === "server" ? "/admin/settings/server" : `/admin/${view}`, rest);
+        // Those old links meant the list, which now follows the folder tab.
+        return redirectKeeping(res, view === "server" ? "/admin/settings/server" : `/admin/${view}`, view === "server" ? rest : { ...rest, tab: "list" });
       }
       // The split pages of the redesign carry only their own markup and script.
       const split = splitPageFor(page, view);

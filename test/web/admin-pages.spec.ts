@@ -45,7 +45,7 @@ test('every page opens its own section, marks the sidebar and keeps its address 
   }
 });
 
-test('the retro page lists its eight jobs as tabs and keeps the chosen one in its address', async ({ page }) => {
+test('the retro page lists its eight jobs as tabs, the files first, and keeps the chosen one in its address', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
@@ -53,8 +53,8 @@ test('the retro page lists its eight jobs as tabs and keeps the chosen one in it
   await expect(page.locator('#retro-subtabs [data-sub="cores"]')).toHaveAttribute('aria-selected', 'true');
   const items = page.locator('#retro-subtabs [data-sub]');
   await expect(items).toHaveCount(8);
-  await expect(items.first()).toHaveAttribute('data-sub', 'art');
-  await expect(items.last()).toHaveAttribute('data-sub', 'folder');
+  await expect(items.first()).toHaveAttribute('data-sub', 'folder');
+  await expect(items.last()).toHaveAttribute('data-sub', 'sets');
 });
 
 test('a settings page opens its own area', async ({ page }) => {
@@ -231,7 +231,7 @@ test('dictionary text keeps its links and never shows a raw key or source', asyn
   await page.goto('/admin/settings/integrations');
   await expect(page.locator('.intg-steps a').first()).toBeVisible();
   expect(await page.locator('.intg-steps').evaluateAll((ns) => ns.some((n) => (n as HTMLElement).innerText.includes('<a ')))).toBe(false);
-  await page.goto('/admin/games');
+  await page.goto('/admin/games?view=files');
   await expect(page.locator('#lb-list')).toContainText('Test Game');
   await expect(page.locator('#lb-list')).not.toContainText('lb.k');
 });

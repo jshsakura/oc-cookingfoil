@@ -12,7 +12,7 @@ const system = path.join(process.env.COOK_RETRO_DIR!, 'retroarch', 'system');
 const placed = path.join(system, 'BIOS_MD.BIN');
 
 async function openRetro(page: Page, lang = 'ko') {
-  await page.evaluate((l) => { localStorage.setItem('cookingfoil:lang', l); localStorage.setItem('cf-retro-sub', 'art'); }, lang);
+  await page.evaluate((l) => { localStorage.setItem('cookingfoil:lang', l); }, lang);
   await page.reload();
   await page.goto('/admin/retro?view=art');
   await expect(page.locator('#ra-bios .rq-note')).toBeVisible();
