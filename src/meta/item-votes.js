@@ -18,6 +18,9 @@ const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const VOTER_RE = /^(acct|google|dev):.{1,128}$/;
 
 const file = jsonFile(FILE, { indent: 0 });
+
+/** Changes when the stored values do, by the server or by hand. */
+export const fileStamp = () => file.stamp();
 const all = file.read;
 
 function write(next) {

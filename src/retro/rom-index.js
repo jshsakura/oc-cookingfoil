@@ -38,6 +38,7 @@ import { entryStream, zipDirectory } from "../helpers/zip-read.js";
 import * as activity from "../tasks/activity.js";
 import { inTurn } from "./disk-turn.js";
 import { koreanNameCrc, koreanNameSystem } from "./ko-names.js";
+import * as indexRevision from "./index-revision.js";
 
 export const MAX_BYTES = 1024 ** 3;
 const SKIP_EXT = new Set([".chd", ".pbp", ".cso", ".rvz", ".m3u", ".7z"]);
@@ -188,6 +189,7 @@ export async function pass(games, { pauseMs = PAUSE_MS } = {}) {
         data = { skip: "unreadable" };
       }
       rows().set(g.abs, { key: t.key, data });
+      indexRevision.bump();
       job.step(++hashed, g.file);
       if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
     }

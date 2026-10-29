@@ -15,6 +15,9 @@ export const KINDS = ["retro", "game", "patch", "save"];
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 const file = jsonFile(FILE);
+
+/** Changes when the stored values do, by the server or by hand. */
+export const fileStamp = () => file.stamp();
 const all = file.read;
 
 const keyOf = (kind, id) => `${kind}:${id}`;

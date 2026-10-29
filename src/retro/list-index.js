@@ -29,20 +29,27 @@ export function delta(older, newer) {
 }
 
 /**
- * Snapshots per key (a language), each rebuilt at most once per `freshMs` and
- * at once when `source` (the catalog object) changes. `build(source, key)`
- * returns the items.
+ * Snapshots per key (a language). One is rebuilt at once when `source` (the catalog object) changes,
+ * and otherwise when `stamp()` (what else the items show) moved, at most once per `freshMs`. With
+ * neither, it is still rebuilt after `maxAgeMs`, for what no stamp covers (box art replaced by hand).
+ * `build(source, key)` returns the items.
  */
-export function createIndexCache(build, { freshMs = 3000, history = HISTORY } = {}) {
-  const current = new Map(); // key → { source, at, snap, pages: Map }
+export function createIndexCache(build, { stamp = () => null, freshMs = 3000, maxAgeMs = 60_000, history = HISTORY } = {}) {
+  const current = new Map(); // key → { source, stamp, at, snap, pages: Map }
   const past = new Map(); // key → Map(version → hashes), oldest first
 
   function get(source, key, now = Date.now()) {
     const hit = current.get(key);
-    if (hit && hit.source === source && now - hit.at < freshMs) return hit;
+    if (hit && hit.source === source) {
+      const age = now - hit.at;
+      if (age < freshMs) return hit;
+      if (age < maxAgeMs && hit.stamp === stamp()) return hit;
+    }
+    // Read before the build, so a change that lands while it runs moves the stamp past it.
+    const at = stamp();
     const snap = snapshot(build(source, key));
     // Unchanged: keep the pages (and their gzip) already made.
-    const entry = hit?.snap.version === snap.version ? { ...hit, source, at: now } : { source, at: now, snap, pages: new Map() };
+    const entry = hit?.snap.version === snap.version ? { ...hit, source, stamp: at, at: now } : { source, stamp: at, at: now, snap, pages: new Map() };
     current.set(key, entry);
     const versions = past.get(key) ?? new Map();
     if (!versions.has(snap.version)) {
