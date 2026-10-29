@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request as playRequest } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { signIn } from './admin-sign-in';
@@ -415,6 +415,8 @@ test('on a wide screen the folder tree and the details pane open beside the list
   const tree = page.locator('#fb-tree');
   await expect(tree.locator('[aria-current="page"]')).toContainText('fb-test');
   await expect(tree.getByRole('button', { name: 'Beta', exact: true })).toBeVisible();
+  const alphaArrow = tree.locator('.fb-tn', { has: page.getByRole('button', { name: 'Alpha', exact: true }) }).locator('.fb-tx');
+  await expect(alphaArrow).toHaveCSS('visibility', 'hidden');
   await tree.getByRole('button', { name: 'Beta', exact: true }).click();
   await expect(row(page, 'keep.txt')).toBeVisible();
   await expect(tree.locator('[aria-current="page"]')).toContainText('Beta');
@@ -424,6 +426,21 @@ test('on a wide screen the folder tree and the details pane open beside the list
   await row(page, 'loose.nsp').locator('.fb-name').click();
   await expect(side.getByRole('heading', { name: 'loose.nsp' })).toBeVisible();
   await expect(side).toContainText('3 B');
+  await expect(side.locator('.fb-s-act').getByRole('button')).toHaveText(['', '', '', '']);
+  await expect(side.getByRole('button', { name: '이름 바꾸기' })).toBeVisible();
+  await side.getByRole('button', { name: '공유 링크' }).click();
+  await page.locator('#ask-select').selectOption({ label: '하루' });
+  await page.locator('#ask-ok').click();
+  // Without clipboard access the link is shown to copy by hand.
+  const shown = page.locator('#ask-input');
+  await expect(shown.or(side.locator('.fb-s-link')).first()).toBeVisible();
+  if (await shown.isVisible()) {
+    await expect(shown).toHaveValue(/\/share\/[A-Za-z0-9_-]{32}$/);
+    await page.locator('#ask-ok').click();
+  }
+  await expect(side.locator('.fb-s-link')).toContainText('까지 공유 중');
+  await side.getByRole('button', { name: '링크 끊기' }).click();
+  await expect(side.locator('.fb-s-link')).toHaveCount(0);
   await row(page, 'Alpha').locator('.c-size').click();
   await expect(side).toContainText('파일 2개');
   await page.locator('#fb-t-side').click();
@@ -471,4 +488,17 @@ test('a folder row shows its size, and the details pane what it holds', async ({
   await expect(row(page, 'Alpha').locator('.c-size')).toHaveText('3 B');
   await row(page, 'Alpha').locator('.c-mtime').click();
   await expect(page.locator('#fb-side')).toContainText('파일 2개, 폴더 0개');
+});
+
+test('a share link downloads the file without signing in', async ({ page, baseURL }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  const made = await page.evaluate(() => (window as any).api('/admin/api/files/share', { method: 'POST', body: { root: 'games', path: 'fb-test/loose.nsp', hours: 1 } }));
+  const token = String(made.url).split('/share/')[1];
+  const stranger = await playRequest.newContext({ baseURL });
+  const got = await stranger.get(`/share/${token}`);
+  expect(got.status()).toBe(200);
+  expect(got.headers()['content-disposition']).toContain('loose.nsp');
+  expect((await stranger.get(`/share/${'A'.repeat(32)}`)).status()).toBe(404);
+  await stranger.dispose();
 });

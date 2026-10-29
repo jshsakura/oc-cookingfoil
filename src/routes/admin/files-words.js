@@ -15,6 +15,7 @@ const KEYS = [
   "fb.back", "fb.forward", "fb.deep", "fb.deepCut", "fb.viewList", "fb.viewGrid", "fb.cut", "fb.copy", "fb.paste", "fb.copying", "fb.copied", "fb.copiedSome", "fb.clipCut", "fb.clipCopy", "fb.undo", "fb.undone", "fb.undoNone", "fb.undoFail", "fb.props", "fb.p.kind", "fb.p.where", "fb.p.size", "fb.p.holds", "fb.p.mtime", "fb.p.file", "fb.p.dir", "fb.p.many", "fb.p.holdsVal", "fb.p.bytes", "fb.p.counting",
   "fb.p.note", "fb.p.cut",
   "fb.tree", "fb.side", "fb.tree.open", "fb.tree.close", "fb.k.base", "fb.k.update", "fb.k.dlc", "fb.old", "fb.c.damaged", "fb.c.modified", "fb.p.titleId", "fb.p.version", "fb.p.check", "fb.p.sizeAsk", "fb.side.none", "fb.side.files", "fb.copyProg", "fb.shown",
+  "fb.share", "fb.shareAsk", "fb.share1h", "fb.share1d", "fb.share7d", "fb.shareCopied", "fb.shareCopy", "fb.shareUntil", "fb.shareEnd", "fb.shareEnded",
 ];
 
 const ROWS = {
@@ -31,6 +32,7 @@ const ROWS = {
     "뒤로", "앞으로", "하위 폴더까지", "항목이 너무 많아 앞의 10만 개까지만 찾았습니다", "목록 보기", "아이콘 보기", "잘라내기", "복사", "붙여넣기", "복사하는 중입니다", "{n}개를 복사했습니다", "{n}개를 복사했습니다. {s}개는 복사하지 못했습니다", "{n}개를 잘라냈습니다. 옮길 폴더에서 Ctrl+V를 누릅니다", "{n}개를 복사해 뒀습니다. 붙여넣을 폴더에서 Ctrl+V를 누릅니다", "되돌리기", "되돌렸습니다", "되돌릴 작업이 없습니다", "되돌리지 못했습니다: {msg}", "속성", "종류", "위치", "크기", "내용", "수정한 날짜", "파일", "폴더", "{n}개 항목", "파일 {files}개, 폴더 {dirs}개", "{size} ({bytes}바이트)", "세는 중입니다",
     "참고", "항목이 너무 많아 앞의 10만 개까지만 셌습니다",
     "폴더 트리", "상세 정보", "폴더 펼치기", "폴더 접기", "본편", "업데이트", "DLC", "구버전", "손상", "수정됨", "타이틀 ID", "버전", "검사", "크기 계산", "항목을 고르면 여기에 정보가 나옵니다", "파일 {n}개 · {size}", "복사하는 중 · {done} / {total} ({p}%)", "{shown}개 표시",
+    "공유 링크", "링크가 있으면 누구나 이 파일을 받을 수 있습니다. 얼마 동안 열어 둘지 고릅니다", "1시간", "하루", "7일", "링크를 복사했습니다. {when}까지 받을 수 있습니다", "아래 링크를 복사해 보냅니다. {when}까지 받을 수 있습니다", "{when}까지 공유 중", "링크 끊기", "링크를 끊었습니다",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -45,6 +47,7 @@ const ROWS = {
     "Back", "Forward", "Include subfolders", "Too many items: only the first 100,000 were searched", "List view", "Icon view", "Cut", "Copy", "Paste", "Copying", "Copied {n}", "Copied {n}. {s} could not be copied", "Cut {n}. Press Ctrl+V in the folder to move them to", "Copied {n}. Press Ctrl+V in the folder to paste them into", "Undo", "Undone", "Nothing to undo", "Could not undo: {msg}", "Properties", "Type", "Location", "Size", "Contains", "Modified", "file", "Folder", "{n} items", "{files} files, {dirs} folders", "{size} ({bytes} bytes)", "Counting",
     "Note", "Too many items: only the first 100,000 were counted",
     "Folder tree", "Details", "Expand folder", "Collapse folder", "Base game", "Update", "DLC", "Outdated", "Damaged", "Modified", "Title ID", "Version", "Check", "Count size", "Pick an item to see its details here", "{n} files · {size}", "Copying · {done} of {total} ({p}%)", "{shown} shown",
+    "Share link", "Anyone with the link can download this file. Choose how long it stays open", "1 hour", "1 day", "7 days", "Link copied. It works until {when}", "Copy the link below and send it. It works until {when}", "Shared until {when}", "End link", "The link has ended",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -59,6 +62,7 @@ const ROWS = {
     "戻る", "進む", "サブフォルダーも含める", "項目が多すぎるため、最初の10万個までを検索しました", "一覧表示", "アイコン表示", "切り取り", "コピー", "貼り付け", "コピーしています", "{n}個をコピーしました", "{n}個をコピーしました。{s}個はコピーできませんでした", "{n}個を切り取りました。移動先のフォルダーで Ctrl+V を押します", "{n}個をコピーしました。貼り付け先のフォルダーで Ctrl+V を押します", "元に戻す", "元に戻しました", "元に戻す操作はありません", "元に戻せませんでした: {msg}", "プロパティ", "種類", "場所", "サイズ", "内容", "更新日時", "ファイル", "フォルダー", "{n}個の項目", "ファイル {files}個、フォルダー {dirs}個", "{size} ({bytes}バイト)", "数えています",
     "注意", "項目が多すぎるため、最初の10万個までを数えました",
     "フォルダーツリー", "詳細", "フォルダーを開く", "フォルダーを閉じる", "本編", "アップデート", "DLC", "旧バージョン", "破損", "改変あり", "タイトルID", "バージョン", "検査", "サイズを計算", "項目を選ぶとここに詳細が表示されます", "ファイル{n}個 · {size}", "コピー中 · {done} / {total}（{p}%）", "{shown}件を表示",
+    "共有リンク", "リンクを知っていれば誰でもこのファイルを受け取れます。有効期間を選びます", "1時間", "1日", "7日", "リンクをコピーしました。{when}まで受け取れます", "下のリンクをコピーして送ります。{when}まで受け取れます", "{when}まで共有中", "リンクを止める", "リンクを止めました",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -73,6 +77,7 @@ const ROWS = {
     "后退", "前进", "包括子文件夹", "项目过多，仅搜索了前 100,000 项", "列表视图", "图标视图", "剪切", "复制", "粘贴", "正在复制", "已复制 {n} 项", "已复制 {n} 项。{s} 项无法复制", "已剪切 {n} 项。在目标文件夹中按 Ctrl+V 移动", "已复制 {n} 项。在目标文件夹中按 Ctrl+V 粘贴", "撤销", "已撤销", "没有可撤销的操作", "无法撤销：{msg}", "属性", "类型", "位置", "大小", "包含", "修改时间", "文件", "文件夹", "{n} 个项目", "{files} 个文件，{dirs} 个文件夹", "{size}（{bytes} 字节）", "正在统计",
     "注意", "项目过多，仅统计了前 100,000 项",
     "文件夹树", "详细信息", "展开文件夹", "折叠文件夹", "本体", "更新", "DLC", "旧版本", "已损坏", "已修改", "标题 ID", "版本", "检查", "计算大小", "选择一个项目即可在此查看详细信息", "{n} 个文件 · {size}", "正在复制 · {done} / {total}（{p}%）", "显示 {shown} 个",
+    "分享链接", "拿到链接的人都能下载这个文件。请选择有效时长", "1 小时", "1 天", "7 天", "链接已复制。{when} 前可以下载", "复制下面的链接发送出去。{when} 前可以下载", "分享至 {when}", "停用链接", "链接已停用",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -87,6 +92,7 @@ const ROWS = {
     "上一頁", "下一頁", "包含子資料夾", "項目過多，僅搜尋了前 100,000 項", "清單檢視", "圖示檢視", "剪下", "複製", "貼上", "正在複製", "已複製 {n} 項", "已複製 {n} 項。{s} 項無法複製", "已剪下 {n} 項。在目標資料夾中按 Ctrl+V 移動", "已複製 {n} 項。在目標資料夾中按 Ctrl+V 貼上", "復原", "已復原", "沒有可復原的操作", "無法復原：{msg}", "內容", "類型", "位置", "大小", "包含", "修改時間", "檔案", "資料夾", "{n} 個項目", "{files} 個檔案，{dirs} 個資料夾", "{size}（{bytes} 位元組）", "正在計算",
     "注意", "項目過多，僅計算了前 100,000 項",
     "資料夾樹", "詳細資訊", "展開資料夾", "收合資料夾", "本體", "更新", "DLC", "舊版本", "已損壞", "已修改", "標題 ID", "版本", "檢查", "計算大小", "選擇一個項目即可在此查看詳細資訊", "{n} 個檔案 · {size}", "正在複製 · {done} / {total}（{p}%）", "顯示 {shown} 個",
+    "分享連結", "拿到連結的人都能下載這個檔案。請選擇有效時長", "1 小時", "1 天", "7 天", "連結已複製。{when} 前可以下載", "複製下面的連結傳送出去。{when} 前可以下載", "分享至 {when}", "停用連結", "連結已停用",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -101,6 +107,7 @@ const ROWS = {
     "Atrás", "Adelante", "Incluir subcarpetas", "Demasiados elementos: solo se buscó en los primeros 100.000", "Vista de lista", "Vista de iconos", "Cortar", "Copiar", "Pegar", "Copiando", "{n} copiados", "{n} copiados. {s} no se pudieron copiar", "{n} cortados. Pulsa Ctrl+V en la carpeta de destino", "{n} copiados. Pulsa Ctrl+V en la carpeta donde pegarlos", "Deshacer", "Deshecho", "No hay nada que deshacer", "No se pudo deshacer: {msg}", "Propiedades", "Tipo", "Ubicación", "Tamaño", "Contiene", "Modificado", "archivo", "Carpeta", "{n} elementos", "{files} archivos, {dirs} carpetas", "{size} ({bytes} bytes)", "Contando",
     "Nota", "Demasiados elementos: solo se contaron los primeros 100.000",
     "Árbol de carpetas", "Detalles", "Desplegar carpeta", "Plegar carpeta", "Juego base", "Actualización", "DLC", "Desactualizada", "Dañado", "Modificado", "ID de título", "Versión", "Comprobación", "Calcular tamaño", "Elige un elemento para ver aquí sus detalles", "{n} archivos · {size}", "Copiando · {done} de {total} ({p}%)", "{shown} mostrados",
+    "Enlace para compartir", "Cualquiera con el enlace puede descargar este archivo. Elige cuánto tiempo sigue abierto", "1 hora", "1 día", "7 días", "Enlace copiado. Funciona hasta {when}", "Copia el enlace de abajo y envíalo. Funciona hasta {when}", "Compartido hasta {when}", "Cerrar enlace", "El enlace se ha cerrado",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -115,6 +122,7 @@ const ROWS = {
     "Précédent", "Suivant", "Inclure les sous-dossiers", "Trop d'éléments : seuls les 100 000 premiers ont été parcourus", "Affichage liste", "Affichage icônes", "Couper", "Copier", "Coller", "Copie en cours", "{n} copiés", "{n} copiés. {s} n'ont pas pu être copiés", "{n} coupés. Appuyez sur Ctrl+V dans le dossier de destination", "{n} copiés. Appuyez sur Ctrl+V dans le dossier où les coller", "Annuler", "Annulé", "Rien à annuler", "Impossible d'annuler : {msg}", "Propriétés", "Type", "Emplacement", "Taille", "Contenu", "Modifié", "fichier", "Dossier", "{n} éléments", "{files} fichiers, {dirs} dossiers", "{size} ({bytes} octets)", "Calcul en cours",
     "Remarque", "Trop d'éléments : seuls les 100 000 premiers ont été comptés",
     "Arborescence", "Détails", "Déplier le dossier", "Replier le dossier", "Jeu de base", "Mise à jour", "DLC", "Obsolète", "Endommagé", "Modifié", "ID de titre", "Version", "Vérification", "Calculer la taille", "Choisissez un élément pour voir ses détails ici", "{n} fichiers · {size}", "Copie · {done} sur {total} ({p} %)", "{shown} affichés",
+    "Lien de partage", "Toute personne ayant le lien peut télécharger ce fichier. Choisissez sa durée", "1 heure", "1 jour", "7 jours", "Lien copié. Il fonctionne jusqu'au {when}", "Copiez le lien ci-dessous et envoyez-le. Il fonctionne jusqu'au {when}", "Partagé jusqu'au {when}", "Fermer le lien", "Le lien est fermé",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -129,6 +137,7 @@ const ROWS = {
     "Zurück", "Vorwärts", "Unterordner einbeziehen", "Zu viele Einträge: nur die ersten 100.000 wurden durchsucht", "Listenansicht", "Symbolansicht", "Ausschneiden", "Kopieren", "Einfügen", "Wird kopiert", "{n} kopiert", "{n} kopiert. {s} konnten nicht kopiert werden", "{n} ausgeschnitten. Im Zielordner Strg+V drücken", "{n} kopiert. Im Zielordner Strg+V drücken", "Rückgängig", "Rückgängig gemacht", "Nichts rückgängig zu machen", "Rückgängig nicht möglich: {msg}", "Eigenschaften", "Typ", "Ort", "Größe", "Inhalt", "Geändert", "Datei", "Ordner", "{n} Elemente", "{files} Dateien, {dirs} Ordner", "{size} ({bytes} Bytes)", "Wird gezählt",
     "Hinweis", "Zu viele Einträge: nur die ersten 100.000 wurden gezählt",
     "Ordnerbaum", "Details", "Ordner aufklappen", "Ordner zuklappen", "Hauptspiel", "Update", "DLC", "Veraltet", "Beschädigt", "Verändert", "Titel-ID", "Version", "Prüfung", "Größe berechnen", "Wähle einen Eintrag, um hier seine Details zu sehen", "{n} Dateien · {size}", "Kopiere · {done} von {total} ({p} %)", "{shown} angezeigt",
+    "Freigabelink", "Jeder mit dem Link kann diese Datei herunterladen. Wähle, wie lange er gilt", "1 Stunde", "1 Tag", "7 Tage", "Link kopiert. Er gilt bis {when}", "Kopiere den Link unten und sende ihn. Er gilt bis {when}", "Freigegeben bis {when}", "Link beenden", "Der Link ist beendet",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -143,6 +152,7 @@ const ROWS = {
     "Indietro", "Avanti", "Includi sottocartelle", "Troppi elementi: cercati solo i primi 100.000", "Vista elenco", "Vista icone", "Taglia", "Copia", "Incolla", "Copia in corso", "{n} copiati", "{n} copiati. {s} non sono stati copiati", "{n} tagliati. Premi Ctrl+V nella cartella di destinazione", "{n} copiati. Premi Ctrl+V nella cartella dove incollarli", "Annulla", "Annullato", "Niente da annullare", "Impossibile annullare: {msg}", "Proprietà", "Tipo", "Posizione", "Dimensione", "Contenuto", "Modificato", "file", "Cartella", "{n} elementi", "{files} file, {dirs} cartelle", "{size} ({bytes} byte)", "Conteggio in corso",
     "Nota", "Troppi elementi: contati solo i primi 100.000",
     "Albero delle cartelle", "Dettagli", "Espandi cartella", "Comprimi cartella", "Gioco base", "Aggiornamento", "DLC", "Obsoleto", "Danneggiato", "Modificato", "ID titolo", "Versione", "Controllo", "Calcola dimensione", "Scegli un elemento per vederne qui i dettagli", "{n} file · {size}", "Copia in corso · {done} di {total} ({p}%)", "{shown} mostrati",
+    "Link di condivisione", "Chiunque abbia il link può scaricare questo file. Scegli per quanto resta aperto", "1 ora", "1 giorno", "7 giorni", "Link copiato. Funziona fino al {when}", "Copia il link qui sotto e invialo. Funziona fino al {when}", "Condiviso fino al {when}", "Chiudi link", "Il link è stato chiuso",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -157,6 +167,7 @@ const ROWS = {
     "Voltar", "Avançar", "Incluir subpastas", "Itens demais: só os primeiros 100.000 foram pesquisados", "Lista", "Ícones", "Recortar", "Copiar", "Colar", "Copiando", "{n} copiado(s)", "{n} copiado(s). {s} não puderam ser copiados", "{n} recortado(s). Pressione Ctrl+V na pasta de destino", "{n} copiado(s). Pressione Ctrl+V na pasta onde colar", "Desfazer", "Desfeito", "Nada para desfazer", "Não foi possível desfazer: {msg}", "Propriedades", "Tipo", "Local", "Tamanho", "Contém", "Modificado", "arquivo", "Pasta", "{n} itens", "{files} arquivos, {dirs} pastas", "{size} ({bytes} bytes)", "Contando",
     "Observação", "Itens demais: só os primeiros 100.000 foram contados",
     "Árvore de pastas", "Detalhes", "Expandir pasta", "Recolher pasta", "Jogo base", "Atualização", "DLC", "Desatualizada", "Danificado", "Modificado", "ID do título", "Versão", "Verificação", "Calcular tamanho", "Escolha um item para ver os detalhes aqui", "{n} arquivos · {size}", "Copiando · {done} de {total} ({p}%)", "{shown} exibidos",
+    "Link de partilha", "Qualquer pessoa com o link pode transferir este ficheiro. Escolha quanto tempo fica aberto", "1 hora", "1 dia", "7 dias", "Link copiado. Funciona até {when}", "Copie o link abaixo e envie-o. Funciona até {when}", "Partilhado até {when}", "Encerrar link", "O link foi encerrado",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -171,6 +182,7 @@ const ROWS = {
     "Terug", "Vooruit", "Inclusief submappen", "Te veel items: alleen de eerste 100.000 zijn doorzocht", "Lijstweergave", "Pictogramweergave", "Knippen", "Kopiëren", "Plakken", "Bezig met kopiëren", "{n} gekopieerd", "{n} gekopieerd. {s} konden niet worden gekopieerd", "{n} geknipt. Druk op Ctrl+V in de doelmap", "{n} gekopieerd. Druk op Ctrl+V in de map om te plakken", "Ongedaan maken", "Ongedaan gemaakt", "Niets om ongedaan te maken", "Ongedaan maken lukte niet: {msg}", "Eigenschappen", "Type", "Locatie", "Grootte", "Bevat", "Gewijzigd", "bestand", "Map", "{n} items", "{files} bestanden, {dirs} mappen", "{size} ({bytes} bytes)", "Bezig met tellen",
     "Let op", "Te veel items: alleen de eerste 100.000 zijn geteld",
     "Mappenboom", "Details", "Map uitklappen", "Map inklappen", "Basisspel", "Update", "DLC", "Verouderd", "Beschadigd", "Gewijzigd", "Titel-ID", "Versie", "Controle", "Grootte berekenen", "Kies een item om hier de details te zien", "{n} bestanden · {size}", "Kopiëren · {done} van {total} ({p}%)", "{shown} getoond",
+    "Deellink", "Iedereen met de link kan dit bestand downloaden. Kies hoe lang hij open blijft", "1 uur", "1 dag", "7 dagen", "Link gekopieerd. Hij werkt tot {when}", "Kopieer de link hieronder en stuur hem door. Hij werkt tot {when}", "Gedeeld tot {when}", "Link beëindigen", "De link is beëindigd",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -185,6 +197,7 @@ const ROWS = {
     "Назад", "Вперёд", "Включая подпапки", "Слишком много элементов: просмотрены только первые 100 000", "Список", "Значки", "Вырезать", "Копировать", "Вставить", "Копирование", "Скопировано: {n}", "Скопировано: {n}. Не удалось скопировать: {s}", "Вырезано: {n}. Нажмите Ctrl+V в папке назначения", "Скопировано: {n}. Нажмите Ctrl+V в папке, куда вставить", "Отменить", "Отменено", "Нечего отменять", "Не удалось отменить: {msg}", "Свойства", "Тип", "Расположение", "Размер", "Содержит", "Изменён", "файл", "Папка", "Элементов: {n}", "Файлов: {files}, папок: {dirs}", "{size} ({bytes} байт)", "Подсчёт",
     "Примечание", "Слишком много элементов: подсчитаны только первые 100 000",
     "Дерево папок", "Сведения", "Развернуть папку", "Свернуть папку", "Основная игра", "Обновление", "DLC", "Устарело", "Повреждён", "Изменён", "ID игры", "Версия", "Проверка", "Посчитать размер", "Выберите элемент, чтобы увидеть здесь сведения", "Файлов: {n} · {size}", "Копирование · {done} из {total} ({p}%)", "Показано: {shown}",
+    "Ссылка для скачивания", "Любой, у кого есть ссылка, может скачать этот файл. Выберите срок действия", "1 час", "1 день", "7 дней", "Ссылка скопирована. Она действует до {when}", "Скопируйте ссылку ниже и отправьте её. Она действует до {when}", "Доступно до {when}", "Закрыть ссылку", "Ссылка закрыта",
   ],
 };
 

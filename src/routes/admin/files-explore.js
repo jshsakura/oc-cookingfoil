@@ -6,10 +6,14 @@
  * with image thumbnails, and a box drawn on the list's empty space to pick rows.
  */
 export const EXPLORE_CSS = /* css */ `
-#fb .fb-nav,#fb .fb-views{display:flex;gap:4px}
-#fb .fb-nav .ib,#fb .fb-views .ib{width:38px;height:38px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+#fb .fb-nav{display:flex;gap:4px}
+/* List or grid is one choice and the two panes are two switches: each pair sits in its own sunken box. */
+#fb .fb-views{display:flex;gap:8px}
+#fb .fb-seg{display:inline-flex;gap:2px;padding:3px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-lg)}
+#fb .fb-nav .ib{width:38px;height:38px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+#fb .fb-seg .ib{width:32px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:var(--r-md);background:none;color:var(--muted)}
 #fb .fb-upb .ico{transform:rotate(90deg)}
-#fb .fb-views .ib[aria-pressed="true"]{background:rgba(var(--accent-rgb),.16);border-color:rgba(var(--accent-rgb),.55);color:var(--text)}
+#fb .fb-seg .ib[aria-pressed="true"]{background:var(--panel);color:var(--text);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2)}
 #fb .fb-crumb{cursor:text;min-height:38px;border-radius:var(--r-md)}
 #fb .fb-crumb:hover{background:var(--sunk)}
 #fb .fb-crumb[hidden],#fb .fb-addr[hidden]{display:none}
