@@ -25,14 +25,21 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-badge[data-tone="warn"]{color:var(--warn);border-color:currentColor}
 #fb .fb-badge[data-tone="bad"]{color:var(--bad);border-color:currentColor}
 #fb .fb-side .fb-s-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
-#fb .fb-side .fb-s-art{width:128px;height:128px;border-radius:var(--r-lg);object-fit:cover;background:var(--sunk)}
-#fb .fb-side .fb-s-art.ico{padding:32px;color:var(--muted)}
+#fb .fb-side .fb-s-art{width:96px;height:96px;border-radius:var(--r-lg);object-fit:cover;background:var(--sunk)}
+#fb .fb-side .fb-s-art.ico{padding:24px;color:var(--muted)}
 #fb .fb-side h4{margin:0;font-size:var(--fs-md);overflow-wrap:anywhere}
 #fb .fb-side .fb-s-sub{font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
 #fb .fb-side .fb-s-badges{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
 #fb .fb-side dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;margin:0;font-size:var(--fs-sm)}
 #fb .fb-side dt{color:var(--muted)}#fb .fb-side dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-#fb .fb-side .fb-s-act{display:flex;flex-wrap:wrap;gap:6px}
+#fb .fb-side .fb-s-act{display:flex;justify-content:center;gap:6px}
+#fb .fb-side .fb-s-act .ib{width:38px;height:38px;padding:0;display:inline-grid;place-items:center}
+#fb .fb-side .fb-s-act .ib .ico{width:18px;height:18px}
+#fb .fb-side .fb-s-links:empty{display:none}
+#fb .fb-side .fb-s-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 4px 10px;border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-sm)}
+#fb .fb-side .fb-s-link+.fb-s-link{margin-top:4px}
+#fb .fb-side .fb-s-link .ib{width:28px;height:28px;padding:0;display:inline-grid;place-items:center}
+#fb .fb-side .fb-s-link .ib .ico{width:14px;height:14px}
 #fb .fb-side .fb-s-none{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:24px 0}
 #fb .fb-more{height:1px}
 /* With the details pane open its buttons stand in for the row's, which leaves the names their room. */
@@ -86,12 +93,12 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
   if(f.titleId){const img=fbGameIcon(f,'md','fb-s-art');img.addEventListener('error',()=>img.replaceWith(fbSideIcon(f)),{once:true});head.append(img);}else head.append(fbSideIcon(f));
   head.append(el('h4',f.title||f.name));if(f.title)head.append(el('div',f.name,'fb-s-sub'));
   const badges=fbBadges(f);if(badges.length){const b=el('div',null,'fb-s-badges');b.append(...badges);head.append(b);}
-  const rows=[['fb.p.kind',f.type==='dir'?topText('fb.p.dir'):(f.ext?f.ext.toUpperCase()+' ':'')+topText('fb.p.file')]];
+  const rows=[];
   if(f.titleId)rows.push(['fb.p.titleId',f.titleId]);
   if(f.version!=null)rows.push(['fb.p.version','v'+f.version]);
   if(f.check)rows.push(['fb.p.check',topText('fb.c.'+f.check)]);
   if(f.type==='file')rows.push(['fb.p.size',topFill('fb.p.bytes',{size:fbSize(f.size),bytes:num(f.size)})]);
-  rows.push(['fb.p.mtime',fbDate(f.mtime)],['fb.p.where',[fbRootName(fb.root),...f.rel.split('/').slice(0,-1)].join(' / ')]);
+  rows.push(['fb.p.mtime',fbDate(f.mtime)]);
   const dl=el('dl');dl.append(...rows.flatMap(([k,v])=>[el('dt',topText(k)),el('dd',v)]));
   if(f.type==='dir'&&f.holds){dl.append(el('dt',topText('fb.p.size')),el('dd',topFill('fb.p.bytes',{size:fbSize(f.holds.bytes),bytes:num(f.holds.bytes)})),
     el('dt',topText('fb.p.holds')),el('dd',topFill('fb.p.holdsVal',{files:num(f.holds.files),dirs:num(f.holds.dirs)})));}
@@ -100,23 +107,48 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
       try{const r=await api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:[f.rel]}});
         dd.textContent=topFill('fb.p.bytes',{size:fbSize(r.bytes),bytes:num(r.bytes)})+' · '+topFill('fb.p.holdsVal',{files:num(r.files),dirs:num(Math.max(0,r.dirs-1))});}
       catch(err){dd.textContent=err.message;}});dd.append(b);dl.append(el('dt',topText('fb.p.size')),dd);}
+  // The actions are a row of icons under the name; their words are in the tooltip and for screen readers.
   const act=el('div',null,'fb-s-act');
-  act.append(tbtn('link',f.type==='dir'||!fbKind(f)?'fb.open':'fb.view',()=>fbActivate(f)));
-  if(f.type==='file')act.append(tbtn('download','fb.download',()=>fbDownload(f)));
-  act.append(tbtn('rename','fb.rename',()=>fbRename(f)),tbtn('delete','fb.trash',()=>fbTrash([f.rel]),'danger'));
-  s.replaceChildren(head,dl,act);}
+  act.append(fbSideBtn(FB_ICON.download,f.type==='dir'?'fb.zip':'fb.download',()=>f.type==='dir'?fbZip([f.rel]):fbDownload(f)));
+  const links=el('div',null,'fb-s-links');
+  if(f.type==='file'){act.append(fbSideBtn(FB_ICON.share,'fb.share',()=>fbShare(f,links)));fbShareList(f,links);}
+  act.append(fbSideBtn(FB_ICON.rename,'fb.rename',()=>fbRename(f)),fbSideBtn(FB_ICON.trash,'fb.trash',()=>fbTrash([f.rel]),'danger'));
+  s.replaceChildren(head,act,links,dl);}
+
+// ── share links: one file, anyone with the link, for a while (library/file-shares.js) ─
+async function fbShare(f,links){const root=fb.root;
+  const hours=await askPick(topText('fb.shareAsk'),[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d']].map(([value,k])=>({value,label:topText(k)})));
+  if(!hours)return;
+  let r;try{r=await api('/admin/api/files/share',{method:'POST',body:{root,path:f.rel,hours:Number(hours)}});}catch(err){toast(err.message);return;}
+  const when=fbDate(r.expiresAt);
+  // Over plain http the browser keeps the clipboard shut; the link is then shown to copy by hand.
+  try{await navigator.clipboard.writeText(r.url);toast(topFill('fb.shareCopied',{when}));}
+  catch{await askDialog(topFill('fb.shareCopy',{when}),r.url);}
+  if(root===fb.root&&links.isConnected)fbShareList(f,links);}
+async function fbShareList(f,links){const root=fb.root;let r;
+  try{r=await api('/admin/api/files/shares?'+new URLSearchParams({root,path:f.rel}));}catch{return;}
+  if(!links.isConnected)return;
+  links.replaceChildren(...r.shares.map((sh)=>{const row=el('div',null,'fb-s-link');row.append(el('span',topFill('fb.shareUntil',{when:fbDate(sh.expiresAt)})));
+    const end=fbSideBtn(FB_ICON.stop,'fb.shareEnd',async()=>{try{await api('/admin/api/files/share/end',{method:'POST',body:{id:sh.id}});toast(topText('fb.shareEnded'));}
+      catch(err){toast(err.message);}fbShareList(f,links);},'danger');row.append(end);return row;}));}
+function fbSideBtn(svg,key,fn,cls){const b=el('button',null,'ib'+(cls?' '+cls:''));b.type='button';b.innerHTML=svg;
+  const t=topText(key);b.title=t;b.setAttribute('aria-label',t);b.addEventListener('click',fn);return b;}
 function fbSideIcon(f){const w=el('span');w.innerHTML=f.type==='dir'?FB_ICON.dir:FB_ICON.file;const ic=w.firstChild;ic.classList.add('fb-s-art');return ic;}
 
 // ── the folder tree ─────────────────────────────────────────────────
 const fbTree={root:null,open:new Set(),kids:new Map()};
 function fbTreeOn(){return $('fb').classList.contains('tree-on');}
 async function fbTreeKids(rel){const d=await api('/admin/api/files/list?'+new URLSearchParams({root:fb.root,path:rel,only:'dirs',perPage:'500'}));
-  const list=d.items.map((i)=>({rel:i.rel,name:i.title||i.name}));fbTree.kids.set(rel,list);return list;}
+  const list=d.items.map((i)=>({rel:i.rel,name:i.title||i.name}));fbTree.kids.set(rel,list);fbTreeLeaves(list);return list;}
+// Which of these folders hold no folder, from the sizes cache, so their arrow is gone before anyone presses it.
+async function fbTreeLeaves(list){const root=fb.root;const ask=list.filter((k)=>!fbSizes.has(root+'|'+k.rel)).map((k)=>k.rel);if(!ask.length)return;
+  let r;try{r=await api('/admin/api/files/sizes',{method:'POST',body:{root,paths:ask}});}catch{return;}
+  for(const [rel,v] of Object.entries(r.sizes))fbSizes.set(root+'|'+rel,v);if(root===fb.root&&fbTreeOn())fbTreeDraw();}
 // The open folder and every folder above it are expanded; the shown folder's own children come from its listing.
 async function fbTreeSync(){if(!fbTreeOn()||!fb.root)return;
   if(fbTree.root!==fb.root){fbTree.root=fb.root;fbTree.open=new Set(['']);fbTree.kids.clear();}
   const d=fb.data;if(d&&d.path===fb.path&&d.items.filter((i)=>i.type==='dir').length>=d.counts.dirs)
-    fbTree.kids.set(fb.path,d.items.filter((i)=>i.type==='dir').map((i)=>({rel:i.rel,name:i.title||i.name})));
+    {const list=d.items.filter((i)=>i.type==='dir').map((i)=>({rel:i.rel,name:i.title||i.name}));fbTree.kids.set(fb.path,list);fbTreeLeaves(list);}
   let at='';for(const p of fb.path?fb.path.split('/'):[]){at=at?at+'/'+p:p;fbTree.open.add(at);}
   for(const rel of fbTree.open)if(!fbTree.kids.has(rel))await fbTreeKids(rel).catch(()=>fbTree.open.delete(rel));
   fbTreeDraw();}
@@ -124,7 +156,8 @@ function fbTreeNode(rel,name){const li=el('li');li.setAttribute('role','treeitem
   const row=el('div',null,'fb-tn');const open=fbTree.open.has(rel);const kids=fbTree.kids.get(rel);
   row.setAttribute('aria-expanded',String(open));if(rel===fb.path)row.setAttribute('aria-current','page');
   const tx=el('button',null,'fb-tx');tx.type='button';tx.innerHTML=FB_ICON.chev;tx.setAttribute('aria-label',topText(open?'fb.tree.close':'fb.tree.open'));
-  if(kids&&!kids.length)tx.hidden=true;
+  // A folder known to hold no folder keeps the arrow's space, so the names stay in one column.
+  if((kids&&!kids.length)||fbSizes.get(fb.root+'|'+rel)?.dirs===0)tx.style.visibility='hidden';
   tx.addEventListener('click',async()=>{if(fbTree.open.has(rel)){fbTree.open.delete(rel);fbTreeDraw();return;}
     fbTree.open.add(rel);await fbTreeKids(rel).catch(()=>fbTree.open.delete(rel));fbTreeDraw();});
   const lb=el('button',name,'fb-tl');lb.type='button';lb.title=name;lb.addEventListener('click',()=>fbGo(fb.root,rel));

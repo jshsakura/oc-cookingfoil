@@ -152,11 +152,15 @@ export const FOLDER_HTML = `<div id="fb">
     <input type="text" class="fb-addr" id="fb-addr" hidden autocomplete="off" spellcheck="false" ${topLabel("fb.crumbLabel")}>
     <label class="fb-q">${icon("search")}<input type="search" id="fb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("fb.qPh")} ${topLabel("fb.qPh")}></label>
     <label class="fb-deep"><input type="checkbox" id="fb-deep">${top("fb.deep")}</label>
-    <div class="fb-views" role="group">
-      <button type="button" class="ib" id="fb-v-list" aria-pressed="true" ${topLabel("fb.viewList")}>${icon("log")}</button>
-      <button type="button" class="ib" id="fb-v-grid" aria-pressed="false" ${topLabel("fb.viewGrid")}>${icon("grid")}</button>
-      <button type="button" class="ib" id="fb-t-tree" aria-pressed="false" ${topLabel("fb.tree")}>${icon("folder")}</button>
-      <button type="button" class="ib" id="fb-t-side" aria-pressed="false" ${topLabel("fb.side")}>${icon("info")}</button>
+    <div class="fb-views">
+      <div class="fb-seg" role="group">
+        <button type="button" class="ib" id="fb-v-list" aria-pressed="true" ${topLabel("fb.viewList")}>${icon("log")}</button>
+        <button type="button" class="ib" id="fb-v-grid" aria-pressed="false" ${topLabel("fb.viewGrid")}>${icon("grid")}</button>
+      </div>
+      <div class="fb-seg" role="group">
+        <button type="button" class="ib" id="fb-t-tree" aria-pressed="false" ${topLabel("fb.tree")}>${icon("folder")}</button>
+        <button type="button" class="ib" id="fb-t-side" aria-pressed="false" ${topLabel("fb.side")}>${icon("info")}</button>
+      </div>
     </div>
     <button type="button" id="fb-mkdir">${icon("plus")}${top("fb.newFolder")}</button>
     <button type="button" id="fb-upload">${icon("upload")}${top("fb.upload")}</button>
@@ -228,7 +232,7 @@ export const FOLDER_HTML = `<div id="fb">
 </dialog>`;
 
 export const FILES_SCRIPT = /* js */ `
-const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), rename: icon("tag"), move: icon("chevright"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("arrowright"), copy: icon("copy"), paste: icon("inbox"), undo: icon("undo"), props: icon("info"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
+const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), share: icon("send"), rename: icon("tag"), move: icon("chevright"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("arrowright"), copy: icon("copy"), paste: icon("inbox"), undo: icon("undo"), props: icon("info"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
 const FB_PER=100;
 const FB_SKEL_MS=120;
 const FB_MAX_PAGES=5;

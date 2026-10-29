@@ -13,6 +13,10 @@
  *        with background: true → { job, total } at once; GET /admin/api/files/copy/:job → { state: running|done|failed,
  *        total, done } in bytes, with what the copy answers once done, { code, error } once failed.
  *   POST /admin/api/files/trash   { root, paths }        → { trash, restore: [id], files }
+ *   POST /admin/api/files/share   { root, path, hours }  → { url, id, expiresAt }: a download link to one file that anyone
+ *        holding it can use for 1, 24 or 168 hours (library/file-shares.js, public end routes/file-share.js)
+ *   GET  /admin/api/files/shares?root=&path=             → { shares: [{ id, expiresAt, by }] } live links to that file
+ *   POST /admin/api/files/share/end { id }               → { ok } ends a link at once
  *   POST /admin/api/files/sizes   { root, paths }        → { sizes: { rel: { bytes, files, dirs } } } for the folders among
  *        `paths`, from a cache that only looks again at folders that changed (library/folder-sizes.js)
  *   POST /admin/api/files/info    { root, paths }        → { files, dirs, bytes, newest, cut }: what a pick holds, folders counted
@@ -38,6 +42,9 @@ import { actorOf } from "../../library/trash-service.js";
 import { TrashError } from "../../library/trash.js";
 import { requestLang } from "../../meta/langs.js";
 import { createFileFacts, titleLabel } from "../../library/file-facts.js";
+import { fileShares } from "../../library/file-shares.js";
+import { publicBaseUrl } from "../../helpers/envs.js";
+import { resolveOrigin } from "../../helpers/origin.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
 import * as chunks from "../../meta/upload-chunks.js";
@@ -61,7 +68,7 @@ async function sizeOf(p) {
   return n;
 }
 
-export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir, facts = createFileFacts(), warmSizes = true } = {}) {
+export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir, facts = createFileFacts(), warmSizes = true, shares = fileShares() } = {}) {
   const handle = (fn) => async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
@@ -163,6 +170,23 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     if (job.state === "done") Object.assign(out, job.result);
     if (job.state === "failed") Object.assign(out, { code: job.code, error: apiWord(req, `files.${job.code}`) });
     res.json(out);
+  }));
+
+  router.post("/api/files/share", handle(async (req, res) => {
+    const b = req.body ?? {};
+    const root = str(b.root);
+    const f = await files.open(root, str(b.path));
+    const rel = str(b.path);
+    const made = shares.create({ root, rel, name: f.name, hours: Number(b.hours), by: actorOf(req) });
+    debug.log("admin: files: shared %s:%s for %dh", root, rel, Number(b.hours));
+    res.json({ url: `${resolveOrigin(req, publicBaseUrl)}/share/${made.token}`, id: made.id, expiresAt: made.expiresAt });
+  }));
+  router.get("/api/files/shares", handle(async (req, res) => {
+    res.json({ shares: shares.of(str(req.query.root), str(req.query.path)) });
+  }));
+  router.post("/api/files/share/end", handle(async (req, res) => {
+    if (!shares.revoke(str(req.body?.id))) throw new FileError("not-found", 404);
+    res.json({ ok: true });
   }));
 
   router.post("/api/files/sizes", handle(async (req, res) => {

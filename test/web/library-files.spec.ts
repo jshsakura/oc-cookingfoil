@@ -27,6 +27,10 @@ test('the library tab lists files by kind with counts, pages and a search inside
   await expect(page.locator('#lb-kinds')).toHaveAttribute('role', 'group');
   await expect(tabs).toHaveText([/전체/, /게임/, /업데이트/, /DLC/, /패치/, /세이브/, /홈브류/, /기타/]);
   await expect(page.locator('#lb-tab-all')).toHaveAttribute('aria-pressed', 'true');
+  // The list opens newest first; by name the fixtures come back to the top.
+  await expect(page.locator('#lb-sort')).toHaveValue('mtime');
+  await expect(page.locator('#lb-order-t')).toHaveText('내림차순');
+  await page.locator('#lb-sort').selectOption('name');
   await expect(page.locator('#lb-list')).toContainText('게임 데이터');
   await page.locator('#lb-tab-base').click();
   await expect(page.locator('#lb-tab-base')).toHaveAttribute('aria-pressed', 'true');

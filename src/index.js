@@ -71,6 +71,7 @@ import libraryVariants from "./routes/library-variants.js";
 import sessionRoute from "./routes/session.js";
 import deviceContentGuard from "./security/device-content-guard.js";
 import pairRouter from "./routes/pair.js";
+import fileShareRouter from "./routes/file-share.js";
 import webLoginRouter from "./routes/web-login.js";
 import setupRouter from "./routes/setup.js";
 import { needsSetup, setupCode } from "./security/setup.js";
@@ -285,6 +286,8 @@ expressApp.use("/api/pair", pairRouter());
 expressApp.use("/api/client", clientUpdateOpenRouter());
 // The phone page a console's RetroAchievements QR opens: the one-time code in the link is its only key.
 expressApp.use(raLinkRouter());
+// A file share link from the admin file browser: the token in it opens one file until it runs out.
+expressApp.use(fileShareRouter());
 // Past this point a Basic header is no credential: dropped, so the request is
 // judged by its keys, session token or cookie alone.
 expressApp.use(ignoreBasic);

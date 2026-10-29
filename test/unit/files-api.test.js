@@ -23,7 +23,14 @@ const dropDir = path.join(base, "drop-chunks");
 
 const app = express();
 app.use(express.json());
-mountFilesApi(app, () => true, createFileRoots({ roots: () => [games], refresh: () => {} }), { dropDir: () => dropDir, warmSizes: false });
+const { createFileShares } = await import("../../src/library/file-shares.js");
+const { default: fileShareRouter } = await import("../../src/routes/file-share.js");
+let clock = 1_000_000;
+const kept = new Map();
+const shares = createFileShares({ store: { load: () => [...kept], sync: (m) => { kept.clear(); for (const [k, v] of m) kept.set(k, v); } }, now: () => clock });
+const roots = createFileRoots({ roots: () => [games], refresh: () => {} });
+mountFilesApi(app, () => true, roots, { dropDir: () => dropDir, warmSizes: false, shares });
+app.use(fileShareRouter({ shares, files: roots }));
 const server = app.listen(0);
 after(() => server.close());
 const url = (p) => `http://127.0.0.1:${server.address().port}${p}`;
@@ -323,4 +330,33 @@ test("folder sizes come from a cache that sees a change in any folder below", as
   fs.rmSync(path.join(games.dir, "Sized/Deep"), { recursive: true });
   assert.deepEqual((await sizes(["Sized"])).Sized, { bytes: 4, files: 1, dirs: 0 });
   assert.equal(tokenBlocked("POST", "/api/files/sizes"), true);
+});
+
+test("a share link sends one file to anyone until it runs out or is ended, and only its hash is kept", async () => {
+  fs.mkdirSync(path.join(games.dir, "Shared"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Shared/s.nsp"), "abc");
+  const made = await (await post("/api/files/share", { root: "games", path: "Shared/s.nsp", hours: 24 })).json();
+  const token = made.url.split("/share/")[1];
+  assert.match(token, /^[A-Za-z0-9_-]{32}$/);
+  assert.ok(![...kept.keys()].includes(token) && !JSON.stringify([...kept]).includes(token), "the token itself is never stored");
+  const got = await fetch(url(`/share/${token}`));
+  assert.equal(got.status, 200);
+  assert.equal(await got.text(), "abc");
+  assert.match(got.headers.get("content-disposition"), /s\.nsp/);
+  assert.equal((await fetch(url("/share/" + "A".repeat(32)))).status, 404);
+
+  const live = await (await fetch(url("/api/files/shares?root=games&path=Shared%2Fs.nsp"))).json();
+  assert.deepEqual(live.shares.map((x) => x.id), [made.id]);
+  clock += 24 * 60 * 60 * 1000;
+  assert.equal((await fetch(url(`/share/${token}`))).status, 404, "a day later the link has run out");
+  assert.equal(kept.size, 0, "a link that ran out is dropped");
+
+  const again = await (await post("/api/files/share", { root: "games", path: "Shared/s.nsp", hours: 1 })).json();
+  assert.equal((await post("/api/files/share/end", { id: again.id })).status, 200);
+  assert.equal((await fetch(url(`/share/${again.url.split("/share/")[1]}`))).status, 404, "an ended link opens nothing");
+
+  assert.equal((await post("/api/files/share", { root: "games", path: "Shared/s.nsp", hours: 5 })).status, 400);
+  assert.equal((await post("/api/files/share", { root: "games", path: "Shared", hours: 1 })).status, 400, "a folder is not shared");
+  assert.equal((await post("/api/files/share", { root: "games", path: "../x", hours: 1 })).status, 400);
+  for (const [m, p] of [["POST", "/api/files/share"], ["GET", "/api/files/shares"], ["POST", "/api/files/share/end"]]) assert.equal(tokenBlocked(m, p), true, `${m} ${p}`);
 });

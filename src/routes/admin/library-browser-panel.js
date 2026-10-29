@@ -44,7 +44,6 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files .lb-q input{width:100%;padding-left:38px}
 #lib-files .lb-bar select{flex:0 0 auto}
 #lib-files .lb-filter{display:flex;align-items:center;gap:10px;min-width:0}
-#lib-files .lb-filter-l{flex:none;color:var(--muted);font-size:var(--fs-xs);font-weight:700}
 #lib-files .lb-filter .lb-kinds{flex:1 1 auto;min-width:0}
 #lib-files .lb-note{margin:4px 0 0;font-size:var(--fs-xs)}
 #lib-files .lb-act{display:flex;gap:6px;flex-wrap:nowrap}
@@ -95,12 +94,11 @@ export const LIB_BROWSER_HTML = `<div id="lib-files">
     <form class="lb-bar" id="lb-bar" role="search">
       <label class="lb-q">${svg("search")}<input type="search" id="lb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("lb.qPh")} ${topLabel("lb.qLabel")}></label>
       <button type="submit" id="lb-go">${svg("search")}<span data-top="rpt.find">${top("rpt.find")}</span></button>
-      <select id="lb-sort" ${topLabel("lb.sortLabel")}><option value="name" data-top="fp.byName">${TOP_WORDS.ko["fp.byName"]}</option><option value="size" data-top="lb.bySize">${TOP_WORDS.ko["lb.bySize"]}</option><option value="mtime" data-top="lb.byMtime">${TOP_WORDS.ko["lb.byMtime"]}</option></select>
-      <button type="button" id="lb-order" ${topLabel("lb.orderAriaAsc")}><span id="lb-order-ico">${svg("asc")}</span><span id="lb-order-t">${top("lb.asc")}</span></button>
+      <select id="lb-sort" ${topLabel("lb.sortLabel")}><option value="mtime" data-top="lb.byMtime">${TOP_WORDS.ko["lb.byMtime"]}</option><option value="name" data-top="fp.byName">${TOP_WORDS.ko["fp.byName"]}</option><option value="size" data-top="lb.bySize">${TOP_WORDS.ko["lb.bySize"]}</option></select>
+      <button type="button" id="lb-order" ${topLabel("lb.orderAriaDesc")}><span id="lb-order-ico">${svg("desc")}</span><span id="lb-order-t">${top("lb.desc")}</span></button>
     </form>
     <div class="lb-filter">
-      <span class="lb-filter-l" id="lb-filter-l">${top("f.type")}</span>
-      <div class="lb-kinds hide-bar" id="lb-kinds" role="group" aria-labelledby="lb-filter-l">
+      <div class="lb-kinds hide-bar" id="lb-kinds" role="group" ${topLabel("f.type")}>
         <span class="lb-ind" id="lb-ind" aria-hidden="true"></span>
         ${KINDS.map(([k, label], i) => `<button type="button" id="lb-tab-${k}" data-kind="${k}" aria-controls="lb-list" aria-pressed="${i === 0}">${svg(k)}<span>${top(label)}</span><span class="lb-n" id="lb-n-${k}">0</span></button>`).join("")}
       </div>
@@ -117,7 +115,7 @@ const LB_KIND=${JSON.stringify(Object.fromEntries(KINDS))};
 const LB_PER=25;
 const LB_ALL=['base','update','dlc','patch','save','homebrew','other'];
 const LB_CHECK={ok:['lb.ok','on'],modified:['lb.modified','warn'],damaged:['lb.damaged','off'],unchecked:['lb.unchecked','']};
-const lb={kind:'all',page:1,sort:'name',order:'asc',q:'',seq:0,timer:null,pending:false};
+const lb={kind:'all',page:1,sort:'mtime',order:'desc',q:'',seq:0,timer:null,pending:false};
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const lbDate=(s)=>s?new Date(s*1000).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'-';
 // A language switch re-renders the open list so dates and counts follow the new locale.
