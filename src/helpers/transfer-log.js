@@ -117,6 +117,8 @@ export function createTransferLog({
   maxOpen = MAX_OPEN,
   persistDelayMs = PERSIST_DELAY_MS,
   log = (line) => debug.log("%s", line),
+  // Told of every finished transfer record, for the server's own popularity count.
+  onFinished = null,
 } = {}) {
   const open = new Map(); // key → transfer
   let recent = []; // newest first
@@ -244,6 +246,7 @@ export function createTransferLog({
     if (recent.length > maxRecent) recent.length = maxRecent;
     dropExpired();
     try { log(logLine(rec)); } catch { /* a log sink never stops the record */ }
+    try { onFinished?.(rec); } catch { /* nor does a listener */ }
     schedulePersist();
     return rec;
   }
@@ -367,5 +370,9 @@ export function createTransferLog({
 }
 
 /** The server's own recorder. */
-const transferLog = createTransferLog();
+const transferLog = createTransferLog({
+  onFinished: (rec) => {
+    import("../meta/own-popularity.js").then((m) => m.recordCompleted(rec)).catch((err) => debug.error("popularity: %s", err.message));
+  },
+});
 export default transferLog;
