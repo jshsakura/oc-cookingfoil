@@ -4,7 +4,7 @@ import fs from 'node:fs';
 // Only the suite's own folders (playwright.web.config.ts), never one named by hand.
 for (const name of ['DATA', 'GAMES']) {
   const dir = process.env[`COOK_${name}_DIR`];
-  if (new RegExp(`cookingfoil-web-test-\\d+[\\/]${name.toLowerCase()}$`).test(dir ?? '')) fs.rmSync(dir, { recursive: true, force: true });
+  if (new RegExp(`cookingfoil-web-test-\\d+(-\\d+)?[\\/]${name.toLowerCase()}$`).test(dir ?? '')) fs.rmSync(dir, { recursive: true, force: true });
 }
 fs.mkdirSync(process.env.COOK_GAMES_DIR, { recursive: true });
 // Accounts left behind by an interrupted admin spec would put every later run behind a password.
