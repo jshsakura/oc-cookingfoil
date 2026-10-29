@@ -24,12 +24,12 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
     await expect(page.locator('#fb-rows'), 'the drop box opens on its files').toContainText('notes.txt');
     await page.locator('#organize-subtabs [data-sub="sort"]').click();
     await page.locator('#lo-sweep').click();
-    await expect(page.locator('#toast')).toContainText('2개 옮겼습니다');
+    // The server's own timed sweep may get there first, so what moved is checked, not the toast.
     await expect(page.locator('#lo-recent')).toContainText('Drop Game/Drop Game [0100000000020000][v0].nsp');
     await expect(page.locator('#lo-held')).toContainText('어디로 보낼지 모르는 파일입니다');
     await expect(page.locator('#lo-recent')).toContainText('roms/gba/Drop Quest.gba');
-    // Outside a system folder a ROM stays, with what it looks like.
-    await expect(page.locator('#lo-held')).toContainText('기종 폴더에 넣어야 옮깁니다');
+    // An extension only one console uses needs no system folder.
+    await expect(page.locator('#lo-recent')).toContainText('roms/gba/Loose Quest.gba');
     await page.locator('.lo-systems summary').click();
     await expect(page.locator('#lo-systems')).toContainText('gba 게임보이 어드밴스');
     expect(fs.existsSync(`${process.env.COOK_RETRO_DIR!}/roms/gba/Drop Quest.gba`)).toBe(true);

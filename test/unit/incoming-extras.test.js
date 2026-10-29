@@ -22,19 +22,18 @@ test("a ROM goes to the system the folder it was dropped in chose", () => {
   assert.ok(p.moves.every((m) => m.root === "retro"));
 });
 
-test("the extension never picks a system; it only warns when something looks wrong", () => {
-  const p = plan(["받은 것/Golden Sun.gba", "snes/Golden Sun.gba", "snes/Chrono.sfc"]);
-  const why = Object.fromEntries(p.held.map((h) => [h.rel, h.reason]));
-  assert.equal(why["받은 것/Golden Sun.gba"], `${EXTRA_REASONS.noSystem}. It looks like a Game Boy Advance ROM`);
-  assert.equal(why["snes/Golden Sun.gba"], `${EXTRA_REASONS.wrongExtension}. It looks like a Game Boy Advance ROM`);
-  // The panel says it in its own language by the code, the console named in that language.
-  const held = p.held.find((h) => h.rel === "snes/Golden Sun.gba");
-  assert.equal(held.code, "wrongExtensionHint");
-  assert.equal(held.vars.system.ko, "게임보이 어드밴스");
-  assert.deepEqual(p.moves.map((m) => m.to), ["roms/snes/Chrono.sfc"]);
+test("an extension only one console uses picks it, wherever the file was dropped", () => {
+  const p = plan(["받은 것/Golden Sun.gba", "snes/Golden Sun 2.gba", "snes/Chrono.sfc", "Mother 3.gba"]);
+  assert.deepEqual(p.moves.map((m) => [m.from, m.to]), [
+    ["Mother 3.gba", "roms/gba/Mother 3.gba"],
+    ["snes/Chrono.sfc", "roms/snes/Chrono.sfc"],
+    ["snes/Golden Sun 2.gba", "roms/gba/Golden Sun 2.gba"],
+    ["받은 것/Golden Sun.gba", "roms/gba/Golden Sun.gba"],
+  ]);
+  assert.deepEqual(p.held, []);
 });
 
-test("a ROM outside a system folder stays, and so does what is no ROM", () => {
+test("a file several consoles take stays outside a system folder, and so does what is no ROM", () => {
   const p = plan(["loose.zip", "cover.png", "readme.txt", "snes/notes.txt", "Monkey/monkey.scummvm", "atmosphere/contents/0100AAAA00010000/romfs/a.bin"]);
   const why = Object.fromEntries(p.held.map((h) => [h.rel, h.reason]));
   assert.equal(why["loose.zip"], EXTRA_REASONS.noSystem);
