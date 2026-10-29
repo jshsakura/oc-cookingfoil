@@ -30,6 +30,18 @@ export function agentValues(field, titleId, { lang = "en" } = {}) {
   return out;
 }
 
+/** The best (lowest) popularity rank any active metadata plugin gave the title, or undefined. */
+export function agentRank(titleId) {
+  const { registry, store } = agentParts();
+  let best;
+  for (const id of registry.activeProviding("metadata")) {
+    const entry = store.get(id, titleId);
+    const r = entry && !entry.miss ? entry.fields.rank : undefined;
+    if (Number.isSafeInteger(r) && r > 0 && (best === undefined || r < best)) best = r;
+  }
+  return best;
+}
+
 export function agentOrder(field, base, titleId) {
   const { registry, order } = agentParts();
   const agents = registry.activeProviding("metadata");

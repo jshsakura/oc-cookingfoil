@@ -30,7 +30,8 @@
             "icon_url": "/api/library/icon/0100000000A01000?v=798ec99b4fc9",
             "labels": [
               "update"
-            ]
+            ],
+            "rank": 1
           },
           {
             "url": "../Alpha%20Quest%20Update%20%5B0100000000A01800%5D%5Bv65536%5D.nsp",
@@ -82,7 +83,8 @@
             "names": {
               "en": "Beta Homebrew"
             },
-            "icon_url": "/api/library/icon/0100000000B02000?v=064f49426ac4"
+            "icon_url": "/api/library/icon/0100000000B02000?v=064f49426ac4",
+            "rank": 5
           },
           {
             "url": "../Gamma%20%5B0100000000C03000%5D%5Bv0%5D.nsp",
@@ -99,7 +101,8 @@
             "names": {
               "ko": "감마의 모험"
             },
-            "icon_url": "/api/library/icon/0100000000C03000?v=3ae01c92fdb8"
+            "icon_url": "/api/library/icon/0100000000C03000?v=3ae01c92fdb8",
+            "rank": 4
           },
           {
             "url": "../Delta%20%5B0100000000D04000%5D%5Bv0%5D.nsp",
@@ -120,7 +123,8 @@
               "en": "Delta Mine",
               "ko": "델타 달리기"
             },
-            "icon_url": "/api/library/icon/0100000000D04000?v=a8ab89fb22f4"
+            "icon_url": "/api/library/icon/0100000000D04000?v=a8ab89fb22f4",
+            "rank": 2
           },
           {
             "url": "../Mystery%20%5B0100000000E05000%5D%5Bv0%5D.nsp",
@@ -132,7 +136,8 @@
             "base_title_id": "0100000000E05000",
             "app_version": 0,
             "app_type": "base",
-            "icon_url": "/api/library/icon/0100000000E05000?v=1cc4641f1950"
+            "icon_url": "/api/library/icon/0100000000E05000?v=1cc4641f1950",
+            "rank": 6
           },
           {
             "url": "../Gamma%20Ray%20%5B0100000000F06000%5D%5Bv0%5D.nsp",
@@ -149,7 +154,8 @@
             "names": {
               "en": "Gamma Ray"
             },
-            "icon_url": "/api/library/icon/0100000000F06000?v=089ec663f6ff"
+            "icon_url": "/api/library/icon/0100000000F06000?v=089ec663f6ff",
+            "rank": 3
           },
           {
             "url": "../Homebrew.nro",

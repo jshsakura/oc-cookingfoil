@@ -40,6 +40,14 @@ export const INDEX_MIGRATIONS = [
      key TEXT NOT NULL,
      data TEXT NOT NULL
    ) WITHOUT ROWID;`,
+  // Which consoles (or accounts, or addresses) finished downloading a game, for the server's own popularity
+  // order (meta/own-popularity.js): one row per base title and requester, at = when they last finished.
+  `CREATE TABLE title_downloads (
+     title_id TEXT NOT NULL,
+     who TEXT NOT NULL,
+     at INTEGER NOT NULL,
+     PRIMARY KEY (title_id, who)
+   ) WITHOUT ROWID;`,
 ];
 
 // One row per record (an account, a console login, a token), JSON as the module

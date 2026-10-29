@@ -40,6 +40,7 @@ import { loadCustomEntries } from "./meta/custom-entries.js";
 import * as titledbStore from "./meta/titledb-store.js";
 import { normalizeSupportedLanguages } from "./meta/supported-languages.js";
 import { sectionExtras } from "./meta/section-extras.js";
+import { completedCounts, fillRanks } from "./meta/own-popularity.js";
 import { normalizeGenres, GENRE_LABELS } from "./meta/categories.js";
 import { SCORE_LABELS } from "./meta/ratings.js";
 import { SWITCH_LABELS, attachSwitchLabels } from "./meta/card-labels.js";
@@ -56,7 +57,7 @@ import * as extractedMeta from "./meta/extracted-meta-store.js";
 import * as gameDescriptions from "./meta/game-descriptions.js";
 import { fileNamesOver, pickFileName } from "./meta/name-pick.js";
 import { valueOf, LOCAL_PREFERRED, TITLEDB, LOCAL, FILENAME } from "./meta/field-merge.js";
-import { agentOrder, agentValues } from "./plugins/agent-values.js";
+import { agentOrder, agentRank, agentValues } from "./plugins/agent-values.js";
 import { agentParts } from "./plugins/instance.js";
 import { artFiller } from "./meta/art-filler.js";
 import { parseLang } from "./meta/langs.js";
@@ -401,6 +402,11 @@ function buildSectionItem(relPath, wireItem) {
     if (fromDb?.region) item.region = fromDb.region;
     if (typeof fromDb?.releaseDate === "number") item.release_date = fromDb.releaseDate;
     Object.assign(item, sectionExtras(fromDb));
+    // A plugin's popularity rank (the eShop's, say) goes ahead of titledb's, which is empty for most titles.
+    if (parsed.contentType === "base") {
+      const ranked = agentRank(baseId);
+      if (ranked) item.rank = ranked;
+    }
     if (parsed.contentType === "base") {
       // The name in each language titledb has (client feature "item-names").
       // A game titledb does not list still has the English name its own file carries.
@@ -537,6 +543,8 @@ export function composeSections(filesMap, customs) {
     if (item) items.push(item);
   }
   attachSwitchLabels(items);
+  // The games nobody ranked follow the ranked ones, the one most consoles finished in the last 90 days first.
+  fillRanks(items, completedCounts());
   const picks = featured.forSections();
   // Hand the library's base games to the rating collector (it works them through on its own pace).
   ratingSync.track(items.filter((i) => i.app_type === "base" && i.title_id).map((i) => ({

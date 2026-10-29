@@ -283,3 +283,14 @@ test("records older than the keep period drop off", () => {
   assert.equal(log.snapshot().total, 1);
   assert.equal(log.recentCount(), 1, "dropped, not only hidden");
 });
+
+test("a finished transfer is handed to onFinished once, with its record", async () => {
+  const seen = [];
+  const log = createTransferLog({ file: null, quietMs: 20, log: () => {}, onFinished: (r) => seen.push(r) });
+  const h = log.begin({ key: "k", route: "lan", file: { path: "/g/a.nsp", name: "a.nsp" }, client: "", who: { kind: "device", id: "aaaa0000", label: "x" }, remote: { scope: "private", country: null }, ranged: false }, () => 10);
+  log.end(h, { download: true, sent: 10, size: 10, start: 0 });
+  await new Promise((r) => setTimeout(r, 40));
+  log.sweep();
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].complete, true);
+});
