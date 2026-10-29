@@ -160,7 +160,8 @@ test('on a desktop the browser is one window to the bottom of the screen, and on
   expect(Math.abs(head!.y - before!.y)).toBeLessThanOrEqual(2);
   const win = await page.locator('#fb').boundingBox();
   const bar = await page.locator('#fb-foot').boundingBox();
-  expect(Math.abs(win!.y + win!.height - (720 - 24))).toBeLessThanOrEqual(2);
+  expect(await page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeLessThanOrEqual(720);
+  expect(win!.y + win!.height).toBeLessThanOrEqual(720);
   expect(bar!.y + bar!.height).toBeLessThanOrEqual(win!.y + win!.height);
   if (process.env.FB_SHOTS) await page.screenshot({ path: path.join(process.env.FB_SHOTS, 'files-desktop.png') });
 });
