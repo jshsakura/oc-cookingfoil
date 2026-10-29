@@ -382,3 +382,24 @@ test('the icon view tiles the rows, letters jump to a name, and a box drawn on e
   await page.locator('#fb-v-list').click();
   await expect(page.locator('#fb')).not.toHaveClass(/grid/);
 });
+
+test('another folder shows placeholder rows while it loads, and a title id folder reads as its game', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await expect(row(page, 'Alpha')).toBeVisible();
+  let release = () => {};
+  const held = new Promise<void>((ok) => { release = ok; });
+  await page.route('**/admin/api/files/list?*', async (r) => {
+    if (!r.request().url().includes('Alpha')) return r.continue();
+    await held;
+    return r.fulfill({ json: { root: 'games', path: 'fb-test/Alpha', parent: 'fb-test', total: 1, page: 1, perPage: 100, pages: 1,
+      deep: false, cut: false, counts: { dirs: 1, files: 0 },
+      items: [{ name: '0100AAAA00000000', rel: 'fb-test/Alpha/0100AAAA00000000', type: 'dir', size: null, mtime: Date.now(), ext: null, title: 'Alpha Quest' }] } });
+  });
+  await row(page, 'Alpha').getByRole('button', { name: 'Alpha' }).click();
+  await expect(page.locator('#fb-rows tr.fb-skel').first()).toBeVisible();
+  release();
+  await expect(page.locator('#fb-rows tr.fb-skel')).toHaveCount(0);
+  const game = page.locator('#fb-rows tr', { has: page.getByRole('button', { name: 'Alpha Quest' }) });
+  await expect(game).toContainText('0100AAAA00000000');
+});

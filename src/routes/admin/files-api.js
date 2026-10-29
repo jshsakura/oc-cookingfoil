@@ -33,6 +33,7 @@ import { createFileRoots, FileError } from "../../library/file-roots.js";
 import { actorOf } from "../../library/trash-service.js";
 import { TrashError } from "../../library/trash.js";
 import { requestLang } from "../../meta/langs.js";
+import { namesOf } from "../../meta/titledb-store.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
 import * as chunks from "../../meta/upload-chunks.js";
@@ -40,6 +41,22 @@ import * as chunks from "../../meta/upload-chunks.js";
 const MAX_PATHS = 1000;
 const ZIP_TTL_MS = 10 * 60 * 1000;
 const INFO_MAX = 100000;
+
+// A name that starts with a title id (a saves or patches folder, a bare-id file) is shown with its game's name.
+const TITLE_ID_RE = /^([0-9a-f]{16})(?=$|[ ._\-[(])/i;
+/** label(name) for one language: the game a title id names, an update or DLC falling back to its base game. */
+export function titleLabel(lang, names = namesOf) {
+  const memo = new Map();
+  return (name) => {
+    const id = TITLE_ID_RE.exec(name)?.[1].toUpperCase();
+    if (!id) return null;
+    if (!memo.has(id)) {
+      const all = names(id) ?? names((BigInt(`0x${id}`) & ~0x1fffn).toString(16).toUpperCase().padStart(16, "0"));
+      memo.set(id, all ? (all[lang] ?? all.en ?? Object.values(all)[0] ?? null) : null);
+    }
+    return memo.get(id);
+  };
+}
 
 export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir } = {}) {
   const handle = (fn) => async (req, res) => {
@@ -68,7 +85,8 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
   router.get("/api/files/list", handle(async (req, res) => {
     const { q, sort, order, page, perPage } = req.query;
     const deep = str(req.query.deep) === "1";
-    res.json(await files.list(str(req.query.root), str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage }));
+    const label = titleLabel(requestLang(req));
+    res.json(await files.list(str(req.query.root), str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label }));
   }));
 
   router.get("/api/files/download", handle(async (req, res) => {
