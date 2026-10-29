@@ -138,33 +138,37 @@ const errText=(err)=>{const k=err.code&&('er.'+err.code);return (k&&topText(k))|
 const chunkSize=()=>Number(window.UP_CHUNK_BYTES)||16*1048576;
 const CHUNK_TRIES=6;
 const chunkLang=()=>typeof adminLang==='string'?adminLang:'ko';
-function chunkCall(method,url,body,type,onLoaded){return new Promise((resolve)=>{
+// A signal that fires stops the request; it then answers status 0 with aborted set, which nothing tries again.
+function chunkCall(method,url,body,type,onLoaded,signal){return new Promise((resolve)=>{
+  if(signal?.aborted){resolve({status:0,d:{},aborted:true});return;}
   const x=new XMLHttpRequest();
+  signal?.addEventListener('abort',()=>x.abort(),{once:true});
   if(onLoaded)x.upload.addEventListener('progress',(e)=>{if(e.lengthComputable)onLoaded(e.loaded);});
   x.addEventListener('loadend',()=>{if(x.status===401){location.reload();return;}
-    let d={};try{d=JSON.parse(x.responseText);}catch{}resolve({status:x.status,d});});
+    let d={};try{d=JSON.parse(x.responseText);}catch{}resolve({status:x.status,d,aborted:!!signal?.aborted});});
   x.open(method,url);x.setRequestHeader('Accept','application/json');x.setRequestHeader('Accept-Language',chunkLang());
   if(type)x.setRequestHeader('Content-Type',type);
   x.send(body);});}
 // No answer or a 5xx is tried again with a growing wait; a refusal (and "no room", 507) is final.
 async function chunkRetry(call){let r;
   for(let i=0;i<CHUNK_TRIES;i++){r=await call();
-    if(r.status!==0&&(r.status<500||r.status===507))return r;
+    if(r.aborted||(r.status!==0&&(r.status<500||r.status===507)))return r;
     if(i<CHUNK_TRIES-1)await new Promise((ok)=>setTimeout(ok,Math.min(15000,(Number(window.UP_RETRY_MS)||1000)*2**i)));}
   return r;}
 // One file in pieces: {status:200,id}, or the {status,d} that stopped it (status 0: no answer). onBytes(n): bytes of it sent.
 // start {url,body} begins it somewhere else (the file browser's folder upload), which answers the kind the pieces go under.
-async function chunkUpload(kind,file,onBytes,start){
+// signal stops it; what was sent waits, so the same file sent again picks up there.
+async function chunkUpload(kind,file,onBytes,start,signal){
   const base='/admin/api/upload/';
-  let r=await chunkRetry(()=>start?chunkCall('POST',start.url,JSON.stringify(start.body),'application/json')
-    :chunkCall('POST',base+kind+'/chunks',JSON.stringify({name:file.name,size:file.size,lastModified:file.lastModified}),'application/json'));
+  let r=await chunkRetry(()=>start?chunkCall('POST',start.url,JSON.stringify(start.body),'application/json',null,signal)
+    :chunkCall('POST',base+kind+'/chunks',JSON.stringify({name:file.name,size:file.size,lastModified:file.lastModified}),'application/json',null,signal));
   if(r.status!==200)return r;
   if(r.d.kind)kind=r.d.kind;
   const id=r.d.id;let off=r.d.offset,stall=0;
   if(onBytes)onBytes(off);
   while(off<file.size){
     const from=off;
-    r=await chunkRetry(()=>chunkCall('PUT',base+'chunks/'+id+'?kind='+kind+'&offset='+from,file.slice(from,Math.min(from+chunkSize(),file.size)),'application/octet-stream',(n)=>{if(onBytes)onBytes(from+n);}));
+    r=await chunkRetry(()=>chunkCall('PUT',base+'chunks/'+id+'?kind='+kind+'&offset='+from,file.slice(from,Math.min(from+chunkSize(),file.size)),'application/octet-stream',(n)=>{if(onBytes)onBytes(from+n);},signal));
     // A wrong offset answers the real one: carry on from there.
     if(r.status===200)off=r.d.offset;
     else if(r.status===409&&typeof r.d.offset==='number')off=r.d.offset;

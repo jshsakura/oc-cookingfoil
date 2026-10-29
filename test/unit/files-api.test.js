@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
+import yauzl from "yauzl";
 
 // The admin file browser's HTTP side: it answers in the page's language with a
 // code the script can branch on, sends files, and keeps every write away from
@@ -150,4 +151,43 @@ test("an upload path that climbs out, hides in a dot folder or has a bad name is
 test("automation tokens may not upload into the file browser", () => {
   assert.equal(tokenBlocked("POST", "/api/files/upload/chunks"), true);
   assert.equal(tokenBlocked("POST", "/api/files/upload"), true);
+});
+
+test("a selection comes down as one zip with its folders, stored as is and with its length known", async () => {
+  fs.mkdirSync(path.join(games.dir, "Zip", "Set", "Inner"), { recursive: true });
+  fs.mkdirSync(path.join(games.dir, "Zip", "Set", ".hidden"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Zip", "Set", "Inner", "b.nsp"), "bb");
+  fs.writeFileSync(path.join(games.dir, "Zip", "Set", ".hidden", "no.txt"), "x");
+  fs.writeFileSync(path.join(games.dir, "Zip", "c.nsp"), "ccc");
+  fs.symlinkSync(base, path.join(games.dir, "Zip", "Set", "away"));
+  const ask = await post("/api/files/zip", { root: "games", paths: ["Zip/Set", "Zip/c.nsp"] });
+  assert.equal(ask.status, 200);
+  const r = await fetch(url((await ask.json()).url.replace("/admin", "")));
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get("content-disposition"), /filename="Zip\.zip"/);
+  const body = Buffer.from(await r.arrayBuffer());
+  assert.equal(Number(r.headers.get("content-length")), body.length);
+  const names = await new Promise((ok, no) => yauzl.fromBuffer(body, { lazyEntries: true }, (err, zip) => {
+    if (err) return no(err);
+    const out = [];
+    zip.on("entry", (e) => { out.push([e.fileName, e.compressionMethod]); zip.readEntry(); });
+    zip.on("end", () => ok(out));
+    zip.readEntry();
+  }));
+  assert.deepEqual(names, [["Set/", 0], ["Set/Inner/", 0], ["Set/Inner/b.nsp", 0], ["c.nsp", 0]]);
+});
+
+test("a zip of one item is named after it; a path that climbs out or an old link is refused", async () => {
+  const one = await (await post("/api/files/zip", { root: "games", paths: ["Folder"] })).json();
+  const r = await fetch(url(one.url.replace("/admin", "")));
+  assert.match(r.headers.get("content-disposition"), /filename="Folder\.zip"/);
+  await r.arrayBuffer();
+  assert.equal((await post("/api/files/zip", { root: "games", paths: ["../x"] })).status, 400);
+  assert.equal((await fetch(url("/api/files/zip/0123"))).status, 404);
+});
+
+test("automation tokens may not zip the file browser's folders", () => {
+  assert.equal(tokenBlocked("POST", "/api/files/zip"), true);
+  assert.equal(tokenBlocked("GET", "/api/files/zip/abc"), true);
+  assert.equal(tokenBlocked("GET", "/api/files/list"), false);
 });

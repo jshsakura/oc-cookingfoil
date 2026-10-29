@@ -188,6 +188,35 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return { abs: at.real, name: path.basename(at.abs), size: st.size, mtime: Math.round(st.mtimeMs) };
   }
 
+  /**
+   * Everything under `rels` (one folder's entries) for a zip, in name order: { name, real, size, mtime } for a
+   * file and { name, dir: true, mtime } for a folder, `name` starting at the entry's own name. What the list
+   * hides stays out (dot entries, fenced folders, links that lead away), and a link back up is walked once.
+   */
+  async function collect(key, rels) {
+    const out = [];
+    const seen = new Set();
+    const walk = async (w, real, name) => {
+      const st = await fsp.stat(real).catch(() => null);
+      if (st?.isFile()) return void out.push({ name, real, size: st.size, mtime: st.mtime });
+      if (!st?.isDirectory() || seen.has(real)) return;
+      seen.add(real);
+      out.push({ name, dir: true, mtime: st.mtime });
+      const dirents = (await fsp.readdir(real, { withFileTypes: true }).catch(() => [])).filter((d) => !d.name.startsWith("."));
+      dirents.sort((a, b) => collator.compare(a.name, b.name));
+      for (const d of dirents) {
+        const abs = path.join(real, d.name);
+        const to = allowed(w, abs) && (await fsp.realpath(abs).catch(() => null));
+        if (to && allowed(w, to)) await walk(w, to, `${name}/${d.name}`);
+      }
+    };
+    for (const rel of rels) {
+      const at = await resolve(key, rel, { mayBeRoot: false });
+      await walk(at.walls, at.real, path.basename(at.abs));
+    }
+    return out;
+  }
+
   async function mkdir(key, rel, name) {
     const clean = cleanName(name);
     if (!clean) fail("bad-name");
@@ -304,5 +333,5 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return out;
   }
 
-  return { list, open, mkdir, rename, move, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
+  return { list, open, collect, mkdir, rename, move, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
 }

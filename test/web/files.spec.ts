@@ -124,7 +124,7 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await expect(menu).toBeHidden();
 
   await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['열기', '이름 바꾸기', '이동', '휴지통으로']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '이름 바꾸기', '이동', '휴지통으로']);
   await menu.getByRole('menuitem', { name: '이름 바꾸기' }).click();
   await page.locator('#ask-input').fill('Alef');
   await page.locator('#ask-ok').click();
@@ -135,13 +135,13 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
   await row(page, 'Beta').locator('td.c-mtime').click({ button: 'right' });
   await expect(menu).toContainText('2개를 골랐습니다');
-  await expect(menu.getByRole('menuitem')).toHaveText(['이동', '휴지통으로']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '이동', '휴지통으로']);
   await page.mouse.click(5, 5);
   await expect(menu).toBeHidden();
 
   await page.locator('#fb-empty').evaluate((e) => { e.hidden = false; });
   await page.locator('#fb-empty').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['새 폴더', '올리기']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['새 폴더', '올리기', '폴더 올리기']);
   await expect(page.locator('#fb-info')).toHaveText('폴더 2개 · 파일 1개');
 });
 
@@ -194,4 +194,89 @@ test('files dropped on the list or picked with Upload land in the open folder, i
   await expect(page.locator('#fb')).not.toHaveClass(/dragging/);
   expect(fs.readFileSync(path.join(base, 'Beta/dropped.nsp'), 'utf8')).toBe('dropped bytes');
   expect(fs.readFileSync(path.join(base, 'Beta/keep.txt'), 'utf8')).toBe('x');
+});
+
+test('a picked folder keeps its shape, and the upload panel stops a file that has not finished', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test%2FBeta');
+  await expect(row(page, 'keep.txt')).toBeVisible();
+  await page.evaluate(() => { (window as any).UP_CHUNK_BYTES = 4; });
+  // A picked folder names its files under it, as the browser does with webkitRelativePath.
+  await page.locator('#fb-dir').evaluate((input: HTMLInputElement) => {
+    const dt = new DataTransfer();
+    for (const [rel, body] of [['Pack/a.nsp', 'aaa'], ['Pack/sub/b.nsp', 'bb']]) {
+      const f = new File([body], rel.split('/').pop()!);
+      Object.defineProperty(f, 'webkitRelativePath', { value: rel });
+      dt.items.add(f);
+    }
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change'));
+  });
+  await expect(page.locator('#toast')).toContainText('2개를 올렸습니다');
+  expect(fs.readFileSync(path.join(base, 'Beta/Pack/sub/b.nsp'), 'utf8')).toBe('bb');
+  const panel = page.locator('#fb-upl');
+  await expect(panel.locator('li')).toHaveCount(2);
+  await expect(panel.locator('li[data-state="done"]')).toHaveCount(2);
+
+  // Every piece waits on the server until the test lets it go, so the second file is still waiting when stopped.
+  let release!: () => void;
+  const gate = new Promise<void>((ok) => { release = ok; });
+  await page.route('**/admin/api/upload/chunks/**', async (route) => { await gate; await route.continue(); });
+  await page.locator('#fb-file').setInputFiles([
+    { name: 'slow.nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('0123456789') },
+    { name: 'never.nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('nope') },
+  ]);
+  const never = panel.locator('li', { hasText: 'never.nsp' });
+  await expect(never).toHaveAttribute('data-state', 'wait');
+  await never.getByRole('button').click();
+  await expect(never).toHaveAttribute('data-state', 'stop');
+  release();
+  await expect(panel.locator('li', { hasText: 'slow.nsp' })).toHaveAttribute('data-state', 'done');
+  await expect(page.locator('#fb-up-close')).toBeVisible();
+  expect(has('Beta/slow.nsp') && !has('Beta/never.nsp')).toBe(true);
+  await page.locator('#fb-up-close').click();
+  await expect(panel).toBeHidden();
+});
+
+test('rows dragged onto a folder or onto the path move there', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await row(page, 'loose.nsp').locator('td.c-size').dragTo(row(page, 'Alpha').locator('td.c-size'));
+  await expect(page.locator('#toast')).toContainText('1개를 옮겼습니다');
+  await expect(row(page, 'loose.nsp')).toHaveCount(0);
+  expect(has('Alpha/loose.nsp')).toBe(true);
+
+  await row(page, 'Alpha').getByRole('button', { name: 'Alpha' }).click();
+  await expect(row(page, 'one.nsp')).toBeVisible();
+  await row(page, 'one.nsp').locator('td.c-size').click();
+  await row(page, 'two.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
+  await row(page, 'two.nsp').locator('td.c-size').dragTo(page.locator('#fb-crumb').getByRole('button', { name: 'fb-test' }));
+  await expect(page.locator('#toast')).toContainText('2개를 옮겼습니다');
+  expect(has('one.nsp') && has('two.nsp') && !has('Alpha/one.nsp')).toBe(true);
+});
+
+test('a pick comes down as one zip, and a text or image file opens in a preview', async ({ page }) => {
+  put('notes.txt', 'line one\nline two');
+  put('cover.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="red"/></svg>');
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await row(page, 'Alpha').locator('td.c-size').click();
+  await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
+  const download = page.waitForEvent('download');
+  await page.locator('#fb-zip-btn').click();
+  const zip = await download;
+  expect(zip.suggestedFilename()).toBe('fb-test.zip');
+  const bytes = fs.readFileSync((await zip.path())!);
+  expect(bytes.subarray(0, 2).toString()).toBe('PK');
+  expect(bytes.includes(Buffer.from('Alpha/two.nsp'))).toBe(true);
+
+  await row(page, 'notes.txt').locator('td.c-size').dblclick();
+  const view = page.locator('#fb-view');
+  await expect(view.locator('pre')).toHaveText('line one\nline two');
+  await page.keyboard.press('ArrowLeft');
+  await expect(view.locator('img')).toHaveAttribute('src', /^blob:/);
+  await expect(page.locator('#fb-v-title')).toHaveText('cover.svg');
+  await page.keyboard.press('Escape');
+  await expect(view).toBeHidden();
+  await expect(row(page, 'cover.svg')).toBeFocused();
 });

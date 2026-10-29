@@ -9,6 +9,8 @@
  *   POST /admin/api/files/rename  { root, path, name }   → { root, rel }
  *   POST /admin/api/files/move    { root, paths, toRoot, toPath } → { moved: [{ from, to }], skipped: [{ rel, code }] }
  *   POST /admin/api/files/trash   { root, paths }        → { trash, files }
+ *   POST /admin/api/files/zip     { root, paths }        → { url }: GET that address (for ten minutes) for one zip of
+ *        everything under `paths`, stored as is (games do not shrink), with its length known so the browser shows progress.
  *   POST /admin/api/files/upload/chunks { root, path, rel, size, lastModified } → { id, offset, size, kind }
  *        starts (or resumes) an upload into the folder `path`; `rel` is the file's name, under folders of its own
  *        for a dropped folder. Refused before a byte goes up when the name is taken. The pieces then go through
@@ -18,7 +20,10 @@
  * Errors are { error, code } with code one of FileError's (bad-path, not-found, exists, ...).
  * Every delete goes to the folder's trash; moves and renames are in the undo journal.
  */
+import crypto from "crypto";
+import fs from "fs";
 import path from "path";
+import yazl from "yazl";
 import { createFileRoots, FileError } from "../../library/file-roots.js";
 import { actorOf } from "../../library/trash-service.js";
 import { TrashError } from "../../library/trash.js";
@@ -28,6 +33,7 @@ import { apiWord } from "./api-words.js";
 import * as chunks from "../../meta/upload-chunks.js";
 
 const MAX_PATHS = 1000;
+const ZIP_TTL_MS = 10 * 60 * 1000;
 
 export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir } = {}) {
   const handle = (fn) => async (req, res) => {
@@ -119,6 +125,47 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     }
     debug.log("admin: files: %d uploaded into %s:%s (%d skipped)", placed.length, root, str(b.path), skipped.length);
     res.json({ placed, skipped });
+  }));
+
+  // A zip is asked for with a POST (a selection can be long) and fetched by a plain link, so the browser's own
+  // download takes it: no page memory, its progress bar, and a pause or resume of its own.
+  const zips = new Map();
+  router.post("/api/files/zip", handle(async (req, res) => {
+    const b = req.body ?? {};
+    const root = str(b.root);
+    const rels = paths(b.paths);
+    const entries = await files.collect(root, rels);
+    if (!entries.length) throw new FileError("nothing");
+    const now = Date.now();
+    for (const [k, z] of zips) if (z.until < now) zips.delete(k);
+    const folder = rels[0].split("/").slice(0, -1).pop() || root;
+    const id = crypto.randomBytes(16).toString("hex");
+    zips.set(id, { entries, name: `${rels.length === 1 ? entries[0].name : folder}.zip`, until: now + ZIP_TTL_MS });
+    debug.log("admin: files: zip of %d entries from %s", entries.length, root);
+    res.json({ url: `/admin/api/files/zip/${id}` });
+  }));
+
+  router.get("/api/files/zip/:id", handle(async (req, res) => {
+    const z = zips.get(str(req.params.id));
+    if (!z || z.until < Date.now()) throw new FileError("not-found", 404);
+    const zip = new yazl.ZipFile();
+    for (const e of z.entries) {
+      if (e.dir) zip.addEmptyDirectory(e.name, { mtime: e.mtime });
+      else zip.addReadStreamLazy(e.name, { size: e.size, mtime: e.mtime, compress: false }, (cb) => cb(null, fs.createReadStream(e.real)));
+    }
+    // Every size is known, so yazl answers the zip's length at once, before a byte is sent.
+    zip.end((total) => {
+      if (total >= 0) res.set("Content-Length", String(total));
+    });
+    // A file that changed or went away since the list cut the zip short; the browser then calls the download failed.
+    zip.on("error", (err) => {
+      debug.error("admin: files: zip: %s", err.message);
+      res.destroy(err);
+    });
+    res.on("close", () => zip.outputStream.unpipe(res));
+    res.attachment(z.name);
+    res.type("application/zip");
+    zip.outputStream.pipe(res);
   }));
 
   router.post("/api/files/trash", handle(async (req, res) => {
