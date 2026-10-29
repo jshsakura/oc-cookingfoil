@@ -63,6 +63,12 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-name button,#fb .fb-name span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fb .fb-name button{border:0;background:none;padding:0;color:var(--text);font-weight:700;text-align:left}
 #fb .fb-name button:hover{text-decoration:underline}
+#fb .fb-id{flex:0 0 auto;color:var(--faint);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+#fb tr.fb-skel td{height:52px;padding:0 16px}
+#fb tr.fb-skel span{display:block;height:12px;width:42%;border-radius:var(--r-xs);background:var(--line);animation:fb-skel 1s ease-in-out infinite alternate}
+#fb tr.fb-skel:nth-child(3n+2) span{width:30%}#fb tr.fb-skel:nth-child(3n) span{width:55%}
+@keyframes fb-skel{to{opacity:.35}}
+@media (prefers-reduced-motion:reduce){#fb tr.fb-skel span{animation:none}}
 #fb .fb-act{display:flex;gap:6px;justify-content:flex-end}
 #fb .fb-act button.ib{width:34px;height:34px;padding:0;position:relative}
 #fb .fb-act button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -220,6 +226,7 @@ export const FOLDER_HTML = `<div id="fb">
 export const FILES_SCRIPT = /* js */ `
 const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), open: icon("folder"), download: icon("download"), rename: icon("tag"), move: icon("chevright"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("arrowright"), copy: icon("copy"), paste: icon("inbox"), undo: icon("undo"), props: icon("info"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
 const FB_PER=100;
+const FB_SKEL_MS=120;
 const fb={roots:[],root:'',path:'',page:1,sort:'name',order:'asc',q:'',sel:new Set(),anchor:null,focus:null,drag:null,hi:0,hmax:0,deep:false,clip:null,undos:[],seq:0,data:null,timer:null};
 const fbSize=(n)=>{if(n==null)return '';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const fbDate=(ms)=>ms?new Date(ms).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'';
@@ -250,8 +257,9 @@ function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-s
   tr.draggable=true;tr.addEventListener('dragstart',(e)=>fbDragStart(e,f.rel));
   if(f.type==='dir')fbDropTarget(tr,()=>!fb.drag?.includes(f.rel)&&f.rel);
   const cn=td(null,'c-name');const n=el('div',null,'fb-name');const ic=el('span');ic.innerHTML=f.type==='dir'?FB_ICON.dir:FB_ICON.file;n.append(ic.firstChild);
-  if(f.type==='dir'){const b=el('button',f.name);b.type='button';b.title=f.name;b.addEventListener('click',()=>fbGo(fb.root,f.rel));n.append(b);}
-  else{const s=el('span',f.name);s.title=f.name;n.append(s);}
+  // A title id folder reads as its game, the id beside it; a file keeps its own name first.
+  if(f.type==='dir'){const b=el('button',f.title||f.name);b.type='button';b.title=f.title?f.title+' ('+f.name+')':f.name;b.addEventListener('click',()=>fbGo(fb.root,f.rel));n.append(b);if(f.title)n.append(el('span',f.name,'fb-id'));}
+  else{const s=el('span',f.name);s.title=f.name;n.append(s);if(f.title)n.append(el('span',f.title,'fb-where'));}
   // A search through folders below names where each find is.
   const at=f.rel.split('/').slice(0,-1).join('/');if(fb.data?.deep&&at!==fb.path){const w=el('span',at,'fb-where');w.title=at;n.append(w);}
   cn.append(n);if(fbClipped(f.rel))tr.classList.add('fb-cut');
@@ -282,14 +290,17 @@ function fbFoot(){const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   const rows=[...document.querySelectorAll('#fb-rows tr')];const all=$('fb-all');
   all.checked=rows.length>0&&rows.every((r)=>fb.sel.has(r.dataset.rel));all.indeterminate=!all.checked&&rows.some((r)=>fb.sel.has(r.dataset.rel));
   const pg=$('fb-pager');pg.hidden=!d||d.pages<=1;if(d){$('fb-page').textContent=topFill('fb.pageOf',{page:num(d.page),pages:num(d.pages)});$('fb-prev').disabled=d.page<=1;$('fb-next').disabled=d.page>=d.pages;}}
+// Placeholder rows while another folder, page or search loads; a refresh of the same view keeps its rows.
+function fbSkel(){$('fb-empty').hidden=true;$('fb-rows').replaceChildren(...Array.from({length:8},()=>{const tr=el('tr',null,'fb-skel');const c=td(null);c.colSpan=5;c.append(el('span'));tr.append(c);return tr;}));}
 async function fbLoad(){if(!fb.root)return;const n=++fb.seq;
   const qs=new URLSearchParams({root:fb.root,path:fb.path,page:String(fb.page),perPage:String(FB_PER),sort:fb.sort,order:fb.order});if(fb.q)qs.set('q',fb.q);if(fb.q&&fb.deep)qs.set('deep','1');
   fbNav();fbCrumb($('fb-crumb'),fb.root,fb.path,(to)=>fbGo(fb.root,to));fbSortHeads();
-  let d;try{d=await api('/admin/api/files/list?'+qs);}catch(err){if(n!==fb.seq)return;
+  const view=fb.root+'|'+qs;const skel=view!==fb.view?setTimeout(()=>{if(n===fb.seq)fbSkel();},FB_SKEL_MS):null;
+  let d;try{d=await api('/admin/api/files/list?'+qs);}catch(err){clearTimeout(skel);if(n!==fb.seq)return;
     // A folder that is gone (moved elsewhere, a stale link) leads back to the top of its storage.
     if(err.code==='not-found'&&fb.path){toast(err.message);fbGo(fb.root,'',{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());return;}
     fb.data=null;$('fb-rows').replaceChildren();const e=$('fb-empty');e.hidden=false;e.textContent=topFill('fb.loadFail',{msg:err.message});fbFoot();return;}
-  if(n!==fb.seq)return;fb.data=d;fb.page=d.page;
+  clearTimeout(skel);if(n!==fb.seq)return;fb.data=d;fb.page=d.page;fb.view=view;
   const live=new Set(d.items.map((f)=>f.rel));for(const r of [...fb.sel])if(!live.has(r))fb.sel.delete(r);
   if(!live.has(fb.focus))fb.focus=d.items[0]?.rel??null;if(!live.has(fb.anchor))fb.anchor=null;
   $('fb-rows').replaceChildren(...d.items.map(fbRow));

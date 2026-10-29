@@ -154,30 +154,37 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     };
   }
 
-  /** The entries of one folder whose names hold `needle` (all of them when it is empty). */
-  async function entriesOf(real, rel, w, needle) {
+  /** Whether an entry's name, or the title its name stands for, holds `needle`. */
+  const holds = (name, needle, label) => name.toLowerCase().includes(needle) || Boolean(label?.(name)?.toLowerCase().includes(needle));
+
+  /**
+   * The entries of one folder whose names hold `needle` (all of them when it is empty).
+   * label(name) names what a name stands for (a game for a title id folder); it shows as `title` and is searched too.
+   */
+  async function entriesOf(real, rel, w, needle, label) {
     const dirents = (await fsp.readdir(real, { withFileTypes: true }).catch(() => [])).filter((d) => !d.name.startsWith("."));
-    const wanted = needle ? dirents.filter((d) => d.name.toLowerCase().includes(needle)) : dirents;
+    const wanted = needle ? dirents.filter((d) => holds(d.name, needle, label)) : dirents;
     const entries = [];
     for (let i = 0; i < wanted.length; i += STAT_BATCH) {
       const got = await Promise.all(wanted.slice(i, i + STAT_BATCH).map((d) => entryOf(real, rel, w, d)));
       entries.push(...got.filter(Boolean));
     }
+    if (label) for (const e of entries) e.title = label(e.name) || null;
     return entries;
   }
 
   /** Every folder under `at`, breadth first, each walked once however links lead back; cut short past DEEP_SCAN_MAX. */
-  async function deepFind(at, needle) {
+  async function deepFind(at, needle, label) {
     const entries = [];
     const seen = new Set([at.real]);
     const queue = [{ real: at.real, rel: at.rel }];
     let looked = 0;
     while (queue.length) {
       const dir = queue.shift();
-      const all = await entriesOf(dir.real, dir.rel, at.walls, "");
+      const all = await entriesOf(dir.real, dir.rel, at.walls, "", label);
       looked += all.length;
       for (const e of all) {
-        if (e.name.toLowerCase().includes(needle)) entries.push(e);
+        if (holds(e.name, needle, label)) entries.push(e);
         if (e.type !== "dir") continue;
         const real = await fsp.realpath(path.join(dir.real, e.name)).catch(() => null);
         if (real && !seen.has(real)) {
@@ -190,15 +197,16 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return { entries, cut: false };
   }
 
-  async function list(key, rel, { q = "", deep = false, sort = "name", order = "asc", page = 1, perPage = PER_PAGE } = {}) {
+  async function list(key, rel, { q = "", deep = false, sort = "name", order = "asc", page = 1, perPage = PER_PAGE, label = null } = {}) {
     const at = await folder(key, rel);
     if (!SORTS.has(sort)) fail("bad-param");
     const size = Math.min(Math.max(1, Number(perPage) || PER_PAGE), MAX_PER_PAGE);
     const needle = String(q ?? "").trim().toLowerCase();
-    const found = deep && needle ? await deepFind(at, needle) : { entries: await entriesOf(at.real, at.rel, at.walls, needle), cut: false };
+    const found = deep && needle ? await deepFind(at, needle, label) : { entries: await entriesOf(at.real, at.rel, at.walls, needle, label), cut: false };
     const entries = found.entries;
     const dir = order === "desc" ? -1 : 1;
-    const byName = (a, b) => collator.compare(a.name, b.name);
+    // A title id folder sorts by the game it names.
+    const byName = (a, b) => collator.compare(a.title ?? a.name, b.title ?? b.name);
     const by = {
       name: byName,
       type: (a, b) => collator.compare(a.ext ?? "", b.ext ?? "") || byName(a, b),

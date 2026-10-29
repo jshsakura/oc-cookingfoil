@@ -249,3 +249,15 @@ test("a folder that holds a fenced one is neither copied nor moved, and a path p
   const cut = await files.collect("games", ["Folder"], { max: 1 });
   assert.equal(cut.cut, true);
 });
+
+test("titleLabel names a title id's game in the asked language, an update or DLC by its base game", async () => {
+  const { titleLabel } = await import("../../src/routes/admin/files-api.js");
+  const db = { "0100AAAA00000000": { ko: "알파", en: "Alpha" } };
+  const label = titleLabel("ko", (id) => db[id] ?? null);
+  assert.equal(label("0100AAAA00000000"), "알파");
+  assert.equal(label("0100AAAA00000800"), "알파");
+  assert.equal(label("0100AAAA00001003 [DLC].nsp"), "알파");
+  assert.equal(label("0100CCCC00000000"), null);
+  assert.equal(label("Alpha Quest"), null);
+  assert.equal(titleLabel("ja", (id) => db[id] ?? null)("0100AAAA00000000"), "Alpha");
+});

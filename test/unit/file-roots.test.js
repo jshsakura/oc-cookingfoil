@@ -210,3 +210,15 @@ test("a name with a control character is refused", async () => {
   put(games.dir, "a.nsp");
   for (const bad of ["a\nb", "a\rb", "a\tb", "a\x7fb"]) assert.equal(await code(fr.mkdir("games", "", bad)), "bad-name", JSON.stringify(bad));
 });
+
+test("a folder named by a title id lists with its game's name, and that name finds it", async () => {
+  const { fr, games } = setup();
+  put(games.dir, "0100AAAA00000000/save.bin");
+  put(games.dir, "0100BBBB00000000/save.bin");
+  put(games.dir, "notes.txt");
+  const label = (name) => ({ "0100AAAA00000000": "Alpha Quest" })[name] ?? null;
+  const out = await fr.list("games", "", { label });
+  assert.deepEqual(out.items.map((i) => [i.name, i.title]), [["0100BBBB00000000", null], ["0100AAAA00000000", "Alpha Quest"], ["notes.txt", null]]);
+  assert.deepEqual((await fr.list("games", "", { q: "alpha", label })).items.map((i) => i.name), ["0100AAAA00000000"]);
+  assert.deepEqual((await fr.list("games", "", { q: "quest", deep: true, label })).items.map((i) => i.name), ["0100AAAA00000000"]);
+});
