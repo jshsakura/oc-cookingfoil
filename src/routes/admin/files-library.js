@@ -52,7 +52,7 @@ export const LIBRARY_CSS = /* css */ `
    details side by side, each scrolling on its own, and the status bar at the bottom, the whole filling the screen. */
 @media (min-width:900px){
   .adm-shell>.wrap:has(#fb){max-width:none}
-  #fb{gap:0;height:calc(100dvh - var(--fb-top,220px) - 24px);min-height:440px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);overflow:hidden}
+  #fb{gap:0;height:calc(100dvh - var(--fb-top,220px) - var(--fb-below,24px));min-height:320px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);overflow:hidden}
   #fb .fb-bar{padding:10px 12px;border-bottom:1px solid var(--line)}
   #fb .fb-body{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
   #fb .fb-tree,#fb .fb-side,#fb .fb-main{position:static;max-height:none;min-height:0;overflow:auto;border:0;border-radius:0;margin:0}
@@ -192,8 +192,11 @@ let fbMoreSeen=false;
 // The list scrolls inside the window on a wide screen and with the page on a narrow one.
 const fbWindow=matchMedia('(min-width:900px)');
 new IntersectionObserver((es)=>{fbMoreSeen=es.some((e)=>e.isIntersecting);if(fbMoreSeen)fbMore();},{root:fbWindow.matches?$('fb-main'):null,rootMargin:'600px 0px'}).observe($('fb-more'));
-// The window ends at the bottom of the screen: its height is the screen less where it starts on the page.
-function fbFit(){const f=$('fb');if(!f.isConnected)return;f.style.setProperty('--fb-top',Math.round(f.getBoundingClientRect().top+window.scrollY)+'px');}
+// The window ends at the bottom of the screen: its height is the screen less where it starts on the page and
+// less what the page puts under it, both measured, so the page itself never scrolls.
+function fbFit(){const f=$('fb');if(!f.isConnected)return;const top=f.getBoundingClientRect().top+window.scrollY;
+  const below=Math.max(0,document.scrollingElement.scrollHeight-(top+f.offsetHeight));
+  f.style.setProperty('--fb-top',Math.round(top)+'px');f.style.setProperty('--fb-below',Math.ceil(below)+'px');}
 window.addEventListener('resize',fbFit);new ResizeObserver(fbFit).observe(document.body);fbFit();
 
 // ── folder sizes, from the server's cache (library/folder-sizes.js) ─
