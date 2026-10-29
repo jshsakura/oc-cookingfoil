@@ -20,7 +20,10 @@ import { discardAccessKeyDelivery } from "./pairing.js";
 import { dropRepair } from "./pairing-repair.js";
 import { isLoopbackIp, isPrivateIp } from "./net.js";
 import { doneAt, eventLog, markDone, recordStore } from "../db/security-stores.js";
+import path from "node:path";
 import { securityDb, transaction } from "../db/database.js";
+import { migrateGoogleOwners } from "./google-owner-migration.js";
+import { dataDir } from "../helpers/envs.js";
 import * as deviceSends from "./device-sends.js";
 
 const FLUSH_DEBOUNCE_MS = 500;
@@ -229,6 +232,7 @@ function loginRecord(v = {}, now = Date.now()) {
 
 /** Reads the state from the tables. Throws when it cannot: the server must not start without it. */
 export async function load() {
+  migrateGoogleOwners(securityDb(), { chatDir: path.join(dataDir, "chat") });
   const t = db();
   const rows = (field, map = (v) => v) => new Map(t.rows[field].load().map(([k, v]) => [k, map(v)]));
   state.failures = rows("failures");

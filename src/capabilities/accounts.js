@@ -28,7 +28,7 @@ function find(raw) {
   if (id.startsWith(GOOGLE)) {
     const row = google.get(id.slice(GOOGLE.length));
     if (!row) throw fail(404, `no Google account ${id}; account_list shows the ids`);
-    return { kind: "google", id, owner: `${GOOGLE}${row.email}`, row };
+    return { kind: "google", id, owner: google.ownerOf(row.sub), row };
   }
   const row = users.list().find((u) => u.name === id);
   if (!row) throw fail(404, `no account ${id}; account_list shows the ids`);

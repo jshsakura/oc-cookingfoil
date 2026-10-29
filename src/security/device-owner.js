@@ -19,7 +19,7 @@ import { accountFull } from "./device-limit.js";
 const GOOGLE = "google:";
 
 /**
- * Whether `approver` (an account name, or "google:<email>") holds the console approved by `addedBy`.
+ * Whether `approver` (an account name, or "google:<sub>") holds the console approved by `addedBy`.
  * The markers the server writes for its own approvals ("admin", "auto", "telegram") are no
  * account's, the admin session's included, so such a console has no sends, wishlist or chat consoles.
  */
@@ -31,9 +31,9 @@ export function deviceOwner(deviceKey) {
   const by = store.deviceAddedBy(deviceKey);
   if (!by || users.SYSTEM_APPROVERS.has(by)) return { state: "unbound" };
   if (by.startsWith(GOOGLE)) {
-    const email = by.slice(GOOGLE.length);
-    const account = googleAccounts.list().find((a) => a.email === email);
-    return { state: "bound", owner: { kind: "google", id: email, displayName: googleAccounts.maskEmail(email) }, active: account?.status === "approved" };
+    const account = googleAccounts.accountOfOwner(by);
+    const id = account?.sub ?? by.slice(GOOGLE.length);
+    return { state: "bound", owner: { kind: "google", id, displayName: googleAccounts.maskEmail(account?.email) }, active: account?.status === "approved" };
   }
   return { state: "bound", owner: { kind: "user", id: by, displayName: by }, active: users.isActive(by) };
 }
@@ -49,7 +49,7 @@ export function suspension(deviceKey) {
   const o = deviceOwner(deviceKey);
   if (o?.state === "unbound") return users.hasUsers() || googleAccounts.list().length > 0 ? "no-account" : null;
   if (o?.state !== "bound" || o.active) return null;
-  const known = o.owner.kind === "google" ? googleAccounts.list().some((a) => a.email === o.owner.id) : users.list().some((u) => u.name === o.owner.id);
+  const known = o.owner.kind === "google" ? Boolean(googleAccounts.get(o.owner.id)) : users.list().some((u) => u.name === o.owner.id);
   return known ? "account-off" : "account-gone";
 }
 
@@ -63,7 +63,7 @@ export function bindingOf(deviceKey) {
 /** The accounts a console may be given to: active password accounts and approved Google ones, as approvers. */
 export function ownerChoices() {
   const people = users.list().filter((u) => u.enabled).map((u) => ({ owner: u.name, kind: "user", displayName: u.name }));
-  const google = googleAccounts.list().filter((a) => a.status === "approved" && a.email).map((a) => ({ owner: `${GOOGLE}${a.email}`, kind: "google", displayName: a.email }));
+  const google = googleAccounts.list().filter((a) => a.status === "approved" && a.email).map((a) => ({ owner: googleAccounts.ownerOf(a.sub), kind: "google", displayName: a.email }));
   return [...people, ...google];
 }
 
