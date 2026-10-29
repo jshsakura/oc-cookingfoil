@@ -80,7 +80,7 @@ const FEATURES = [
 // Every feature name the core can announce, on or off: a plugin may not announce one.
 const CORE_FEATURES = new Set([
   ...FEATURES, "session-token", "pair-password-only", "device-pairing", "device-rebind", "enroll", "dropbox-sync",
-  "retro", "retro-index", "library-saves", "shop-saves", "saves-by-game", "user-patches", "homebrew", "homebrew-folders", "homebrew-titles",
+  "retro", "retro-index", "library-saves", "saves-by-game", "user-patches", "homebrew", "homebrew-folders", "homebrew-titles",
   "admin-edit", "client-update", "file-variants", "console-facts",
 ]);
 
@@ -159,8 +159,7 @@ export default async function libraryInfoRoute(req, res) {
       // retro-index: GET /api/retro/index lists every game unsorted and light, for a client merging servers.
       ...(retro ? ["retro", "retro-index"] : []),
       // library-saves: /api/saves hands out save files to restore on the console.
-      // shop-saves is the same feature under its old name, kept for a client release that checks for it.
-      ...(saves ? ["library-saves", "shop-saves"] : []),
+      ...(saves ? ["library-saves"] : []),
       // saves-by-game: /api/saves?view=games lists games with counts; ?game=<key> one game's saves.
       ...(saves ? ["saves-by-game"] : []),
       // user-patches: /api/patches, /api/patches/:id/download (ustar), detail.patches, item.patches; while one is listed.

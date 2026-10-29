@@ -97,7 +97,7 @@ test("the library lists save files and sends one as a tar rooted at the save fol
   const server = await boot(dir);
   try {
     assert.equal((await fetch(`${BASE}/api/saves`)).status, 401);
-    assert.ok((await (await get("/api/library/info")).json()).features.includes("library-saves") && (await (await get("/api/library/info")).json()).features.includes("shop-saves"));
+    assert.ok((await (await get("/api/library/info")).json()).features.includes("library-saves"));
     const res = await get("/api/saves?lang=ko");
     const { saves } = await res.json();
     assert.equal(saves.length, 1, "empty, non-base and symlinked saves are left out");
@@ -145,7 +145,7 @@ test("an empty saves folder is not offered to consoles", async () => {
   const server = await boot(fs.mkdtempSync(path.join(os.tmpdir(), "saves-empty-")));
   try {
     const { features } = await (await get("/api/library/info")).json();
-    assert.ok(!features.includes("shop-saves") && !features.includes("library-saves"));
+    assert.ok(!features.includes("library-saves"));
     assert.ok(!features.includes("user-patches"), "no patch to hand out either");
     assert.deepEqual((await (await get("/api/saves")).json()).saves, [], "the API answers, with nothing in it");
   } finally {
@@ -157,7 +157,7 @@ test("without a saves folder the API is off", async () => {
   const server = await boot(path.join(os.tmpdir(), "no-such-saves-" + process.pid));
   try {
     assert.equal((await get("/api/saves")).status, 404);
-    assert.ok(!(await (await get("/api/library/info")).json()).features.includes("shop-saves"));
+    assert.ok(!(await (await get("/api/library/info")).json()).features.includes("library-saves"));
   } finally {
     server.kill("SIGKILL");
   }

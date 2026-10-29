@@ -135,7 +135,7 @@ replaced. The server does everything except the part only the plugin knows.
   in memory, for that call; the server does not log or keep them. `lang` and `clientVersion` come
   from the `Accept-Language` and `Version` headers.
 - `POST /api/library/variants { files: [...] }` (200 files at most) lists the options of several files.
-- `libraryInfo({ lang })` (named `shopInfo` in earlier versions, which still works) adds feature names and keys to library info. A name core or another plugin already
+- `libraryInfo({ lang })` adds feature names and keys to library info. A name core or another plugin already
   uses is dropped. Its answer is kept for 30 seconds.
 
 ## Before and after a download, your own addresses, and events

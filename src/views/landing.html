@@ -3588,7 +3588,7 @@
           if (features.includes("client-update") && features.includes("enroll")) showClientCard(info.enroll?.perHour);
           if (features.includes("retro")) { available.add("retro"); available.add("retro-home"); }
           if (features.includes("user-patches")) available.add("patches");
-          if (features.includes("library-saves") || features.includes("shop-saves")) available.add("saves");
+          if (features.includes("library-saves")) available.add("saves");
           $("retro-tab").hidden = !available.has("retro");
           $("extras-tab").hidden = !available.has("patches") && !available.has("saves");
           if (features.includes("homebrew")) { available.add("tools"); available.add("ports"); }
