@@ -2,11 +2,14 @@
  * The admin file browser's ground: folders and files under the library roots,
  * addressed as (root key, rel), with one containment rule for every call.
  *
- *   list(key, rel, { q, sort, order, page, perPage })  a folder, folders first, paged on the server
+ *   list(key, rel, { q, deep, sort, order, page, perPage })  a folder, folders first, paged on the server;
+ *                                                      `deep` finds `q` in every folder under it
  *   open(key, rel)                                     a file to send: { abs, name, size, mtime }
  *   mkdir(key, rel, name)                              a new folder in `rel`
  *   rename(key, rel, name)                             in the same folder, journaled
  *   move(key, rels, toKey, toRel)                      into a folder, across roots too, journaled
+ *   copy(key, rels, toKey, toRel)                      a copy into a folder; a taken name gets a number ("a (2).nsp")
+ *   collect(key, rels)                                 everything under them, for a zip or a size
  *   trash(key, rels, { by })                           into the root's trash, never a plain delete
  *   uploadTarget(key, rel, sub)                        where an upload `sub` ("a.nsp", "Pack/a.nsp") would land, checked
  *   place(key, rel, sub, src)                          a finished upload moved there; a taken name is "exists"
@@ -22,8 +25,8 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
-import { moveAcross, withLocks } from "./safe-move.js";
-import { trashItems } from "./trash.js";
+import { copyChecked, moveAcross, moveNoClobber, withLocks, withPartial } from "./safe-move.js";
+import { numbered, trashItems } from "./trash.js";
 import { recordMove } from "./journal.js";
 import { libraryRoots, refresh as refreshRoots } from "./trash-service.js";
 import * as env from "../helpers/envs.js";
@@ -36,6 +39,9 @@ const PER_PAGE = 100;
 const MAX_PER_PAGE = 500;
 const MAX_NAME_BYTES = 255;
 const STAT_BATCH = 64;
+// A search through every folder below stops after this many entries looked at, and says so (`cut`).
+const DEEP_SCAN_MAX = 100000;
+const COPY_NUMBERS = 99;
 
 export class FileError extends Error {
   constructor(code, status = 400) {
@@ -148,18 +154,49 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     };
   }
 
-  async function list(key, rel, { q = "", sort = "name", order = "asc", page = 1, perPage = PER_PAGE } = {}) {
-    const at = await folder(key, rel);
-    if (!SORTS.has(sort)) fail("bad-param");
-    const size = Math.min(Math.max(1, Number(perPage) || PER_PAGE), MAX_PER_PAGE);
-    const dirents = (await fsp.readdir(at.real, { withFileTypes: true })).filter((d) => !d.name.startsWith("."));
-    const needle = String(q ?? "").trim().toLowerCase();
+  /** The entries of one folder whose names hold `needle` (all of them when it is empty). */
+  async function entriesOf(real, rel, w, needle) {
+    const dirents = (await fsp.readdir(real, { withFileTypes: true }).catch(() => [])).filter((d) => !d.name.startsWith("."));
     const wanted = needle ? dirents.filter((d) => d.name.toLowerCase().includes(needle)) : dirents;
     const entries = [];
     for (let i = 0; i < wanted.length; i += STAT_BATCH) {
-      const got = await Promise.all(wanted.slice(i, i + STAT_BATCH).map((d) => entryOf(at.real, at.rel, at.walls, d)));
+      const got = await Promise.all(wanted.slice(i, i + STAT_BATCH).map((d) => entryOf(real, rel, w, d)));
       entries.push(...got.filter(Boolean));
     }
+    return entries;
+  }
+
+  /** Every folder under `at`, breadth first, each walked once however links lead back; cut short past DEEP_SCAN_MAX. */
+  async function deepFind(at, needle) {
+    const entries = [];
+    const seen = new Set([at.real]);
+    const queue = [{ real: at.real, rel: at.rel }];
+    let looked = 0;
+    while (queue.length) {
+      const dir = queue.shift();
+      const all = await entriesOf(dir.real, dir.rel, at.walls, "");
+      looked += all.length;
+      for (const e of all) {
+        if (e.name.toLowerCase().includes(needle)) entries.push(e);
+        if (e.type !== "dir") continue;
+        const real = await fsp.realpath(path.join(dir.real, e.name)).catch(() => null);
+        if (real && !seen.has(real)) {
+          seen.add(real);
+          queue.push({ real, rel: e.rel });
+        }
+      }
+      if (looked >= DEEP_SCAN_MAX) return { entries, cut: true };
+    }
+    return { entries, cut: false };
+  }
+
+  async function list(key, rel, { q = "", deep = false, sort = "name", order = "asc", page = 1, perPage = PER_PAGE } = {}) {
+    const at = await folder(key, rel);
+    if (!SORTS.has(sort)) fail("bad-param");
+    const size = Math.min(Math.max(1, Number(perPage) || PER_PAGE), MAX_PER_PAGE);
+    const needle = String(q ?? "").trim().toLowerCase();
+    const found = deep && needle ? await deepFind(at, needle) : { entries: await entriesOf(at.real, at.rel, at.walls, needle), cut: false };
+    const entries = found.entries;
     const dir = order === "desc" ? -1 : 1;
     const byName = (a, b) => collator.compare(a.name, b.name);
     const by = {
@@ -176,7 +213,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     const parent = at.rel ? at.rel.split("/").slice(0, -1).join("/") : null;
     return {
       root: key, path: at.rel, parent, items: entries.slice((pg - 1) * size, pg * size),
-      total, page: pg, perPage: size, pages, sort, order: dir === -1 ? "desc" : "asc",
+      total, page: pg, perPage: size, pages, sort, order: dir === -1 ? "desc" : "asc", deep: Boolean(deep && needle), cut: found.cut,
       counts: { dirs: entries.filter((e) => e.type === "dir").length, files: entries.filter((e) => e.type === "file").length },
     };
   }
@@ -186,6 +223,39 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     const st = await fsp.stat(at.real);
     if (!st.isFile()) fail("not-a-file");
     return { abs: at.real, name: path.basename(at.abs), size: st.size, mtime: Math.round(st.mtimeMs) };
+  }
+
+  /**
+   * Everything under `rels` (one folder's entries) for a zip, in name order: { name, real, size, mtime } for a
+   * file and { name, dir: true, mtime } for a folder, `name` starting at the entry's own name. What the list
+   * hides stays out (dot entries, fenced folders, links that lead away), and a link back up is walked once.
+   */
+  async function collect(key, rels, { mayBeRoot = false, max = Infinity } = {}) {
+    const out = [];
+    const seen = new Set();
+    const walk = async (w, real, name) => {
+      if (out.length >= max) return;
+      const st = await fsp.stat(real).catch(() => null);
+      if (st?.isFile() && seen.has(real)) return;
+      if (st?.isFile()) seen.add(real);
+      if (st?.isFile()) return void out.push({ name, real, size: st.size, mtime: st.mtime });
+      if (!st?.isDirectory() || seen.has(real)) return;
+      seen.add(real);
+      out.push({ name, dir: true, mtime: st.mtime });
+      const dirents = (await fsp.readdir(real, { withFileTypes: true }).catch(() => [])).filter((d) => !d.name.startsWith("."));
+      dirents.sort((a, b) => collator.compare(a.name, b.name));
+      for (const d of dirents) {
+        const abs = path.join(real, d.name);
+        const to = allowed(w, abs) && (await fsp.realpath(abs).catch(() => null));
+        if (to && allowed(w, to)) await walk(w, to, `${name}/${d.name}`);
+      }
+    };
+    for (const rel of new Set(rels)) {
+      const at = await resolve(key, rel, { mayBeRoot });
+      await walk(at.walls, at.real, path.basename(at.abs));
+    }
+    // `cut`: the walk stopped at `max` entries.
+    return Object.assign(out, { cut: out.length >= max });
   }
 
   async function mkdir(key, rel, name) {
@@ -216,9 +286,9 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
       return moveAcross(at.abs, to);
     });
     if (!placed) fail("exists", 409);
-    await recordMove({ action: "rename", by, fromRoot: at.root, from: at.rel, toRoot: at.root, to: toRel });
+    const note = await recordMove({ action: "rename", by, fromRoot: at.root, from: at.rel, toRoot: at.root, to: toRel });
     refresh([key]);
-    return { root: key, rel: toRel };
+    return { root: key, rel: toRel, undo: note?.id ?? null };
   }
 
   async function move(key, rels, toKey, toRel, { by = null } = {}) {
@@ -238,6 +308,11 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
         skipped.push({ rel, code: "into-itself" });
         continue;
       }
+      // A folder holding a fenced one (the server's data, another root) would carry it out of its fence.
+      if (at.walls.fenced.some((f) => inside(at.real, f))) {
+        skipped.push({ rel, code: "bad-path" });
+        continue;
+      }
       const name = path.basename(at.abs);
       const to = dest.rel ? `${dest.rel}/${name}` : name;
       if (toKey === key && to === at.rel) {
@@ -252,11 +327,61 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
         skipped.push({ rel, code: "exists" });
         continue;
       }
-      await recordMove({ action: "move", by, fromRoot: at.root, from: at.rel, toRoot: dest.root, to });
-      moved.push({ from: at.rel, to });
+      const note = await recordMove({ action: "move", by, fromRoot: at.root, from: at.rel, toRoot: dest.root, to });
+      moved.push({ from: at.rel, to, undo: note?.id ?? null });
     }
     if (moved.length) refresh([key, toKey]);
     return { moved, skipped };
+  }
+
+  /**
+   * Copies each of `rels` into the folder `toRel`, checked against the original before it is put in place.
+   * A name the folder already has (a copy into the same folder, most of all) gets the first free number,
+   * so nothing is ever overwritten. A folder into itself is refused. { copied: [{ from, to }], skipped }.
+   */
+  async function copy(key, rels, toKey, toRel) {
+    const dest = await folder(toKey, toRel);
+    const copied = [];
+    const skipped = [];
+    for (const rel of rels) {
+      let at;
+      try {
+        at = await resolve(key, rel, { mayBeRoot: false });
+      } catch (err) {
+        if (!(err instanceof FileError)) throw err;
+        skipped.push({ rel, code: err.code });
+        continue;
+      }
+      if (inside(at.real, dest.real)) {
+        skipped.push({ rel, code: "into-itself" });
+        continue;
+      }
+      if (at.walls.fenced.some((f) => inside(at.real, f))) {
+        skipped.push({ rel, code: "bad-path" });
+        continue;
+      }
+      const isDir = (await fsp.stat(at.real)).isDirectory();
+      const name = path.basename(at.abs);
+      let to = null;
+      for (let k = 1; k <= COPY_NUMBERS && !to; k++) {
+        const next = numbered(name, k, isDir);
+        const abs = path.join(dest.real, next);
+        if (await fsp.lstat(abs).then(() => true, () => false)) continue;
+        // The copy runs outside the lock (a game takes minutes); only putting it in place holds the folder.
+        const placed = await withPartial(at.real, abs, async (part) => {
+          await copyChecked(at.real, part);
+          return withLocks([dest.root.dir], async () => {
+            await still(dest);
+            return moveNoClobber(part, abs);
+          });
+        });
+        if (placed) to = dest.rel ? `${dest.rel}/${next}` : next;
+      }
+      if (to) copied.push({ from: at.rel, to });
+      else skipped.push({ rel, code: "exists" });
+    }
+    if (copied.length) refresh([toKey]);
+    return { copied, skipped };
   }
 
   /**
@@ -304,5 +429,5 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return out;
   }
 
-  return { list, open, mkdir, rename, move, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
+  return { list, open, collect, mkdir, rename, move, copy, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
 }

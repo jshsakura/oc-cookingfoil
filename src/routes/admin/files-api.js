@@ -2,13 +2,20 @@
  * The admin file browser over the library folders (library/file-roots.js):
  *
  *   GET  /admin/api/files/roots                          [{ key, name }]: the folders there are
- *   GET  /admin/api/files/list?root=&path=&q=&sort=&order=&page=&perPage=
- *        { root, path, parent, items: [{ name, rel, type, size, mtime, ext }], total, page, perPage, pages, counts }
+ *   GET  /admin/api/files/list?root=&path=&q=&deep=&sort=&order=&page=&perPage=
+ *        { root, path, parent, items: [{ name, rel, type, size, mtime, ext }], total, page, perPage, pages, counts, deep, cut }
+ *        deep=1 finds q in every folder under path (cut: the walk stopped early).
  *   GET  /admin/api/files/download?root=&path=           the file itself
  *   POST /admin/api/files/mkdir   { root, path, name }   → { root, rel }
- *   POST /admin/api/files/rename  { root, path, name }   → { root, rel }
- *   POST /admin/api/files/move    { root, paths, toRoot, toPath } → { moved: [{ from, to }], skipped: [{ rel, code }] }
- *   POST /admin/api/files/trash   { root, paths }        → { trash, files }
+ *   POST /admin/api/files/rename  { root, path, name }   → { root, rel, undo }
+ *   POST /admin/api/files/move    { root, paths, toRoot, toPath } → { moved: [{ from, to, undo }], skipped: [{ rel, code }] }
+ *   POST /admin/api/files/copy    { root, paths, toRoot, toPath } → { copied: [{ from, to }], skipped: [{ rel, code }] }
+ *   POST /admin/api/files/trash   { root, paths }        → { trash, restore: [id], files }
+ *   POST /admin/api/files/info    { root, paths }        → { files, dirs, bytes, newest, cut }: what a pick holds, folders counted
+ *        through, up to INFO_MAX entries (cut: it stopped there)
+ *        `undo` is the journal line POST /admin/api/trash/undo takes back; `restore` the ids POST /admin/api/trash/restore takes.
+ *   POST /admin/api/files/zip     { root, paths }        → { url }: GET that address (for ten minutes) for one zip of
+ *        everything under `paths`, stored as is (games do not shrink), with its length known so the browser shows progress.
  *   POST /admin/api/files/upload/chunks { root, path, rel, size, lastModified } → { id, offset, size, kind }
  *        starts (or resumes) an upload into the folder `path`; `rel` is the file's name, under folders of its own
  *        for a dropped folder. Refused before a byte goes up when the name is taken. The pieces then go through
@@ -18,7 +25,10 @@
  * Errors are { error, code } with code one of FileError's (bad-path, not-found, exists, ...).
  * Every delete goes to the folder's trash; moves and renames are in the undo journal.
  */
+import crypto from "crypto";
+import fs from "fs";
 import path from "path";
+import yazl from "yazl";
 import { createFileRoots, FileError } from "../../library/file-roots.js";
 import { actorOf } from "../../library/trash-service.js";
 import { TrashError } from "../../library/trash.js";
@@ -28,6 +38,8 @@ import { apiWord } from "./api-words.js";
 import * as chunks from "../../meta/upload-chunks.js";
 
 const MAX_PATHS = 1000;
+const ZIP_TTL_MS = 10 * 60 * 1000;
+const INFO_MAX = 100000;
 
 export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir } = {}) {
   const handle = (fn) => async (req, res) => {
@@ -55,7 +67,8 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
 
   router.get("/api/files/list", handle(async (req, res) => {
     const { q, sort, order, page, perPage } = req.query;
-    res.json(await files.list(str(req.query.root), str(req.query.path), { q: str(q).slice(0, 200), sort: str(sort) || "name", order: str(order), page, perPage }));
+    const deep = str(req.query.deep) === "1";
+    res.json(await files.list(str(req.query.root), str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage }));
   }));
 
   router.get("/api/files/download", handle(async (req, res) => {
@@ -80,6 +93,28 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     const b = req.body ?? {};
     const out = await files.move(str(b.root), paths(b.paths), str(b.toRoot) || str(b.root), str(b.toPath), { by: actorOf(req) });
     debug.log("admin: files: moved %d into %s:%s (%d skipped)", out.moved.length, b.toRoot || b.root, b.toPath ?? "", out.skipped.length);
+    res.json(out);
+  }));
+
+  router.post("/api/files/copy", handle(async (req, res) => {
+    const b = req.body ?? {};
+    const out = await files.copy(str(b.root), paths(b.paths), str(b.toRoot) || str(b.root), str(b.toPath));
+    debug.log("admin: files: copied %d into %s:%s (%d skipped)", out.copied.length, b.toRoot || b.root, b.toPath ?? "", out.skipped.length);
+    res.json(out);
+  }));
+
+  router.post("/api/files/info", handle(async (req, res) => {
+    const b = req.body ?? {};
+    const entries = await files.collect(str(b.root), paths(b.paths), { mayBeRoot: true, max: INFO_MAX });
+    const out = { files: 0, dirs: 0, bytes: 0, newest: 0, cut: entries.cut };
+    for (const e of entries) {
+      if (e.dir) out.dirs++;
+      else {
+        out.files++;
+        out.bytes += e.size;
+      }
+      out.newest = Math.max(out.newest, e.mtime.getTime());
+    }
     res.json(out);
   }));
 
@@ -121,10 +156,63 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     res.json({ placed, skipped });
   }));
 
+  // A zip is asked for with a POST (a selection can be long) and fetched by a plain link, so the browser's own
+  // download takes it: no page memory, its progress bar, and a pause or resume of its own.
+  const zips = new Map();
+  const purge = () => {
+    const now = Date.now();
+    for (const [k, z] of zips) if (z.until < now) zips.delete(k);
+  };
+  router.post("/api/files/zip", handle(async (req, res) => {
+    const b = req.body ?? {};
+    const root = str(b.root);
+    const rels = paths(b.paths);
+    const entries = await files.collect(root, rels);
+    if (!entries.length) throw new FileError("nothing");
+    purge();
+    const now = Date.now();
+    const folder = rels[0].split("/").slice(0, -1).pop() || root;
+    const id = crypto.randomBytes(16).toString("hex");
+    zips.set(id, { entries, name: `${rels.length === 1 ? entries[0].name : folder}.zip`, until: now + ZIP_TTL_MS });
+    debug.log("admin: files: zip of %d entries from %s", entries.length, root);
+    res.json({ url: `/admin/api/files/zip/${id}` });
+  }));
+
+  router.get("/api/files/zip/:id", handle(async (req, res) => {
+    purge();
+    const z = zips.get(str(req.params.id));
+    if (!z) throw new FileError("not-found", 404);
+    const zip = new yazl.ZipFile();
+    // The one file being read, so a download stopped halfway closes it instead of leaving it open.
+    let reading = null;
+    for (const e of z.entries) {
+      if (e.dir) zip.addEmptyDirectory(e.name, { mtime: e.mtime });
+      else zip.addReadStreamLazy(e.name, { size: e.size, mtime: e.mtime, compress: false }, (cb) => cb(null, (reading = fs.createReadStream(e.real))));
+    }
+    // Every size is known, so yazl answers the zip's length at once, before a byte is sent.
+    zip.end((total) => {
+      if (total >= 0) res.set("Content-Length", String(total));
+    });
+    // A file that changed or went away since the list cut the zip short; the browser then calls the download failed.
+    zip.on("error", (err) => {
+      debug.error("admin: files: zip: %s", err.message);
+      res.destroy(err);
+    });
+    res.on("close", () => {
+      if (res.writableFinished) return;
+      zip.outputStream.unpipe(res);
+      zip.outputStream.destroy();
+      reading?.destroy();
+    });
+    res.attachment(z.name);
+    res.type("application/zip");
+    zip.outputStream.pipe(res);
+  }));
+
   router.post("/api/files/trash", handle(async (req, res) => {
     const b = req.body ?? {};
     const out = await files.trash(str(b.root), paths(b.paths), { by: actorOf(req) });
     debug.log("admin: files: %d moved to the trash from %s", out.files.length, b.root);
-    res.json({ trash: out.id, files: out.files });
+    res.json({ trash: out.id, restore: out.entries.map((e) => e.id), files: out.files });
   }));
 }
