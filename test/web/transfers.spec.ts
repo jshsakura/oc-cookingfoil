@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
+import { shot } from './shots';
 
 // The 다운로드 기록 section in the logs tab: cards per route for the last day,
 // a slow-tunnel note, running transfers first, and route filter chips.
@@ -60,7 +61,7 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
   await expect.poll(async () => rows.first().innerText(), { timeout: 8000 }).not.toBe(before);
 
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('main').screenshot({ path: 'out/web/admin-transfers.png' });
+  await shot(page.locator('main'), { path: 'out/web/admin-transfers.png' });
 
   await page.locator('#xf-routes').getByRole('button', { name: '전용 주소' }).click();
   await expect(rows).toHaveCount(1);
@@ -75,5 +76,5 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
   expect(overflow).toBeLessThanOrEqual(0);
   await page.locator('#xf-routes').getByRole('button', { name: '전체' }).click();
   await expect(rows).toHaveCount(4);
-  await page.locator('main').screenshot({ path: 'out/web/admin-transfers-phone.png' });
+  await shot(page.locator('main'), { path: 'out/web/admin-transfers-phone.png' });
 });

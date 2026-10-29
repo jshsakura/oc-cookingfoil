@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 // The file check's notice in the game window: a quiet line for a modified file,
 // a butter one for a damaged file, nothing for a clean one. The download stays.
@@ -32,7 +33,7 @@ test('a modified base file and a damaged update show their notices, and the down
   expect(await bg(0)).not.toBe(await bg(1));
   await expect(page.locator('#modal-download')).toBeVisible();
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#modal .modal').screenshot({ path: 'out/web/integrity-notice.png' });
+  await shot(page.locator('#modal .modal'), { path: 'out/web/integrity-notice.png' });
 });
 
 test('a file that passed or was not checked shows nothing', async ({ page }) => {

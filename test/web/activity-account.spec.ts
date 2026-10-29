@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 const job = { id: 'public-conversion', kind: 'nsz', title: 'NSZ 로 변환합니다',
   detail: 'Test Game [0100ABCD00000000].nsp', current: 3 * 2 ** 30, total: 6 * 2 ** 30,
@@ -60,7 +61,7 @@ test('everyone can see activity in the web account menu, with no stop control fo
   await page.setViewportSize({ width: 393, height: 800 });
   await page.emulateMedia({ colorScheme: 'dark' });
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/web-account-activity-phone.png' });
+  await shot(page, { path: 'out/web/web-account-activity-phone.png' });
   push([]);
   await expect(button).not.toHaveClass(/busy/);
   await expect(button.locator('#act-count')).toBeHidden();

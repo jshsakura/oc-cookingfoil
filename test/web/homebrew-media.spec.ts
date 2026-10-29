@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 import sharp from 'sharp';
 import fs from 'node:fs';
+import { shot } from './shots';
 
 // A homebrew app's window laid out as a game's: the banner behind its header,
 // screenshots under its description. It opens at its top, keeps the page behind
@@ -71,7 +72,7 @@ test('an app with pictures opens like a game, and the page behind stays put', as
     }
     // After the window's rise animation, so the picture is of what stays on screen.
     await p.waitForTimeout(700);
-    await p.screenshot({ path: `out/web/homebrew-media-${label}.png` });
+    await shot(p, { path: `out/web/homebrew-media-${label}.png` });
     // An app with an icon, in the dark theme: the icon sits over the banner's lower edge.
     await p.evaluate(() => {
       document.documentElement.dataset.theme = 'dark';
@@ -84,7 +85,7 @@ test('an app with pictures opens like a game, and the page behind stays put', as
     const i2 = (await p.locator('#xm-icon').boundingBox())!;
     expect(i2.y).toBeLessThan(b2.y + b2.height);
     expect(i2.y + i2.height).toBeGreaterThan(b2.y + b2.height);
-    await p.screenshot({ path: `out/web/homebrew-media-${label}-icon.png` });
+    await shot(p, { path: `out/web/homebrew-media-${label}-icon.png` });
     await p.locator('#xmodal .modal-x').click();
     await expect(p.locator('#xmodal')).not.toHaveClass(/open/);
     expect(await p.evaluate(() => document.documentElement.classList.contains('sheet-open'))).toBe(false);

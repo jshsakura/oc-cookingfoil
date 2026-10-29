@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import type { Page } from '@playwright/test';
+import { shot } from './shots';
 
 async function pickLang(page: Page, code: string) {
   await page.locator('#lang-btn').click();
@@ -39,7 +40,7 @@ test('landing follows the system until a theme is picked in the account menu, th
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#acct-btn').click();
   await expect(black).toHaveAttribute('aria-checked', 'true');
-  await page.screenshot({ path: 'out/web/landing-dark.png' });
+  await shot(page, { path: 'out/web/landing-dark.png' });
 
   // beige picked is kept even when the system turns dark
   await beige.click();
@@ -70,7 +71,7 @@ test('the web page has no upload: no floating button and no upload item in the m
   await page.locator('#acct-btn').click();
   await expect(page.locator('#acct-list [id^="upload"]')).toHaveCount(0);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/menu-390.png' });
+  await shot(page, { path: 'out/web/menu-390.png' });
 });
 
 test('the page shares a large image card whose image is an absolute URL on this server', async ({ page, request }) => {
@@ -243,7 +244,7 @@ test('the stats panel draws composition, storage and recent-month charts from th
   await expect(page.locator('#namehealth')).toHaveCount(0);
   await expect(page.locator('.stats-panel')).not.toContainText('TITLEDB');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('.stats-panel').screenshot({ path: 'out/web/stats-panel.png' });
+  await shot(page.locator('.stats-panel'), { path: 'out/web/stats-panel.png' });
 });
 
 test('on a phone the page fits the screen width', async ({ page }) => {
@@ -253,7 +254,7 @@ test('on a phone the page fits the screen width', async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBe(0);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/landing-phone.png' });
+  await shot(page, { path: 'out/web/landing-phone.png' });
 });
 
 test('on a phone all four views fit one row in every language', async ({ page }) => {
@@ -304,7 +305,7 @@ test("a game's detail shows the patches it needs apart from its other patches", 
   });
   expect(order).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#modal-patches').screenshot({ path: 'out/web/modal-patches.png' });
+  await shot(page.locator('#modal-patches'), { path: 'out/web/modal-patches.png' });
 });
 
 test("a game's detail lays out what the console shows, in the console's order", async ({ page }) => {
@@ -367,7 +368,7 @@ test("a game's detail lays out what the console shows, in the console's order", 
     expect(over, `at ${width}px`).toEqual({ page: 0, modal: 0 });
     // A tall window, so the shot holds the whole detail.
     await page.setViewportSize({ width, height: 2600 });
-    await page.locator('#modal .modal').screenshot({ path: `out/web/switch-detail-${width}.png` });
+    await shot(page.locator('#modal .modal'), { path: `out/web/switch-detail-${width}.png` });
     await page.keyboard.press('Escape');
   }
 });
@@ -416,7 +417,7 @@ test("a game's long description runs at full height, so only the modal scrolls",
     }
     expect(boxes.modal.scroll).toBeGreaterThan(boxes.modal.client);
     expect(boxes.modal.sw).toBeLessThanOrEqual(boxes.modal.cw);
-    await page.locator('#modal .modal').screenshot({ path: `out/web/modal-desc-${width}.png` });
+    await shot(page.locator('#modal .modal'), { path: `out/web/modal-desc-${width}.png` });
     await page.keyboard.press('Escape');
   }
 });
@@ -443,12 +444,12 @@ test('while the library loads, placeholders in the cards\' shape hold the grid, 
   const shimmer = await page.locator('#games .game.skel .cover').first().evaluate((el) => getComputedStyle(el).backgroundImage);
   expect(shimmer).toContain('linear-gradient');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/loading-list.png' });
+  await shot(page, { path: 'out/web/loading-list.png' });
 
   await page.locator('#subtabs button', { hasText: '미리보기' }).click();
   await expect(page.locator('#hero.skel')).toBeVisible();
   await expect(page.locator('#home-rows .home-row.skel')).toHaveCount(3);
-  await page.screenshot({ path: 'out/web/loading-preview.png' });
+  await shot(page, { path: 'out/web/loading-preview.png' });
 
   release();
   await expect(page.locator('.skel')).toHaveCount(0);
@@ -478,7 +479,7 @@ test('on a phone the search box and the sort box share the top row, the kind chi
   expect(chips.y).toBeGreaterThan(search.y + search.height - 1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#search').locator('..').screenshot({ path: 'out/web/phone-toolbar.png' });
+  await shot(page.locator('#search').locator('..'), { path: 'out/web/phone-toolbar.png' });
 });
 
 test('the title count beside list and preview counts each game once', async ({ page }) => {
@@ -544,13 +545,13 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/patches/0100000000010000-aaaaaaaaaaaa/download');
   await expect(page.locator('#xm-where .p-full')).toHaveText('sdmc:/atmosphere/contents/0100000000010000/');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#xmodal .modal').screenshot({ path: 'out/web/patch-detail.png' });
+  await shot(page.locator('#xmodal .modal'), { path: 'out/web/patch-detail.png' });
   await page.keyboard.press('Escape');
   await expect(page.locator('#xmodal')).not.toHaveClass(/open/);
-  await page.screenshot({ path: 'out/web/patches-list.png' });
+  await shot(page, { path: 'out/web/patches-list.png' });
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.waitForTimeout(300); // the rows' colour transition
-  await page.screenshot({ path: 'out/web/patches-list-dark.png' });
+  await shot(page, { path: 'out/web/patches-list-dark.png' });
   await page.emulateMedia({ colorScheme: 'light' });
 
   await page.goto('/#ports');
@@ -571,7 +572,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   await expect(page.locator('#xm-sections .xname')).toHaveText(['HD 텍스처']);
   // A folder app downloads as its whole folder, not the .nro alone.
   await expect(page.locator('#xm-download')).toHaveAttribute('href', '/api/homebrew/m-aaaaaaaaaaaa/bundle');
-  await page.locator('#xmodal .modal').screenshot({ path: 'out/web/app-detail.png' });
+  await shot(page.locator('#xmodal .modal'), { path: 'out/web/app-detail.png' });
   await page.locator('#xm-close').click();
   await expect(page.locator('#xmodal')).not.toHaveClass(/open/);
 
@@ -595,7 +596,7 @@ test('patches and homebrew list one line each, and a row opens its detail', asyn
   expect(lines).toBe(1);
   const spill = await page.locator('#xm-where').evaluate((el) => el.scrollWidth - el.clientWidth);
   expect(spill, 'the label and the path stay inside the popup').toBe(0);
-  await page.screenshot({ path: 'out/web/patch-detail-phone.png' });
+  await shot(page, { path: 'out/web/patch-detail-phone.png' });
 });
 
 test('the four charts share one row: composition, storage, recent months and genres, with no review card', async ({ page }) => {
@@ -624,7 +625,7 @@ test('the four charts share one row: composition, storage, recent months and gen
   const tops = await cards.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   expect(new Set(tops).size).toBe(1);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#charts').screenshot({ path: 'out/web/charts-row.png' });
+  await shot(page.locator('#charts'), { path: 'out/web/charts-row.png' });
 });
 
 test("on a phone a game's window has a close button at the top right that closes it", async ({ page }) => {
@@ -643,7 +644,7 @@ test("on a phone a game's window has a close button at the top right that closes
   await page.locator('#modal .modal').evaluate((el) => { el.scrollTop = el.scrollHeight; });
   await expect(x).toBeInViewport();
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/modal-phone-close.png' });
+  await shot(page, { path: 'out/web/modal-phone-close.png' });
   await x.click();
   await expect(page.locator('#modal')).not.toHaveClass(/open/);
 });
@@ -691,7 +692,7 @@ test('patches and homebrew open newest update first, and the order picked is kep
   await expect(page.locator('#patches-sort')).toHaveValue('size');
   await page.setViewportSize({ width: 390, height: 844 });
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/patches-sort-phone.png' });
+  await shot(page, { path: 'out/web/patches-sort-phone.png' });
 });
 
 test('saves page by game, so a game with many saves stays on one page and loads under its card when opened', async ({ page }) => {
@@ -811,7 +812,7 @@ test("a screenshot opens a full-screen gallery: arrows, keys, swipe, the count a
     // The buttons carry icons and names.
     await expect(page.locator('#gallery-close svg.bi')).toHaveCount(1);
     await expect(page.locator('#gallery-close')).toHaveAttribute('aria-label', '닫기');
-    await page.screenshot({ path: `out/web/gallery-${width}.png` });
+    await shot(page, { path: `out/web/gallery-${width}.png` });
     // Esc closes the gallery only; the detail window stays until the next Esc.
     await page.keyboard.press('Escape');
     await expect(gallery).not.toHaveClass(/open/);
@@ -915,7 +916,7 @@ test('on a phone the list pager fits one line under its count', async ({ page })
   expect(over).toBeLessThanOrEqual(0);
   await expect(page.locator('#pager .pager-btn.next')).toHaveAttribute('aria-label', '다음');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#pager').screenshot({ path: 'out/web/pager-phone.png' });
+  await shot(page.locator('#pager'), { path: 'out/web/pager-phone.png' });
   // A wider window, drawn again without a page change: more numbers, still one line beside the count.
   const shown = await buttons.filter({ hasText: /^\d+$/ }).count();
   await page.setViewportSize({ width: 1280, height: 800 });

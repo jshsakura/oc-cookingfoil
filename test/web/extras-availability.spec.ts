@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
+import { shot } from './shots';
 
 const OWN = '0100ABCD00000000', ABSENT = '0100ABCD00010000', UPDATE_ONLY = '0100ABCD00020000';
 const patch = (tid: string | null, name: string, homebrew?: string) => ({
@@ -60,7 +61,7 @@ test('patch cards show only server title availability, including ports and updat
     expect(box!.x + box!.width).toBeLessThanOrEqual(320);
   }
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/extras-availability-phone.png', fullPage: true });
+  await shot(page, { path: 'out/web/extras-availability-phone.png', fullPage: true });
   for (const [code, game] of [
     ['en', 'On server'], ['ja', 'サーバーにあり'], ['zh', '服务器上有'],
   ]) {

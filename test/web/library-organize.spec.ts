@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 const GAMES = process.env.COOK_GAMES_DIR!;
 const put = (rel: string, old: boolean) => {
@@ -37,7 +38,7 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
     await expect.poll(async () => (await (await page.request.get('/admin/api/library/files?q=Drop Game')).json()).matched).toBe(1);
     expect((await (await page.request.get('/admin/api/library/files?q=fresh')).json()).matched).toBe(0);
     fs.mkdirSync('out/web', { recursive: true });
-    await page.locator('#tab-organize').screenshot({ path: 'out/web/admin-library-incoming.png' });
+    await shot(page.locator('#tab-organize'), { path: 'out/web/admin-library-incoming.png' });
   } finally {
     fs.rmSync(path.join(GAMES, 'incoming'), { recursive: true, force: true });
     fs.rmSync(path.join(GAMES, 'Drop Game'), { recursive: true, force: true });

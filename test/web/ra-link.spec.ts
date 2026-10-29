@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { shot } from './shots';
 
 // The page and its noble scripts come from the server; the link API is played here,
 // with Node's OpenSSL standing in for the console's mbedTLS.
@@ -48,7 +49,7 @@ test('the phone page seals the password so only the console opens it, and follow
   await expect(page.locator('#password')).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/ra-link-phone.png' });
+  await shot(page, { path: 'out/web/ra-link-phone.png' });
 
   await page.locator('#password').fill('first-try');
   await page.locator('#send').click();

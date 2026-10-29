@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
+import { shot } from './shots';
 
 // The activity menu in the admin header: live over /admin/ws, a sync shows up
 // and ends in the recent list, a running job draws a bar, and the page falls
@@ -61,7 +62,7 @@ test('a running job draws its bar and count; the menu reads the API while the so
   await expect(pop.locator('#act-idle')).toBeHidden();
 
   fs.mkdirSync('out/web', { recursive: true });
-  await pop.screenshot({ path: 'out/web/admin-activity.png' });
+  await shot(pop, { path: 'out/web/admin-activity.png' });
   await page.keyboard.press('Escape');
 });
 
@@ -150,7 +151,7 @@ test('mobile activity stays inside the screen and gives conversion progress its 
   }
   await page.setViewportSize({ width: 393, height: 800 });
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-activity-phone.png', fullPage: true });
+  await shot(page, { path: 'out/web/admin-activity-phone.png', fullPage: true });
   await page.keyboard.press('Escape');
   await expect(pop).toBeHidden();
   await expect(page.getByRole('button', { name: /서버 활동/ })).toBeFocused();

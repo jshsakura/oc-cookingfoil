@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { shot } from './shots';
 
 // The artwork editor (admins): games, homebrew and patches share one card. A tile
 // takes an image, the corner button puts the original back, the window repaints at once.
@@ -37,7 +38,7 @@ async function editPage(page: Page, modal: string) {
 test('an admin edits a homebrew app and a patch with the same card', async ({ page }) => {
   const icon = await png('icon.png', 512, 512, 230, 170, 40);
   const banner = await png('banner.png', 1920, 620, 40, 90, 160);
-  const shot = await png('shot.png', 1280, 720, 60, 160, 90);
+  const shotPng = await png('shot.png', 1280, 720, 60, 160, 90);
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   fs.mkdirSync('out/web', { recursive: true });
 
@@ -55,16 +56,16 @@ test('an admin edits a homebrew app and a patch with the same card', async ({ pa
       await choose(page, page.locator('#xm-art .atile.a-banner'), banner);
       await expect(page.locator('#xm-banner')).toBeVisible();
       // One upload at a time: a tile ignores a click while its picture is still on the way.
-      await choose(page, page.locator('#xm-art .atile.a-add'), shot);
+      await choose(page, page.locator('#xm-art .atile.a-add'), shotPng);
       await expect(page.locator('#xm-art .atile.a-shot')).toHaveCount(1);
-      await choose(page, page.locator('#xm-art .atile.a-add'), shot);
+      await choose(page, page.locator('#xm-art .atile.a-add'), shotPng);
       await expect(page.locator('#xm-art .atile.a-shot')).toHaveCount(2);
       await expect(page.locator('#xm-screens img')).toHaveCount(2);
       await expect(page.locator('#xm-art .arted-label')).toHaveText('스크린샷 2/8');
     }
     await page.waitForTimeout(500);
     await card.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `out/web/art-editor-homebrew-${viewport.width}.png` });
+    await shot(page, { path: `out/web/art-editor-homebrew-${viewport.width}.png` });
     await page.locator('#xmodal .modal-x').click();
   }
 
@@ -100,7 +101,7 @@ test('an admin edits a homebrew app and a patch with the same card', async ({ pa
   await choose(page, pcard.locator('.atile.a-banner'), banner);
   await expect(page.locator('#xm-banner')).toBeVisible();
   await page.waitForTimeout(400);
-  await page.screenshot({ path: 'out/web/art-editor-patch.png' });
+  await shot(page, { path: 'out/web/art-editor-patch.png' });
   await page.locator('#xm-art .atile.a-banner .reset').click();
   await expect(page.locator('#xm-banner')).toBeHidden();
 });
@@ -178,7 +179,7 @@ test('the edit page saves a patch, a homebrew app and a game, and the detail sho
   await required.setChecked(!was);
   fs.mkdirSync('out/web', { recursive: true });
   await page.waitForTimeout(400);
-  await page.screenshot({ path: 'out/web/edit-page-patch.png' });
+  await shot(page, { path: 'out/web/edit-page-patch.png' });
   await form.getByRole('button', { name: '저장' }).click();
   await expect(page.locator('#toasts .toast').last()).toContainText('저장했습니다');
   await page.locator('#xmodal .modal-gear').click();
@@ -220,7 +221,7 @@ test('the edit page saves a patch, a homebrew app and a game, and the detail sho
   await editPage(page, '#modal');
   await page.locator('#modal .edit-facts [name="desc"]').fill('관리자가 쓴 게임 소개입니다.');
   await page.waitForTimeout(400);
-  await page.screenshot({ path: 'out/web/edit-page-game-390.png' });
+  await shot(page, { path: 'out/web/edit-page-game-390.png' });
   await page.locator('#modal .edit-facts').getByRole('button', { name: '저장' }).click();
   await expect(page.locator('#toasts .toast').last()).toContainText('저장했습니다');
   await page.locator('#modal .modal-gear').click();
@@ -273,7 +274,7 @@ test('a slot finds pictures from the sources, and one click cuts and saves the p
   await card.locator('.arted-find .go').click();
   await expect.poll(() => asked.at(-1)?.get('q')).toBe('Other Name');
   expect(asked.at(-1)?.get('slot')).toBe('screenshot');
-  await page.screenshot({ path: 'out/web/art-finder.png' });
+  await shot(page, { path: 'out/web/art-finder.png' });
   await card.locator('.arted-find .close').click();
   await expect(card.locator('.atile.a-icon')).toBeVisible();
   await card.locator('.atile.a-banner .reset').click();

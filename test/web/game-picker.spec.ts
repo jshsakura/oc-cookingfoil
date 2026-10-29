@@ -3,6 +3,7 @@ import { test, expect } from './library-fixture';
 import fs from 'node:fs';
 import path from 'node:path';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 const ID = '0100000000010000';
 const SECOND = '0100000000470000';
@@ -68,7 +69,7 @@ test('the game picker keeps its list through Korean typing, shows a filled value
     await expect(field).toHaveValue(/\[0100000000010000\]$/);
     await expect(page.locator('#gd-body')).toBeVisible();
     fs.mkdirSync(SHOTS, { recursive: true });
-    await page.screenshot({ path: `${SHOTS}/game-picker-info.png` });
+    await shot(page, { path: `${SHOTS}/game-picker-info.png` });
 
     // In English the field's label, placeholder and the list's messages are all English.
     await page.locator('#lang-btn').click();
@@ -78,7 +79,7 @@ test('the game picker keeps its list through Korean typing, shows a filled value
     await field.pressSequentially('zzzzqq');
     await expect(page.getByRole('listbox', { name: 'Game (find it by name or title ID)' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'No game matches.' })).toHaveCount(1);
-    await page.screenshot({ path: `${SHOTS}/game-picker-en.png` });
+    await shot(page, { path: `${SHOTS}/game-picker-en.png` });
   } finally {
     await page.evaluate(() => { try { localStorage.removeItem('cookingfoil:lang'); } catch { /* none */ } });
     await page.request.post(`/admin/api/descriptions/${ID}/reset`, { data: { field: 'name' }, headers });
@@ -116,7 +117,7 @@ test('a home picks row marks games from its list, one found by search, unmarks o
   await list.getByRole('checkbox', { name: new RegExp(ID) }).uncheck();
   await expect(row).toHaveCount(1);
   await expect(row).toContainText('Picker Second Game');
-  await page.screenshot({ path: `${SHOTS}/featured-list.png`, fullPage: true });
+  await shot(page, { path: `${SHOTS}/featured-list.png`, fullPage: true });
 
   await page.getByRole('button', { name: /^저장/ }).click();
   await expect(page.locator('#toast')).toContainText('추천을 저장했습니다');

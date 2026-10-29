@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
 import path from 'node:path';
+import { shot } from './shots';
 
 // The retro tab's "what the library needs": BIOS chips go grey, amber, green with the files the
 // operator puts in retroarch/system/; cores are a quiet line, since the server supplies them.
@@ -42,7 +43,7 @@ test('an optional BIOS chip turns from grey to amber when a file with its name b
   await expect(placedChip).toHaveClass(/\bmismatch\b/);
   await expect(placedChip).toContainText('BIOS_MD.BIN');
   await expect(placedChip).toHaveAttribute('aria-label', 'BIOS_MD.BIN, 해시가 다릅니다, 선택');
-  await page.locator('#ra-bios').screenshot({ path: 'out/web/admin-retro-requirements.png' });
+  await shot(page.locator('#ra-bios'), { path: 'out/web/admin-retro-requirements.png' });
 });
 
 const NEEDS = {
@@ -101,7 +102,7 @@ test('the needs show in all four languages, missing systems first, a failed core
     await expect(ps1).toHaveClass(/\bpresent\b/);
     await expect(ps1).toContainText('scph5501.bin');
     if (lang !== 'ko') expect(await bios.innerText()).not.toMatch(/[가-힣]/);
-    if (lang === 'en') await bios.screenshot({ path: 'out/web/admin-retro-requirements-en.png' });
+    if (lang === 'en') await shot(bios, { path: 'out/web/admin-retro-requirements-en.png' });
   }
   // Nothing here offers a firmware or core download.
   await expect(page.locator('#ra-bios a')).toHaveCount(0);

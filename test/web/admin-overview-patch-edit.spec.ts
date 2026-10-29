@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 const settled = (page: Page) => page.locator('#ct-edit').evaluate((d) => Promise.all(d.getAnimations({ subtree: true }).map((a) => a.finished)));
 const row = (page: Page, name: string) => page.locator('#ov-added-patches li', { hasText: name });
@@ -28,7 +29,7 @@ test('a patch added lately is renamed from the overview with the patch dialog, a
   await row(page, '한글패치').getByRole('button', { name: '한글패치 편집' }).click();
   await settled(page);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-overview-patch-edit-1280.png' });
+  await shot(page, { path: 'out/web/admin-overview-patch-edit-1280.png' });
   await page.locator('#ct-close').click();
 
   await rename(page, '한글패치', 'Hangul patch', 'Someone');
@@ -55,5 +56,5 @@ test('on a phone the overview with its patch dialog open has no sideways scroll'
   expect(await overflow()).toBeLessThanOrEqual(0);
   await settled(page);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-overview-patch-edit-390.png' });
+  await shot(page, { path: 'out/web/admin-overview-patch-edit-390.png' });
 });

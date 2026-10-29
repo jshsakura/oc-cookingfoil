@@ -3,6 +3,7 @@ import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
 import { acceptAsks } from './ask';
 import { reveal } from './fold';
+import { shot } from './shots';
 
 // The admin page's 변환 tab: off by default, turned on from its settings, a
 // library check queues a big enough .nsp, and the row actions work.
@@ -45,7 +46,7 @@ test('the conversion queue is off by default, turns on from its settings and que
   await expect(row).toContainText('2.0 MB');
   await expect(page.locator('#nz-cards')).toContainText('대기');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#tab-nsz').screenshot({ path: 'out/web/admin-nsz.png' });
+  await shot(page.locator('#tab-nsz'), { path: 'out/web/admin-nsz.png' });
 
   await page.locator('#nz-filter').getByRole('tab', { name: '완료', exact: true }).click();
   await expect(page.locator('#nz-list')).toContainText('이 상태의 파일이 없습니다');
@@ -63,7 +64,7 @@ test('the queue tab fits a phone screen without sideways scrolling', async ({ pa
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-nsz-phone.png', fullPage: true });
+  await shot(page, { path: 'out/web/admin-nsz-phone.png', fullPage: true });
 });
 
 // The queue's answers are stood in for here: a real conversion needs nsz and minutes.
@@ -119,7 +120,7 @@ test('two waiting rows run by themselves, a kept row says when its original goes
   await expect(page.locator('#nz-kept')).toContainText('보관 중인 원본 1개 · 4.0 GB');
   await expect(page.locator('#nz-purge')).toBeVisible();
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#tab-nsz').screenshot({ path: 'out/web/admin-nsz-kept.png' });
+  await shot(page.locator('#tab-nsz'), { path: 'out/web/admin-nsz-kept.png' });
   await expect(kept.getByRole('button', { name: '되돌리기' })).toHaveCount(0);
 
   const log = page.locator('#nz-log');

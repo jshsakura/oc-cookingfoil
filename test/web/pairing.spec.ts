@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { freshCode } from './admin-sign-in';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { shot } from './shots';
 
 test('phone QR approval authenticates, confirms the device, and connects it', async ({ page, request }) => {
   await page.setViewportSize({ width:390, height:844 });
@@ -17,16 +18,16 @@ test('phone QR approval authenticates, confirms the device, and connects it', as
   await expect(page.locator('#error')).toHaveText('관리자 코드를 확인한 뒤 다시 시도합니다.');
   fs.mkdirSync('out/web', { recursive:true });
   await page.locator('#code').fill('');
-  await page.screenshot({ path:'out/web/pairing-login-mobile.png' });
+  await shot(page, { path:'out/web/pairing-login-mobile.png' });
   await page.locator('#code').fill(await freshCode());
   await page.getByRole('button', { name:'인증합니다', exact:true }).click();
   await expect(page.locator('#approve')).toBeVisible();
   await page.locator('#label').fill('Living room');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await page.screenshot({ path:'out/web/pairing-confirm-mobile.png' });
+  await shot(page, { path:'out/web/pairing-confirm-mobile.png' });
   await page.getByRole('button', { name:'이 기기를 연결합니다', exact:true }).click();
   await expect(page.getByRole('heading', { name:'서버 연결을 승인했습니다.', exact:true })).toBeVisible();
-  await page.screenshot({ path:'out/web/pairing-complete-mobile.png' });
+  await shot(page, { path:'out/web/pairing-complete-mobile.png' });
   const approved = await (await request.get('/api/pair/status', { headers })).json();
   expect(approved.status).toBe('approved');
   expect(approved.accessKey).toBeTruthy();
@@ -82,13 +83,15 @@ test('/pair lays connecting and my consoles side by side on a desktop and stacks
   await page.locator('#ask-ok').click();
   await expect(mine.getByRole('listitem').filter({ hasText:'Den console' })).toBeVisible();
   fs.mkdirSync('out/web', { recursive:true });
-  await page.screenshot({ path:'out/web/pair-desktop.png', fullPage:true });
+  await shot(page, { path:'out/web/pair-desktop.png', fullPage:true });
 
   await page.setViewportSize({ width:390, height:844 });
-  const [c, d] = [await connect.boundingBox(), await mine.boundingBox()];
-  expect(d!.y).toBeGreaterThan(c!.y + c!.height - 1);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await page.screenshot({ path:'out/web/pair-mobile.png', fullPage:true });
+  await expect.poll(async () => {
+    const [c, d] = [await connect.boundingBox(), await mine.boundingBox()];
+    return d!.y - (c!.y + c!.height - 1);
+  }, { message: 'on a phone the list sits under the connect card' }).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth), { message: 'no sideways scroll on a phone' }).toBeLessThanOrEqual(390);
+  await shot(page, { path:'out/web/pair-mobile.png', fullPage:true });
 
   const den = mine.getByRole('listitem').filter({ hasText:'Den console' });
   await den.getByRole('button', { name:'연결 해제' }).click();

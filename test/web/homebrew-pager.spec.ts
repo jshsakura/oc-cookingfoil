@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 
 const apps = Array.from({ length: 60 }, (_, i) => ({
@@ -23,7 +24,7 @@ test('homebrew app cards and recommended cards page and search', async ({ page }
   await expect(rows).toHaveCount(24);
   fs.mkdirSync('out/web', { recursive: true });
   await rows.nth(0).scrollIntoViewIfNeeded();
-  await page.screenshot({ path: 'out/web/admin-homebrew-cards.png' });
+  await shot(page, { path: 'out/web/admin-homebrew-cards.png' });
   await expect(page.locator('#hb-apps-bar .pg-info')).toContainText('1-24 / 60개');
   await page.locator('#hb-apps-bar').getByRole('button', { name: '3 쪽' }).click();
   await expect(rows).toHaveCount(12);
