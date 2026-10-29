@@ -29,6 +29,11 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-side .fb-s-art.ico{padding:24px;color:var(--muted)}
 #fb .fb-side h4{margin:0;font-size:var(--fs-md);overflow-wrap:anywhere}
 #fb .fb-side .fb-s-sub{font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
+#fb .fb-side .fb-s-why{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.55;color:var(--muted)}
+#fb .fb-side .fb-s-why strong{display:block;margin-bottom:4px;font-size:var(--fs-sm);color:var(--text)}
+#fb .fb-side .fb-s-why p{margin:0 0 6px}
+#fb .fb-side .fb-s-why[data-tone="bad"] strong{color:var(--bad)}
+#fb .fb-side .fb-s-why[data-tone="warn"] strong{color:var(--warn)}
 #fb .fb-side .fb-s-badges{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
 #fb .fb-side dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;margin:0;font-size:var(--fs-sm)}
 #fb .fb-side dt{color:var(--muted)}#fb .fb-side dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
@@ -75,7 +80,8 @@ function fbBadge(text,tone){const b=el('span',text,'fb-badge');if(tone)b.dataset
 function fbBadges(f){const out=[];
   if(f.kind&&FB_KIND[f.kind])out.push(fbBadge(topText(FB_KIND[f.kind])+(f.kind!=='base'&&f.version!=null?' v'+f.version:'')));
   if(f.latest===false)out.push(fbBadge(topText('fb.old'),'warn'));
-  if(f.check)out.push(fbBadge(topText('fb.c.'+f.check),'bad'));
+  // A modified file installs as a rule; only damage is red, and a damage that may still install is amber.
+  if(f.check)out.push(fbBadge(f.why?.label||topText('fb.c.'+f.check),f.check==='modified'?'':f.why?.certain===false?'warn':'bad'));
   return out;}
 // The game's icon in place of the folder or file icon; the plain icon comes back when there is none yet.
 function fbGameIcon(f,size,cls){const img=el('img');img.className=cls;img.alt='';img.loading='lazy';img.decoding='async';img.src=fbIconUrl(f.titleId,size);return img;}
@@ -83,6 +89,9 @@ function fbDecorate(n,f){if(f.titleId){const ic=n.querySelector('.ico');if(ic){c
   for(const b of fbBadges(f))n.append(b);}
 
 // ── the details pane ────────────────────────────────────────────────
+// What the file check found, in the words the console shows: a title and what it means for an install.
+function fbWhy(f){if(!f.why?.help)return [];const box=el('div',null,'fb-s-why');box.dataset.tone=f.check==='modified'?'':f.why.certain===false?'warn':'bad';
+  box.append(el('strong',f.why.help.title),...f.why.help.body.split('\\n\\n').map((t)=>el('p',t)));return [box];}
 function fbSideOn(){return $('fb').classList.contains('side-on');}
 function fbSide(){if(!fbSideOn())return;const s=$('fb-side');const items=[...fb.sel].map(fbItem).filter(Boolean);
   if(items.length===1)return fbSideOne(s,items[0]);
@@ -96,7 +105,7 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
   const rows=[];
   if(f.titleId)rows.push(['fb.p.titleId',f.titleId]);
   if(f.version!=null)rows.push(['fb.p.version','v'+f.version]);
-  if(f.check)rows.push(['fb.p.check',topText('fb.c.'+f.check)]);
+  if(f.check)rows.push(['fb.p.check',f.why?.label||topText('fb.c.'+f.check)]);
   if(f.type==='file')rows.push(['fb.p.size',topFill('fb.p.bytes',{size:fbSize(f.size),bytes:num(f.size)})]);
   rows.push(['fb.p.mtime',fbDate(f.mtime)]);
   const dl=el('dl');dl.append(...rows.flatMap(([k,v])=>[el('dt',topText(k)),el('dd',v)]));
@@ -113,7 +122,7 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
   const links=el('div',null,'fb-s-links');
   if(f.type==='file'){act.append(fbSideBtn(FB_ICON.share,'fb.share',()=>fbShare(f,links)));fbShareList(f,links);}
   act.append(fbSideBtn(FB_ICON.rename,'fb.rename',()=>fbRename(f)),fbSideBtn(FB_ICON.trash,'fb.trash',()=>fbTrash([f.rel]),'danger'));
-  s.replaceChildren(head,act,links,dl);}
+  s.replaceChildren(head,act,links,dl,...fbWhy(f));}
 
 // ── share links: one file, anyone with the link, for a while (library/file-shares.js) ─
 async function fbShare(f,links){const root=fb.root;

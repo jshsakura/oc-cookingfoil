@@ -305,14 +305,18 @@ test("the library's facts ride on a listing: a game file's kind, version and che
       { rel: "Alpha/Alpha [0100AAAA00000000][v0].nsp", kind: "base", titleId: "0100AAAA00000000", baseTitleId: "0100AAAA00000000", version: 0 },
       { rel: "Alpha/Alpha [0100AAAA00000800][v65536].nsp", kind: "update", titleId: "0100AAAA00000800", baseTitleId: "0100AAAA00000000", version: 65536 },
     ],
-    integrity: (rel) => (rel.includes("v65536") ? "damaged" : "passed"),
+    integrity: (rel) => (rel.includes("v65536") ? { verdict: "damaged", reason: "truncated", detail: { present: 0.4, ncas: [{ type: "Program" }] } } : { verdict: "ok" }),
     latest: () => 131072,
   });
   const at = (rel, type = "file") => ({ name: rel.split("/").pop(), rel, type });
-  const [dir, base, upd, save, other] = facts("games", [at("Alpha", "dir"), at("Alpha/Alpha [0100AAAA00000000][v0].nsp"), at("Alpha/Alpha [0100AAAA00000800][v65536].nsp"), at("0100BBBB00000800", "dir"), at("notes.txt")]);
+  const [dir, base, upd, save, other] = facts("games", [at("Alpha", "dir"), at("Alpha/Alpha [0100AAAA00000000][v0].nsp"), at("Alpha/Alpha [0100AAAA00000800][v65536].nsp"), at("0100BBBB00000800", "dir"), at("notes.txt")], "ko");
   assert.equal(dir.titleId, "0100AAAA00000000");
   assert.deepEqual([base.kind, base.version, base.latest, base.check], ["base", 0, null, null]);
   assert.deepEqual([upd.kind, upd.titleId, upd.latest, upd.check], ["update", "0100AAAA00000000", false, "damaged"]);
+  // A damaged file says why, in the admin's language.
+  assert.deepEqual([upd.why.label, upd.why.certain, upd.why.help.title], ["손상됨", true, "파일이 잘렸습니다"]);
+  assert.match(upd.why.help.body, /40%/);
+  assert.equal(base.why, undefined);
   assert.equal(save.titleId, "0100BBBB00000000");
   assert.equal(other.titleId, undefined);
   assert.equal(facts("saves", [at("Alpha/Alpha [0100AAAA00000000][v0].nsp")])[0].kind, undefined);
