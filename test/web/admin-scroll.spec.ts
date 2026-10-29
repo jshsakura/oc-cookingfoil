@@ -14,8 +14,9 @@ for (const width of [390, 1366]) {
       await page.waitForLoadState('networkidle');
       const scrollers = await page.evaluate(() => Array.from(document.querySelectorAll('body *'))
         .filter((e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight)
-        // Dialogs, the menus and the grid's own body are allowed their own scroll.
-        .filter((e) => !(e as HTMLElement).closest('dialog, aside, .adm-drawer, .ag-root-wrapper'))
+        // Dialogs, the menus and the grid's own body are allowed their own scroll, and so are the file browser's
+        // panes: on a wide screen it is one window that fills the screen with a tree, a list and details side by side.
+        .filter((e) => !(e as HTMLElement).closest('dialog, aside, .adm-drawer, .ag-root-wrapper, #fb .fb-body'))
         .map((e) => e.id || e.className.toString()));
       expect(scrollers, path).toEqual([]);
     }
