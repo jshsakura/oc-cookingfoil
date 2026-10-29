@@ -4247,9 +4247,43 @@
       const metaOf = (r) => sectionOf.get(tidOf(r)) || {};
       const releaseOf = (r) => r.releaseDate || metaOf(r).release_date || 0;
 
-      // One theme: filter the base games, then order them like the client does.
+      // Each order the rows use, sorted once per set of base games: a row filters that order, which
+      // gives the same list as sorting its own games (the sort is stable). Keys are read once per game.
+      const ORDER_KEYS = {
+        recent: (r) => -r.added,
+        release: (r) => -releaseOf(r),
+        updated: (r) => -r.updAdded,
+        popular: (r) => metaOf(r).rank || Number.MAX_SAFE_INTEGER,
+        score: (r) => -(scoreFor(r)?.score || 0),
+        largest: (r) => -r.size,
+      };
+      const orders = new WeakMap(); // bases → Map(sort → sorted bases)
+      const byTitle = new WeakMap(); // bases → Map(title id → first base game)
+      function baseByTid(bases, id) {
+        let map = byTitle.get(bases);
+        if (!map) {
+          map = new Map();
+          for (const b of bases) if (!map.has(tidOf(b))) map.set(tidOf(b), b);
+          byTitle.set(bases, map);
+        }
+        return map.get(id);
+      }
+      function ordered(bases, sort) {
+        const keyOf = ORDER_KEYS[sort];
+        if (!keyOf) return bases;
+        let byBases = orders.get(bases);
+        if (!byBases) orders.set(bases, (byBases = new Map()));
+        if (!byBases.has(sort)) {
+          const keyed = bases.map((r) => [keyOf(r), r]);
+          keyed.sort((a, b) => a[0] - b[0]);
+          byBases.set(sort, keyed.map(([, r]) => r));
+        }
+        return byBases.get(sort);
+      }
+
+      // One theme: the base games in the theme's order, kept to those it takes.
       function browse(bases, theme) {
-        const list = bases.filter((r) => {
+        return ordered(bases, theme.sort).filter((r) => {
           const m = metaOf(r);
           if (theme.sort === "release" && !releaseOf(r)) return false;
           if (theme.sort === "updated" && !r.updAdded) return false;
@@ -4262,15 +4296,6 @@
           if (theme.without && (m.categories || []).includes(theme.without)) return false;
           return true;
         });
-        const by = {
-          recent: (a, b) => b.added - a.added,
-          release: (a, b) => releaseOf(b) - releaseOf(a),
-          updated: (a, b) => b.updAdded - a.updAdded,
-          popular: (a, b) => (metaOf(a).rank || Number.MAX_SAFE_INTEGER) - (metaOf(b).rank || Number.MAX_SAFE_INTEGER),
-          score: (a, b) => (scoreFor(b)?.score || 0) - (scoreFor(a)?.score || 0),
-          largest: (a, b) => b.size - a.size,
-        }[theme.sort];
-        return by ? list.sort(by) : list;
       }
 
       function buildHeroSlides(bases) {
@@ -4279,7 +4304,7 @@
         const feat = featuredRows.find((f) => Array.isArray(f.title_ids) && f.title_ids.length);
         if (feat) {
           const ids = feat.title_ids.map((id) => String(id).toUpperCase());
-          const r = ids.map((id) => bases.find((b) => tidOf(b) === id)).find(Boolean);
+          const r = ids.map((id) => baseByTid(bases, id)).find(Boolean);
           if (r) {
             used.add(r);
             slides.push({ r, label: feat.title, banner: feat.banner_url || `/api/library/banner/${tidOf(r)}` });
@@ -4311,7 +4336,7 @@
         };
         for (const f of featuredRows) {
           const ids = (f.title_ids || []).map((id) => String(id).toUpperCase());
-          keep(f.title, ids.map((id) => bases.find((b) => tidOf(b) === id)).filter((r) => r && r !== heroGame));
+          keep(f.title, ids.map((id) => baseByTid(bases, id)).filter((r) => r && r !== heroGame));
         }
         const add = (key, theme, pool = 0, title = null) => {
           let items = browse(bases, theme).filter((r) => !shown.has(r));

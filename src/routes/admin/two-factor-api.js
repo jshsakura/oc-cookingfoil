@@ -84,7 +84,7 @@ export function mountTwoFactorApi(router, { requireSession }) {
   // password can be replaced. Wrong codes count toward the sign-in code lockout.
   const provesAdmin = async (req) => {
     const given = req.body?.current;
-    if (verifyPassword(given)) return true;
+    if (await verifyPassword(given)) return true;
     if (!isEnrolled() || typeof given !== "string" || !/^\d{6}$/.test(given.trim())) return false;
     const ip = clientIp(req);
     if (totpGuard.lockedFor(TOTP_ACCOUNT, ip)) return false;
