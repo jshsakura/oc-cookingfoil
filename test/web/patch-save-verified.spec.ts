@@ -20,7 +20,7 @@ async function openGame(page: Page, view: 'patches' | 'saves') {
 
 test('the 검수 pill on a patch row and a save row marks them for the library and takes it off again', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin#library/patches');
+  await page.goto('/admin/patches?tab=list');
   const pill = page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' }).getByRole('button', { name: '게임 데이터 검수됨', exact: true });
   await expect(pill).toHaveAttribute('aria-pressed', 'false');
   await expect(pill).toHaveText('검수 전');
@@ -33,7 +33,7 @@ test('the 검수 pill on a patch row and a save row marks them for the library a
   await expect.poll(() => listed(page, 'patches', '게임 데이터')).toBe(false);
   await expect(pill).toHaveAttribute('aria-pressed', 'false');
 
-  await page.goto('/admin/saves');
+  await page.goto('/admin/saves?tab=list');
   const save = page.locator('#lib-saves .pt-row', { hasText: 'All unlocked' }).getByRole('button', { name: 'All unlocked 검수됨', exact: true });
   await save.click();
   await expect.poll(() => listed(page, 'saves', 'All unlocked')).toBe(true);

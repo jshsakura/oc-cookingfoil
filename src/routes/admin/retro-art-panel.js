@@ -17,6 +17,7 @@ import { FOLDER_MARK } from "./files-panel.js";
 
 export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <nav class="subtabs hide-bar" id="retro-subtabs" role="tablist" ${topLabel("g.retro")}>
+    <button type="button" role="tab" data-sub="folder">${icon("folder")}${top("m.files")}</button>
     <button type="button" role="tab" data-sub="art">${icon("image")}${top("ra.title")}</button>
     <button type="button" role="tab" data-sub="ratings">${icon("star")}${top("rt.ratings")}</button>
     <button type="button" role="tab" data-sub="cores">${icon("package")}${top("ra.coresTitle")}</button>
@@ -24,7 +25,6 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
     <button type="button" role="tab" data-sub="patch">${icon("upload")}${top("rpt.tab")}</button>
     <button type="button" role="tab" data-sub="dups">${icon("copy")}${top("rv.title")}</button>
     <button type="button" role="tab" data-sub="sets">${icon("monitor")}${top("rt.sets")}</button>
-    <button type="button" role="tab" data-sub="folder">${icon("folder")}${top("m.files")}</button>
   </nav>
   <div data-sub-panel="folder" hidden>${FOLDER_MARK}</div>
   <div data-sub-panel="art">
@@ -153,12 +153,11 @@ export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
 
 export const RETRO_ART_SCRIPT = /* js */ `
 let raData=null,raGame=null,raTimer=null;
-// One sub-tab at a time; the choice is remembered in this browser only.
+// One sub-tab at a time, the folder first; the address carries any other.
 // var, not let: the tab can open while the page's script is still being read.
-var RETRO_SUBS=['art','ratings','cores','names','patch','dups','sets','folder'];
-var retroSub=(()=>{try{const v=localStorage.getItem('cf-retro-sub');return RETRO_SUBS.includes(v)?v:'art';}catch{return 'art';}})();
-function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'art';
-  try{if(retroSub!=='folder')localStorage.setItem('cf-retro-sub',retroSub);}catch{}
+var RETRO_SUBS=['folder','art','ratings','cores','names','patch','dups','sets'];
+var retroSub='folder';
+function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'folder';
   if(retroSub!=='folder'){const next=new URL(location.href);
     if(next.searchParams.get('view')!==retroSub||next.searchParams.has('tab')||next.searchParams.has('path')){
       next.searchParams.set('view',retroSub);next.searchParams.delete('tab');next.searchParams.delete('path');history.replaceState(null,'',next);}}

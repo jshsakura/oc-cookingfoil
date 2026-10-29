@@ -29,7 +29,7 @@ for (const [kind, extra, endpoint, body] of cases) {
     let sent: unknown = null;
     await page.route(`**${endpoint}`, (route) => { sent = route.request().postDataJSON(); route.fulfill({ json: { ok: true } }); });
     await signIn(page);
-    await page.goto('/admin#library');
+    await page.goto('/admin/games?view=files');
     // The list opens on 전체; each kind is picked from the type filter.
     await page.locator(`#lb-tab-${kind}`).click();
     await page.getByRole('button', { name: `Sample ${kind} 삭제` }).click();

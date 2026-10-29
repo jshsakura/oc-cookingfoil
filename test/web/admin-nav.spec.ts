@@ -63,9 +63,9 @@ test('the menus are named for what they hold, in every language', async ({ page 
   await page.locator('#lang-list [data-admin-lang="ko"]').click();
 });
 
-test('on the files page the list comes first and the server numbers follow it', async ({ page }) => {
+test('on the game list the list comes first and the server numbers follow it', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin#library');
+  await page.goto('/admin/games?view=files');
   await expect(page.locator('#lb-list')).toContainText('Test Game');
   const list = await page.locator('#lb-list').boundingBox();
   const stats = await page.locator('#lib-cards').boundingBox();
@@ -79,7 +79,7 @@ test.describe('on a phone', () => {
 
   test('the file list leads, the top bar keeps one row of real targets and clipped menus say so', async ({ page }) => {
     await signIn(page);
-    await page.goto('/admin#library');
+    await page.goto('/admin/games?view=files');
     await expect(page.locator('#lb-list')).toContainText('Test Game');
     const top = await page.locator('#lb-list').evaluate((e) => e.getBoundingClientRect().top + scrollY);
     expect(top).toBeLessThan(844);

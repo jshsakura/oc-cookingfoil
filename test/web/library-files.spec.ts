@@ -21,7 +21,7 @@ test('the library tab lists files by kind with counts, pages and a search inside
   await request.post('/admin/api/library/rescan', { headers: { Cookie: cookie }, data: {} });
   await expect.poll(async () => (await (await request.get('/admin/api/library/browse?counts_only=1', { headers: { Cookie: cookie } })).json()).counts?.other, { timeout: 15000 }).toBeGreaterThanOrEqual(55);
 
-  await page.goto('/admin#library');
+  await page.goto('/admin/games?view=files');
   // The kinds are a filter on one list: a labelled group of toggle buttons, 전체 first and on.
   const tabs = page.locator('#lb-kinds button');
   await expect(page.locator('#lb-kinds')).toHaveAttribute('role', 'group');

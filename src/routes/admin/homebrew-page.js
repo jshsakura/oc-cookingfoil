@@ -5,19 +5,19 @@ import { top, topLabel, topPh } from "./top-i18n.js";
 import { FOLDER_MARK } from "./files-panel.js";
 export const HOMEBREW_HTML = /* html */ `<section id="tab-homebrew" hidden>
   <div class="subtabs hide-bar" id="homebrew-subtabs" role="tablist" ${topLabel("hp.areaAria")}>
-    <button type="button" role="tab" data-sub="apps" aria-selected="true">${icon("package")}${top("ht.apps")}</button>
+    <button type="button" role="tab" data-sub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
+    <button type="button" role="tab" data-sub="apps" aria-selected="false">${icon("package")}${top("ht.apps")}</button>
     <button type="button" role="tab" data-sub="reco" aria-selected="false">${icon("star")}${top("ht.reco")}</button>
     <button type="button" role="tab" data-sub="sources" aria-selected="false">${icon("download")}${top("hb.addRepoTitle")}</button>
-    <button type="button" role="tab" data-sub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button>
   </div>
-  <div data-sub-panel="apps">
+  <div data-sub-panel="folder">${FOLDER_MARK}</div>
+  <div data-sub-panel="apps" hidden>
   <div class="hd"><h2 class="first">${top("ht.apps")}</h2><div class="actions"><button type="button" id="hb-rescan">${top("ra.reload")}</button><button type="button" id="hb-adopt">${top("hb.adopt")}</button></div></div>
   <p class="muted">${top("hb.appsLede")}</p>
   ${box("hb-apps-help", top("hb.helpTitle"), `<p class="muted">${top("hb.helpLede")}</p>`, { level: "h3" })}
   <div id="hb-held" class="hb-held" hidden></div>
   <div class="scroll" id="hb-apps" data-skel></div>
   </div>
-  <div data-sub-panel="folder" hidden>${FOLDER_MARK}</div>
   <div data-sub-panel="reco" hidden>
   <div class="hd"><h2 class="first">${top("ht.reco")}</h2><div class="actions"><button type="button" id="hb-add-picked">${top("hb.addPicked")}</button><button type="button" class="primary" id="hb-add-all">${top("hb.addAll")}</button></div></div>
   <p class="muted">${top("hb.recoLede")}</p>

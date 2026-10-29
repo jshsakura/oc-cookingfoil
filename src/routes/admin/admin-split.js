@@ -83,13 +83,13 @@ const bundle = (extra) => extra;
 /** The pages whose "파일" tab is the file browser of their own folder: each bundle adds its CSS and script. */
 const withFolder = (extra) => ({ ...extra, css: (extra.css ?? "") + FILES_CSS, script: FILES_SCRIPT + (extra.script ?? "") });
 
-/** A list page of its own (patches, saves): the list and the folder as tabs. */
+/** A list page of its own (patches, saves): the folder first, then the list. */
 const listPage = (tab, root, listHtml) => withFolder({
   css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS,
   body: `<section id="tab-${tab}"><nav class="subtabs hide-bar" id="${tab}-subtabs" role="tablist" data-top-label="m.${tab}">
-    <button type="button" role="tab" data-sub="list" aria-selected="true">${icon(tab === "patches" ? "puzzle" : "save")}${top("m.list")}</button>
-    <button type="button" role="tab" data-sub="folder" aria-selected="false">${icon("folder")}${top("m.files")}</button></nav>
-  <div data-sub-panel="list">${listHtml}</div><div data-sub-panel="folder" hidden>${FOLDER_MARK}</div></section>${CONTENT_DIALOG_HTML}`,
+    <button type="button" role="tab" data-sub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
+    <button type="button" role="tab" data-sub="list" aria-selected="false">${icon(tab === "patches" ? "puzzle" : "save")}${top("m.list")}</button></nav>
+  <div data-sub-panel="folder">${FOLDER_MARK}</div><div data-sub-panel="list" hidden>${listHtml}</div></section>${CONTENT_DIALOG_HTML}`,
   script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+PATCHES_SCRIPT,
   init: `fbTabs('${tab}','${root}');loadPatches();`,
 });
@@ -100,7 +100,7 @@ export const SPLIT_PAGES = {
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+LIBRARY_FILES_CSS,
     body: LIBRARY_HTML+CONTENT_DIALOG_HTML,
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT,
-    init: "libShowSub(location.hash.split('/')[1]||'files',true);loadLibrary();",
+    init: "libShowSub(location.hash.split('/')[1]||'folder',true);loadLibrary();",
   }),
   "/admin/homebrew": withFolder({
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS,
