@@ -126,7 +126,8 @@ function seenCell(a){
 function renderApproved(){const d=devicesShown;if(!d)return;
   const idle=Number($('dev-idle').value)||0;
   // Grouped by the account each console belongs to, so whose consoles are whose reads at a glance.
-  const whose=(a)=>noOwner(a)?topText('pp.noAccount'):String(a.addedBy).replace(/^google:/,'');
+  const names=Object.fromEntries((d.owners||[]).map((o)=>[o.owner,o.displayName]));
+  const whose=(a)=>noOwner(a)?topText('pp.noAccount'):names[a.addedBy]||String(a.addedBy).replace(/^google:/,'');
   // A console with no record has been idle at least since the server began keeping history.
   const unused=(a)=>{if(!idle)return true;const from=a.idleSince??devicesShown.activitySince;return from!=null&&Date.now()-from>=idle*DAY_MS;};
   const approved=(d.approved||[]).filter(unused).sort((a,b)=>whose(a).localeCompare(whose(b))||(b.lastSeenAt??0)-(a.lastSeenAt??0));
@@ -147,8 +148,11 @@ function renderApproved(){const d=devicesShown;if(!d)return;
   return rows;};
   pagedTable('devices',[topText('pp.name'),topText('acc.lastAccess'),topText('acc.lastIp'),topText('acc.days30'),topText('pp.approvedOn'),topText('pp.devKey'),topText('pp.adminDevice'),''],approved,devRows,idle?topText('acc.noIdle'):topText('pp.noDevices'),{label:topText('pp.approvedList'),placeholder:topText('pp.devSearchPh'),slice:true,
     match:(a,q)=>(a.label+' '+whose(a)+' '+a.deviceKey+' '+(a.lastIp||'')).toLowerCase().includes(q)});}
-async function loadDevices(){
+// The 15-second refresh redraws only when something changed. force: redraw anyway (a switch the server refused).
+let devicesSeen='';
+async function loadDevices(force){
   const d=await api('/admin/api/devices');
+  const seen=JSON.stringify(d);if(!force&&seen===devicesSeen)return;devicesSeen=seen;
   $('devhint').textContent=d.pairingEnabled?topText('pp.pairingOnLead')
     :topText('pp.pairingOffLead');
   const pending=d.pending||[];
@@ -176,7 +180,7 @@ async function loadDevices(){
   table('clients-ended',COLS,ended.map(clientRow),'');}
 if($('dev-idle'))$('dev-idle').addEventListener('change',renderApproved);
 // A new language redraws the tables whose words come from top-i18n.js.
-function accRelabel(){if(usersShown)renderUsers(usersShown);renderApproved();if(accountsLoaded)loadAccounts().catch(()=>{});}
+function accRelabel(){if(usersShown)renderUsers(usersShown);loadDevices(true).catch(()=>{});if(accountsLoaded)loadAccounts().catch(()=>{});}
 async function cancelClient(id){if(!await ask(topText('pp.cancelClientAsk'),{danger:true}))return;
   try{await api('/admin/api/clients/'+id+'/revoke',{method:'POST'});toast(topText('pp.cancelled'));loadDevices();}catch(err){toast(err.message);}}
 if($('approve-code'))$('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
@@ -193,7 +197,7 @@ async function reissue(deviceKey,label){if(!await ask(topText('pp.reissueAsk'),{
 async function revoke(deviceKey){if(!await ask(topText('pp.revokeAsk'),{danger:true}))return;
   try{await api('/admin/api/devices/revoke',{method:'POST',body:{deviceKey}});toast(topText('pp.keyRevoked'));loadDevices();}catch(err){toast(err.message);}}
 async function setDeviceAdmin(deviceKey,admin,name){
-  try{await api('/admin/api/devices/admin',{method:'POST',body:{deviceKey,admin}});toast(admin?topFill('pp.canChangeItems',{name}):topFill('pp.readOnly',{name}));loadDevices();}catch(err){toast(err.message);loadDevices();}}
+  try{await api('/admin/api/devices/admin',{method:'POST',body:{deviceKey,admin}});toast(admin?topFill('pp.canChangeItems',{name}):topFill('pp.readOnly',{name}));loadDevices();}catch(err){toast(err.message);loadDevices(true);}}
 // A console the admin, automatic approval or Telegram let in belongs to no account yet (security/device-owner.js).
 const noOwner=(a)=>!a.addedBy||a.addedBy==='admin'||a.addedBy==='auto'||a.addedBy==='telegram';
 async function giveOwner(deviceKey,name){const owners=(devicesShown&&devicesShown.owners)||[];

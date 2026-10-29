@@ -139,8 +139,13 @@ function gridControlsWidth(data,i){let w=0,k=0;for(const r of data){const n=r._n
 // opts.noFilter lists column titles that get no chip filter (the page already filters by them); opts.search adds a box that filters the rows; opts.paging=false keeps every row on one page
 // (for a list the server already pages); opts.tall lets a row grow to hold lists inside its cells.
 function table(mount,cols,rows,empty,opts={}){const m=$(mount);
+  // A redraw (the 15-second refresh) keeps the box's height until the new grid is in, so the page does not
+  // jump, and keeps what was typed in its search box, focus included.
+  const typing=document.activeElement?.closest?.('.grid-tools')&&m.contains(document.activeElement);
+  if(m.offsetHeight)m.style.minHeight=m.offsetHeight+'px';
+  const settle=()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{m.style.minHeight='';}));
   if(m._grid){m._grid.destroy();m._grid=null;}m.replaceChildren();m.classList.add('grid-mount');
-  if(!rows.length){m.append(el('div',empty,'empty'));return;}
+  if(!rows.length){m.append(el('div',empty,'empty'));settle();return;}
   const data=[];let groups=false;
   for(const r of rows){const cs=[...r.children];
     if(cs.length===1&&cs[0].colSpan>1){groups=true;const h=gridCell(cs[0]);h.className='grid-group';data.push({_k:data.length,_head:h});continue;}
@@ -169,7 +174,7 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   const tools=el('div',null,'grid-tools');
   if(opts.search&&items.length>10){const q=el('input');q.type='search';
     q.placeholder=opts.placeholder||topText('pg.search');q.setAttribute('aria-label',topFill('gd.find',{label:opts.label||topText('pg.list')}));
-    q.addEventListener('input',()=>m._grid?.setGridOption('quickFilterText',q.value));tools.append(q);}
+    q.value=m._q||'';q.addEventListener('input',()=>{m._q=q.value;m._grid?.setGridOption('quickFilterText',q.value);});tools.append(q);}
   // "○○순": every sortable column offers its orders by what it holds, and the pick outlives a redraw.
   const orders=gridOrders(cols,columnDefs,items);
   const pick=el('select','', 'grid-sort');pick.setAttribute('aria-label',topFill('gd.sortBy',{label:opts.label||topText('pg.list')}));
@@ -225,7 +230,10 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   pick.addEventListener('change',()=>apply(pick.value));
   if(m._sort&&[...pick.options].some((o)=>o.value===m._sort))apply(m._sort);
   if(filtered()){flat();m._grid.onFilterChanged();}
-  count();}
+  const q=tools.querySelector('input[type=search]');
+  if(q&&q.value)m._grid.setGridOption('quickFilterText',q.value);
+  if(q&&typing){q.focus();q.setSelectionRange(q.value.length,q.value.length);}
+  count();settle();}
 const gridText0=(n)=>{const sel=n?.querySelector?.('select');return (sel?sel.selectedOptions[0]?.textContent:n?.textContent||'').trim();};
 // What a column holds, from its sort keys: 'date', 'ago', 'number' or 'text' (null when it is empty or not sortable).
 function gridKind(items,i){let kind=null;for(const r of items){const n=r._n[i],k=gridKey(n);if(k==null)continue;

@@ -624,6 +624,33 @@ test('the devices tab shows one area at a time, and the address opens a given on
   await expect(page).toHaveURL(/#devices\/pending$/);
 });
 
+test('the 15-second refresh keeps the device list, its search and focus, and groups name the account', async ({ page }) => {
+  const approved = Array.from({ length: 12 }, (_, i) => ({
+    deviceKey: String(i).padStart(2, '0').repeat(32), label: `deck-${'abcdefghijkl'[i]}`, addedBy: i < 6 ? 'google:1000001' : 'google:1000002',
+    addedAt: Date.now(), activeDays30: 1,
+  }));
+  let calls = 0;
+  await page.route('**/admin/api/devices', (r) => { calls++; return r.fulfill({ json: {
+    pairingEnabled: true, pending: [], clients: [], approved,
+    owners: [{ owner: 'google:1000001', kind: 'google', displayName: 'first@example.com' }, { owner: 'google:1000002', kind: 'google', displayName: 'second@example.com' }],
+  } }); });
+  await signIn(page);
+  await page.goto('/admin#devices/approved');
+  const box = page.locator('#devices');
+  await expect(box.getByText(/^first@example\.com · /)).toBeVisible();
+  await expect(box.getByText('1000001')).toHaveCount(0);
+  const q = box.getByRole('searchbox');
+  await q.fill('deck-h');
+  const before = calls;
+  await page.evaluate(() => (window as unknown as { loadDevices: (f?: boolean) => Promise<void> }).loadDevices());
+  expect(calls).toBe(before + 1);
+  await page.evaluate(() => (window as unknown as { loadDevices: (f?: boolean) => Promise<void> }).loadDevices(true));
+  await expect(q).toHaveValue('deck-h');
+  await expect(box.getByRole('searchbox')).toBeFocused();
+  await expect(box.getByText('deck-b', { exact: true })).toHaveCount(0);
+  await expect(box.getByText('deck-h', { exact: true })).toBeVisible();
+});
+
 test('an approved console gets a 관리자 기기 switch, off until the admin turns it on', async ({ page, request }) => {
   const KEY = 'E7'.repeat(32);
   await signIn(page);
