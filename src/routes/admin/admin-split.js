@@ -123,7 +123,16 @@ export const SPLIT_PAGES = {
   "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
-  "/admin/incoming/temp": bundle({ css: ORGANIZE_CSS, body: '<section id="tab-organize">'+ORGANIZE_HTML+'</section>', script: ORGANIZE_SCRIPT, init: "loLoad();" }),
+  // The drop box is a folder like the others: its files open in the browser, what the sorter did is the second tab.
+  "/admin/incoming/temp": withFolder({
+    css: ORGANIZE_CSS,
+    body: `<section id="tab-organize"><nav class="subtabs hide-bar" id="organize-subtabs" role="tablist" data-top-label="m.organize">
+    <button type="button" role="tab" data-sub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
+    <button type="button" role="tab" data-sub="sort" aria-selected="false">${icon("inbox")}${top("m.organize")}</button></nav>
+  <div data-sub-panel="folder">${FOLDER_MARK}</div><div data-sub-panel="sort" hidden>${ORGANIZE_HTML}</div></section>`,
+    script: ORGANIZE_SCRIPT,
+    init: "fbTabs('organize','incoming');{const st=SUBTABS.organize,show=st.show;st.show=(sub)=>{show(sub);if(sub==='sort')loLoad();};}loLoad();",
+  }),
   "/admin/inbox": bundle({ css: INBOX_CSS, body: INBOX_HTML, script: INBOX_SCRIPT, init: "loadInbox();" }),
   "/admin/convert": bundle({ css: NSZ_CSS, body: NSZ_HTML, script: NSZ_SCRIPT, init: "loadNsz();" }),
   "/admin/logs/downloads": bundle({ css: TRANSFERS_CSS + LOGS_CSS, body: TRANSFERS_HTML, script: TRANSFERS_SCRIPT, init: "setTimeout(xfOpen);" }),
