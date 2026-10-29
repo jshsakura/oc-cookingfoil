@@ -2,7 +2,7 @@
  * The admin file browser over the library folders (library/file-roots.js):
  *
  *   GET  /admin/api/files/roots                          [{ key, name }]: the folders there are
- *   GET  /admin/api/files/list?root=&path=&q=&deep=&sort=&order=&page=&perPage=
+ *   GET  /admin/api/files/list?root=&path=&q=&deep=&sort=&order=&page=&perPage=&only=dirs
  *        { root, path, parent, items: [{ name, rel, type, size, mtime, ext }], total, page, perPage, pages, counts, deep, cut }
  *        deep=1 finds q in every folder under path (cut: the walk stopped early).
  *   GET  /admin/api/files/download?root=&path=           the file itself
@@ -10,6 +10,8 @@
  *   POST /admin/api/files/rename  { root, path, name }   → { root, rel, undo }
  *   POST /admin/api/files/move    { root, paths, toRoot, toPath } → { moved: [{ from, to, undo }], skipped: [{ rel, code }] }
  *   POST /admin/api/files/copy    { root, paths, toRoot, toPath } → { copied: [{ from, to }], skipped: [{ rel, code }] }
+ *        with background: true → { job, total } at once; GET /admin/api/files/copy/:job → { state: running|done|failed,
+ *        total, done } in bytes, with what the copy answers once done, { code, error } once failed.
  *   POST /admin/api/files/trash   { root, paths }        → { trash, restore: [id], files }
  *   POST /admin/api/files/info    { root, paths }        → { files, dirs, bytes, newest, cut }: what a pick holds, folders counted
  *        through, up to INFO_MAX entries (cut: it stopped there)
@@ -33,7 +35,7 @@ import { createFileRoots, FileError } from "../../library/file-roots.js";
 import { actorOf } from "../../library/trash-service.js";
 import { TrashError } from "../../library/trash.js";
 import { requestLang } from "../../meta/langs.js";
-import { namesOf } from "../../meta/titledb-store.js";
+import { createFileFacts, titleLabel } from "../../library/file-facts.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
 import * as chunks from "../../meta/upload-chunks.js";
@@ -41,24 +43,20 @@ import * as chunks from "../../meta/upload-chunks.js";
 const MAX_PATHS = 1000;
 const ZIP_TTL_MS = 10 * 60 * 1000;
 const INFO_MAX = 100000;
+const COPY_TTL_MS = 10 * 60 * 1000;
 
-// A name that starts with a title id (a saves or patches folder, a bare-id file) is shown with its game's name.
-const TITLE_ID_RE = /^([0-9a-f]{16})(?=$|[ ._\-[(])/i;
-/** label(name) for one language: the game a title id names, an update or DLC falling back to its base game. */
-export function titleLabel(lang, names = namesOf) {
-  const memo = new Map();
-  return (name) => {
-    const id = TITLE_ID_RE.exec(name)?.[1].toUpperCase();
-    if (!id) return null;
-    if (!memo.has(id)) {
-      const all = names(id) ?? names((BigInt(`0x${id}`) & ~0x1fffn).toString(16).toUpperCase().padStart(16, "0"));
-      memo.set(id, all ? (all[lang] ?? all.en ?? Object.values(all)[0] ?? null) : null);
-    }
-    return memo.get(id);
-  };
+/** Bytes under `p` (a file or a folder), 0 when it is gone. */
+async function sizeOf(p) {
+  const st = await fs.promises.lstat(p).catch(() => null);
+  if (!st) return 0;
+  if (!st.isDirectory()) return st.isFile() ? st.size : 0;
+  const names = await fs.promises.readdir(p).catch(() => []);
+  let n = 0;
+  for (const name of names) n += await sizeOf(path.join(p, name));
+  return n;
 }
 
-export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir } = {}) {
+export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir, facts = createFileFacts() } = {}) {
   const handle = (fn) => async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
@@ -86,7 +84,10 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     const { q, sort, order, page, perPage } = req.query;
     const deep = str(req.query.deep) === "1";
     const label = titleLabel(requestLang(req));
-    res.json(await files.list(str(req.query.root), str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label }));
+    const root = str(req.query.root);
+    const dirsOnly = str(req.query.only) === "dirs";
+    const out = await files.list(root, str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label, dirsOnly });
+    res.json({ ...out, items: facts(root, out.items) });
   }));
 
   router.get("/api/files/download", handle(async (req, res) => {
@@ -114,10 +115,48 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     res.json(out);
   }));
 
+  // A copy asked with background: true answers { job } at once and runs on; GET /api/files/copy/:id says how far
+  // it got (the bytes in place plus the partial being written) and, once it ends, what it did. A game takes
+  // minutes, longer than a proxy waits for one answer.
+  const copies = new Map();
+  const copyRun = async (b, job) => {
+    const progress = { started: (part) => { job.part = part; }, placed: (abs) => { job.part = null; job.placing = sizeOf(abs).then((n) => { job.done += n; }); } };
+    try {
+      job.result = await files.copy(str(b.root), paths(b.paths), str(b.toRoot) || str(b.root), str(b.toPath), progress);
+      await job.placing;
+      job.state = "done";
+      debug.log("admin: files: copied %d into %s:%s (%d skipped)", job.result.copied.length, b.toRoot || b.root, b.toPath ?? "", job.result.skipped.length);
+    } catch (err) {
+      job.state = "failed";
+      job.code = err instanceof FileError ? err.code : "failed";
+      if (!(err instanceof FileError)) debug.error("admin: files: copy: %s", err.message);
+    }
+    job.part = null;
+    job.until = Date.now() + COPY_TTL_MS;
+  };
   router.post("/api/files/copy", handle(async (req, res) => {
     const b = req.body ?? {};
+    if (b.background === true) {
+      const now = Date.now();
+      for (const [k, j] of copies) if (j.until < now) copies.delete(k);
+      const entries = await files.collect(str(b.root), paths(b.paths), { max: INFO_MAX });
+      const id = crypto.randomBytes(12).toString("hex");
+      const job = { state: "running", total: entries.reduce((n, e) => n + (e.dir ? 0 : e.size), 0), done: 0, part: null, until: Infinity };
+      copies.set(id, job);
+      copyRun(b, job);
+      return res.json({ job: id, total: job.total });
+    }
     const out = await files.copy(str(b.root), paths(b.paths), str(b.toRoot) || str(b.root), str(b.toPath));
     debug.log("admin: files: copied %d into %s:%s (%d skipped)", out.copied.length, b.toRoot || b.root, b.toPath ?? "", out.skipped.length);
+    res.json(out);
+  }));
+  router.get("/api/files/copy/:id", handle(async (req, res) => {
+    const job = copies.get(str(req.params.id));
+    if (!job) throw new FileError("not-found", 404);
+    const writing = job.part ? await sizeOf(job.part) : 0;
+    const out = { state: job.state, total: job.total, done: Math.min(job.total, job.done + writing) };
+    if (job.state === "done") Object.assign(out, job.result);
+    if (job.state === "failed") Object.assign(out, { code: job.code, error: apiWord(req, `files.${job.code}`) });
     res.json(out);
   }));
 

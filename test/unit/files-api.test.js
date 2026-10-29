@@ -251,7 +251,7 @@ test("a folder that holds a fenced one is neither copied nor moved, and a path p
 });
 
 test("titleLabel names a title id's game in the asked language, an update or DLC by its base game", async () => {
-  const { titleLabel } = await import("../../src/routes/admin/files-api.js");
+  const { titleLabel } = await import("../../src/library/file-facts.js");
   const db = { "0100AAAA00000000": { ko: "알파", en: "Alpha" } };
   const label = titleLabel("ko", (id) => db[id] ?? null);
   assert.equal(label("0100AAAA00000000"), "알파");
@@ -260,4 +260,53 @@ test("titleLabel names a title id's game in the asked language, an update or DLC
   assert.equal(label("0100CCCC00000000"), null);
   assert.equal(label("Alpha Quest"), null);
   assert.equal(titleLabel("ja", (id) => db[id] ?? null)("0100AAAA00000000"), "Alpha");
+});
+
+test("a copy in the background answers a job at once, then its bytes and what it did", async () => {
+  fs.mkdirSync(path.join(games.dir, "Bg/Pack"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Bg/Pack/a.nsp"), "12345");
+  fs.writeFileSync(path.join(games.dir, "Bg/b.nsp"), "678");
+  const start = await (await post("/api/files/copy", { root: "games", paths: ["Bg/Pack", "Bg/b.nsp"], toPath: "Bg", background: true })).json();
+  assert.equal(start.total, 8);
+  assert.match(start.job, /^[0-9a-f]{24}$/);
+  let job;
+  for (let i = 0; i < 200; i++) {
+    job = await (await fetch(url(`/api/files/copy/${start.job}`))).json();
+    if (job.state !== "running") break;
+    await new Promise((ok) => setTimeout(ok, 10));
+  }
+  assert.equal(job.state, "done");
+  assert.equal(job.done, 8);
+  assert.deepEqual(job.copied, [{ from: "Bg/Pack", to: "Bg/Pack (2)" }, { from: "Bg/b.nsp", to: "Bg/b (2).nsp" }]);
+  assert.equal(fs.readFileSync(path.join(games.dir, "Bg/Pack (2)/a.nsp"), "utf8"), "12345");
+  assert.equal((await fetch(url("/api/files/copy/" + "0".repeat(24)))).status, 404);
+  assert.equal((await post("/api/files/copy", { root: "games", paths: ["Bg/none"], toPath: "Bg", background: true })).status, 404);
+  assert.equal(tokenBlocked("GET", "/api/files/copy/abc"), true);
+});
+
+test("only=dirs lists the folders alone", async () => {
+  fs.mkdirSync(path.join(games.dir, "Dirs/Sub"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Dirs/f.nsp"), "x");
+  const d = await (await fetch(url("/api/files/list?root=games&path=Dirs&only=dirs"))).json();
+  assert.deepEqual(d.items.map((i) => i.name), ["Sub"]);
+});
+
+test("the library's facts ride on a listing: a game file's kind, version and check, a folder's game", async () => {
+  const { createFileFacts } = await import("../../src/library/file-facts.js");
+  const facts = createFileFacts({
+    files: () => [
+      { rel: "Alpha/Alpha [0100AAAA00000000][v0].nsp", kind: "base", titleId: "0100AAAA00000000", baseTitleId: "0100AAAA00000000", version: 0 },
+      { rel: "Alpha/Alpha [0100AAAA00000800][v65536].nsp", kind: "update", titleId: "0100AAAA00000800", baseTitleId: "0100AAAA00000000", version: 65536 },
+    ],
+    integrity: (rel) => (rel.includes("v65536") ? "damaged" : "passed"),
+    latest: () => 131072,
+  });
+  const at = (rel, type = "file") => ({ name: rel.split("/").pop(), rel, type });
+  const [dir, base, upd, save, other] = facts("games", [at("Alpha", "dir"), at("Alpha/Alpha [0100AAAA00000000][v0].nsp"), at("Alpha/Alpha [0100AAAA00000800][v65536].nsp"), at("0100BBBB00000800", "dir"), at("notes.txt")]);
+  assert.equal(dir.titleId, "0100AAAA00000000");
+  assert.deepEqual([base.kind, base.version, base.latest, base.check], ["base", 0, null, null]);
+  assert.deepEqual([upd.kind, upd.titleId, upd.latest, upd.check], ["update", "0100AAAA00000000", false, "damaged"]);
+  assert.equal(save.titleId, "0100BBBB00000000");
+  assert.equal(other.titleId, undefined);
+  assert.equal(facts("saves", [at("Alpha/Alpha [0100AAAA00000000][v0].nsp")])[0].kind, undefined);
 });

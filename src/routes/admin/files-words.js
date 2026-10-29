@@ -14,6 +14,7 @@ const KEYS = [
   "fb.uploadDir", "fb.upPanel", "fb.upStop", "fb.upStopAll", "fb.close", "fb.upDone", "fb.st.wait", "fb.st.done", "fb.st.skip", "fb.st.stop", "fb.zip", "fb.zipping", "fb.view", "fb.viewLoading", "fb.viewBig", "fb.viewFail", "fb.viewCut", "fb.prevFile", "fb.nextFile",
   "fb.back", "fb.forward", "fb.deep", "fb.deepCut", "fb.viewList", "fb.viewGrid", "fb.cut", "fb.copy", "fb.paste", "fb.copying", "fb.copied", "fb.copiedSome", "fb.clipCut", "fb.clipCopy", "fb.undo", "fb.undone", "fb.undoNone", "fb.undoFail", "fb.props", "fb.p.kind", "fb.p.where", "fb.p.size", "fb.p.holds", "fb.p.mtime", "fb.p.file", "fb.p.dir", "fb.p.many", "fb.p.holdsVal", "fb.p.bytes", "fb.p.counting",
   "fb.p.note", "fb.p.cut",
+  "fb.tree", "fb.side", "fb.tree.open", "fb.tree.close", "fb.k.base", "fb.k.update", "fb.k.dlc", "fb.old", "fb.c.damaged", "fb.c.modified", "fb.p.titleId", "fb.p.version", "fb.p.check", "fb.p.sizeAsk", "fb.side.none", "fb.side.files", "fb.copyProg", "fb.shown",
 ];
 
 const ROWS = {
@@ -29,6 +30,7 @@ const ROWS = {
     "폴더 올리기", "올리는 파일", "{name} 올리기를 멈춥니다", "모두 멈추기", "닫기", "{n}개 올리기를 마쳤습니다", "기다리는 중", "올렸습니다", "같은 이름이 있어 건너뛰었습니다", "멈췄습니다", "zip으로 내려받기", "zip을 준비합니다. 곧 내려받기가 시작됩니다", "미리 보기", "불러오는 중입니다", "미리 보기에는 너무 큰 이미지입니다. 내려받아 확인합니다", "미리 보지 못했습니다: {msg}", "앞부분 {size}만 보여줍니다. 전체는 내려받아 확인합니다", "이전 파일", "다음 파일",
     "뒤로", "앞으로", "하위 폴더까지", "항목이 너무 많아 앞의 10만 개까지만 찾았습니다", "목록 보기", "아이콘 보기", "잘라내기", "복사", "붙여넣기", "복사하는 중입니다", "{n}개를 복사했습니다", "{n}개를 복사했습니다. {s}개는 복사하지 못했습니다", "{n}개를 잘라냈습니다. 옮길 폴더에서 Ctrl+V를 누릅니다", "{n}개를 복사해 뒀습니다. 붙여넣을 폴더에서 Ctrl+V를 누릅니다", "되돌리기", "되돌렸습니다", "되돌릴 작업이 없습니다", "되돌리지 못했습니다: {msg}", "속성", "종류", "위치", "크기", "내용", "수정한 날짜", "파일", "폴더", "{n}개 항목", "파일 {files}개, 폴더 {dirs}개", "{size} ({bytes}바이트)", "세는 중입니다",
     "참고", "항목이 너무 많아 앞의 10만 개까지만 셌습니다",
+    "폴더 트리", "상세 정보", "폴더 펼치기", "폴더 접기", "본편", "업데이트", "DLC", "구버전", "손상", "수정됨", "타이틀 ID", "버전", "검사", "크기 계산", "항목을 고르면 여기에 정보가 나옵니다", "파일 {n}개 · {size}", "복사하는 중 · {done} / {total} ({p}%)", "{shown}개 표시",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -42,6 +44,7 @@ const ROWS = {
     "Upload folder", "Uploads", "Stop uploading {name}", "Stop all", "Close", "Finished {n} uploads", "Waiting", "Uploaded", "Skipped, the name is taken", "Stopped", "Download as zip", "Preparing the zip. The download starts shortly", "Preview", "Loading", "This image is too large to preview. Download it to view", "Could not preview: {msg}", "Showing the first {size}. Download the file to see all of it", "Previous file", "Next file",
     "Back", "Forward", "Include subfolders", "Too many items: only the first 100,000 were searched", "List view", "Icon view", "Cut", "Copy", "Paste", "Copying", "Copied {n}", "Copied {n}. {s} could not be copied", "Cut {n}. Press Ctrl+V in the folder to move them to", "Copied {n}. Press Ctrl+V in the folder to paste them into", "Undo", "Undone", "Nothing to undo", "Could not undo: {msg}", "Properties", "Type", "Location", "Size", "Contains", "Modified", "file", "Folder", "{n} items", "{files} files, {dirs} folders", "{size} ({bytes} bytes)", "Counting",
     "Note", "Too many items: only the first 100,000 were counted",
+    "Folder tree", "Details", "Expand folder", "Collapse folder", "Base game", "Update", "DLC", "Outdated", "Damaged", "Modified", "Title ID", "Version", "Check", "Count size", "Pick an item to see its details here", "{n} files · {size}", "Copying · {done} of {total} ({p}%)", "{shown} shown",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -55,6 +58,7 @@ const ROWS = {
     "フォルダーをアップロード", "アップロード中のファイル", "{name}のアップロードを停止します", "すべて停止", "閉じる", "{n}個のアップロードを終えました", "待機中", "アップロードしました", "同じ名前があるためスキップしました", "停止しました", "zipでダウンロード", "zipを準備しています。まもなくダウンロードが始まります", "プレビュー", "読み込み中です", "プレビューするには大きすぎる画像です。ダウンロードして確認します", "プレビューできませんでした: {msg}", "先頭の{size}だけを表示しています。全体はダウンロードして確認します", "前のファイル", "次のファイル",
     "戻る", "進む", "サブフォルダーも含める", "項目が多すぎるため、最初の10万個までを検索しました", "一覧表示", "アイコン表示", "切り取り", "コピー", "貼り付け", "コピーしています", "{n}個をコピーしました", "{n}個をコピーしました。{s}個はコピーできませんでした", "{n}個を切り取りました。移動先のフォルダーで Ctrl+V を押します", "{n}個をコピーしました。貼り付け先のフォルダーで Ctrl+V を押します", "元に戻す", "元に戻しました", "元に戻す操作はありません", "元に戻せませんでした: {msg}", "プロパティ", "種類", "場所", "サイズ", "内容", "更新日時", "ファイル", "フォルダー", "{n}個の項目", "ファイル {files}個、フォルダー {dirs}個", "{size} ({bytes}バイト)", "数えています",
     "注意", "項目が多すぎるため、最初の10万個までを数えました",
+    "フォルダーツリー", "詳細", "フォルダーを開く", "フォルダーを閉じる", "本編", "アップデート", "DLC", "旧バージョン", "破損", "改変あり", "タイトルID", "バージョン", "検査", "サイズを計算", "項目を選ぶとここに詳細が表示されます", "ファイル{n}個 · {size}", "コピー中 · {done} / {total}（{p}%）", "{shown}件を表示",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -68,6 +72,7 @@ const ROWS = {
     "上传文件夹", "正在上传的文件", "停止上传 {name}", "全部停止", "关闭", "已完成 {n} 个上传", "等待中", "已上传", "名称已存在，已跳过", "已停止", "以 zip 下载", "正在准备 zip，下载即将开始", "预览", "正在加载", "图片太大，无法预览。请下载后查看", "无法预览：{msg}", "仅显示前 {size}。完整内容请下载后查看", "上一个文件", "下一个文件",
     "后退", "前进", "包括子文件夹", "项目过多，仅搜索了前 100,000 项", "列表视图", "图标视图", "剪切", "复制", "粘贴", "正在复制", "已复制 {n} 项", "已复制 {n} 项。{s} 项无法复制", "已剪切 {n} 项。在目标文件夹中按 Ctrl+V 移动", "已复制 {n} 项。在目标文件夹中按 Ctrl+V 粘贴", "撤销", "已撤销", "没有可撤销的操作", "无法撤销：{msg}", "属性", "类型", "位置", "大小", "包含", "修改时间", "文件", "文件夹", "{n} 个项目", "{files} 个文件，{dirs} 个文件夹", "{size}（{bytes} 字节）", "正在统计",
     "注意", "项目过多，仅统计了前 100,000 项",
+    "文件夹树", "详细信息", "展开文件夹", "折叠文件夹", "本体", "更新", "DLC", "旧版本", "已损坏", "已修改", "标题 ID", "版本", "检查", "计算大小", "选择一个项目即可在此查看详细信息", "{n} 个文件 · {size}", "正在复制 · {done} / {total}（{p}%）", "显示 {shown} 个",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -81,6 +86,7 @@ const ROWS = {
     "上傳資料夾", "正在上傳的檔案", "停止上傳 {name}", "全部停止", "關閉", "已完成 {n} 個上傳", "等待中", "已上傳", "名稱已存在，已略過", "已停止", "以 zip 下載", "正在準備 zip，下載即將開始", "預覽", "正在載入", "圖片太大，無法預覽。請下載後查看", "無法預覽：{msg}", "僅顯示前 {size}。完整內容請下載後查看", "上一個檔案", "下一個檔案",
     "上一頁", "下一頁", "包含子資料夾", "項目過多，僅搜尋了前 100,000 項", "清單檢視", "圖示檢視", "剪下", "複製", "貼上", "正在複製", "已複製 {n} 項", "已複製 {n} 項。{s} 項無法複製", "已剪下 {n} 項。在目標資料夾中按 Ctrl+V 移動", "已複製 {n} 項。在目標資料夾中按 Ctrl+V 貼上", "復原", "已復原", "沒有可復原的操作", "無法復原：{msg}", "內容", "類型", "位置", "大小", "包含", "修改時間", "檔案", "資料夾", "{n} 個項目", "{files} 個檔案，{dirs} 個資料夾", "{size}（{bytes} 位元組）", "正在計算",
     "注意", "項目過多，僅計算了前 100,000 項",
+    "資料夾樹", "詳細資訊", "展開資料夾", "收合資料夾", "本體", "更新", "DLC", "舊版本", "已損壞", "已修改", "標題 ID", "版本", "檢查", "計算大小", "選擇一個項目即可在此查看詳細資訊", "{n} 個檔案 · {size}", "正在複製 · {done} / {total}（{p}%）", "顯示 {shown} 個",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -94,6 +100,7 @@ const ROWS = {
     "Subir carpeta", "Subidas", "Detener la subida de {name}", "Detener todo", "Cerrar", "{n} subidas terminadas", "En espera", "Subido", "Omitido, el nombre ya existe", "Detenido", "Descargar como zip", "Preparando el zip. La descarga empieza en breve", "Vista previa", "Cargando", "La imagen es demasiado grande para la vista previa. Descárgala para verla", "No se pudo mostrar la vista previa: {msg}", "Se muestran los primeros {size}. Descarga el archivo para verlo entero", "Archivo anterior", "Archivo siguiente",
     "Atrás", "Adelante", "Incluir subcarpetas", "Demasiados elementos: solo se buscó en los primeros 100.000", "Vista de lista", "Vista de iconos", "Cortar", "Copiar", "Pegar", "Copiando", "{n} copiados", "{n} copiados. {s} no se pudieron copiar", "{n} cortados. Pulsa Ctrl+V en la carpeta de destino", "{n} copiados. Pulsa Ctrl+V en la carpeta donde pegarlos", "Deshacer", "Deshecho", "No hay nada que deshacer", "No se pudo deshacer: {msg}", "Propiedades", "Tipo", "Ubicación", "Tamaño", "Contiene", "Modificado", "archivo", "Carpeta", "{n} elementos", "{files} archivos, {dirs} carpetas", "{size} ({bytes} bytes)", "Contando",
     "Nota", "Demasiados elementos: solo se contaron los primeros 100.000",
+    "Árbol de carpetas", "Detalles", "Desplegar carpeta", "Plegar carpeta", "Juego base", "Actualización", "DLC", "Desactualizada", "Dañado", "Modificado", "ID de título", "Versión", "Comprobación", "Calcular tamaño", "Elige un elemento para ver aquí sus detalles", "{n} archivos · {size}", "Copiando · {done} de {total} ({p}%)", "{shown} mostrados",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -107,6 +114,7 @@ const ROWS = {
     "Envoyer un dossier", "Envois", "Arrêter l'envoi de {name}", "Tout arrêter", "Fermer", "{n} envois terminés", "En attente", "Envoyé", "Ignoré, le nom existe déjà", "Arrêté", "Télécharger en zip", "Préparation du zip. Le téléchargement va commencer", "Aperçu", "Chargement", "Image trop grande pour l'aperçu. Téléchargez-la pour la voir", "Aperçu impossible : {msg}", "Seuls les premiers {size} sont affichés. Téléchargez le fichier pour tout voir", "Fichier précédent", "Fichier suivant",
     "Précédent", "Suivant", "Inclure les sous-dossiers", "Trop d'éléments : seuls les 100 000 premiers ont été parcourus", "Affichage liste", "Affichage icônes", "Couper", "Copier", "Coller", "Copie en cours", "{n} copiés", "{n} copiés. {s} n'ont pas pu être copiés", "{n} coupés. Appuyez sur Ctrl+V dans le dossier de destination", "{n} copiés. Appuyez sur Ctrl+V dans le dossier où les coller", "Annuler", "Annulé", "Rien à annuler", "Impossible d'annuler : {msg}", "Propriétés", "Type", "Emplacement", "Taille", "Contenu", "Modifié", "fichier", "Dossier", "{n} éléments", "{files} fichiers, {dirs} dossiers", "{size} ({bytes} octets)", "Calcul en cours",
     "Remarque", "Trop d'éléments : seuls les 100 000 premiers ont été comptés",
+    "Arborescence", "Détails", "Déplier le dossier", "Replier le dossier", "Jeu de base", "Mise à jour", "DLC", "Obsolète", "Endommagé", "Modifié", "ID de titre", "Version", "Vérification", "Calculer la taille", "Choisissez un élément pour voir ses détails ici", "{n} fichiers · {size}", "Copie · {done} sur {total} ({p} %)", "{shown} affichés",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -120,6 +128,7 @@ const ROWS = {
     "Ordner hochladen", "Uploads", "Hochladen von {name} stoppen", "Alle stoppen", "Schließen", "{n} Uploads abgeschlossen", "Wartet", "Hochgeladen", "Übersprungen, der Name ist vergeben", "Gestoppt", "Als ZIP herunterladen", "ZIP wird vorbereitet. Der Download beginnt gleich", "Vorschau", "Wird geladen", "Das Bild ist für die Vorschau zu groß. Zum Ansehen herunterladen", "Vorschau nicht möglich: {msg}", "Es werden die ersten {size} angezeigt. Für alles die Datei herunterladen", "Vorherige Datei", "Nächste Datei",
     "Zurück", "Vorwärts", "Unterordner einbeziehen", "Zu viele Einträge: nur die ersten 100.000 wurden durchsucht", "Listenansicht", "Symbolansicht", "Ausschneiden", "Kopieren", "Einfügen", "Wird kopiert", "{n} kopiert", "{n} kopiert. {s} konnten nicht kopiert werden", "{n} ausgeschnitten. Im Zielordner Strg+V drücken", "{n} kopiert. Im Zielordner Strg+V drücken", "Rückgängig", "Rückgängig gemacht", "Nichts rückgängig zu machen", "Rückgängig nicht möglich: {msg}", "Eigenschaften", "Typ", "Ort", "Größe", "Inhalt", "Geändert", "Datei", "Ordner", "{n} Elemente", "{files} Dateien, {dirs} Ordner", "{size} ({bytes} Bytes)", "Wird gezählt",
     "Hinweis", "Zu viele Einträge: nur die ersten 100.000 wurden gezählt",
+    "Ordnerbaum", "Details", "Ordner aufklappen", "Ordner zuklappen", "Hauptspiel", "Update", "DLC", "Veraltet", "Beschädigt", "Verändert", "Titel-ID", "Version", "Prüfung", "Größe berechnen", "Wähle einen Eintrag, um hier seine Details zu sehen", "{n} Dateien · {size}", "Kopiere · {done} von {total} ({p} %)", "{shown} angezeigt",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -133,6 +142,7 @@ const ROWS = {
     "Carica cartella", "Caricamenti", "Interrompi il caricamento di {name}", "Interrompi tutto", "Chiudi", "{n} caricamenti completati", "In attesa", "Caricato", "Saltato, il nome esiste già", "Interrotto", "Scarica come zip", "Preparazione dello zip. Il download inizia a breve", "Anteprima", "Caricamento", "Immagine troppo grande per l'anteprima. Scaricala per vederla", "Anteprima non disponibile: {msg}", "Sono mostrati i primi {size}. Scarica il file per vederlo tutto", "File precedente", "File successivo",
     "Indietro", "Avanti", "Includi sottocartelle", "Troppi elementi: cercati solo i primi 100.000", "Vista elenco", "Vista icone", "Taglia", "Copia", "Incolla", "Copia in corso", "{n} copiati", "{n} copiati. {s} non sono stati copiati", "{n} tagliati. Premi Ctrl+V nella cartella di destinazione", "{n} copiati. Premi Ctrl+V nella cartella dove incollarli", "Annulla", "Annullato", "Niente da annullare", "Impossibile annullare: {msg}", "Proprietà", "Tipo", "Posizione", "Dimensione", "Contenuto", "Modificato", "file", "Cartella", "{n} elementi", "{files} file, {dirs} cartelle", "{size} ({bytes} byte)", "Conteggio in corso",
     "Nota", "Troppi elementi: contati solo i primi 100.000",
+    "Albero delle cartelle", "Dettagli", "Espandi cartella", "Comprimi cartella", "Gioco base", "Aggiornamento", "DLC", "Obsoleto", "Danneggiato", "Modificato", "ID titolo", "Versione", "Controllo", "Calcola dimensione", "Scegli un elemento per vederne qui i dettagli", "{n} file · {size}", "Copia in corso · {done} di {total} ({p}%)", "{shown} mostrati",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -146,6 +156,7 @@ const ROWS = {
     "Enviar pasta", "Envios", "Parar o envio de {name}", "Parar tudo", "Fechar", "{n} envios concluídos", "Aguardando", "Enviado", "Ignorado, o nome já existe", "Parado", "Baixar como zip", "Preparando o zip. O download começa em instantes", "Pré-visualizar", "Carregando", "Imagem grande demais para pré-visualizar. Baixe para ver", "Não foi possível pré-visualizar: {msg}", "Mostrando os primeiros {size}. Baixe o arquivo para ver tudo", "Arquivo anterior", "Próximo arquivo",
     "Voltar", "Avançar", "Incluir subpastas", "Itens demais: só os primeiros 100.000 foram pesquisados", "Lista", "Ícones", "Recortar", "Copiar", "Colar", "Copiando", "{n} copiado(s)", "{n} copiado(s). {s} não puderam ser copiados", "{n} recortado(s). Pressione Ctrl+V na pasta de destino", "{n} copiado(s). Pressione Ctrl+V na pasta onde colar", "Desfazer", "Desfeito", "Nada para desfazer", "Não foi possível desfazer: {msg}", "Propriedades", "Tipo", "Local", "Tamanho", "Contém", "Modificado", "arquivo", "Pasta", "{n} itens", "{files} arquivos, {dirs} pastas", "{size} ({bytes} bytes)", "Contando",
     "Observação", "Itens demais: só os primeiros 100.000 foram contados",
+    "Árvore de pastas", "Detalhes", "Expandir pasta", "Recolher pasta", "Jogo base", "Atualização", "DLC", "Desatualizada", "Danificado", "Modificado", "ID do título", "Versão", "Verificação", "Calcular tamanho", "Escolha um item para ver os detalhes aqui", "{n} arquivos · {size}", "Copiando · {done} de {total} ({p}%)", "{shown} exibidos",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -159,6 +170,7 @@ const ROWS = {
     "Map uploaden", "Uploads", "Uploaden van {name} stoppen", "Alles stoppen", "Sluiten", "{n} uploads klaar", "Wacht", "Geüpload", "Overgeslagen, de naam bestaat al", "Gestopt", "Downloaden als zip", "De zip wordt voorbereid. De download begint zo", "Voorbeeld", "Laden", "Afbeelding te groot voor een voorbeeld. Download om te bekijken", "Geen voorbeeld mogelijk: {msg}", "De eerste {size} worden getoond. Download het bestand voor alles", "Vorig bestand", "Volgend bestand",
     "Terug", "Vooruit", "Inclusief submappen", "Te veel items: alleen de eerste 100.000 zijn doorzocht", "Lijstweergave", "Pictogramweergave", "Knippen", "Kopiëren", "Plakken", "Bezig met kopiëren", "{n} gekopieerd", "{n} gekopieerd. {s} konden niet worden gekopieerd", "{n} geknipt. Druk op Ctrl+V in de doelmap", "{n} gekopieerd. Druk op Ctrl+V in de map om te plakken", "Ongedaan maken", "Ongedaan gemaakt", "Niets om ongedaan te maken", "Ongedaan maken lukte niet: {msg}", "Eigenschappen", "Type", "Locatie", "Grootte", "Bevat", "Gewijzigd", "bestand", "Map", "{n} items", "{files} bestanden, {dirs} mappen", "{size} ({bytes} bytes)", "Bezig met tellen",
     "Let op", "Te veel items: alleen de eerste 100.000 zijn geteld",
+    "Mappenboom", "Details", "Map uitklappen", "Map inklappen", "Basisspel", "Update", "DLC", "Verouderd", "Beschadigd", "Gewijzigd", "Titel-ID", "Versie", "Controle", "Grootte berekenen", "Kies een item om hier de details te zien", "{n} bestanden · {size}", "Kopiëren · {done} van {total} ({p}%)", "{shown} getoond",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -172,6 +184,7 @@ const ROWS = {
     "Загрузить папку", "Загрузки", "Остановить загрузку {name}", "Остановить все", "Закрыть", "Загрузок завершено: {n}", "Ожидает", "Загружено", "Пропущено: имя уже занято", "Остановлено", "Скачать как zip", "Готовим zip. Скачивание скоро начнётся", "Просмотр", "Загрузка", "Изображение слишком большое для просмотра. Скачайте его", "Не удалось показать: {msg}", "Показаны первые {size}. Скачайте файл, чтобы увидеть целиком", "Предыдущий файл", "Следующий файл",
     "Назад", "Вперёд", "Включая подпапки", "Слишком много элементов: просмотрены только первые 100 000", "Список", "Значки", "Вырезать", "Копировать", "Вставить", "Копирование", "Скопировано: {n}", "Скопировано: {n}. Не удалось скопировать: {s}", "Вырезано: {n}. Нажмите Ctrl+V в папке назначения", "Скопировано: {n}. Нажмите Ctrl+V в папке, куда вставить", "Отменить", "Отменено", "Нечего отменять", "Не удалось отменить: {msg}", "Свойства", "Тип", "Расположение", "Размер", "Содержит", "Изменён", "файл", "Папка", "Элементов: {n}", "Файлов: {files}, папок: {dirs}", "{size} ({bytes} байт)", "Подсчёт",
     "Примечание", "Слишком много элементов: подсчитаны только первые 100 000",
+    "Дерево папок", "Сведения", "Развернуть папку", "Свернуть папку", "Основная игра", "Обновление", "DLC", "Устарело", "Повреждён", "Изменён", "ID игры", "Версия", "Проверка", "Посчитать размер", "Выберите элемент, чтобы увидеть здесь сведения", "Файлов: {n} · {size}", "Копирование · {done} из {total} ({p}%)", "Показано: {shown}",
   ],
 };
 

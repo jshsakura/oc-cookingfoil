@@ -403,3 +403,60 @@ test('another folder shows placeholder rows while it loads, and a title id folde
   const game = page.locator('#fb-rows tr', { has: page.getByRole('button', { name: 'Alpha Quest' }) });
   await expect(game).toContainText('0100AAAA00000000');
 });
+
+test('on a wide screen the folder tree and the details pane open beside the list', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  const tree = page.locator('#fb-tree');
+  await expect(tree.locator('[aria-current="page"]')).toContainText('fb-test');
+  await expect(tree.getByRole('button', { name: 'Beta', exact: true })).toBeVisible();
+  await tree.getByRole('button', { name: 'Beta', exact: true }).click();
+  await expect(row(page, 'keep.txt')).toBeVisible();
+  await expect(tree.locator('[aria-current="page"]')).toContainText('Beta');
+  await page.goBack();
+  const side = page.locator('#fb-side');
+  await expect(side).toContainText('항목을 고르면');
+  await row(page, 'loose.nsp').locator('.fb-name').click();
+  await expect(side.getByRole('heading', { name: 'loose.nsp' })).toBeVisible();
+  await expect(side).toContainText('3 B');
+  await row(page, 'Alpha').locator('.c-size').click();
+  await side.getByRole('button', { name: '크기 계산' }).click();
+  await expect(side).toContainText('파일 2개');
+  await page.locator('#fb-t-side').click();
+  await expect(side).toBeHidden();
+  await page.reload();
+  await expect(page.locator('#fb-side')).toBeHidden();
+  await expect(page.locator('#fb-tree')).toBeVisible();
+});
+
+test('a long folder keeps loading as it scrolls instead of paging', async ({ page }) => {
+  for (let i = 0; i < 150; i++) put(`Many/f${String(i).padStart(3, '0')}.nsp`);
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test%2FMany');
+  await expect(page.locator('#fb-rows tr')).toHaveCount(100);
+  await expect(page.locator('#fb-info')).toContainText('100개 표시');
+  await page.locator('#fb-more').scrollIntoViewIfNeeded();
+  await expect(page.locator('#fb-rows tr')).toHaveCount(150);
+  await expect(page.locator('#fb-info')).not.toContainText('표시');
+});
+
+test("a game file shows its game's icon, kind, version and what its check found", async ({ page }) => {
+  await signIn(page);
+  expect((await page.request.get('/api/library/icon/0100000000010000?size=sm')).status()).not.toBe(401);
+  await page.route('**/admin/api/files/list?*', (r) => {
+    if (!r.request().url().includes('Gamey')) return r.continue();
+    return r.fulfill({ json: { root: 'games', path: 'fb-test/Gamey', parent: 'fb-test', total: 1, page: 1, perPage: 100, pages: 1, deep: false, cut: false,
+      counts: { dirs: 0, files: 1 },
+      items: [{ name: 'Gamey [0100AAAA00000800][v65536].nsp', rel: 'fb-test/Gamey/Gamey [0100AAAA00000800][v65536].nsp', type: 'file', size: 10, mtime: Date.now(), ext: 'nsp',
+        titleId: '0100AAAA00000000', kind: 'update', version: 65536, latest: false, check: 'damaged' }] } });
+  });
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+  await page.route('**/api/library/icon/**', (r) => r.fulfill({ contentType: 'image/png', body: png }));
+  await page.goto('/admin/games?tab=folder&path=fb-test%2FGamey');
+  const r = page.locator('#fb-rows tr').first();
+  await expect(r.locator('img.fb-gicon')).toHaveAttribute('src', /\/api\/library\/icon\/0100AAAA00000000\?size=sm/);
+  await expect(r).toContainText('업데이트 v65536');
+  await expect(r).toContainText('구버전');
+  await expect(r).toContainText('손상');
+});
