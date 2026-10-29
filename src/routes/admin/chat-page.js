@@ -157,8 +157,9 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-card-ask{background:var(--sunk);border-radius:var(--r-xl);padding:10px 12px;margin:8px 0;display:grid;gap:8px}
 .ch-card-ask pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--fs-sm)}
 .ch-card{display:flex;align-items:flex-end;gap:8px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-2xl);padding:8px}
-.ch-clip{flex:none;width:36px;height:36px;padding:0;display:grid;place-items:center;border:0;background:transparent}
-.ch-clip .ico{width:18px;height:18px}
+.ch-clip{flex:none;width:36px;height:36px;padding:0;display:grid;place-items:center;line-height:0;border:0;border-radius:50%;background:transparent;color:var(--muted)}
+.ch-clip:hover{background:var(--panel);color:var(--text)}
+.ch-clip .ico,.ch-go .ico{display:block;width:18px;height:18px}
 .ch-files{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .ch-file{display:inline-flex;align-items:center;gap:6px;max-width:100%;background:var(--sunk);border-radius:var(--r-pill);padding:4px 6px 4px 12px;font-size:var(--fs-sm)}
 .ch-file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
@@ -170,8 +171,9 @@ body:has(#tab-chat) .toast{bottom:calc(var(--ch-dock,0px) + 28px)}
 .ch-drop{outline:2px dashed var(--accent);outline-offset:-6px}
 .ch-card:focus-within{box-shadow:0 0 0 3px rgba(var(--accent-rgb),.45)}
 .ch-card textarea{flex:1;min-width:0;box-sizing:border-box;border:0;outline:0;resize:none;background:transparent;color:var(--text);font:inherit;font-size:var(--fs-md);line-height:22px;padding:7px 0;max-height:none;overflow-y:hidden}
-.ch-go{flex:none;display:grid;place-items:center;width:36px;height:36px;padding:0;border-radius:50%;border:0}
-.ch-go .ico{width:18px;height:18px}
+.ch-go{flex:none;display:grid;place-items:center;line-height:0;width:36px;height:36px;padding:0;border-radius:50%;border:0}
+/* The paper plane's weight sits up and to the right; a pixel back puts it in the middle of the circle. */
+.ch-go .ico{transform:translate(-1px,1px)}
 .ch-go:disabled{opacity:.45;cursor:default}
 .ch-sheet{max-height:min(88dvh,760px);overflow:auto}
 .ch-sheet-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:calc(-1 * var(--dlg-pad,24px));z-index:1;background:var(--panel);margin:calc(-1 * var(--dlg-pad,24px)) calc(-1 * var(--dlg-pad,24px)) 6px;padding:var(--dlg-pad,24px) var(--dlg-pad,24px) 8px}
