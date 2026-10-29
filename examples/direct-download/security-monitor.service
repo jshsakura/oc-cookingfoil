@@ -1,0 +1,8 @@
+[Unit]
+Description=CookingFoil download firewall decisions and user notifications
+After=crowdsec.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/cookingfoil/security-monitor.py /etc/crowdsec/cookingfoil-monitor.json
+TimeoutStartSec=120

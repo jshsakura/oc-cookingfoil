@@ -10,7 +10,7 @@ import http from "node:http";
 const data = fs.mkdtempSync(path.join(os.tmpdir(), "cook-access-"));
 process.env.COOK_DATA_DIR = data;
 const express = (await import("express")).default;
-const { createAccessLog, accessLog, shouldLog } = await import("../../src/helpers/access-log.js");
+const { createAccessLog, accessLog, shouldLog, entryOf } = await import("../../src/helpers/access-log.js");
 
 const DEVICE = "AB12CD34" + "0".repeat(55) + "1";
 const tick = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -22,6 +22,20 @@ after(() => {
 
 const logFile = () => path.join(fs.mkdtempSync(path.join(data, "case-")), "access-log.jsonl");
 const lines = (file) => fs.readFileSync(file, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+
+test("edge correlation records the proven direct requester, never an unverified device header", () => {
+  const req = { method: "GET", originalUrl: "/file.nsp?secret=hidden", headers: { "x-device-key": DEVICE }, socket: { remoteAddress: "127.0.0.1" } };
+  const res = { headersSent: true, statusCode: 206, writableFinished: true };
+  const unknown = entryOf(req, res, 1);
+  assert.equal(unknown.dev, null);
+  assert.equal(unknown.client, undefined);
+  const proven = entryOf({ ...req, cookingfoilLane: "direct", directSub: { dev: DEVICE }, directClient: "198.51.100.9" }, res, 1);
+  assert.equal(proven.client, "198.51.100.9");
+  assert.equal(proven.who.id, "ab12cd34");
+  assert.equal(proven.who.kind, "device");
+  assert.ok(!JSON.stringify(proven).includes(DEVICE));
+  assert.ok(!JSON.stringify(proven).includes("hidden"));
+});
 
 async function harness(log, { slowMs } = {}) {
   const app = express();

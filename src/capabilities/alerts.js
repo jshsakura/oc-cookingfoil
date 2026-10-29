@@ -23,7 +23,7 @@ export const alertsCapabilities = [
     id: "alerts_get",
     area: "admin",
     title: "Read the alert settings",
-    description: "The Telegram alert settings: whether the bot is configured (its token is never shown), the chat, the events and who may approve from an alert, and recent alerts.",
+    description: "Telegram settings, approvers and recent alerts, including download firewall events. The admin history identifies affected users and consoles, the reason and expiry even without Telegram.",
     input: { type: "object", properties: {} },
     output: obj({
       configured: bool(), tokenSet: bool("a bot token is stored"), chatId: nullable(str()), buttons: bool("approve from the alert"), lang: nullable(str()),

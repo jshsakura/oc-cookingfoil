@@ -1,0 +1,6 @@
+{
+  "data_dir": "/srv/cookingfoil/data",
+  "download_host": "dl.example.org:8443",
+  "telegram_env": "/srv/cookingfoil/.env",
+  "lang": "en"
+}

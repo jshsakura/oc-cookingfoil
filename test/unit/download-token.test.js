@@ -464,9 +464,11 @@ test("a client that keeps sending invalid tokens is blocked by its own address",
   assert.equal((await get(port, `/${ENC}`, from("198.51.100.77", good))).status, 200, "expired and stale tokens don't count");
   // Spoofed entries on the left change nothing: the proxy's own entry is the client.
   for (let i = 0; i < 3; i++) await get(port, `/${ENC}`, from(`10.0.0.${i}, 198.51.100.77`, "forged.token"));
-  const blocked = await get(port, `/${ENC}`, from("198.51.100.77", good));
+  const blocked = await get(port, `/${ENC}`, from("198.51.100.77", "forged.token"));
   assert.equal(blocked.status, 403);
   assert.equal(tokenState(blocked), "blocked");
+  assert.equal((await get(port, `/${ENC}`, from("198.51.100.77", good))).status, 200, "a proven requester on the same address is still authorized");
+  assert.equal(tokenState(await get(port, `/${ENC}`, from("198.51.100.77", old))), "expired", "a signed expired token can refresh even on a blocked address");
   assert.equal((await get(port, `/${ENC}`, from("198.51.100.78", good))).status, 200, "other clients are not");
 });
 
@@ -479,9 +481,10 @@ test("tokens of our shape with a failing MAC are told to refresh, but a run of t
   for (let i = 0; i < 3; i++) assert.equal(tokenState(await get(port, `/${ENC}`, from("198.51.100.80", forged))), "expired");
   assert.equal((await get(port, `/${ENC}`, from("198.51.100.80", good))).status, 200, "a few stale tokens are a replaced key, not a guesser");
   await get(port, `/${ENC}`, from("198.51.100.80", forged));
-  const blocked = await get(port, `/${ENC}`, from("198.51.100.80", good));
+  const blocked = await get(port, `/${ENC}`, from("198.51.100.80", forged));
   assert.equal(blocked.status, 403);
   assert.equal(tokenState(blocked), "blocked");
+  assert.equal((await get(port, `/${ENC}`, from("198.51.100.80", good))).status, 200, "the valid login is checked before the IP guard");
   assert.equal((await get(port, `/${ENC}`, from("198.51.100.81", good))).status, 200, "other clients are not");
 });
 
