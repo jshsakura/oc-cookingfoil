@@ -80,6 +80,7 @@ const SS_GROUPS=[
     ['ratingSync','bool',()=>topText('ss.f.ratingSync'),()=>topText('ss.f.ratingSyncD')],
     ['fillMissingArt','bool',()=>topText('ss.f.fillMissingArt'),()=>topText('ss.f.fillMissingArtD')],
     ['retroMeta','bool',()=>topText('ss.f.retroMeta'),()=>topText('ss.f.retroMetaD')],
+    ['retroDb','bool',()=>topText('ss.f.retroDb'),()=>topText('ss.f.retroDbD')],
     ['retroAutoCores','bool',()=>topText('ss.autoCores'),()=>topText('ss.autoCoresD')],
     ['retroAutoArt','bool',()=>topText('ss.autoArt'),()=>topText('ss.autoArtD')],
     ['retroPackUrl','text',()=>topText('ss.f.retroPackUrl'),()=>topText('ss.f.retroPackUrlD'),'https://...'],
