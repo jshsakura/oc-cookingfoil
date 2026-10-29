@@ -41,6 +41,23 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-job[hidden]{display:none}
 #fb .fb-job progress{width:160px}
 @media (max-width:899px){#fb.tree-on .fb-tree,#fb.side-on .fb-side{display:none}}
+/* From tablet width up the browser is one window, as on a desktop: the toolbar on top, the tree, the list and the
+   details side by side, each scrolling on its own, and the status bar at the bottom, the whole filling the screen. */
+@media (min-width:900px){
+  .adm-shell>.wrap:has(#fb){max-width:none}
+  #fb{gap:0;height:calc(100dvh - var(--fb-top,220px) - 24px);min-height:440px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);overflow:hidden}
+  #fb .fb-bar{padding:10px 12px;border-bottom:1px solid var(--line)}
+  #fb .fb-body{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+  #fb .fb-tree,#fb .fb-side,#fb .fb-main{position:static;max-height:none;min-height:0;overflow:auto;border:0;border-radius:0;margin:0}
+  #fb.tree-on .fb-tree{margin:0;border-right:1px solid var(--line);background:var(--sunk)}
+  #fb.side-on .fb-side{margin:0;border-left:1px solid var(--line)}
+  #fb .fb-main{position:relative}
+  #fb .fb-wrap{border:0;border-radius:0;background:none;overflow:visible}
+  #fb .fb-wrap>table{border:0;border-radius:0;margin:0;box-shadow:none;background:none}
+  #fb thead th{top:0}
+  #fb .fb-note{padding:6px 14px;border-top:1px solid var(--line)}
+  #fb .fb-foot{position:static;min-height:60px;box-sizing:border-box;margin:0;border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none;backdrop-filter:none;background:var(--panel)}
+}
 `;
 
 export const LIBRARY_SCRIPT = /* js */ `
@@ -137,7 +154,12 @@ async function fbMore(){const d=fb.data;if(!d||fb.moreBusy||d.page>=d.pages)retu
   finally{fb.moreBusy=false;}
   if(ok&&fbMoreSeen)fbMore();}
 let fbMoreSeen=false;
-new IntersectionObserver((es)=>{fbMoreSeen=es.some((e)=>e.isIntersecting);if(fbMoreSeen)fbMore();},{rootMargin:'600px 0px'}).observe($('fb-more'));
+// The list scrolls inside the window on a wide screen and with the page on a narrow one.
+const fbWindow=matchMedia('(min-width:900px)');
+new IntersectionObserver((es)=>{fbMoreSeen=es.some((e)=>e.isIntersecting);if(fbMoreSeen)fbMore();},{root:fbWindow.matches?$('fb-main'):null,rootMargin:'600px 0px'}).observe($('fb-more'));
+// The window ends at the bottom of the screen: its height is the screen less where it starts on the page.
+function fbFit(){const f=$('fb');if(!f.isConnected)return;f.style.setProperty('--fb-top',Math.round(f.getBoundingClientRect().top+window.scrollY)+'px');}
+window.addEventListener('resize',fbFit);new ResizeObserver(fbFit).observe(document.body);fbFit();
 
 // ── a copy's progress ───────────────────────────────────────────────
 const FB_JOB_MS=700;

@@ -166,7 +166,7 @@ export const FOLDER_HTML = `<div id="fb">
   </div>
   <div class="fb-body">
   <nav class="fb-tree" id="fb-tree" ${topLabel("fb.tree")}></nav>
-  <div class="fb-main">
+  <div class="fb-main" id="fb-main">
   <div class="fb-wrap"><table>
     <thead><tr>
       <th class="c-sel"><input type="checkbox" id="fb-all" ${topLabel("fb.selectAll")}></th>
@@ -509,7 +509,7 @@ function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const one=rels.
     b.addEventListener('click',()=>{fbMenuClose(false);it.fn();});return b;}));
   if(rels.length>1)m.prepend(el('p',topFill('fb.selected',{n:num(rels.length)}),'muted fb-m-head'));
   // clientWidth and clientHeight leave out the scrollbars, which innerWidth and innerHeight would let the menu sit under.
-  m.hidden=false;const r=m.getBoundingClientRect();const vw=document.documentElement.clientWidth,vh=document.documentElement.clientHeight;
+  m.hidden=false;m._at=performance.now();const r=m.getBoundingClientRect();const vw=document.documentElement.clientWidth,vh=document.documentElement.clientHeight;
   m.style.left=Math.max(8,Math.min(x,vw-r.width-8))+'px';m.style.top=Math.max(8,Math.min(y,vh-r.height-8))+'px';
   m.querySelector('button')?.focus({preventScroll:true});m._back=back;}
 function fbMenuClose(refocus=true){const m=$('fb-menu');if(m.hidden)return;m.hidden=true;if(refocus&&m._back?.isConnected)m._back.focus({preventScroll:true});m._back=null;}
@@ -518,7 +518,9 @@ $('fb-menu').addEventListener('keydown',(e)=>{const bs=[...$('fb-menu').querySel
   else if(e.key==='Home'||e.key==='End'){e.preventDefault();bs[e.key==='Home'?0:bs.length-1]?.focus({preventScroll:true});}
   else if(e.key==='Escape'||e.key==='Tab'){e.preventDefault();fbMenuClose();}});
 document.addEventListener('pointerdown',(e)=>{if(!e.target.closest('#fb-menu'))fbMenuClose(false);},true);
-addEventListener('scroll',(e)=>{if(!e.target.closest?.('#fb-menu'))fbMenuClose(false);},true);addEventListener('resize',()=>fbMenuClose(false));
+// A scroll closes the menu, but not the one the opening itself sets off (the bar changing height as the pick clears).
+const FB_MENU_SETTLE_MS=250;
+addEventListener('scroll',(e)=>{if(e.target.closest?.('#fb-menu')||performance.now()-($('fb-menu')._at||0)<FB_MENU_SETTLE_MS)return;fbMenuClose(false);},true);addEventListener('resize',()=>fbMenuClose(false));
 document.querySelector('#fb .fb-wrap').addEventListener('contextmenu',(e)=>{if(e.target.closest('#fb-rows tr,#fb-menu'))return;
   e.preventDefault();fb.sel.clear();fb.anchor=null;fbPaint();fbMenu(e.clientX,e.clientY);});
 // The page's own folder is the only root here; the roots list is for the move dialog's picker.

@@ -136,7 +136,7 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await row(page, 'Beta').locator('td.c-mtime').click({ button: 'right' });
   await expect(menu).toContainText('2개를 골랐습니다');
   await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '잘라내기', '복사', '이동', '휴지통으로', '속성']);
-  await page.mouse.click(5, 5);
+  await page.locator('#fb .fb-note').click();
   await expect(menu).toBeHidden();
 
   await page.locator('#fb-empty').evaluate((e) => { e.hidden = false; });
@@ -145,19 +145,23 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await expect(page.locator('#fb-info')).toHaveText('폴더 2개 · 파일 1개');
 });
 
-test('the header row stays in view while the list scrolls, and the bar sits at the bottom', async ({ page }) => {
+test('on a desktop the browser is one window to the bottom of the screen, and only the list scrolls in it', async ({ page }) => {
   for (let i = 0; i < 60; i++) put(`Many/file-${String(i).padStart(2, '0')}.nsp`);
   await page.setViewportSize({ width: 1280, height: 720 });
   await signIn(page);
   await page.goto('/admin/games?tab=folder&path=fb-test%2FMany');
-  await expect(row(page, 'file-59.nsp')).toBeVisible();
+  await expect(row(page, 'file-00.nsp')).toBeVisible();
+  const before = await page.locator('#fb thead th.c-name').boundingBox();
+  await row(page, 'file-05.nsp').hover();
   await page.mouse.wheel(0, 1500);
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('#fb-main').evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => scrollY)).toBe(0);
   const head = await page.locator('#fb thead th.c-name').boundingBox();
+  expect(Math.abs(head!.y - before!.y)).toBeLessThanOrEqual(2);
+  const win = await page.locator('#fb').boundingBox();
   const bar = await page.locator('#fb-foot').boundingBox();
-  expect(head!.y).toBeGreaterThanOrEqual(60);
-  expect(head!.y).toBeLessThan(80);
-  expect(Math.round(bar!.y + bar!.height)).toBe(720);
+  expect(Math.abs(win!.y + win!.height - (720 - 24))).toBeLessThanOrEqual(2);
+  expect(bar!.y + bar!.height).toBeLessThanOrEqual(win!.y + win!.height);
   if (process.env.FB_SHOTS) await page.screenshot({ path: path.join(process.env.FB_SHOTS, 'files-desktop.png') });
 });
 
