@@ -12,6 +12,21 @@ export const LANGS = ["ko", "en", "ja", "zh"];
 export const DEFAULT_LANG = "ko";
 
 const M = {
+  "edge.blocked": { ko: "다운로드 자동 차단", en: "Download automatically blocked", ja: "ダウンロードの自動遮断", zh: "下载已自动阻止" },
+  "edge.released": { ko: "다운로드 차단 해제", en: "Download block removed", ja: "ダウンロードの遮断解除", zh: "下载阻止已解除" },
+  "edge.expired": { ko: "다운로드 차단 만료", en: "Download block expired", ja: "ダウンロードの遮断期限終了", zh: "下载阻止已到期" },
+  "edge.detected": { ko: "다운로드 보안 탐지", en: "Download security detection", ja: "ダウンロードのセキュリティ検知", zh: "下载安全检测" },
+  edgeUnknown: { ko: "사용자를 확인하지 못했습니다", en: "User could not be identified", ja: "利用者を特定できませんでした", zh: "无法识别用户" },
+  edgeAddressCandidate: { ko: "같은 주소의 최근 사용자이며 요청자는 확인되지 않았습니다", en: "recent user of this address; requester unconfirmed", ja: "同じアドレスの最近の利用者です。リクエスト元は未確認です", zh: "此地址的近期用户，尚未确认请求者" },
+  edgeNoExpiry: { ko: "활성 차단이 없습니다", en: "No active block", ja: "有効な遮断はありません", zh: "没有生效的阻止" },
+  edgeInvalidTokens: { ko: "올바르지 않은 다운로드 토큰을 반복해서 보냈습니다", en: "Repeated invalid download tokens", ja: "無効なダウンロードトークンを繰り返し送信しました", zh: "重复发送无效的下载令牌" },
+  edgeStaleTokens: { ko: "서명을 확인할 수 없는 다운로드 토큰을 반복해서 보냈습니다", en: "Repeated download tokens whose signatures could not be verified", ja: "署名を確認できないダウンロードトークンを繰り返し送信しました", zh: "重复发送无法验证签名的下载令牌" },
+  edgeSummary: {
+    ko: ({ action, who, reason, until, count }) => `${action}: ${who}\n사유: ${reason}\n관련 요청: ${count}건\n차단 종료: ${until}`,
+    en: ({ action, who, reason, until, count }) => `${action}: ${who}\nReason: ${reason}\nRelated requests: ${count}\nBlock ends: ${until}`,
+    ja: ({ action, who, reason, until, count }) => `${action}: ${who}\n理由: ${reason}\n関連リクエスト: ${count}件\n遮断終了: ${until}`,
+    zh: ({ action, who, reason, until, count }) => `${action}：${who}\n原因：${reason}\n相关请求：${count}次\n阻止结束：${until}`,
+  },
   // Titles, after the event's emoji (alerts.js EVENT_ICON)
   "event.device": { ko: "기기 승인 요청", en: "Console approval request", ja: "本体の承認リクエスト", zh: "主机批准请求" },
   "event.account": { ko: "구글 계정 승인 요청", en: "Google account approval request", ja: "Google アカウントの承認リクエスト", zh: "Google 账号批准请求" },

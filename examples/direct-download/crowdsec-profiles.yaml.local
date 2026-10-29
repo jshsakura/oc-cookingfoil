@@ -1,0 +1,20 @@
+# Install as /etc/crowdsec/profiles.yaml.local after changing the host.
+# The monitor reports new blocks, releases and expirations to Telegram and
+# publishes the affected users to the existing admin alert history. Enable
+# its timer before enabling these profiles. Other services keep their policy.
+name: cookingfoil_download_block_with_notice
+filters:
+  - >-
+    Alert.Remediation == true && Alert.GetScope() == 'Ip' &&
+    any(Alert.Events, { any(.Meta, { .Key == 'target_fqdn' && .Value == 'dl.example.org:8443' }) })
+decisions:
+  - type: ban
+    duration: 10m
+on_success: break
+on_error: break
+---
+name: cookingfoil_download_detection_with_notice
+filters:
+  - any(Alert.Events, { any(.Meta, { .Key == 'target_fqdn' && .Value == 'dl.example.org:8443' }) })
+on_success: break
+on_error: break

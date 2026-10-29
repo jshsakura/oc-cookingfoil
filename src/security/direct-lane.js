@@ -61,6 +61,8 @@ import { trackTransfers } from "../helpers/transfer-track.js";
 import * as env from "../helpers/envs.js";
 import debug from "../debug.js";
 import path from "node:path";
+import * as store from "./store.js";
+import { alert } from "../helpers/alerts.js";
 
 export const TOKEN_STATE_HEADER = "X-CookingFoil-Token";
 export const EDGE_HEADER = "X-CookingFoil-Edge";
@@ -196,7 +198,18 @@ export const STALE_BAN_LIMIT = 50;
 function newBan({ limit, what = "invalid" } = {}) {
   return createBan({
     ...(limit ? { limit } : {}),
-    onBan: (ip, count) => debug.error("direct lane: %s sent %d %s tokens within %d minutes; blocked for %d minutes", ip, count, what, BAD_WINDOW_MS / 60000, BAN_MS / 60000),
+    onBan: (ip, count) => {
+      debug.error("direct lane: %s sent %d %s tokens within %d minutes; blocked for %d minutes", ip, count, what, BAD_WINDOW_MS / 60000, BAN_MS / 60000);
+      const now = Date.now();
+      const candidates = store.devicesSnapshot().approved.filter((d) => d.lastIp === ip && now - d.lastSeenAt < 86400_000);
+      alert("security", (t) => {
+        const who = candidates.slice(0, 10).map((d) => {
+          const owner = deviceOwner(d.deviceKey)?.owner?.displayName;
+          return `${[owner, d.label, d.deviceKey.slice(0, 8).toLowerCase()].filter(Boolean).join(" / ")} (${t("edgeAddressCandidate")})`;
+        }).join(", ") || t("edgeUnknown");
+        return t("edgeSummary", { action: t("edge.blocked"), who, reason: t(what === "stale" ? "edgeStaleTokens" : "edgeInvalidTokens"), until: new Date(now + BAN_MS).toISOString(), count });
+      }, { subject: `download-ban:${ip}:${now}`, now });
+    },
   });
 }
 
@@ -226,9 +239,11 @@ export default function directLane(root, { routes = {}, ban = newBan(), staleBan
     if (!isDownload(req)) return res.set("Cache-Control", "no-store").status(404).end();
 
     res.set("Cache-Control", "private, no-store");
-    if (ban.isBanned(ip) || staleBan.isBanned(ip)) return refuse(res, 403, "blocked");
-
     const token = tokens.verify(bearerToken(req.get("authorization")));
+    // An address can belong to several consoles. A proven token still goes
+    // through account/revocation checks below, even if another sender at that
+    // address triggered the guessing guard. Expired signed tokens can refresh.
+    if (token.verdict !== "ok" && token.verdict !== "expired" && (ban.isBanned(ip) || staleBan.isBanned(ip))) return refuse(res, 403, "blocked");
     if (token.verdict === "invalid") {
       ban.recordBad(ip);
       return refuse(res, 401, "invalid");

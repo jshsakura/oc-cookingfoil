@@ -1,0 +1,13 @@
+# Install in /etc/crowdsec/parsers/s02-enrich/ after changing the host.
+# The status and token verdict come from the server response, never client
+# headers. Successful direct responses have already passed token validation.
+name: local/cookingfoil-authenticated-downloads
+description: Exclude authenticated downloads and known login lifecycle responses from scanner detection
+filter: evt.Meta.log_type == 'http_access-log' && evt.Meta.target_fqdn == 'dl.example.org:8443'
+whitelist:
+  reason: Verified download or known login lifecycle
+  expression:
+    - >-
+      evt.Meta.http_status in ['200', '206', '304'] ||
+      (get(evt.Unmarshaled.caddy.resp_headers, 'X-Cookingfoil-Token') != nil &&
+      any(get(evt.Unmarshaled.caddy.resp_headers, 'X-Cookingfoil-Token'), { # in ['expired', 'revoked', 'suspended'] }))

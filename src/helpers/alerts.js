@@ -34,6 +34,7 @@ import { dataDir, publicBaseUrl } from "./envs.js";
 import * as integrations from "../security/integrations.js";
 import * as approvalTokens from "../security/approval-tokens.js";
 import { DEFAULT_LANG, render, translator } from "./alert-messages.js";
+import { downloadSecurityHistory } from "./download-security-history.js";
 
 /** What can be told, with what the admin page says about each; `on` is the default. */
 export const EVENTS = {
@@ -94,7 +95,7 @@ function remember(entry) {
  * The newest alerts first: [{ at, event, text, status: sent|failed|held|off, detail? }].
  * By when each happened: a sent one is written down only once Telegram answers.
  */
-export const recent = () => (history ??= readHistory())
+export const recent = () => [...(history ??= readHistory()), ...downloadSecurityHistory(alertLang())]
   .map((e, i) => [e, i])
   .sort((a, b) => b[0].at - a[0].at || b[1] - a[1])
   .map(([e]) => e);
@@ -242,9 +243,8 @@ function burstAllows(event, now) {
  */
 export function alert(event, message, { subject = "", now = Date.now(), digest = null, approval = null, burst = false } = {}) {
   if (!(event in EVENTS)) return false;
-  if (!integrations.configured("telegram")) return false;
   const text = render(message, alertLang());
-  if (!wanted(event)) {
+  if (!integrations.configured("telegram") || !wanted(event)) {
     remember({ at: now, event, text, status: "off" });
     return false;
   }

@@ -46,6 +46,9 @@ export function entryOf(req, res, ms, now = Date.now()) {
     t: new Date(now).toISOString(),
     route,
     dev: who.kind === "device" ? who.id : null,
+    // Only the authenticated direct lane sets this address. It lets the operator
+    // join an edge firewall decision to the proven requester, including shared IPs.
+    ...(req.cookingfoilLane === "direct" && req.directClient ? { client: req.directClient, who: { kind: who.kind, id: who.id, label: who.label } } : {}),
     m: req.method,
     path: pathOf(req),
     status: res.headersSent ? res.statusCode : 0,

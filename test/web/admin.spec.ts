@@ -551,7 +551,8 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   await expect(page.locator('#al-events .al-event', { hasText: '보안 감시' }).locator('input')).toBeChecked();
   await expect(page.locator('#al-events .al-event', { hasText: '서버 시작' }).locator('input')).toBeChecked();
   await expect(page.locator('#al-events .al-event', { hasText: '손상 파일' }).locator('input')).toBeChecked();
-  await expect(page.locator('#al-history')).toContainText('아직 알림이 없습니다');
+  // History is kept before Telegram is set up: what happened shows as not sent.
+  await expect(page.locator('#al-history')).toContainText('꺼 둔 알림');
 
   // Only the chat and the events: still off without a token, and the choice is kept.
   await page.locator('#al-form [name="chatId"]').fill('915733248');

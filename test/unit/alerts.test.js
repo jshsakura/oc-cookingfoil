@@ -28,6 +28,8 @@ test("nothing is sent until a bot token and chat are saved", () => {
   const sent = capture();
   assert.equal(alerts.alert("device", "x", { subject: "k1" }), false);
   assert.equal(sent.length, 0);
+  assert.equal(alerts.recent()[0].text, "x", "the dashboard keeps alerts even without Telegram");
+  assert.equal(alerts.recent()[0].status, "off");
 });
 
 test("an alert goes to the saved chat once per subject per half hour", async () => {
