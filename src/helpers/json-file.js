@@ -1,6 +1,7 @@
 /**
- * A small JSON file the server keeps in memory but does not own: the file is the truth. Every read
+ * A small JSON file the server keeps in memory but does not own: the file is the truth. A read
  * checks the file's stamp (one stat), so an edit by hand or by another tool shows with no restart.
+ * Reads in one synchronous run share that check: a list that reads once per game stats once.
  * The server's own write remembers its stamp, so it is not read back. A file that does not parse
  * (an editor halfway through a save), is not an object, or cannot be read keeps the last good values.
  */
@@ -14,8 +15,12 @@ const stampOf = (st) => `${st.mtimeMs}:${st.ctimeMs}:${st.size}:${st.ino}`;
 export function jsonFile(file, { label = path.basename(file), indent = 1 } = {}) {
   let value = null;
   let stamp = null;
+  let checked = false;
 
   function read() {
+    if (checked) return value;
+    checked = true;
+    queueMicrotask(() => { checked = false; });
     let st;
     try {
       st = fs.statSync(file);
@@ -48,7 +53,7 @@ export function jsonFile(file, { label = path.basename(file), indent = 1 } = {})
 
   /** Drops what is held, for tests. */
   function forget() {
-    [value, stamp] = [null, null];
+    [value, stamp, checked] = [null, null, false];
   }
 
   return { read, write, forget };
