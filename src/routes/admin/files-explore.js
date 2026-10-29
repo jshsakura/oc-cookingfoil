@@ -27,19 +27,20 @@ export const EXPLORE_CSS = /* css */ `
 /* The icon view: the same rows laid out as tiles, the name under a large icon or the image itself. */
 #fb.grid thead{display:none}
 #fb.grid table{display:block}
-#fb.grid tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px;padding:8px}
-#fb.grid tbody tr{display:flex;flex-direction:column;position:relative;border-radius:var(--r-lg);padding:10px 6px 8px}
+#fb.grid tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px;padding:10px}
+#fb.grid tbody tr{display:flex;flex-direction:column;position:relative;border-radius:var(--r-lg);padding:12px 8px 10px}
 #fb.grid tbody tr:hover{background:var(--sunk)}
 #fb.grid tbody tr[aria-selected="true"]{background:rgba(var(--accent-rgb),.14)}
 #fb.grid td{display:block;height:auto;border:0;padding:0;background:none!important;overflow:visible;white-space:normal}
 #fb.grid td.c-size,#fb.grid td.c-mtime,#fb.grid td.c-act{display:none}
 #fb.grid td.c-sel{position:absolute;top:6px;left:6px;width:auto;opacity:0;z-index:1}
 #fb.grid tr:hover td.c-sel,#fb.grid tr[aria-selected="true"] td.c-sel{opacity:1}
-#fb.grid .fb-name{flex-direction:column;gap:6px;text-align:center}
-#fb.grid .fb-name>.ico{width:56px;height:56px}
-#fb.grid .fb-thumb{width:100%;height:96px;object-fit:contain;background:var(--sunk);border-radius:var(--r-md)}
+#fb.grid .fb-name{flex-direction:column;gap:8px;text-align:center}
+#fb.grid .fb-name>.ico{width:72px;height:72px}
+#fb.grid .fb-gicon{width:120px;height:120px;flex:0 0 120px;border-radius:var(--r-lg)}
+#fb.grid .fb-thumb{width:100%;height:120px;object-fit:contain;background:var(--sunk);border-radius:var(--r-md)}
 #fb.grid .fb-name button,#fb.grid .fb-name span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%;overflow-wrap:anywhere;text-align:center}
-@media (max-width:760px){#fb .fb-views,#fb .fb-deep{order:1}#fb.grid tbody{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}}
+@media (max-width:760px){#fb .fb-views,#fb .fb-deep{order:1}#fb.grid tbody{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}#fb.grid .fb-gicon{width:88px;height:88px;flex-basis:88px}}
 `;
 
 export const EXPLORE_SCRIPT = /* js */ `

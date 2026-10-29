@@ -23,7 +23,7 @@ const dropDir = path.join(base, "drop-chunks");
 
 const app = express();
 app.use(express.json());
-mountFilesApi(app, () => true, createFileRoots({ roots: () => [games], refresh: () => {} }), { dropDir: () => dropDir });
+mountFilesApi(app, () => true, createFileRoots({ roots: () => [games], refresh: () => {} }), { dropDir: () => dropDir, warmSizes: false });
 const server = app.listen(0);
 after(() => server.close());
 const url = (p) => `http://127.0.0.1:${server.address().port}${p}`;
@@ -309,4 +309,18 @@ test("the library's facts ride on a listing: a game file's kind, version and che
   assert.equal(save.titleId, "0100BBBB00000000");
   assert.equal(other.titleId, undefined);
   assert.equal(facts("saves", [at("Alpha/Alpha [0100AAAA00000000][v0].nsp")])[0].kind, undefined);
+});
+
+test("folder sizes come from a cache that sees a change in any folder below", async () => {
+  fs.mkdirSync(path.join(games.dir, "Sized/Deep/Deeper"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Sized/a.nsp"), "1234");
+  fs.writeFileSync(path.join(games.dir, "Sized/Deep/Deeper/b.nsp"), "56");
+  fs.writeFileSync(path.join(games.dir, "Sized/.hidden"), "xxxxxxxx");
+  const sizes = async (paths) => (await (await post("/api/files/sizes", { root: "games", paths })).json()).sizes;
+  assert.deepEqual(await sizes(["Sized", "Sized/a.nsp", "../x"]), { Sized: { bytes: 6, files: 2, dirs: 2 } });
+  fs.writeFileSync(path.join(games.dir, "Sized/Deep/Deeper/c.nsp"), "789");
+  assert.deepEqual((await sizes(["Sized"])).Sized, { bytes: 9, files: 3, dirs: 2 });
+  fs.rmSync(path.join(games.dir, "Sized/Deep"), { recursive: true });
+  assert.deepEqual((await sizes(["Sized"])).Sized, { bytes: 4, files: 1, dirs: 0 });
+  assert.equal(tokenBlocked("POST", "/api/files/sizes"), true);
 });

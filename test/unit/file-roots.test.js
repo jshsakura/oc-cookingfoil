@@ -222,3 +222,15 @@ test("a folder named by a title id lists with its game's name, and that name fin
   assert.deepEqual((await fr.list("games", "", { q: "alpha", label })).items.map((i) => i.name), ["0100AAAA00000000"]);
   assert.deepEqual((await fr.list("games", "", { q: "quest", deep: true, label })).items.map((i) => i.name), ["0100AAAA00000000"]);
 });
+
+test("a folder's size leaves out a fenced folder inside it", async () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), "fr-size-"));
+  const games = { key: "games", dir: path.join(base, "games") };
+  const data = path.join(games.dir, "Box/data");
+  fs.mkdirSync(data, { recursive: true });
+  fs.writeFileSync(path.join(data, "secret"), "1234567890");
+  fs.writeFileSync(path.join(games.dir, "Box/a.nsp"), "12");
+  const fr = createFileRoots({ roots: () => [games], refresh: () => {}, fences: () => [data] });
+  assert.deepEqual(await fr.sizes("games", ["Box"]), { Box: { bytes: 2, files: 1, dirs: 0 } });
+  fs.rmSync(base, { recursive: true, force: true });
+});

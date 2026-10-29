@@ -72,7 +72,7 @@ function fbBadges(f){const out=[];
   return out;}
 // The game's icon in place of the folder or file icon; the plain icon comes back when there is none yet.
 function fbGameIcon(f,size,cls){const img=el('img');img.className=cls;img.alt='';img.loading='lazy';img.decoding='async';img.src=fbIconUrl(f.titleId,size);return img;}
-function fbDecorate(n,f){if(f.titleId){const ic=n.querySelector('.ico');if(ic){const img=fbGameIcon(f,'sm','fb-gicon');img.addEventListener('error',()=>img.replaceWith(ic),{once:true});ic.replaceWith(img);}}
+function fbDecorate(n,f){if(f.titleId){const ic=n.querySelector('.ico');if(ic){const img=fbGameIcon(f,'md','fb-gicon');img.addEventListener('error',()=>img.replaceWith(ic),{once:true});ic.replaceWith(img);}}
   for(const b of fbBadges(f))n.append(b);}
 
 // ── the details pane ────────────────────────────────────────────────
@@ -93,7 +93,9 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
   if(f.type==='file')rows.push(['fb.p.size',topFill('fb.p.bytes',{size:fbSize(f.size),bytes:num(f.size)})]);
   rows.push(['fb.p.mtime',fbDate(f.mtime)],['fb.p.where',[fbRootName(fb.root),...f.rel.split('/').slice(0,-1)].join(' / ')]);
   const dl=el('dl');dl.append(...rows.flatMap(([k,v])=>[el('dt',topText(k)),el('dd',v)]));
-  if(f.type==='dir'){const dd=el('dd');const b=el('button',topText('fb.p.sizeAsk'));b.type='button';
+  if(f.type==='dir'&&f.holds){dl.append(el('dt',topText('fb.p.size')),el('dd',topFill('fb.p.bytes',{size:fbSize(f.holds.bytes),bytes:num(f.holds.bytes)})),
+    el('dt',topText('fb.p.holds')),el('dd',topFill('fb.p.holdsVal',{files:num(f.holds.files),dirs:num(f.holds.dirs)})));}
+  else if(f.type==='dir'){const dd=el('dd');const b=el('button',topText('fb.p.sizeAsk'));b.type='button';
     b.addEventListener('click',async()=>{b.disabled=true;b.textContent=topText('fb.p.counting');
       try{const r=await api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:[f.rel]}});
         dd.textContent=topFill('fb.p.bytes',{size:fbSize(r.bytes),bytes:num(r.bytes)})+' · '+topFill('fb.p.holdsVal',{files:num(r.files),dirs:num(Math.max(0,r.dirs-1))});}
@@ -149,7 +151,7 @@ async function fbMore(){const d=fb.data;if(!d||fb.moreBusy||d.page>=d.pages)retu
   let ok=false;
   try{const next=await api('/admin/api/files/list?'+qs);if(n!==fb.seq||fb.data!==d)return;ok=true;
     const have=new Set(d.items.map((f)=>f.rel));const add=next.items.filter((f)=>!have.has(f.rel));
-    d.items.push(...add);d.page=next.page;d.pages=next.pages;$('fb-rows').append(...add.map(fbRow));fbFoot();fbThumbs();}
+    d.items.push(...add);d.page=next.page;d.pages=next.pages;$('fb-rows').append(...add.map(fbRow));fbFoot();fbThumbs();fbSizeRows(add);}
   catch(err){toast(err.message);}
   finally{fb.moreBusy=false;}
   if(ok&&fbMoreSeen)fbMore();}
@@ -160,6 +162,18 @@ new IntersectionObserver((es)=>{fbMoreSeen=es.some((e)=>e.isIntersecting);if(fbM
 // The window ends at the bottom of the screen: its height is the screen less where it starts on the page.
 function fbFit(){const f=$('fb');if(!f.isConnected)return;f.style.setProperty('--fb-top',Math.round(f.getBoundingClientRect().top+window.scrollY)+'px');}
 window.addEventListener('resize',fbFit);new ResizeObserver(fbFit).observe(document.body);fbFit();
+
+// ── folder sizes, from the server's cache (library/folder-sizes.js) ─
+// A size seen once shows at once when the folder lists again, and is then brought up to date.
+const fbSizes=new Map();
+function fbDirSize(f){const s=fbSizes.get(fb.root+'|'+f.rel);if(s)f.holds=s;return s?fbSize(s.bytes):'';}
+async function fbSizeRows(items){const dirs=items.filter((f)=>f.type==='dir');if(!dirs.length)return;const root=fb.root;
+  let r;try{r=await api('/admin/api/files/sizes',{method:'POST',body:{root,paths:dirs.map((f)=>f.rel)}});}catch{return;}
+  if(root!==fb.root)return;
+  for(const f of dirs){const s=r.sizes[f.rel];if(!s)continue;fbSizes.set(root+'|'+f.rel,s);f.holds=s;
+    for(const tr of document.querySelectorAll('#fb-rows tr'))if(tr.dataset.rel===f.rel){const c=tr.querySelector('.c-size');
+      c.textContent=fbSize(s.bytes);c.title=topFill('fb.p.holdsVal',{files:num(s.files),dirs:num(s.dirs)});}}
+  if(fb.sel.size===1&&dirs.some((f)=>fb.sel.has(f.rel)))fbSide();}
 
 // ── a copy's progress ───────────────────────────────────────────────
 const FB_JOB_MS=700;
