@@ -118,13 +118,13 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await page.goto('/admin/games?tab=folder&path=fb-test');
   const menu = page.locator('#fb-menu');
   await row(page, 'loose.nsp').locator('td.c-mtime').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['내려받기', '이름 바꾸기', '이동', '휴지통으로']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['내려받기', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
   await expect(menu.getByRole('menuitem').first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
 
   await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '이름 바꾸기', '이동', '휴지통으로']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
   await menu.getByRole('menuitem', { name: '이름 바꾸기' }).click();
   await page.locator('#ask-input').fill('Alef');
   await page.locator('#ask-ok').click();
@@ -135,13 +135,13 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
   await row(page, 'Beta').locator('td.c-mtime').click({ button: 'right' });
   await expect(menu).toContainText('2개를 골랐습니다');
-  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '이동', '휴지통으로']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '잘라내기', '복사', '이동', '휴지통으로', '속성']);
   await page.mouse.click(5, 5);
   await expect(menu).toBeHidden();
 
   await page.locator('#fb-empty').evaluate((e) => { e.hidden = false; });
   await page.locator('#fb-empty').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['새 폴더', '올리기', '폴더 올리기']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['새 폴더', '올리기', '폴더 올리기', '되돌리기', '속성']);
   await expect(page.locator('#fb-info')).toHaveText('폴더 2개 · 파일 1개');
 });
 
@@ -152,6 +152,7 @@ test('the header row stays in view while the list scrolls, and the bar sits at t
   await page.goto('/admin/games?tab=folder&path=fb-test%2FMany');
   await expect(row(page, 'file-59.nsp')).toBeVisible();
   await page.mouse.wheel(0, 1500);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
   const head = await page.locator('#fb thead th.c-name').boundingBox();
   const bar = await page.locator('#fb-foot').boundingBox();
   expect(head!.y).toBeGreaterThanOrEqual(60);
@@ -279,4 +280,105 @@ test('a pick comes down as one zip, and a text or image file opens in a preview'
   await page.keyboard.press('Escape');
   await expect(view).toBeHidden();
   await expect(row(page, 'cover.svg')).toBeFocused();
+});
+
+test('copy and paste make a numbered copy, cut and paste move, and Ctrl+Z takes each back', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await row(page, 'loose.nsp').locator('td.c-size').click();
+  await page.keyboard.press('ControlOrMeta+c');
+  await page.keyboard.press('ControlOrMeta+v');
+  await expect(row(page, 'loose (2).nsp')).toBeVisible();
+  expect(fs.readFileSync(path.join(base, 'loose (2).nsp'), 'utf8')).toBe('333');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(row(page, 'loose (2).nsp')).toHaveCount(0);
+  expect(has('loose (2).nsp')).toBe(false);
+
+  await row(page, 'loose.nsp').locator('td.c-size').click();
+  await page.keyboard.press('ControlOrMeta+x');
+  await expect(row(page, 'loose.nsp')).toHaveClass(/fb-cut/);
+  await row(page, 'Beta').getByRole('button', { name: 'Beta' }).click();
+  await expect(row(page, 'keep.txt')).toBeVisible();
+  await page.locator('#fb-rows tr').first().focus();
+  await page.keyboard.press('ControlOrMeta+v');
+  await expect(row(page, 'loose.nsp')).toBeVisible();
+  expect(has('Beta/loose.nsp') && !has('loose.nsp')).toBe(true);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(row(page, 'loose.nsp')).toHaveCount(0);
+  expect(has('loose.nsp') && !has('Beta/loose.nsp')).toBe(true);
+
+  await row(page, 'keep.txt').locator('td.c-size').click();
+  await page.keyboard.press('Delete');
+  await page.locator('#ask-ok').click();
+  await expect(row(page, 'keep.txt')).toHaveCount(0);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(row(page, 'keep.txt')).toBeVisible();
+  expect(has('Beta/keep.txt')).toBe(true);
+});
+
+test('back, forward and up walk the folders, and a typed address opens one', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await expect(page.locator('#fb-back')).toBeDisabled();
+  await row(page, 'Alpha').getByRole('button', { name: 'Alpha' }).click();
+  await expect(row(page, 'one.nsp')).toBeVisible();
+  await page.locator('#fb-back').click();
+  await expect(row(page, 'loose.nsp')).toBeVisible();
+  await page.locator('#fb-fwd').click();
+  await expect(row(page, 'one.nsp')).toBeVisible();
+  await page.locator('#fb-upb').click();
+  await expect(row(page, 'Beta')).toBeVisible();
+
+  const crumb = (await page.locator('#fb-crumb').boundingBox())!;
+  await page.mouse.click(crumb.x + crumb.width - 6, crumb.y + crumb.height / 2);
+  await expect(page.locator('#fb-addr')).toBeFocused();
+  await page.locator('#fb-addr').fill('/fb-test/Beta');
+  await page.keyboard.press('Enter');
+  await expect(row(page, 'keep.txt')).toBeVisible();
+  await expect(page.locator('#fb-crumb')).toBeVisible();
+});
+
+test('a search through subfolders shows where each find is, and properties count through folders', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.locator('#fb-deep').check();
+  await page.locator('#fb-q').fill('two');
+  await expect(row(page, 'two.nsp')).toBeVisible();
+  await expect(row(page, 'two.nsp').locator('.fb-where')).toHaveText('fb-test/Alpha');
+  await page.locator('#fb-q').fill('');
+  await expect(row(page, 'Alpha')).toBeVisible();
+
+  await row(page, 'Alpha').locator('td.c-size').click();
+  await page.keyboard.press('Alt+Enter');
+  const props = page.locator('#fb-props');
+  await expect(props).toContainText('3 B (3바이트)');
+  await expect(props).toContainText('파일 2개, 폴더 0개');
+  await page.locator('#fb-p-ok').click();
+  await expect(props).toBeHidden();
+});
+
+test('the icon view tiles the rows, letters jump to a name, and a box drawn on empty space picks rows', async ({ page }) => {
+  put('cover.png', 'not really a png');
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.locator('#fb-v-grid').click();
+  await expect(page.locator('#fb')).toHaveClass(/grid/);
+  await expect(page.locator('#fb thead')).toBeHidden();
+  await row(page, 'Alpha').locator('.fb-name').click();
+  await page.keyboard.press('l');
+  await expect(row(page, 'loose.nsp')).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(row(page, 'cover.png')).toBeFocused();
+  await page.reload();
+  await expect(page.locator('#fb')).toHaveClass(/grid/);
+
+  const wrap = await page.locator('#fb .fb-wrap').boundingBox();
+  const last = await row(page, 'loose.nsp').boundingBox();
+  await page.mouse.move(wrap!.x + wrap!.width - 4, last!.y + last!.height + 2);
+  await page.mouse.down();
+  await page.mouse.move(wrap!.x + 4, wrap!.y + 4, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator('#fb-info')).toHaveText('4개를 골랐습니다');
+  await page.locator('#fb-v-list').click();
+  await expect(page.locator('#fb')).not.toHaveClass(/grid/);
 });

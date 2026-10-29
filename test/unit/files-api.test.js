@@ -60,7 +60,7 @@ test("make, rename, move and trash run in turn, and a taken name is a 409", asyn
   assert.equal((await post("/api/files/mkdir", { root: "games", path: "", name: "New" })).status, 409);
   assert.equal((await (await post("/api/files/rename", { root: "games", path: "Folder/a.nsp", name: "b.nsp" })).json()).rel, "Folder/b.nsp");
   const moved = await (await post("/api/files/move", { root: "games", paths: ["Folder/b.nsp"], toPath: "New" })).json();
-  assert.deepEqual(moved.moved, [{ from: "Folder/b.nsp", to: "New/b.nsp" }]);
+  assert.deepEqual(moved.moved.map(({ from, to }) => ({ from, to })), [{ from: "Folder/b.nsp", to: "New/b.nsp" }]);
   const trashed = await (await post("/api/files/trash", { root: "games", paths: ["New/b.nsp"] })).json();
   assert.deepEqual(trashed.files, ["New/b.nsp"]);
   assert.ok(!fs.existsSync(path.join(games.dir, "New", "b.nsp")));
@@ -190,4 +190,62 @@ test("automation tokens may not zip the file browser's folders", () => {
   assert.equal(tokenBlocked("POST", "/api/files/zip"), true);
   assert.equal(tokenBlocked("GET", "/api/files/zip/abc"), true);
   assert.equal(tokenBlocked("GET", "/api/files/list"), false);
+});
+
+test("a copy lands beside a taken name with a number and leaves the original", async () => {
+  fs.mkdirSync(path.join(games.dir, "Copy", "Pack"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Copy", "Pack", "p.nsp"), "pp");
+  fs.writeFileSync(path.join(games.dir, "Copy", "x.nsp"), "xx");
+  const r = await post("/api/files/copy", { root: "games", paths: ["Copy/x.nsp", "Copy/Pack"], toPath: "Copy" });
+  assert.equal(r.status, 200);
+  assert.deepEqual((await r.json()).copied, [{ from: "Copy/x.nsp", to: "Copy/x (2).nsp" }, { from: "Copy/Pack", to: "Copy/Pack (2)" }]);
+  assert.equal(fs.readFileSync(path.join(games.dir, "Copy", "x (2).nsp"), "utf8"), "xx");
+  assert.equal(fs.readFileSync(path.join(games.dir, "Copy", "Pack (2)", "p.nsp"), "utf8"), "pp");
+  assert.equal(fs.readFileSync(path.join(games.dir, "Copy", "x.nsp"), "utf8"), "xx");
+  const into = await (await post("/api/files/copy", { root: "games", paths: ["Copy/Pack"], toPath: "Copy/Pack" })).json();
+  assert.deepEqual(into, { copied: [], skipped: [{ rel: "Copy/Pack", code: "into-itself" }] });
+});
+
+test("a search with deep finds names in every folder below, and info counts through folders", async () => {
+  fs.mkdirSync(path.join(games.dir, "Deep", "a", "b"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Deep", "a", "b", "needle.nsp"), "12345");
+  fs.writeFileSync(path.join(games.dir, "Deep", "needle-top.txt"), "1");
+  const flat = await (await fetch(url("/api/files/list?root=games&path=Deep&q=needle"))).json();
+  assert.deepEqual(flat.items.map((i) => i.rel), ["Deep/needle-top.txt"]);
+  const deep = await (await fetch(url("/api/files/list?root=games&path=Deep&q=needle&deep=1"))).json();
+  assert.deepEqual(deep.items.map((i) => i.rel).sort(), ["Deep/a/b/needle.nsp", "Deep/needle-top.txt"]);
+  assert.equal(deep.deep, true);
+  assert.equal(deep.cut, false);
+  const info = await (await post("/api/files/info", { root: "games", paths: ["Deep"] })).json();
+  assert.deepEqual({ files: info.files, dirs: info.dirs, bytes: info.bytes }, { files: 2, dirs: 3, bytes: 6 });
+});
+
+test("a move and a rename answer the journal line that undoes them, a trash the ids that restore it", async () => {
+  fs.mkdirSync(path.join(games.dir, "Undo", "To"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Undo", "m.nsp"), "m");
+  const moved = await (await post("/api/files/move", { root: "games", paths: ["Undo/m.nsp"], toPath: "Undo/To" })).json();
+  assert.match(moved.moved[0].undo, /^[0-9a-f]{12}$/);
+  const renamed = await (await post("/api/files/rename", { root: "games", path: "Undo/To/m.nsp", name: "n.nsp" })).json();
+  assert.match(renamed.undo, /^[0-9a-f]{12}$/);
+  const trashed = await (await post("/api/files/trash", { root: "games", paths: ["Undo/To/n.nsp"] })).json();
+  assert.equal(trashed.restore.length, 1);
+  assert.equal(trashed.restore[0], trashed.trash);
+});
+
+test("automation tokens may not copy or measure in the file browser", () => {
+  assert.equal(tokenBlocked("POST", "/api/files/copy"), true);
+  assert.equal(tokenBlocked("POST", "/api/files/info"), true);
+});
+
+test("a folder that holds a fenced one is neither copied nor moved, and a path picked twice zips once", async () => {
+  const fenced = path.join(games.dir, "Outer", "fence");
+  fs.mkdirSync(fenced, { recursive: true });
+  fs.writeFileSync(path.join(fenced, "secret.keys"), "k");
+  const files = createFileRoots({ roots: () => [games], refresh: () => {}, fences: () => [fenced] });
+  assert.deepEqual((await files.copy("games", ["Outer"], "games", "")).skipped, [{ rel: "Outer", code: "bad-path" }]);
+  assert.deepEqual((await files.move("games", ["Outer"], "games", "Folder")).skipped, [{ rel: "Outer", code: "bad-path" }]);
+  const twice = await files.collect("games", ["Folder", "Folder"]);
+  assert.equal(twice.filter((e) => e.name === "Folder").length, 1);
+  const cut = await files.collect("games", ["Folder"], { max: 1 });
+  assert.equal(cut.cut, true);
 });
