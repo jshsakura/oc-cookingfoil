@@ -58,6 +58,7 @@ import { trackTransfers } from "./helpers/transfer-track.js";
 import * as directHealth from "./security/direct-health.js";
 import { tokenHeader as downloadTokenHeader } from "./security/download-links.js";
 import busyGuard from "./security/busy-guard.js";
+import { accessLog } from "./helpers/access-log.js";
 import jsonCompression from "./helpers/json-compression.js";
 import drainer, { RESTART_EXIT_CODE } from "./security/drain.js";
 import authGuard, { ignoreBasic } from "./security/auth-guard.js";
@@ -234,6 +235,8 @@ expressApp.get("/healthz", async (req, res) => {
     .send(JSON.stringify({ ok: false, reason: "library cache initializing", titledb: tdb, nameHealth, ...drainer.healthFields() }));
 });
 
+// Direct-address requests, failures, cut-off and slow requests get a line in data/access-log.jsonl.
+expressApp.use(accessLog());
 // A server that has fallen behind says so at once (503 + Retry-After) instead of holding connections.
 expressApp.use(busyGuard());
 expressApp.use(rateLimit());

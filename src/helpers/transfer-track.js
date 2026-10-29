@@ -101,7 +101,7 @@ function remoteOf(req, route, ip) {
   return { scope: isPrivateIp(ip) ? "private" : "public", country: /^[A-Z0-9]{2}$/.test(country) ? country : null };
 }
 
-function pathOf(req) {
+export function pathOf(req) {
   const raw = String(req.originalUrl ?? req.url ?? "").split("?")[0];
   try { return decodeURIComponent(raw); } catch { return raw; }
 }

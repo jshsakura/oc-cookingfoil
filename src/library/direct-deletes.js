@@ -12,6 +12,7 @@ export const DIRECT_DELETES = Object.freeze({
   "src/chat/session-store.js": { count: 1, why: "a chat log, when its owner deletes that conversation" },
   "src/db/backup.js": { count: 4, why: "backup rotation and its work folders" },
   "src/db/database.js": { count: 1, why: "the database's own files" },
+  "src/helpers/access-log.js": { count: 1, why: "the access log's own older file once it is past the keep time" },
   "src/library/safe-move.js": { count: 8, why: "a copy's source after it verified, and half-written copies" },
   "src/library/trash.js": { count: 6, why: "the trash itself: emptying it, and its half-written entries" },
   "src/meta/content-meta.js": { count: 2, why: "legacy files after migrating them, and work files" },
