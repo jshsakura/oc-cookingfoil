@@ -21,6 +21,8 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
   try {
     await signIn(page);
     await page.goto('/admin/incoming/temp');
+    await expect(page.locator('#fb-rows'), 'the drop box opens on its files').toContainText('notes.txt');
+    await page.locator('#organize-subtabs [data-sub="sort"]').click();
     await page.locator('#lo-sweep').click();
     await expect(page.locator('#toast')).toContainText('2개 옮겼습니다');
     await expect(page.locator('#lo-recent')).toContainText('Drop Game/Drop Game [0100000000020000][v0].nsp');

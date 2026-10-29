@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
 for (const task of [
-  { view: 'files', url: '/admin/games?view=files', other: 'info', api: 'browse', period: 4000, ready: '#lb-list .ag-row' },
-  { view: 'organize', url: '/admin/incoming/temp', other: '', api: 'organize', period: 5000, ready: '#lo-held .empty' },
+  { view: 'files', url: '/admin/games?view=files', tab: (sub: string) => `#lib-subtabs [data-lsub="${sub}"]`, own: 'files', other: 'info', api: 'browse', period: 4000, ready: '#lb-list .ag-row' },
+  { view: 'organize', url: '/admin/incoming/temp#organize/sort', tab: (sub: string) => `#organize-subtabs [data-sub="${sub}"]`, own: 'sort', other: 'folder', api: 'organize', period: 5000, ready: '#lo-held .empty' },
 ]) {
   test(`${task.view} polls only its active visible page and resumes after returning`, async ({ page }) => {
     await page.clock.install();
@@ -23,13 +23,13 @@ for (const task of [
     const initial = calls;
     await page.clock.fastForward(task.period + 500);
     await expect.poll(() => calls).toBeGreaterThan(initial);
-    // A page with sibling tabs stops polling while another tab shows; a page of its own has none to leave for.
-    if (task.other) {
-      await page.locator(`#lib-subtabs [data-lsub="${task.other}"]`).click();
+    // Polling stops while a sibling tab shows.
+    {
+      await page.locator(task.tab(task.other)).click();
       const otherTask = calls;
       await page.clock.fastForward(task.period * 3);
       expect(calls).toBe(otherTask);
-      await page.locator(`#lib-subtabs [data-lsub="${task.view}"]`).click();
+      await page.locator(task.tab(task.own)).click();
       await expect.poll(() => calls).toBeGreaterThan(otherTask);
     }
     await page.evaluate(() => {
