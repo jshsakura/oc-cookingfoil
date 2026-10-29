@@ -3,6 +3,7 @@ import { test, expect } from './library-fixture';
 import fs from 'node:fs';
 import path from 'node:path';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 // The library tab's file browser: a tab per kind with its count, a page of 50
 // at a time, and a search that stays inside the chosen kind.
@@ -49,7 +50,7 @@ test('the library tab lists files by kind with counts, pages and a search inside
   // Each patch leads with the game it is for; the game's own file is not listed here.
   await expect(page.locator('#lb-list .lb-for', { hasText: '게임 데이터' }).locator('b')).toHaveText('Test Game');
   await expect(page.locator('#lb-list')).not.toContainText('.nsp');
-  await page.locator('#lib-files').screenshot({ path: 'out/web/admin-library-patches.png' });
+  await shot(page.locator('#lib-files'), { path: 'out/web/admin-library-patches.png' });
 
   await page.locator('#lb-tab-other').click();
   await expect(page.locator('#lb-list .ag-row', { hasText: 'note-' })).toHaveCount(25);
@@ -67,9 +68,9 @@ test('the library tab lists files by kind with counts, pages and a search inside
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.locator('#lib-files').screenshot({ path: 'out/web/library-files-1280-light.png', animations: 'disabled' });
+  await shot(page.locator('#lib-files'), { path: 'out/web/library-files-1280-light.png', animations: 'disabled' });
   await page.emulateMedia({ colorScheme: 'dark' });
-  await page.locator('#lib-files').screenshot({ path: 'out/web/library-files-1280-dark.png', animations: 'disabled' });
+  await shot(page.locator('#lib-files'), { path: 'out/web/library-files-1280-dark.png', animations: 'disabled' });
 
   // The search stays inside the kind: a game name finds nothing among the stray files.
   await page.locator('#lb-q').fill('Test Game');
@@ -89,9 +90,8 @@ test('the library tab lists files by kind with counts, pages and a search inside
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('#lb-list .ag-row', { hasText: 'note-' })).toHaveCount(25);
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.locator('#lib-files').screenshot({ path: 'out/web/library-files-390-light.png', animations: 'disabled' });
+  await shot(page.locator('#lib-files'), { path: 'out/web/library-files-390-light.png', animations: 'disabled' });
   await page.emulateMedia({ colorScheme: 'dark' });
-  await page.locator('#lib-files').screenshot({ path: 'out/web/library-files-390-dark.png', animations: 'disabled' });
-  const width = await page.evaluate(() => document.documentElement.scrollWidth);
-  expect(width).toBeLessThanOrEqual(390);
+  await shot(page.locator('#lib-files'), { path: 'out/web/library-files-390-dark.png', animations: 'disabled' });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth), { message: 'no sideways scroll on a phone' }).toBeLessThanOrEqual(390);
 });

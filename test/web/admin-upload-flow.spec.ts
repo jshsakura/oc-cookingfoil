@@ -4,6 +4,7 @@ import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { shot } from './shots';
 
 const GAMES = process.env.COOK_GAMES_DIR!;
 const SAVES = process.env.COOK_SAVES_DIR!;
@@ -88,12 +89,12 @@ for (const [label, size] of [['phone', { width: 390, height: 844 }], ['desktop',
     const noSideScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(noSideScroll).toBe(true);
     fs.mkdirSync('out/web', { recursive: true });
-    await page.screenshot({ path: `out/web/admin-upload-flow-${label}.png`, fullPage: true });
+    await shot(page, { path: `out/web/admin-upload-flow-${label}.png`, fullPage: true });
     // "바꾸기" opens the kinds, never the 40 odd consoles.
     await page.locator('#up-change').click();
     await expect(page.locator('#up-kinds')).toBeVisible();
     await expect(page.locator('#up-systems-wrap')).toBeHidden();
-    await page.screenshot({ path: `out/web/admin-upload-flow-${label}-kinds.png`, fullPage: true });
+    await shot(page, { path: `out/web/admin-upload-flow-${label}-kinds.png`, fullPage: true });
   });
 }
 
@@ -141,7 +142,7 @@ test('a duplicate is refused with its reason, the others go up, and the retry se
   expect(await seen()).toEqual(names);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-upload-flow-partial-phone.png', fullPage: true });
+  await shot(page, { path: 'out/web/admin-upload-flow-partial-phone.png', fullPage: true });
   expect(fs.existsSync(path.join(GAMES, names[0]))).toBe(true);
   // The retry is offered for the failed one only; the name is still taken, so it fails again, and nothing else is sent.
   const retry = page.getByRole('button', { name: '실패한 1개만 다시 올리기' });

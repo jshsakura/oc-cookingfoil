@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { acceptAsks } from './ask';
 import { removeAccount } from './web-session';
 import { reveal } from './fold';
+import { shot } from './shots';
 
 // The share inbox end to end: a signed-in user leaves files, a note and links
 // from the account menu, and the admin finds them in the 임시 공유 tab.
@@ -58,7 +59,7 @@ test('a signed-in user shares files, a note and links, and the admin sorts them 
   await page.locator('#share-memo').fill('피크민 4 세이브입니다\n엔딩 직전입니다');
   await page.locator('#share-links').fill('https://example.com/post/1\nhttp://example.org/mirror');
   fs.mkdirSync('out/web', { recursive: true });
-  await modal.locator('.modal').screenshot({ path: 'out/web/share-form.png' });
+  await shot(modal.locator('.modal'), { path: 'out/web/share-form.png' });
   await modal.getByRole('button', { name: '보내기' }).click();
   await expect(page.locator('#share-msg')).toHaveText('보냈습니다. 관리자에게 알렸습니다.');
   await expect(page.locator('#share-chosen')).toContainText('고른 파일이 없습니다');
@@ -74,7 +75,7 @@ test('a signed-in user shares files, a note and links, and the admin sorts them 
   const download = await (await page.request.get((await file.getAttribute('href'))!)).text();
   expect(download).toBe('zip bytes');
   await expect(page.locator('#inbox-count')).toHaveText('1');
-  await page.screenshot({ path: 'out/web/admin-inbox.png' });
+  await shot(page, { path: 'out/web/admin-inbox.png' });
 
   await entry.getByRole('button', { name: '정리함으로' }).click();
   await expect(page.locator('#ib-list')).toContainText('남긴 것이 없습니다.');

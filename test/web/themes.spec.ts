@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 import { THEMES } from '../../src/views/themes.js';
+import { shot } from './shots';
 
 // The web page and the admin pages offer the console client's six themes in the account menu.
 // A pick sets html[data-theme], repaints from that theme's tokens and survives a reload.
@@ -62,10 +63,10 @@ test('screenshots of the themes on the web page and the admin overview', async (
         await page.goto(path);
         await page.locator('#acct-btn').waitFor();
         await page.waitForTimeout(800);
-        await page.screenshot({ path: `${SHOTS}/themes-${id}-${name}-${width}.png` });
+        await shot(page, { path: `${SHOTS}/themes-${id}-${name}-${width}.png` });
         if (width === 390 && id === 'pink') {
           await page.locator('#acct-btn').click();
-          await page.screenshot({ path: `${SHOTS}/themes-${id}-${name}-menu-${width}.png` });
+          await shot(page, { path: `${SHOTS}/themes-${id}-${name}-menu-${width}.png` });
         }
       }
     }

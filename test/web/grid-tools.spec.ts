@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 // Every admin table offers a "○○순" order, and a column with a handful of values gets filter chips.
 test('admin tables offer an order picker and filter chips', async ({ page }) => {
@@ -17,5 +18,5 @@ test('admin tables offer an order picker and filter chips', async ({ page }) => 
   expect(labels.some((l) => /순$/.test(l) && l !== '기본 순서')).toBe(true);
   await pick.selectOption({ index: labels.length - 1 });
   await expect(mount.locator('.ag-header-cell[aria-sort="descending"], .ag-header-cell[aria-sort="ascending"]')).toHaveCount(1);
-  await mount.screenshot({ path: test.info().outputPath('grid-tools.png') });
+  await shot(mount, { path: test.info().outputPath('grid-tools.png') });
 });

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { acceptAsks } from './ask';
 import { removeAccount } from './web-session';
 import { reveal } from './fold';
+import { shot } from './shots';
 
 const NAME = 'e2e-user';
 const PASSWORD = 'e2e-password-123';
@@ -19,7 +20,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   await acceptAsks(page);
   await signIn(page);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-overview.png' });
+  await shot(page, { path: 'out/web/admin-overview.png' });
 
   await page.goto("/admin/users");
   await page.getByLabel('사용자 이름').fill(NAME);
@@ -29,7 +30,7 @@ test('an account created in the admin page signs in at /login, a password alone 
   const dialog = page.locator('#cred-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(PASSWORD);
-  await page.screenshot({ path: 'out/web/admin-credential.png' });
+  await shot(page, { path: 'out/web/admin-credential.png' });
   await dialog.getByRole('button', { name: '닫기', exact: true }).click();
 
   for (const password of ['wrong-password', PASSWORD]) {
@@ -44,13 +45,13 @@ test('an account created in the admin page signs in at /login, a password alone 
   expect((await request.get('/', { headers: { Accept: 'text/html', 'Sec-Fetch-Mode': 'navigate' }, maxRedirects: 0 })).headers()['www-authenticate']).toBeUndefined();
   await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
   await page.getByLabel(/^(비밀번호|Password)$/).fill(PASSWORD);
-  await page.screenshot({ path: 'out/web/login.png' });
+  await shot(page, { path: 'out/web/login.png' });
   await page.getByRole('button', { name: /^(로그인|Sign in)$/ }).click();
   await expect(page.getByRole('heading', { name: 'CookingFoil 서버 관리', exact: true })).toBeVisible();
   await page.goto("/admin/users");
   const row = page.locator('#users .ag-row', { hasText: NAME });
   await expect(row).toContainText('사용 중');
-  await page.screenshot({ path: 'out/web/admin-users.png' });
+  await shot(page, { path: 'out/web/admin-users.png' });
   await row.getByRole('button', { name: '삭제', exact: true }).click();
   await expect(page.locator('#users')).toContainText('아직 사용자가 없습니다');
   expect((await request.get('/api/library/sections')).status()).toBe(200);
@@ -90,7 +91,7 @@ test('a featured row picked in the admin page reaches the sections list by base 
   await page.getByRole('button', { name: /^저장/ }).click();
   await expect(page.locator('#toast')).toContainText('추천을 저장했습니다');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-featured.png' });
+  await shot(page, { path: 'out/web/admin-featured.png' });
 
   await expect.poll(async () => (await (await request.get('/api/library/sections')).json()).featured?.[0]?.title_ids)
     .toEqual(['0100000000010000']);
@@ -143,11 +144,11 @@ test('files dropped into the upload box pick their own kind and go in one by one
   await expect(first).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#up-guess-t')).toContainText('다른 종류');
   await expect(page.locator('#up-required-l')).toBeHidden();
-  await page.screenshot({ path: 'out/web/admin-upload-retro.png' });
+  await shot(page, { path: 'out/web/admin-upload-retro.png' });
   await page.getByRole('button', { name: '다시 고르기' }).click();
   await expect(page.locator('#up-kinds')).toBeHidden();
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-upload-empty.png', fullPage: true });
+  await shot(page, { path: 'out/web/admin-upload-empty.png', fullPage: true });
 
   // A patch folder names its game; the form fills itself in.
   const dir = fs.mkdtempSync('/tmp/cf-up-');
@@ -158,7 +159,7 @@ test('files dropped into the upload box pick their own kind and go in one by one
   await expect(page.locator('#up-game')).toHaveValue('Test Game [0100000000010000]');
   await expect(page.locator('#up-name')).toHaveValue('KoPatch');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-upload-patch.png', fullPage: true });
+  await shot(page, { path: 'out/web/admin-upload-patch.png', fullPage: true });
   await page.getByRole('button', { name: '다시 고르기' }).click();
   await expect(page.locator('#up-form')).toBeHidden();
 
@@ -191,7 +192,7 @@ test('the admin writes a game description that the title detail shows instead of
   await page.getByRole('button', { name: '저장', exact: true }).click();
   await expect(page.locator('#gd-original')).toHaveText('직접 쓴 소개를 보여 주고 있습니다.');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#gd-form').screenshot({ path: 'out/web/admin-description.png' });
+  await shot(page.locator('#gd-form'), { path: 'out/web/admin-description.png' });
   const detail = await (await request.get('/api/title/0100000000010000?lang=ko')).json();
   expect(detail.description).toBe('필수 패치와 함께 설치합니다.\n약 49GB 가 필요합니다.');
   expect(detail.notes).toBe('게임 데이터 패치를 함께 설치해야 실행됩니다.');
@@ -218,7 +219,7 @@ test('a patch is switched between required and optional from the patch list and 
   const data = group.getByRole('switch', { name: '게임 데이터 필수' });
   await expect(data).toHaveAttribute('aria-checked', 'true');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#lib-patches').screenshot({ path: 'out/web/admin-patches.png' });
+  await shot(page.locator('#lib-patches'), { path: 'out/web/admin-patches.png' });
 
   await data.click();
   await expect(data).toHaveAttribute('aria-checked', 'false');
@@ -240,7 +241,7 @@ test('a patch is switched between required and optional from the patch list and 
   await expect(inGame).toHaveAttribute('aria-checked', 'false');
   await inGame.click();
   await expect(inGame).toHaveAttribute('aria-checked', 'true');
-  await page.locator('#gd-patches').screenshot({ path: 'out/web/admin-game-patches.png' });
+  await shot(page.locator('#gd-patches'), { path: 'out/web/admin-game-patches.png' });
   await page.goto('/admin/patches');
   await expect(data).toHaveAttribute('aria-checked', 'true');
   expect(await required('게임 데이터')).toBe(true);
@@ -260,7 +261,7 @@ test('an uploaded patch and save are edited, moved to another game and deleted f
   await page.locator('#ct-desc-ko').fill('글자를 한국어로 변경합니다.');
   await page.locator('#ct-author').fill('누군가');
   fs.mkdirSync('out/web', { recursive: true });
-  await dialog.screenshot({ path: 'out/web/admin-content-edit.png' });
+  await shot(dialog, { path: 'out/web/admin-content-edit.png' });
   await dialog.getByRole('button', { name: '저장', exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect.poll(async () => (await patches('ko')).find((p) => p.name === '한글패치')?.description).toBe('글자를 한국어로 변경합니다.');
@@ -309,7 +310,7 @@ test("a homebrew app's patch is edited from the homebrew tab with the patch dial
   await page.locator('#ct-desc-ko').fill('속도를 두 배로 올립니다.');
   await page.locator('#ct-version').fill('1.1');
   fs.mkdirSync('out/web', { recursive: true });
-  await dialog.screenshot({ path: 'out/web/admin-homebrew-patch-edit.png' });
+  await shot(dialog, { path: 'out/web/admin-homebrew-patch-edit.png' });
   await dialog.getByRole('button', { name: '저장', exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(row).toContainText('Turbo · ');
@@ -336,7 +337,7 @@ test('a homebrew app is turned off and on from the homebrew tab, which opens on 
   await expect(row).toHaveClass(/hb-off/);
   expect(await listed()).not.toContain('handapp.nro');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#hb-apps').screenshot({ path: 'out/web/admin-homebrew-apps.png' });
+  await shot(page.locator('#hb-apps'), { path: 'out/web/admin-homebrew-apps.png' });
   await row.getByLabel('Hand App 켜기').locator('xpath=..').click();
   await expect(row).not.toHaveClass(/hb-off/);
   expect(await listed()).toContain('handapp.nro');
@@ -424,7 +425,7 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   const row = await reveal(page.locator('.ss-row[data-key="devicePairing"]'));
   await expect(row.getByRole('button', { name: 'compose 값으로' })).toHaveCount(0);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#ss-list').screenshot({ path: 'out/web/admin-server-settings.png' });
+  await shot(page.locator('#ss-list'), { path: 'out/web/admin-server-settings.png' });
 
   await row.locator('.ss-switch').click();
   await expect(row).toContainText('여기서 정한 값입니다. compose 값은 켜짐 입니다.');
@@ -499,7 +500,7 @@ test('the operator guide reads as a page, and its raw text stays for helpers', a
   await expect(page.locator('table').first()).toBeVisible();
   await expect(page.locator('body')).not.toContainText('## ');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-guide.png' });
+  await shot(page, { path: 'out/web/admin-guide.png' });
   const raw = await request.get('/admin/guide.md', { headers: { Cookie: adminCookie } });
   expect(await raw.text()).toContain('# CookingFoil 운영 안내');
 });
@@ -515,7 +516,7 @@ test('the header has one account circle that opens the account, the web page, th
   await page.goto('/admin#overview');
   await expect(page.locator('#library-url')).toHaveText(/^https?:\/\/[^/]+$/);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-overview-connect.png' });
+  await shot(page, { path: 'out/web/admin-overview-connect.png' });
 });
 
 test('the admin account menu picks the theme and the web page keeps it too', async ({ page }) => {
@@ -532,7 +533,7 @@ test('the admin account menu picks the theme and the web page keeps it too', asy
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(242, 241, 238)');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f2f1ee');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-theme-menu.png' });
+  await shot(page, { path: 'out/web/admin-theme-menu.png' });
   await page.evaluate(() => localStorage.setItem('cookingfoil:lang', 'ko'));
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
@@ -563,7 +564,7 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   await page.getByRole('button', { name: '시험 메시지 보내기' }).click();
   await expect(page.locator('#al-msg')).toHaveText('봇 토큰과 채팅 ID 를 먼저 넣습니다');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/admin-alerts.png', fullPage: true });
+  await shot(page, { path: 'out/web/admin-alerts.png', fullPage: true });
   // Every menu fits the sidebar without scrolling sideways.
   expect(await page.locator('aside.adm-side').evaluate((n) => n.scrollWidth - n.clientWidth)).toBe(0);
 
@@ -571,7 +572,7 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   await page.reload();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBe(0);
-  await page.screenshot({ path: 'out/web/admin-alerts-phone.png' });
+  await shot(page, { path: 'out/web/admin-alerts-phone.png' });
 
   // The question is asked in the page's own dialog; cancelling keeps what is saved.
   await page.removeLocatorHandler(page.locator('#ask-dialog'));
@@ -580,7 +581,7 @@ test('the alerts tab sets up Telegram, picks events and shows what was told', as
   const ask = page.getByRole('dialog', { name: /저장한 알림 설정을 삭제할까요/ });
   await expect(ask).toBeVisible();
   await expect(ask.getByRole('button', { name: '취소' })).toBeFocused();
-  await page.screenshot({ path: 'out/web/admin-ask.png' });
+  await shot(page, { path: 'out/web/admin-ask.png' });
   await ask.getByRole('button', { name: '취소' }).click();
   await expect(ask).toBeHidden();
   await expect(page.locator('#al-form [name="chatId"]')).toHaveValue(chat);
@@ -596,7 +597,7 @@ test('the overview says where game names come from', async ({ page }) => {
   await expect(page.locator('#health')).toContainText('titledb');
   await expect(page.locator('#health')).toContainText('NSP/XCI 추출');
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#tab-overview').screenshot({ path: 'out/web/admin-overview-health.png' });
+  await shot(page.locator('#tab-overview'), { path: 'out/web/admin-overview-health.png' });
 });
 
 test('each settings page shows only its own area and keeps it on reload', async ({ page }) => {
@@ -610,7 +611,7 @@ test('each settings page shows only its own area and keeps it on reload', async 
   await expect(page.locator('#ss-list')).toHaveCount(0);
   await page.reload();
   await expect(page.locator('#mcp-on')).toBeAttached();
-  await page.screenshot({ path: 'out/web/admin-settings-tabs.png' });
+  await shot(page, { path: 'out/web/admin-settings-tabs.png' });
 });
 
 test('the devices tab shows one area at a time, and the address opens a given one', async ({ page }) => {
@@ -696,7 +697,7 @@ test("a console's address opens its IPs by day, every value shown as text", asyn
     const dialog = page.locator('#ip-dialog');
     await expect(dialog.locator('#ip-title')).toHaveText('<b>IP 콘솔</b> 접속 IP');
     await expect(dialog.locator('.ip-row').first()).toContainText('1회');
-    await page.screenshot({ path: 'out/web/admin-device-ips.png' });
+    await shot(page, { path: 'out/web/admin-device-ips.png' });
     await dialog.getByRole('button', { name: '닫기' }).click();
     await expect(dialog).toBeHidden();
   } finally {

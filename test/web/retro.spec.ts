@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 import fs from 'node:fs';
+import { shot } from './shots';
 
 // The web server's retro folder (test/web/server.mjs) holds Super Shinobi II twice,
 // as the official Korean release and as a patch, and Gunbird's World and Japanese sets.
@@ -45,10 +46,10 @@ test('the web page shows one card per game and picks another version in its wind
   expect(order).toBe(true);
   fs.mkdirSync('out/web', { recursive: true });
   await page.waitForTimeout(450); // the modal's rise animation
-  await page.screenshot({ path: 'out/web/retro-versions.png' });
+  await shot(page, { path: 'out/web/retro-versions.png' });
   // A tall window, so the shot holds the whole detail.
   await page.setViewportSize({ width: 1280, height: 2600 });
-  await page.locator('#modal .modal').screenshot({ path: 'out/web/retro-detail-1280.png' });
+  await shot(page.locator('#modal .modal'), { path: 'out/web/retro-detail-1280.png' });
   await versions.nth(1).click();
   // The patch: its edition as pills instead of the raw tag, with the game's description.
   await expect(page.locator('#modal-pills .pill')).toHaveText(['ZIP', '한글', '일본판', 'v20130609']);
@@ -80,7 +81,7 @@ test('the retro window fits a phone without scrolling sideways', async ({ page }
   fs.mkdirSync('out/web', { recursive: true });
   // A tall window, so the shot holds the whole detail.
   await page.setViewportSize({ width: 390, height: 2600 });
-  await page.locator('#modal .modal').screenshot({ path: 'out/web/retro-detail-390.png' });
+  await shot(page.locator('#modal .modal'), { path: 'out/web/retro-detail-390.png' });
 });
 
 test('the admin retro tab lists the versions of a game, picks the one shown and shows arcade sets', async ({ page, request }) => {
@@ -94,7 +95,7 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   await expect(list).toContainText('관리자가 정했습니다');
   const listed = await (await request.get('/api/retro/games?system=md')).json();
   expect(listed.games.map((g: { variant: string }) => g.variant)).toEqual(['J-K v20130609']);
-  await page.screenshot({ path: 'out/web/admin-retro-versions.png', fullPage: true });
+  await shot(page, { path: 'out/web/admin-retro-versions.png', fullPage: true });
   // A narrow window scrolls the columns sideways; the row's buttons are never cut and scroll into sight.
   await page.setViewportSize({ width: 820, height: 900 });
   const del = patchRow.getByRole('button', { name: /J-K v20130609.* 삭제$/ });
@@ -104,7 +105,7 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   expect(btnBox!.x).toBeGreaterThanOrEqual(cellBox!.x - 1);
   expect(btnBox!.x + btnBox!.width).toBeLessThanOrEqual(cellBox!.x + cellBox!.width + 1);
   expect(btnBox!.x + btnBox!.width).toBeLessThanOrEqual(gridBox!.x + gridBox!.width);
-  await page.screenshot({ path: 'out/web/admin-retro-versions-820.png' });
+  await shot(page, { path: 'out/web/admin-retro-versions-820.png' });
   await page.setViewportSize({ width: 1280, height: 720 });
   await list.locator('.ag-row', { hasText: 'Japan, Korea' }).getByRole('button', { name: '추천 버전으로 정합니다' }).click();
   await expect(list).toContainText('공식 한국어판입니다');
@@ -122,7 +123,7 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   // A look-alike of a known system is held back by the system's own folder, not unknown.
   await expect(page.locator('#ra-bios')).toContainText('roms/Mega Drive 폴더는 읽지 않습니다. roms/md 폴더에 이미 메가 드라이브 게임이 있기 때문입니다');
   await expect(page.locator('#ra-bios')).not.toContainText('Mega Drive, My Hacks');
-  await page.locator('#tab-retro').screenshot({ path: 'out/web/admin-retro-unread-folder.png' });
+  await shot(page.locator('#tab-retro'), { path: 'out/web/admin-retro-unread-folder.png' });
 });
 
 test('a console chip row too wide for the page has arrows, so a mouse reaches every chip', async ({ page }) => {
@@ -176,7 +177,7 @@ test('a game with achievements says so under its name: gold when its ROM earns t
   // It leads the line, so a narrow card never drops it.
   await expect(cards.first().locator('.sub .pill').first()).toHaveClass(/ach/);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/retro-achievement-pills.png' });
+  await shot(page, { path: 'out/web/retro-achievement-pills.png' });
 
   await cards.filter({ hasText: '슈퍼 시노비' }).click();
   await expect(page.locator('#modal-pills .pill.ach')).toHaveText('업적 40');

@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { shot } from './shots';
 
 // A new picture goes through the crop view first: the admin moves a box held to
 // the slot's shape and applies it. The upload is kept, so "다시 자르기" cuts it
@@ -73,7 +74,7 @@ test('an admin crops a homebrew icon on upload, crops it again, and the list sho
   expect(Math.abs(box.width - box.height)).toBeLessThan(2);
   await dragBox(page, crop, 400);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.screenshot({ path: 'out/web/art-crop-390.png' });
+  await shot(page, { path: 'out/web/art-crop-390.png' });
   await crop.getByRole('button', { name: '적용' }).click();
   await expect(lastToast(page)).toContainText('변경했습니다');
   let st = await (await page.request.get(`/api/art/homebrew/${app.id}`)).json();

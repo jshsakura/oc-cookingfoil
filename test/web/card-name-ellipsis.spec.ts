@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
+import { shot } from './shots';
 
 const NAME = 'G-MODEアーカイブス+ 探偵 テスト';
 const LONG = 'G-MODEアーカイブス+ 探偵・神宮寺三郎 ダミーの長い題名 テスト用';
@@ -38,7 +39,7 @@ const firstLineWidth = (page: import('@playwright/test').Page, selector: string)
 test('a one-line card name of unbroken kana fills the line instead of showing "G-"', async ({ page }) => {
   await mountCards(page);
   fs.mkdirSync('out/web', { recursive: true });
-  await page.locator('#ellipsis-probe').screenshot({ path: 'out/web/card-name-ellipsis.png' });
+  await shot(page.locator('#ellipsis-probe'), { path: 'out/web/card-name-ellipsis.png' });
   const name = page.locator('#ellipsis-probe .recent .name');
   const { used, box } = await firstLineWidth(page, '#ellipsis-probe .recent .name');
   expect(used).toBeGreaterThan(box * 0.7);

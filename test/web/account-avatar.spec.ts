@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
+import { shot } from './shots';
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
@@ -15,7 +16,7 @@ for (const where of ['/', '/admin']) {
     await expect(button.locator('svg').first()).toBeVisible();
     await page.evaluate((src) => (window as any).acctAvatar(src), PNG);
     await expect(button.locator('img.acct-avatar')).toBeVisible();
-    await button.screenshot({ path: test.info().outputPath('avatar.png') });
+    await shot(button, { path: test.info().outputPath('avatar.png') });
   });
 }
 
