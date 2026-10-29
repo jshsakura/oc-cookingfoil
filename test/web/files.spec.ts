@@ -71,6 +71,80 @@ test('a new folder, a rename, a move and a trash each change the disk', async ({
   expect(has('Alpha')).toBe(false);
 });
 
+test('rows pick like a file manager: a click picks one, Ctrl adds, Shift takes the range, Ctrl+A takes the page', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  const info = page.locator('#fb-info');
+  await row(page, 'Alpha').locator('td.c-size').click();
+  await expect(info).toHaveText('1개를 골랐습니다');
+  await expect(row(page, 'Alpha')).toHaveAttribute('aria-selected', 'true');
+  await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
+  await expect(info).toHaveText('2개를 골랐습니다');
+  await expect(row(page, 'Beta')).toHaveAttribute('aria-selected', 'false');
+  await row(page, 'Alpha').locator('td.c-size').click();
+  await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['Shift'] });
+  await expect(info).toHaveText('3개를 골랐습니다');
+  await row(page, 'Beta').locator('td.c-size').click();
+  await expect(info).toHaveText('1개를 골랐습니다');
+  await page.keyboard.press('ControlOrMeta+a');
+  await expect(info).toHaveText('3개를 골랐습니다');
+  await page.keyboard.press('Escape');
+  await expect(info).toHaveText('폴더 2개 · 파일 1개');
+});
+
+test('the keyboard walks the rows, Enter opens a folder, Backspace goes back up, F2 renames', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await row(page, 'Alpha').locator('td.c-size').click();
+  await page.keyboard.press('ArrowDown');
+  await expect(row(page, 'Beta')).toBeFocused();
+  await expect(row(page, 'Beta')).toHaveAttribute('aria-selected', 'true');
+  await expect(row(page, 'Alpha')).toHaveAttribute('aria-selected', 'false');
+  await page.keyboard.press('Enter');
+  await expect(row(page, 'keep.txt')).toBeVisible();
+  await page.keyboard.press('Backspace');
+  await expect(row(page, 'loose.nsp')).toBeVisible();
+  await row(page, 'loose.nsp').locator('td.c-size').dblclick();
+  await row(page, 'loose.nsp').locator('td.c-size').click();
+  await page.keyboard.press('F2');
+  await page.locator('#ask-input').fill('keyed.nsp');
+  await page.locator('#ask-ok').click();
+  await expect(row(page, 'keyed.nsp')).toBeVisible();
+  expect(has('keyed.nsp') && !has('loose.nsp')).toBe(true);
+});
+
+test('a right click opens a menu of what the pick allows, and on the empty list a new folder and an upload', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  const menu = page.locator('#fb-menu');
+  await row(page, 'loose.nsp').locator('td.c-mtime').click({ button: 'right' });
+  await expect(menu.getByRole('menuitem')).toHaveText(['내려받기', '이름 바꾸기', '이동', '휴지통으로']);
+  await expect(menu.getByRole('menuitem').first()).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+
+  await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
+  await expect(menu.getByRole('menuitem')).toHaveText(['열기', '이름 바꾸기', '이동', '휴지통으로']);
+  await menu.getByRole('menuitem', { name: '이름 바꾸기' }).click();
+  await page.locator('#ask-input').fill('Alef');
+  await page.locator('#ask-ok').click();
+  await expect(row(page, 'Alef')).toBeVisible();
+  expect(has('Alef/one.nsp')).toBe(true);
+
+  await row(page, 'Beta').locator('td.c-size').click();
+  await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
+  await row(page, 'Beta').locator('td.c-mtime').click({ button: 'right' });
+  await expect(menu).toContainText('2개를 골랐습니다');
+  await expect(menu.getByRole('menuitem')).toHaveText(['이동', '휴지통으로']);
+  await page.mouse.click(5, 5);
+  await expect(menu).toBeHidden();
+
+  await page.locator('#fb-empty').evaluate((e) => { e.hidden = false; });
+  await page.locator('#fb-empty').click({ button: 'right' });
+  await expect(menu.getByRole('menuitem')).toHaveText(['새 폴더', '올리기']);
+  await expect(page.locator('#fb-info')).toHaveText('폴더 2개 · 파일 1개');
+});
+
 test('the header row stays in view while the list scrolls, and the bar sits at the bottom', async ({ page }) => {
   for (let i = 0; i < 60; i++) put(`Many/file-${String(i).padStart(2, '0')}.nsp`);
   await page.setViewportSize({ width: 1280, height: 720 });

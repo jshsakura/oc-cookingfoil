@@ -10,6 +10,7 @@ const KEYS = [
   "fb.empty", "fb.noMatch", "fb.askTrash", "fb.trashed", "fb.moved", "fb.movedSome", "fb.renamed", "fb.made",
   "fb.moveTitle", "fb.moveHere", "fb.cancel", "fb.loadFail", "fb.pageOf", "fb.prev", "fb.next", "fb.note",
   "fb.upload", "fb.dropHere", "fb.uploading", "fb.uploaded", "fb.upSome", "fb.upFail",
+  "fb.open", "fb.menu",
 ];
 
 const ROWS = {
@@ -21,6 +22,7 @@ const ROWS = {
     "옮길 폴더를 고릅니다", "여기로 이동", "취소", "목록을 불러오지 못했습니다: {msg}", "{page} / {pages}쪽", "이전 쪽", "다음 쪽",
     "지운 것은 저장 위치마다 휴지통으로 갑니다. 이름 바꾸기와 이동은 휴지통 페이지의 작업 기록에서 되돌릴 수 있습니다.",
     "올리기", "여기에 놓으면 이 폴더로 올립니다", "{n}/{t}개 올리는 중 · {p}%", "{n}개를 올렸습니다", "{n}개를 올렸습니다. {s}개는 같은 이름이 이미 있어 건너뛰었습니다", "{name}을(를) 올리지 못했습니다: {msg}",
+    "열기", "파일 메뉴",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -30,6 +32,7 @@ const ROWS = {
     "Choose the folder to move into", "Move here", "Cancel", "The list could not be loaded: {msg}", "Page {page} of {pages}", "Previous page", "Next page",
     "Deleted items go to each storage location's trash. Renames and moves can be undone from the activity record on the Trash page.",
     "Upload", "Drop here to upload into this folder", "Uploading {n} of {t} · {p}%", "Uploaded {n}", "Uploaded {n}. {s} skipped because the name is already taken", "{name} could not be uploaded: {msg}",
+    "Open", "File menu",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -39,6 +42,7 @@ const ROWS = {
     "移動先のフォルダーを選びます", "ここに移動", "キャンセル", "一覧を読み込めませんでした: {msg}", "{page} / {pages}ページ", "前のページ", "次のページ",
     "削除したものは保存場所ごとのごみ箱に移ります。名前の変更と移動は、ごみ箱ページの作業記録から元に戻せます。",
     "アップロード", "ここにドロップするとこのフォルダーにアップロードします", "{t}個中{n}個目をアップロード中 · {p}%", "{n}個をアップロードしました", "{n}個をアップロードしました。{s}個は同じ名前があるためスキップしました", "{name}をアップロードできませんでした: {msg}",
+    "開く", "ファイルメニュー",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -48,6 +52,7 @@ const ROWS = {
     "选择要移入的文件夹", "移到这里", "取消", "无法加载列表：{msg}", "第 {page} / {pages} 页", "上一页", "下一页",
     "删除的项目会进入各存储位置的回收站。重命名和移动可以在回收站页面的操作记录中撤销。",
     "上传", "拖放到此处即可上传到此文件夹", "正在上传第 {n}/{t} 个 · {p}%", "已上传 {n} 个", "已上传 {n} 个。{s} 个因名称已存在而跳过", "无法上传 {name}：{msg}",
+    "打开", "文件菜单",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -57,6 +62,7 @@ const ROWS = {
     "選擇要移入的資料夾", "移到這裡", "取消", "無法載入清單：{msg}", "第 {page} / {pages} 頁", "上一頁", "下一頁",
     "刪除的項目會進入各儲存位置的垃圾桶。重新命名和移動可以在垃圾桶頁面的操作記錄中復原。",
     "上傳", "拖放到這裡即可上傳到此資料夾", "正在上傳第 {n}/{t} 個 · {p}%", "已上傳 {n} 個", "已上傳 {n} 個。{s} 個因名稱已存在而略過", "無法上傳 {name}：{msg}",
+    "開啟", "檔案選單",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -66,6 +72,7 @@ const ROWS = {
     "Elige la carpeta de destino", "Mover aquí", "Cancelar", "No se pudo cargar la lista: {msg}", "Página {page} de {pages}", "Página anterior", "Página siguiente",
     "Lo que se elimina va a la papelera de cada ubicación. Los cambios de nombre y los movimientos se pueden deshacer desde el registro de la página Papelera.",
     "Subir", "Suelta aquí para subir a esta carpeta", "Subiendo {n} de {t} · {p}%", "Se subieron {n}", "Se subieron {n}. Se omitieron {s} porque el nombre ya existe", "No se pudo subir {name}: {msg}",
+    "Abrir", "Menú de archivo",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -75,6 +82,7 @@ const ROWS = {
     "Choisissez le dossier de destination", "Déplacer ici", "Annuler", "Impossible de charger la liste : {msg}", "Page {page} sur {pages}", "Page précédente", "Page suivante",
     "Ce qui est supprimé va dans la corbeille de chaque emplacement. Les renommages et déplacements s'annulent depuis le journal de la page Corbeille.",
     "Envoyer", "Déposez ici pour envoyer dans ce dossier", "Envoi {n} sur {t} · {p} %", "{n} envoyé(s)", "{n} envoyé(s). {s} ignoré(s) car le nom existe déjà", "Impossible d’envoyer {name} : {msg}",
+    "Ouvrir", "Menu du fichier",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -84,6 +92,7 @@ const ROWS = {
     "Wähle den Zielordner", "Hierher verschieben", "Abbrechen", "Die Liste konnte nicht geladen werden: {msg}", "Seite {page} von {pages}", "Vorherige Seite", "Nächste Seite",
     "Gelöschtes landet im Papierkorb des jeweiligen Speicherorts. Umbenennen und Verschieben lassen sich im Verlauf der Papierkorb-Seite rückgängig machen.",
     "Hochladen", "Hier ablegen, um in diesen Ordner hochzuladen", "Lade {n} von {t} hoch · {p} %", "{n} hochgeladen", "{n} hochgeladen. {s} übersprungen, weil der Name schon vergeben ist", "{name} konnte nicht hochgeladen werden: {msg}",
+    "Öffnen", "Dateimenü",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -93,6 +102,7 @@ const ROWS = {
     "Scegli la cartella di destinazione", "Sposta qui", "Annulla", "Impossibile caricare l'elenco: {msg}", "Pagina {page} di {pages}", "Pagina precedente", "Pagina successiva",
     "Ciò che elimini va nel cestino di ogni posizione. Rinomine e spostamenti si annullano dal registro della pagina Cestino.",
     "Carica", "Rilascia qui per caricare in questa cartella", "Caricamento {n} di {t} · {p}%", "Caricati {n}", "Caricati {n}. {s} saltati perché il nome esiste già", "Impossibile caricare {name}: {msg}",
+    "Apri", "Menu file",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -102,6 +112,7 @@ const ROWS = {
     "Escolha a pasta de destino", "Mover para cá", "Cancelar", "Não foi possível carregar a lista: {msg}", "Página {page} de {pages}", "Página anterior", "Próxima página",
     "O que é excluído vai para a lixeira de cada local. Renomeações e movimentos podem ser desfeitos no registro da página Lixeira.",
     "Enviar", "Solte aqui para enviar para esta pasta", "Enviando {n} de {t} · {p}%", "{n} enviado(s)", "{n} enviado(s). {s} ignorado(s) porque o nome já existe", "Não foi possível enviar {name}: {msg}",
+    "Abrir", "Menu do arquivo",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -111,6 +122,7 @@ const ROWS = {
     "Kies de map om naartoe te verplaatsen", "Hierheen verplaatsen", "Annuleren", "De lijst kon niet worden geladen: {msg}", "Pagina {page} van {pages}", "Vorige pagina", "Volgende pagina",
     "Wat je verwijdert gaat naar de prullenbak van elke opslaglocatie. Naamwijzigingen en verplaatsingen maak je ongedaan via het logboek op de pagina Prullenbak.",
     "Uploaden", "Zet hier neer om naar deze map te uploaden", "{n} van {t} uploaden · {p}%", "{n} geüpload", "{n} geüpload. {s} overgeslagen omdat de naam al bestaat", "{name} kon niet worden geüpload: {msg}",
+    "Openen", "Bestandsmenu",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -120,6 +132,7 @@ const ROWS = {
     "Выберите папку назначения", "Переместить сюда", "Отмена", "Не удалось загрузить список: {msg}", "Страница {page} из {pages}", "Предыдущая страница", "Следующая страница",
     "Удалённое попадает в корзину своего хранилища. Переименование и перемещение можно отменить в журнале на странице «Корзина».",
     "Загрузить", "Перетащите сюда, чтобы загрузить в эту папку", "Загрузка {n} из {t} · {p}%", "Загружено: {n}", "Загружено: {n}. Пропущено: {s}, имя уже занято", "Не удалось загрузить {name}: {msg}",
+    "Открыть", "Меню файла",
   ],
 };
 
