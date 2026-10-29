@@ -125,7 +125,7 @@ const setup = (files, lists, { cue = false } = {}) => {
     retroDir: path.join(root, "retro"),
     homebrewDir: path.join(root, "homebrew"),
     systems: () => DEFAULT_SYSTEMS,
-    readRefs: async (abs) => (cue ? [fs.readFileSync(abs, "latin1").match(/FILE "([^"]+)"/)[1]] : []),
+    readRefs: async (abs) => (cue && abs.endsWith(".cue") ? [fs.readFileSync(abs, "latin1").match(/FILE "([^"]+)"/)[1]] : []),
     romsRels: async () => [],
     ...createIdentifier({ readIdentity: async () => null, readTicketNames: async () => [] }),
     nameOf: () => null,
@@ -143,21 +143,23 @@ const setup = (files, lists, { cue = false } = {}) => {
 };
 
 test("a game's discs go into one folder named after the list, with an .m3u made for it", async () => {
-  const d1 = Buffer.from("disc one"), d2 = Buffer.from("disc two");
+  const d1 = Buffer.from("disc one"), d2 = Buffer.from("disc two"), lone = Buffer.from("lone");
+  const cue = (n) => `FILE "${n}.bin" BINARY\n`;
   const { root, org } = setup(
-    { "incoming/a.chd": d1, "incoming/b.chd": d2, "incoming/lone.chd": Buffer.from("lone") },
+    { "incoming/a.cue": cue("a"), "incoming/a.bin": d1, "incoming/b.cue": cue("b"), "incoming/b.bin": d2, "incoming/lone.cue": cue("lone"), "incoming/lone.bin": lone },
     {
       [crcOf(d1)]: [{ system: "ps1", name: "Final Fantasy VII (USA) (Disc 1)" }],
       [crcOf(d2)]: [{ system: "ps1", name: "Final Fantasy VII (USA) (Disc 2)" }],
-      [crcOf(Buffer.from("lone"))]: [{ system: "ps1", name: "Crash Bandicoot (USA)" }],
+      [crcOf(lone)]: [{ system: "ps1", name: "Crash Bandicoot (USA)" }],
     },
+    { cue: true },
   );
   try {
-    assert.equal((await org.sweep()).moved, 3);
+    assert.equal((await org.sweep()).moved, 6);
     const dir = path.join(root, "retro/roms/ps1/Final Fantasy VII (USA)");
-    assert.deepEqual(fs.readdirSync(dir).sort(), ["Final Fantasy VII (USA) (Disc 1).chd", "Final Fantasy VII (USA) (Disc 2).chd", "Final Fantasy VII (USA).m3u"]);
-    assert.equal(fs.readFileSync(path.join(dir, "Final Fantasy VII (USA).m3u"), "utf8"), "Final Fantasy VII (USA) (Disc 1).chd\nFinal Fantasy VII (USA) (Disc 2).chd\n");
-    assert.ok(fs.existsSync(path.join(root, "retro/roms/ps1/Crash Bandicoot (USA).chd")), "a single disc stays a file");
+    assert.deepEqual(fs.readdirSync(dir).sort(), ["Final Fantasy VII (USA).m3u", "a.bin", "a.cue", "b.bin", "b.cue"]);
+    assert.equal(fs.readFileSync(path.join(dir, "Final Fantasy VII (USA).m3u"), "utf8"), "a.cue\nb.cue\n");
+    assert.deepEqual(fs.readdirSync(path.join(root, "retro/roms/ps1/Crash Bandicoot (USA)")).sort(), ["lone.bin", "lone.cue"], "a single disc gets no m3u");
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -180,13 +182,12 @@ test("a cue and its tracks keep their file names inside a folder named after the
   }
 });
 
-test("a disc whose sibling is not in the drop box stays one file named after the list", async () => {
+test("a disc whose sibling is not in the drop box gets a folder named after the list and no .m3u", async () => {
   const d1 = Buffer.from("only disc one");
-  const { root, org } = setup({ "incoming/a.chd": d1 }, { [crcOf(d1)]: [{ system: "ps1", name: "Xenogears (USA) (Disc 1)" }] });
+  const { root, org } = setup({ "incoming/a.cue": 'FILE "a.bin" BINARY\n', "incoming/a.bin": d1 }, { [crcOf(d1)]: [{ system: "ps1", name: "Xenogears (USA) (Disc 1)" }] }, { cue: true });
   try {
     await org.sweep();
-    assert.ok(fs.existsSync(path.join(root, "retro/roms/ps1/Xenogears (USA) (Disc 1).chd")));
-    assert.ok(!fs.existsSync(path.join(root, "retro/roms/ps1/Xenogears (USA)")));
+    assert.deepEqual(fs.readdirSync(path.join(root, "retro/roms/ps1/Xenogears (USA) (Disc 1)")).sort(), ["a.bin", "a.cue"]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

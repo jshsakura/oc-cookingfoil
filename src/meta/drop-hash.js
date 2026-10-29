@@ -9,11 +9,14 @@ import { createReadStream } from "node:fs";
 import path from "node:path";
 import { fileKey } from "../helpers/hash-cache.js";
 import { zipDirectory } from "../helpers/zip-read.js";
+import { listArchive } from "../helpers/seven-zip-list.js";
 import { hashRom, MAX_BYTES } from "../retro/rom-index.js";
 import { systemOfExtension } from "../retro/systems.js";
 
 // Not a ROM of any console: never hashed.
-const SKIP = new Set([".cue", ".m3u", ".nro", ".png", ".md", ".txt", ".nfo", ".7z", ".rar", ".scummvm"]);
+// A .chd, .pbp, .cso or .rvz is compressed data whose bytes, and the SHA-1 in a CHD's header (which covers
+// 2448-byte frames with subcode), are not what No-Intro and Redump list: reading one in full would find nothing.
+const SKIP = new Set([".cue", ".m3u", ".nro", ".png", ".md", ".txt", ".nfo", ".rar", ".scummvm", ".chd", ".pbp", ".cso", ".rvz"]);
 const DOCS = new Set([".txt", ".nfo", ".diz", ".pdf", ".jpg", ".png", ".md", ".htm", ".html"]);
 
 export function createDropHasher({ lookup }) {
@@ -24,6 +27,10 @@ export function createDropHasher({ lookup }) {
     if (ext === ".zip") {
       const roms = (await zipDirectory(f.abs).catch(() => [])).filter((e) => !e.name.endsWith("/") && !DOCS.has(path.extname(e.name).toLowerCase()));
       return roms.length === 1 ? [{ crc32: roms[0].crc32, size: roms[0].size }] : [];
+    }
+    if (ext === ".7z") {
+      const roms = (await listArchive(f.abs)).filter((e) => !DOCS.has(path.extname(e.name).toLowerCase()));
+      return roms.length === 1 && roms[0].crc32 ? [{ crc32: roms[0].crc32, size: roms[0].size }] : [];
     }
     if (SKIP.has(ext) || f.size > MAX_BYTES) return [];
     const h = await hashRom(createReadStream(f.abs), systemOfExtension(ext, systems), f.size);
