@@ -61,8 +61,8 @@ function matchesEnv(input, expected) {
 }
 
 /** Whether `input` is the admin password: the compose one or the one set on the admin page. */
-export function verifyPassword(input, expected = adminPassword) {
-  return matchesEnv(input, expected) || savedPassword.matches(input);
+export async function verifyPassword(input, expected = adminPassword) {
+  return matchesEnv(input, expected) || (await savedPassword.matches(input));
 }
 
 // otplib takes the tolerance in seconds (epochTolerance; its default is 0, the

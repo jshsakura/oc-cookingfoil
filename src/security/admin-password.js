@@ -4,7 +4,7 @@
  * COOK_ADMIN_PASSWORD: either one opens the admin page. The plain password is
  * never stored or sent back.
  */
-import { hashPassword, matches as hashMatches } from "./password-hash.js";
+import { hashPassword, matchesAsync } from "./password-hash.js";
 import { recordStore } from "../db/security-stores.js";
 
 export const MIN_LENGTH = 12;
@@ -23,10 +23,10 @@ function hash() {
 
 export const has = () => Boolean(hash());
 
-/** Whether `input` is the saved password (false when none is saved). */
-export function matches(input) {
+/** Whether `input` is the saved password (false when none is saved). The hash runs off the event loop. */
+export async function matches(input) {
   const h = hash();
-  return Boolean(h) && typeof input === "string" && input.length > 0 && input.length <= MAX_LENGTH && hashMatches(h, input);
+  return Boolean(h) && typeof input === "string" && input.length > 0 && input.length <= MAX_LENGTH && (await matchesAsync(h, input));
 }
 
 /** Saves a new password; throws when it is too short or too long. */

@@ -393,7 +393,7 @@ export default function adminPageRouter() {
     const ip = clientIp(req);
     const trusted = trustedHere(req);
     if (!trusted && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ ok: false });
-    const byPassword = mode !== "code" && typeof req.body?.password === "string" && verifyPassword(req.body.password);
+    const byPassword = mode !== "code" && typeof req.body?.password === "string" && (await verifyPassword(req.body.password));
     const triesCode = !byPassword && mode !== "password" && req.body?.code !== undefined;
     // Wrong codes are counted with no loopback or sign-in exemption (security/totp-guard.js).
     const codeWait = triesCode ? totpGuard.lockedFor(TOTP_ACCOUNT, ip) : 0;
