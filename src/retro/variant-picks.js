@@ -14,6 +14,9 @@ const GROUP_RE = /^[a-z0-9_-]{1,24}~[0-9a-f]{10}$/;
 const GAME_RE = /^[a-z0-9_-]{1,24}-[0-9a-f]{10}$/;
 
 const file = jsonFile(FILE);
+
+/** Changes when the stored values do, by the server or by hand. */
+export const fileStamp = () => file.stamp();
 const all = file.read;
 
 /** Reads the file again on the next use. */

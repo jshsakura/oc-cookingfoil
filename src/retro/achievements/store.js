@@ -12,6 +12,7 @@
 import fs from "fs";
 import path from "path";
 import debug from "../../debug.js";
+import * as indexRevision from "../index-revision.js";
 
 const VERSION = 1;
 let file = null;
@@ -28,6 +29,7 @@ export function load(dataDir) {
     state = { lists: {}, roms: {} };
   }
   byId = null;
+  indexRevision.bump();
   return Object.keys(state.roms).length;
 }
 
@@ -48,6 +50,7 @@ export const list = (consoleId) => state.lists[consoleId] ?? null;
 export function setList(consoleId, record) {
   state.lists[consoleId] = record;
   byId = null;
+  indexRevision.bump();
 }
 
 /** A catalog game's record, or null. */
@@ -55,12 +58,14 @@ export const rom = (gameId) => state.roms[gameId] ?? null;
 
 export function setRom(gameId, record) {
   state.roms[gameId] = record;
+  indexRevision.bump();
 }
 
 /** Forgets the ROMs no longer in the catalog; how many went. */
 export function keepRoms(ids) {
   let dropped = 0;
   for (const id of Object.keys(state.roms)) if (!ids.has(id)) { delete state.roms[id]; dropped++; }
+  if (dropped) indexRevision.bump();
   return dropped;
 }
 
@@ -75,4 +80,5 @@ export function reset(next = { lists: {}, roms: {} }) {
   file = null;
   state = next;
   byId = null;
+  indexRevision.bump();
 }

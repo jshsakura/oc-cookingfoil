@@ -13,6 +13,7 @@
 import fs from "fs";
 import path from "path";
 import { dataDir } from "../helpers/envs.js";
+import * as indexRevision from "./index-revision.js";
 
 const FILE = path.join(dataDir, "retro-names.json");
 const GUESS_FILE = path.join(dataDir, "retro-name-guesses.json");
@@ -56,6 +57,7 @@ export function set(id, { ko, en } = {}) {
   const next = Object.keys(entry).length ? { ...rest, [id]: entry } : rest;
   writeJson(FILE, next);
   saved = next;
+  indexRevision.bump();
   return true;
 }
 

@@ -10,6 +10,7 @@
  * restored. game-view.js reads it to mark the game as patched in every list.
  */
 import { recordStore } from "../db/security-stores.js";
+import * as indexRevision from "./index-revision.js";
 
 let rows = null;
 let patched = null; // Map game id → record
@@ -35,4 +36,5 @@ export function setPatch(id, record) {
     throw err;
   }
   patched = next;
+  indexRevision.bump();
 }

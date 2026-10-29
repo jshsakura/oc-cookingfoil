@@ -37,6 +37,24 @@ test("the cache rebuilds after its window or a new source, and remembers a bound
   assert.equal(cache.hashesOf("ko", e2.snap.version), null, "per language");
 });
 
+test("an unchanged library is not rebuilt per request: only a moved stamp, at most per window, or its age", () => {
+  let builds = 0;
+  let revision = 0;
+  const cache = createIndexCache((src) => { builds++; return [{ id: "a", v: src.v, r: revision }]; }, { stamp: () => revision, freshMs: 1000, maxAgeMs: 60_000 });
+  const src = { v: 1 };
+  cache.get(src, "en", 0);
+  for (const at of [1500, 5000, 30_000]) cache.get(src, "en", at);
+  assert.equal(builds, 1, "nothing moved: the first build serves");
+  revision++;
+  assert.equal(cache.get(src, "en", 30_500).snap.games[0].r, 1, "a moved stamp rebuilds");
+  revision++;
+  cache.get(src, "en", 31_000);
+  assert.equal(builds, 2, "but at most once per window");
+  assert.equal(cache.get(src, "en", 31_600).snap.games[0].r, 2, "and after it");
+  cache.get(src, "en", 92_000);
+  assert.equal(builds, 4, "past its age it is rebuilt even with nothing moved");
+});
+
 test("each language, traditional Chinese included, keeps its own snapshot and version", () => {
   const cache = createIndexCache((src, lang) => [{ id: "a", name: src.names[lang] ?? src.names.en }]);
   const src = { names: { en: "Name", zh: "名称", "zh-Hant": "名稱", de: "Name" } };

@@ -146,6 +146,7 @@ import { IMMUTABLE } from "../meta/image-cache.js";
 import { listFilter } from "../retro/list-filter.js";
 import { representative } from "../retro/variants.js";
 import * as variantPicks from "../retro/variant-picks.js";
+import * as indexRevision from "../retro/index-revision.js";
 import * as itemVerified from "../meta/item-verified.js";
 import * as itemVotes from "../meta/item-votes.js";
 import { optimizeBoxarts } from "../retro/art/sync.js";
@@ -513,9 +514,11 @@ const ENCODERS = {
   br: (body) => brotliAsync(body, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: body.length } }),
   gzip: (body) => gzipAsync(body, { level: 9 }),
 };
-// Built at most once per 3 s per language and at once after a rescan; votes,
-// checks and hashes that land between show up after it.
-const retroIndex = createIndexCache(indexGames);
+// Built at once after a rescan, and otherwise when what it shows moved (at most once per 3 s per
+// language): the revision covers names, patches, hashes and achievements, the file stamps the
+// stores a person may edit by hand. Box art replaced by hand shows within a minute.
+const indexStamp = () => `${indexRevision.current()}|${variantPicks.fileStamp()}|${itemVotes.fileStamp()}|${itemVerified.fileStamp()}`;
+const retroIndex = createIndexCache(indexGames, { stamp: indexStamp });
 
 /** A JSON body with its ETag, and its gzip once asked for. */
 const jsonReply = (body) => ({ body, etag: `"${crypto.createHash("sha1").update(body).digest("hex")}"`, encoded: {} });

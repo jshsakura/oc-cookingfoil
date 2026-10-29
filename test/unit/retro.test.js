@@ -156,7 +156,7 @@ async function boot(retroDir, extraEnv = {}) {
   });
   for (let i = 0; i < 60; i++) {
     try {
-      if ((await fetch(`${BASE}/healthz`)).ok) return child;
+      if ((await fetch(`${BASE}/healthz`)).ok) return Object.assign(child, { data });
     } catch {
       /* not up yet */
     }
@@ -482,7 +482,12 @@ test("the retro index pages every version of every listed game by id, trimmed, a
     assert.notEqual(after.version, settled.version);
     assert.deepEqual(after.changed.map((g) => [g.id, g.votes]), [[chrono.id, { up: 1, down: 0 }]]);
     assert.deepEqual(after.removed, []);
-    assert.deepEqual(await (await get("/api/retro/index?since=0000000000000000")).json(), { version: after.version, reset: true }, "a version it doesn't remember: page again");
+    // A check written into the file by hand shows too, with no restart.
+    fs.writeFileSync(path.join(server.data, "verified-items.json"), JSON.stringify({ [`retro:${chrono.id}`]: 1_700_000_000_000 }));
+    await new Promise((r) => setTimeout(r, 3100));
+    const checked = await (await get(`/api/retro/index?since=${after.version}`)).json();
+    assert.deepEqual(checked.changed.map((g) => [g.id, g.verified]), [[chrono.id, true]], "a hand edit moves the index");
+    assert.deepEqual(await (await get("/api/retro/index?since=0000000000000000")).json(), { version: checked.version, reset: true }, "a version it doesn't remember: page again");
   } finally {
     server.kill("SIGKILL");
   }

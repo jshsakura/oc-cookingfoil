@@ -19,6 +19,7 @@ import * as activity from "../tasks/activity.js";
 import { hashable, romHash } from "./achievements/hash.js";
 import { inTurn } from "./disk-turn.js";
 import { ACTIVITY_LANG, retroText } from "./retro-messages.js";
+import * as indexRevision from "./index-revision.js";
 
 // A breath between files, so requests keep their turn while a big library is read.
 const PAUSE_MS = 50;
@@ -45,6 +46,7 @@ async function compute(g, key) {
     debug.error("retro: hashing %s: %s", g.rel ?? g.abs, err.message);
   }
   hashes().set(g.id, { key, hash: hash ?? "" });
+  indexRevision.bump();
   return hash;
 }
 

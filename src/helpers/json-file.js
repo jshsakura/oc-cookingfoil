@@ -11,7 +11,7 @@ import debug from "../debug.js";
 
 const stampOf = (st) => `${st.mtimeMs}:${st.ctimeMs}:${st.size}:${st.ino}`;
 
-/** { read, write, forget } for `file`, an object keyed by id. `indent` 0 writes it on one line. */
+/** { read, write, forget, stamp } for `file`, an object keyed by id. `indent` 0 writes it on one line. */
 export function jsonFile(file, { label = path.basename(file), indent = 1 } = {}) {
   let value = null;
   let stamp = null;
@@ -56,5 +56,9 @@ export function jsonFile(file, { label = path.basename(file), indent = 1 } = {})
     [value, stamp, checked] = [null, null, false];
   }
 
-  return { read, write, forget };
+  return {
+    read, write, forget,
+    /** Names the content held: it changes with the file and with the server's own write. */
+    stamp: () => (read(), stamp),
+  };
 }
