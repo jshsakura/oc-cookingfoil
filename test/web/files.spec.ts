@@ -425,7 +425,6 @@ test('on a wide screen the folder tree and the details pane open beside the list
   await expect(side.getByRole('heading', { name: 'loose.nsp' })).toBeVisible();
   await expect(side).toContainText('3 B');
   await row(page, 'Alpha').locator('.c-size').click();
-  await side.getByRole('button', { name: '크기 계산' }).click();
   await expect(side).toContainText('파일 2개');
   await page.locator('#fb-t-side').click();
   await expect(side).toBeHidden();
@@ -459,8 +458,17 @@ test("a game file shows its game's icon, kind, version and what its check found"
   await page.route('**/api/library/icon/**', (r) => r.fulfill({ contentType: 'image/png', body: png }));
   await page.goto('/admin/games?tab=folder&path=fb-test%2FGamey');
   const r = page.locator('#fb-rows tr').first();
-  await expect(r.locator('img.fb-gicon')).toHaveAttribute('src', /\/api\/library\/icon\/0100AAAA00000000\?size=sm/);
+  await expect(r.locator('img.fb-gicon')).toHaveAttribute('src', /\/api\/library\/icon\/0100AAAA00000000\?size=md/);
   await expect(r).toContainText('업데이트 v65536');
   await expect(r).toContainText('구버전');
   await expect(r).toContainText('손상');
+});
+
+test('a folder row shows its size, and the details pane what it holds', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await expect(row(page, 'Alpha').locator('.c-size')).toHaveText('3 B');
+  await row(page, 'Alpha').locator('.c-mtime').click();
+  await expect(page.locator('#fb-side')).toContainText('파일 2개, 폴더 0개');
 });

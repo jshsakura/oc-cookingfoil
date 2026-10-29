@@ -13,6 +13,8 @@
  *        with background: true → { job, total } at once; GET /admin/api/files/copy/:job → { state: running|done|failed,
  *        total, done } in bytes, with what the copy answers once done, { code, error } once failed.
  *   POST /admin/api/files/trash   { root, paths }        → { trash, restore: [id], files }
+ *   POST /admin/api/files/sizes   { root, paths }        → { sizes: { rel: { bytes, files, dirs } } } for the folders among
+ *        `paths`, from a cache that only looks again at folders that changed (library/folder-sizes.js)
  *   POST /admin/api/files/info    { root, paths }        → { files, dirs, bytes, newest, cut }: what a pick holds, folders counted
  *        through, up to INFO_MAX entries (cut: it stopped there)
  *        `undo` is the journal line POST /admin/api/trash/undo takes back; `restore` the ids POST /admin/api/trash/restore takes.
@@ -44,6 +46,9 @@ const MAX_PATHS = 1000;
 const ZIP_TTL_MS = 10 * 60 * 1000;
 const INFO_MAX = 100000;
 const COPY_TTL_MS = 10 * 60 * 1000;
+const SIZES_MAX = 500;
+// A while after start every storage is sized once, so the first folder opened already has its sizes.
+const SIZES_WARM_MS = 60 * 1000;
 
 /** Bytes under `p` (a file or a folder), 0 when it is gone. */
 async function sizeOf(p) {
@@ -56,7 +61,7 @@ async function sizeOf(p) {
   return n;
 }
 
-export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir, facts = createFileFacts() } = {}) {
+export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir, facts = createFileFacts(), warmSizes = true } = {}) {
   const handle = (fn) => async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
@@ -159,6 +164,18 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     if (job.state === "failed") Object.assign(out, { code: job.code, error: apiWord(req, `files.${job.code}`) });
     res.json(out);
   }));
+
+  router.post("/api/files/sizes", handle(async (req, res) => {
+    const b = req.body ?? {};
+    const rels = paths(b.paths);
+    if (rels.length > SIZES_MAX) throw new FileError("nothing");
+    res.json({ sizes: await files.sizes(str(b.root), rels) });
+  }));
+  if (warmSizes) {
+    setTimeout(async () => {
+      for (const r of files.roots()) await files.sizes(r.key, [""]).catch((err) => debug.error("admin: files: sizing %s: %s", r.key, err.message));
+    }, SIZES_WARM_MS).unref();
+  }
 
   router.post("/api/files/info", handle(async (req, res) => {
     const b = req.body ?? {};

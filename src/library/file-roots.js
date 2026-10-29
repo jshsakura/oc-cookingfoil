@@ -28,6 +28,7 @@ import path from "path";
 import { copyChecked, moveAcross, moveNoClobber, withLocks, withPartial } from "./safe-move.js";
 import { numbered, trashItems } from "./trash.js";
 import { recordMove } from "./journal.js";
+import { createFolderSizes } from "./folder-sizes.js";
 import { libraryRoots, refresh as refreshRoots } from "./trash-service.js";
 import * as env from "../helpers/envs.js";
 
@@ -266,6 +267,24 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return Object.assign(out, { cut: out.length >= max });
   }
 
+  const folderSizes = createFolderSizes();
+  /** { rel: { bytes, files, dirs } } for the folders `rels` (a file or a refused path is left out). */
+  async function sizes(key, rels) {
+    const out = {};
+    for (const rel of new Set(rels)) {
+      let at;
+      try {
+        at = await resolve(key, rel, { mayBeRoot: true });
+      } catch (err) {
+        if (err instanceof FileError) continue;
+        throw err;
+      }
+      if (!(await fsp.stat(at.real).catch(() => null))?.isDirectory()) continue;
+      out[at.rel] = await folderSizes.sizeOf(at.real, (abs) => allowed(at.walls, abs));
+    }
+    return out;
+  }
+
   async function mkdir(key, rel, name) {
     const clean = cleanName(name);
     if (!clean) fail("bad-name");
@@ -442,5 +461,5 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return out;
   }
 
-  return { list, open, collect, mkdir, rename, move, copy, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
+  return { list, open, collect, sizes, mkdir, rename, move, copy, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
 }
