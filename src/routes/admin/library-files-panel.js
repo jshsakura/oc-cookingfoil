@@ -23,15 +23,25 @@ export const LIBRARY_FILES_CSS = /* css */ `
 .lv-pop b{display:block;margin-bottom:6px;font-size:var(--fs-sm)}
 .lv-pop p{margin:0 0 6px;color:var(--muted)}
 .lv-pop p:last-child{margin-bottom:0}
+#lv-cards button.card{font:inherit;color:inherit;text-align:left;cursor:pointer}
+#lv-cards button.card[aria-pressed="true"]{background:rgba(var(--accent-rgb),.16);border-color:rgba(var(--accent-rgb),.55)}
 `;
 
 export const LIBRARY_FILES_SCRIPT = /* js */ `
+// A verdict card is also the list's filter: a link with ?check=damaged opens on the damaged files alone.
+let lvData=null;
+const lvCheck=()=>{const v=new URLSearchParams(location.search).get('check');return ['damaged','modified','misnamed'].includes(v)?v:'';};
+function lvPick(v){const next=new URL(location.href);if(v&&v!==lvCheck())next.searchParams.set('check',v);else next.searchParams.delete('check');
+  history.replaceState(null,'',next);lvShow();}
 async function lvLoad(){let d;try{d=await api('/admin/api/library/verify');}catch(err){toast(err.message);return;}
-  const c=d.counts||{};const cards=$('lv-cards');cards.replaceChildren();
-  const card=(l,v,cls)=>{const e=el('div',null,'card'+(cls?' '+cls:''));e.append(el('div',num(v),'v'),el('div',l,'l'));return e;};
-  cards.append(card(topText('lv.ok'),c.ok||0),card(topText('lv.v.modified'),c.modified||0),card(topText('lv.v.damaged'),c.damaged||0,c.damaged?'alert':''),card(topText('lv.unchecked'),c.unchecked||0),card(topText('lv.v.misnamed'),c.misnamed||0));
+  lvData=d;lvShow();}
+function lvShow(){const d=lvData;if(!d)return;
+  const c=d.counts||{};const cards=$('lv-cards');cards.replaceChildren();const only=lvCheck();
+  const card=(l,v,cls,pick)=>{const e=el(pick?'button':'div',null,'card'+(cls?' '+cls:''));e.append(el('div',num(v),'v'),el('div',l,'l'));
+    if(pick){e.type='button';e.setAttribute('aria-pressed',String(only===pick));e.addEventListener('click',()=>lvPick(pick));}return e;};
+  cards.append(card(topText('lv.ok'),c.ok||0),card(topText('lv.v.modified'),c.modified||0,'','modified'),card(topText('lv.v.damaged'),c.damaged||0,c.damaged?'alert':'','damaged'),card(topText('lv.unchecked'),c.unchecked||0),card(topText('lv.v.misnamed'),c.misnamed||0,'','misnamed'));
   $('lv-state').textContent=((d.status&&topText('lv.s.'+d.status))||'')+(d.current?' ('+d.current.path+')':'')+'. '+topFill('lv.pending',{n:num(d.pending),h:num(d.hashPending)});
-  table('lv-list',[topText('lo.colFile'),topText('lv.colResult'),topText('lo.colReason'),''],(d.flagged||[]).map((f)=>{const tr=el('tr');const n=td();n.append(el('b',f.path.split('/').pop()));n.append(el('div',f.path,'muted'));
+  table('lv-list',[topText('lo.colFile'),topText('lv.colResult'),topText('lo.colReason'),''],(d.flagged||[]).filter((f)=>!only||f.verdict===only).map((f)=>{const tr=el('tr');const n=td();n.append(el('b',f.path.split('/').pop()));n.append(el('div',f.path,'muted'));
     const again=btn(topText('lv.recheck'),()=>lvRecheck(f));again.setAttribute('aria-label',topFill('lv.recheckAria',{path:f.path}));const a=td();a.append(again);
     tr.append(n,td(f.label||(f.verdict&&topText('lv.v.'+f.verdict))||f.verdict),lvReason(f),a);return tr;}),topText('lv.none'));}
 // The reason on one line; the help the server wrote in the admin's language opens beside it, over the table, on hover, focus or tap.
