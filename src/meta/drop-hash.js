@@ -10,17 +10,18 @@ import path from "node:path";
 import { fileKey } from "../helpers/hash-cache.js";
 import { zipDirectory } from "../helpers/zip-read.js";
 import { listArchive } from "../helpers/seven-zip-list.js";
+import { chdFirstTrack } from "../helpers/chd-track.js";
 import { hashRom, MAX_BYTES } from "../retro/rom-index.js";
 import { koreanNamesByCrc } from "../retro/ko-names.js";
 import { systemOfExtension } from "../retro/systems.js";
 
 // Not a ROM of any console: never hashed.
-// A .chd, .pbp, .cso or .rvz is compressed data whose bytes, and the SHA-1 in a CHD's header (which covers
-// 2448-byte frames with subcode), are not what No-Intro and Redump list: reading one in full would find nothing.
+// A .pbp, .cso or .rvz is compressed data whose bytes are not what No-Intro and Redump list: reading one in full would
+// find nothing. A .chd too, and the SHA-1 in its header covers 2448-byte frames with subcode; chdtrack decodes its first track instead.
 const SKIP = new Set([".cue", ".m3u", ".nro", ".png", ".md", ".txt", ".nfo", ".rar", ".scummvm", ".chd", ".pbp", ".cso", ".rvz"]);
 const DOCS = new Set([".txt", ".nfo", ".diz", ".pdf", ".jpg", ".png", ".md", ".htm", ".html"]);
 
-export function createDropHasher({ lookup, lookupKo = koreanNamesByCrc }) {
+export function createDropHasher({ lookup, lookupKo = koreanNamesByCrc, chdTrack = chdFirstTrack }) {
   const seen = new Map(); // abs → { key, crcs: [{ crc32, size }] }
 
   async function crcsOf(f, systems) {
@@ -33,6 +34,7 @@ export function createDropHasher({ lookup, lookupKo = koreanNamesByCrc }) {
       const roms = (await listArchive(f.abs)).filter((e) => !DOCS.has(path.extname(e.name).toLowerCase()));
       return roms.length === 1 && roms[0].crc32 ? [{ crc32: roms[0].crc32, size: roms[0].size }] : [];
     }
+    if (ext === ".chd") return chdTrack(f.abs);
     if (SKIP.has(ext) || f.size > MAX_BYTES) return [];
     const h = await hashRom(createReadStream(f.abs), systemOfExtension(ext, systems), f.size);
     return [{ crc32: h.crc32, size: f.size }, ...(h.bare ? [{ crc32: h.bare.crc32, size: null }] : [])];
