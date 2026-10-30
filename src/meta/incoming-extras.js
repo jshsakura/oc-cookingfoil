@@ -11,6 +11,7 @@
  */
 import path from "path";
 import { systemOfFolder, systemOfExtension } from "../retro/systems.js";
+import { PLAYSTATION_UNPLAYABLE } from "./drop-sniff.js";
 
 // Too common to hint at a system: a picture is rarely a PICO-8 cart.
 // Extensions that name a console only when the file's bytes agree: a picture, someone's notes.
@@ -27,6 +28,8 @@ export const EXTRA_REASON_TEXT = Object.freeze({
     homebrewFolder: "폴더째 쓰는 홈브류는 업로드 탭에서 올립니다",
     patch: "패치와 세이브는 업로드 탭에서 올립니다",
     missingPart: "목록 파일이 가리키는 파일이 임시 폴더에 없습니다",
+    psUnsure: "PlayStation 디스크 이미지인데 PS1 인지 PS2 인지 알 수 없어 옮기지 않았습니다. 해시 목록에도 없습니다",
+    ps2: "PS2 게임은 스위치에서 돌릴 수 없어 옮기지 않았습니다",
     unknown: "어디로 보낼지 모르는 파일입니다",
   },
   en: {
@@ -36,6 +39,8 @@ export const EXTRA_REASON_TEXT = Object.freeze({
     homebrewFolder: "Upload homebrew that runs from a folder on the upload tab",
     patch: "Upload patches and saves on the upload tab",
     missingPart: "A file the list file names is not in the drop box",
+    psUnsure: "This PLAYSTATION disc image cannot be told from a PS2 one, and no hash list has it, so it was not moved",
+    ps2: "PS2 games do not run on the Switch, so this was not moved",
     unknown: "Where this file goes is not known",
   },
   ja: {
@@ -45,6 +50,8 @@ export const EXTRA_REASON_TEXT = Object.freeze({
     homebrewFolder: "フォルダーごと使う自作アプリはアップロードタブでアップロードします",
     patch: "パッチとセーブはアップロードタブでアップロードします",
     missingPart: "一覧ファイルが指すファイルが一時フォルダーにありません",
+    psUnsure: "PlayStationのディスクイメージですがPS1かPS2か分からず、ハッシュリストにもないため移しませんでした",
+    ps2: "PS2のゲームはSwitchで動かせないため移しませんでした",
     unknown: "どこに送るか分からないファイルです",
   },
   zh: {
@@ -54,6 +61,8 @@ export const EXTRA_REASON_TEXT = Object.freeze({
     homebrewFolder: "按文件夹运行的自制程序请在上传标签页上传",
     patch: "补丁和存档请在上传标签页上传",
     missingPart: "列表文件指向的文件不在临时文件夹中",
+    psUnsure: "这是 PlayStation 光盘镜像，无法分辨是 PS1 还是 PS2，哈希列表中也没有，因此没有移动",
+    ps2: "PS2 游戏无法在 Switch 上运行，因此没有移动",
     unknown: "不知道该把这个文件放到哪里",
   },
 });
@@ -90,7 +99,7 @@ export function cleanStem(text) {
 const DISC_RE = /\s*\(Disc (\d+)\)/;
 
 /** The name a hash-confirmed dump is filed under: "한글명 (English)" when the Korean name is known, else the list's name. Pure. */
-export const dumpStem = (dump) => cleanStem(dump.ko ? `${dump.ko} (${dump.name})` : dump.name);
+export const dumpStem = (dump) => cleanStem(dump.ko && dump.ko !== dump.name ? `${dump.ko} (${dump.name})` : dump.name);
 
 /**
  * The plan for the drop box's other files. `items` is [{ rel }] (settled, not
@@ -118,10 +127,11 @@ export function planExtras({ items = [], refs = new Map(), sniffed = new Map(), 
   const decide = (rel) => {
     const ext = path.posix.extname(rel).toLowerCase();
     const sole = LISTS.has(ext) || BY_CONTENT.has(ext) ? null : systemOfExtension(ext, systems);
-    const guessed = sole ?? sniffed.get(rel) ?? systemFromFolders(rel, systems);
+    const bytes = systems[sniffed.get(rel)] ? sniffed.get(rel) : null;
+    const guessed = sole ?? bytes ?? systemFromFolders(rel, systems);
     const dump = identified.get(rel);
     const listed = dump?.systems.length === 1 ? dump.systems[0] : dump?.systems.includes(guessed) ? guessed : null;
-    return { sole, dump, listed, system: listed ?? guessed, by: listed ? "hash" : sole ? "extension" : sniffed.has(rel) ? "bytes" : "folder" };
+    return { sole, dump, listed, system: listed ?? guessed, by: listed ? "hash" : sole ? "extension" : bytes ? "bytes" : "folder" };
   };
   // Games whose discs are all here: "Name (Disc 1)", "Name (Disc 2)" of one console.
   const discs = new Map();
@@ -161,6 +171,8 @@ export function planExtras({ items = [], refs = new Map(), sniffed = new Map(), 
     if (ext === ".scummvm") { held.push(heldExtra(rel, "scummvm")); continue; }
     // A listed dump names its console first; then an extension only one console uses, what the bytes say, and the folder the file sits in.
     const { dump, listed, system, by } = decide(rel);
+    const unplayable = PLAYSTATION_UNPLAYABLE[sniffed.get(rel)];
+    if (unplayable && !listed) { held.push(heldExtra(rel, unplayable)); continue; }
     const romLike = LISTS.has(ext) || Object.values(systems).some((s) => s.extensions.includes(ext));
     const romHeld = (code) => heldExtra(rel, romLike ? code : "unknown", { system });
     if (!system) {

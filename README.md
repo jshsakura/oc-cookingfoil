@@ -453,6 +453,7 @@ It builds on:
 - [nstool](https://github.com/jakcron/nstool) (MIT) and [nsz](https://github.com/nicoboss/nsz) (MIT), bundled in the image.
 - [libretro-thumbnails](https://github.com/libretro-thumbnails) box art and [The Bezel Project](https://github.com/thebezelproject) bezels, fetched at run time.
 - The [LaunchBox Games Database](https://gamesdb.launchbox-app.com/), [IGDB](https://www.igdb.com/) and Steam for game details and scores, fetched at run time.
+- [libretro-database](https://github.com/libretro/libretro-database) (CC BY-SA 4.0), which carries the No-Intro and Redump lists, fetched at run time to recognize ROMs put in the drop box. Nothing from it is shipped, and the admin can turn the download off.
 - The [FinalBurn Neo](https://github.com/finalburnneo/FBNeo) set list for arcade names.
 - [Lucide](https://lucide.dev) icons (ISC), and the Baloo 2 and IBM Plex Sans KR fonts (SIL OFL 1.1).
 
