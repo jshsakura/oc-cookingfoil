@@ -54,3 +54,20 @@ test('files dropped in games/incoming are sorted into the games folder, the rest
     fs.rmSync(`${process.env.COOK_RETRO_DIR!}/roms/gba`, { recursive: true, force: true });
   }
 });
+
+test('a file uploaded into the drop box is sorted at once, without the copy wait', async ({ page }) => {
+  const retro = process.env.COOK_RETRO_DIR!;
+  fs.mkdirSync(path.join(GAMES, 'incoming'), { recursive: true });
+  try {
+    await signIn(page);
+    await page.goto('/admin/incoming/temp');
+    await expect(page.locator('#fb-upload')).toBeVisible();
+    await expect(page.locator('#fb-upload-dir'), 'one upload button; a folder goes by drop or the menu').toHaveCount(0);
+    await page.locator('#fb-file').setInputFiles({ name: 'Fresh Quest.gba', mimeType: 'application/octet-stream', buffer: Buffer.from('fresh rom') });
+    await expect(page.locator('#toast')).toContainText('1개 옮겼습니다');
+    await expect.poll(() => fs.existsSync(path.join(retro, 'roms/gba/Fresh Quest.gba'))).toBe(true);
+  } finally {
+    fs.rmSync(path.join(retro, 'roms/gba/Fresh Quest.gba'), { force: true });
+    fs.rmSync(path.join(GAMES, 'incoming'), { recursive: true, force: true });
+  }
+});

@@ -82,6 +82,8 @@ export const defaultOrganizer = createOrganizer({
   undone: () => trashService.undoneInDropBox(),
 });
 
+const WHOLE_MAX = 500;
+
 export function mountLibraryOrganizeApi(router, requireSession, organizer = defaultOrganizer) {
   const handle = (fn) => async (req, res) => {
     if (!requireSession(req, res)) return;
@@ -98,7 +100,10 @@ export function mountLibraryOrganizeApi(router, requireSession, organizer = defa
 
   router.post("/api/library/organize/sweep", handle(async (req, res) => {
     // Asked for by hand: NACPs that could not be read before are tried again.
-    const { moved } = await organizer.sweep({ retry: true });
+    // An upload names what it wrote whole, so those are sorted without the copy wait.
+    const sent = req.body?.whole;
+    const whole = Array.isArray(sent) && sent.length <= WHOLE_MAX && sent.every((r) => typeof r === "string") ? new Set(sent) : null;
+    const { moved } = await organizer.sweep({ retry: true, whole });
     debug.log("admin: organize: moved %d", moved);
     res.json({ moved, ...organizer.view() });
   }));
