@@ -2,7 +2,7 @@
  * The first track of a .chd disc image as the { crc32, size } Redump lists for it, read by chdtrack
  * (docker/chdtrack, built on libchdr, BSD-3-Clause). A CHD's own header hashes cover 2448-byte frames
  * and match no list, so chdtrack decodes the image and hashes the track's sectors, writing nothing to disk.
- * A DVD image, which has no tracks, is hashed whole. [] when there is no chdtrack, it fails, or it takes
+ * A DVD image, which has no tracks, is hashed whole; a GD-ROM is not hashed. [] when there is no chdtrack, it fails, or it takes
  * too long: the caller then treats the file as one nobody could name.
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -10,10 +10,13 @@ import debug from "../debug.js";
 
 const RUN_MS = 10 * 60 * 1000;
 
-/** The chdtrack program: COOK_CHDTRACK_BIN, else chdtrack if it runs. Null when there is none. */
-export function chdtrackBin(e = process.env) {
+let found; // undefined until looked for once
+
+/** The chdtrack program: COOK_CHDTRACK_BIN, else chdtrack if it runs; looked for once. Null when there is none. */
+export function chdtrackBin(e = process.env, probe = () => spawnSync("chdtrack", [], { stdio: "ignore" })) {
   if (e.COOK_CHDTRACK_BIN) return e.COOK_CHDTRACK_BIN;
-  return spawnSync("chdtrack", [], { stdio: "ignore" }).error ? null : "chdtrack";
+  found ??= probe().error ? null : "chdtrack";
+  return found;
 }
 
 function run(bin, abs) {

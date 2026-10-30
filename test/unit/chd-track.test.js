@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chdFirstTrack } from "../../src/helpers/chd-track.js";
+import { chdFirstTrack, chdtrackBin } from "../../src/helpers/chd-track.js";
 import { createDropHasher } from "../../src/meta/drop-hash.js";
 
 const said = (text) => async () => text;
@@ -24,4 +24,14 @@ test("the drop box names a .chd by the dump its first track matches, and leaves 
   assert.deepEqual([...named.entries()].map(([rel, v]) => [rel, v.systems, v.name]), [["game.chd", ["segacd"], "Some Game (USA)"]]);
   const none = await createDropHasher({ lookup, chdTrack: (abs) => chdFirstTrack(abs, { bin: null }) }).identify(files, new Map(), systems);
   assert.equal(none.size, 0);
+});
+
+test("without COOK_CHDTRACK_BIN the program is looked for once, not for every file", () => {
+  let probes = 0;
+  const probe = () => { probes++; return {}; };
+  assert.equal(chdtrackBin({}, probe), "chdtrack");
+  assert.equal(chdtrackBin({}, probe), "chdtrack");
+  assert.equal(probes, 1);
+  assert.equal(chdtrackBin({ COOK_CHDTRACK_BIN: "/opt/chdtrack" }, probe), "/opt/chdtrack");
+  assert.equal(probes, 1);
 });

@@ -1,6 +1,7 @@
 /*
  * chdtrack: prints "<crc32 hex> <size>" of the first track of a CHD disc image, the way Redump lists a
- * disc's first track (its sectors without subcode). A DVD image, which has no track list, is hashed whole.
+ * disc's first track (its sectors without subcode). A DVD image, which has no track list, is hashed whole;
+ * a GD-ROM or any other kind of image is not hashed.
  * Reads the image through libchdr (BSD-3-Clause) and writes nothing to disk. Exit 1 when it cannot.
  */
 #include <inttypes.h>
@@ -49,15 +50,19 @@ int main(int argc, char **argv) {
   uint64_t want; /* bytes to hash */
   uint32_t frames = 0;
   uint32_t keep = 0;
-  int cd = chd_get_metadata(chd, CDROM_TRACK_METADATA2_TAG, 0, meta, sizeof meta - 1, &len, NULL, NULL) == CHDERR_NONE;
+  /* CHT2 and the older CHTR hold the same track line; only a DVD tag means "the whole image is the disc". */
+  int cd = chd_get_metadata(chd, CDROM_TRACK_METADATA2_TAG, 0, meta, sizeof meta - 1, &len, NULL, NULL) == CHDERR_NONE
+        || chd_get_metadata(chd, CDROM_TRACK_METADATA_TAG, 0, meta, sizeof meta - 1, &len, NULL, NULL) == CHDERR_NONE;
   if (cd) {
     char type[32] = "";
     meta[len] = 0;
     if (sscanf(meta, "TRACK:%*u TYPE:%31s SUBTYPE:%*s FRAMES:%u", type, &frames) != 2) return 1;
     keep = sector_bytes(type);
     want = (uint64_t)frames * keep;
-  } else {
+  } else if (chd_get_metadata(chd, DVD_METADATA_TAG, 0, meta, sizeof meta - 1, &len, NULL, NULL) == CHDERR_NONE) {
     want = h->logicalbytes;
+  } else {
+    return 1; /* a GD-ROM (CHGD) or an image of no kind we hash */
   }
 
   crc_init();
