@@ -9,7 +9,6 @@ import path from "path";
 import { englishTitle, titleKey } from "../art/titles.js";
 import { gamesFor, titleIndex } from "../art/ratings.js";
 import { setInfo } from "../arcade.js";
-import { withoutTags } from "../sd-names.js";
 import { fillFrom, fromLaunchBox, fromMame } from "./fields.js";
 
 /** The name a game's metadata is filed under: "<system>/<ROM name>" (an arcade set's short name). */
@@ -19,14 +18,11 @@ export function metaKey(g) {
   return `${g.system}/${first ? path.basename(first, path.extname(first)) : g.name}`;
 }
 
-// "한글명 (English) [tags]" names its English title in brackets; a Latin name is its own title.
-const latinTitle = (name) => (/[^\p{Script=Latin}\p{N}\p{P}\p{S}\s]/u.test(name) ? englishTitle(withoutTags(name)) : name);
-
 /** The titles a game may go by in LaunchBox, best first. */
 export function titlesOf(g, mame = new Map()) {
   const names = g.set
     ? [mame.get(g.set)?.Name, g.cloneOf && mame.get(g.cloneOf)?.Name, setInfo(g.set)?.base]
-    : [g.original, g.names?.en, latinTitle(g.name)];
+    : [g.original, g.names?.en, englishTitle(g.name)];
   return [...new Set(names.filter((n) => typeof n === "string" && n.trim()))];
 }
 
