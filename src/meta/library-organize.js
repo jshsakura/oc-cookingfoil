@@ -432,7 +432,7 @@ export function createOrganizer(deps) {
     for (const abs of nacpNames.keys()) if (!present.has(abs)) nacpNames.delete(abs);
     const plan = planOrganize({ incoming: items, romsRels: await deps.romsRels(), adminName, titledbName, now });
     const systems = deps.systems();
-    const folders = planFolders(others, systems);
+    const folders = planFolders(others, systems, files.filter((f) => !whole.has(f.rel) && now - f.mtimeMs < SETTLE_MS).map((f) => f.rel));
     const refs = await listRefs(folders.rest);
     const identified = deps.identifyRoms ? await deps.identifyRoms(folders.rest, refs, systems).catch(() => new Map()) : new Map();
     const extras = planExtras({ items: folders.rest, refs, sniffed: await sniffSystems(folders.rest, refs, systems), identified, systems });

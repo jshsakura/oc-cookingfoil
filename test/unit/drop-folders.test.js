@@ -34,6 +34,21 @@ test("folders are told apart by what is in them", () => {
   assert.deepEqual(plan.rest.map((i) => i.rel), ["snes/game.sfc", "loose.gba"]);
 });
 
+test("a folder with a file still being copied waits whole", () => {
+  const plan = planFolders(items(
+    "Korean Patch/atmosphere/contents/0100AAAA00000000/exefs/main",
+    "Cool Port/cool.nro",
+    "Monkey/monkey.scummvm",
+  ), DEFAULT_SYSTEMS, [
+    "Korean Patch/atmosphere/contents/0100AAAA00000000/romfs/a.bin", "Cool Port/data/a.bin", "Monkey/data.001",
+  ]);
+  assert.deepEqual(plan.groups, []);
+  assert.deepEqual(plan.moves, []);
+  assert.deepEqual(plan.held.map((h) => [h.rel, h.code]).sort(), [
+    ["Cool Port/cool.nro", "settling"], ["Korean Patch/atmosphere/contents/0100AAAA00000000/exefs/main", "settling"], ["Monkey/monkey.scummvm", "settling"],
+  ]);
+});
+
 test("a patch folder dropped in the drop box lands in the patch folder through the upload page's own code", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-dropfolders-"));
   const old = (Date.now() - 10 * 60_000) / 1000;
@@ -80,6 +95,59 @@ test("a patch folder dropped in the drop box lands in the patch folder through t
     assert.ok(fs.existsSync(path.join(root, "retro/roms/ScummVM/Monkey/monkey.scummvm")));
     assert.ok(!fs.existsSync(path.join(root, "incoming/Korean Patch")), "the emptied folder is gone");
     assert.deepEqual(org.view().held.map((h) => [h.rel, h.code]), [["0100CCCC00000000/save.sav", "save"]]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a patch folder with one file still being copied is not placed until it has settled", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cook-dropfolders-"));
+  const old = (Date.now() - 10 * 60_000) / 1000;
+  const put = (rel, body) => {
+    const abs = path.join(root, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, body);
+    fs.utimesSync(abs, old, old);
+  };
+  try {
+    put("incoming/Korean Patch/atmosphere/contents/0100AAAA00000000/exefs/main", "main");
+    put("incoming/Korean Patch/atmosphere/contents/0100AAAA00000000/romfs/a.bin", "a");
+    const fresh = path.join(root, "incoming/Korean Patch/atmosphere/contents/0100AAAA00000000/romfs/a.bin");
+    fs.utimesSync(fresh, Date.now() / 1000, Date.now() / 1000);
+    const org = createOrganizer({
+      incomingDir: path.join(root, "incoming"),
+      romsDir: path.join(root, "games"),
+      retroDir: path.join(root, "retro"),
+      homebrewDir: path.join(root, "homebrew"),
+      systems: () => DEFAULT_SYSTEMS,
+      readRefs: async () => [],
+      romsRels: async () => [],
+      ...createIdentifier({ readIdentity: async () => null, readTicketNames: async () => [] }),
+      nameOf: () => null,
+      begin: () => ({ step() {}, done() {} }),
+      rescan: () => {},
+      rescanRetro: () => {},
+      rescanHomebrew: () => {},
+      placeFolder: async (kind, its, body) => {
+        const work = path.join(root, "work");
+        fs.mkdirSync(path.join(work, "in"), { recursive: true });
+        try {
+          return await placeFolderKind({ kind, items: its, body, work, fromFolder: true, rootOf: () => path.join(root, "patches") });
+        } finally {
+          fs.rmSync(work, { recursive: true, force: true });
+        }
+      },
+    });
+    const first = await org.sweep();
+    assert.equal(first.moved, 0, "nothing of the half-copied folder is placed");
+    assert.ok(fs.existsSync(path.join(root, "incoming/Korean Patch/atmosphere/contents/0100AAAA00000000/exefs/main")));
+    assert.ok(!fs.existsSync(path.join(root, "patches")));
+    assert.deepEqual(org.view().held.map((h) => h.code), ["settling", "settling"]);
+    fs.utimesSync(fresh, old, old);
+    const second = await org.sweep();
+    assert.equal(second.moved, 1, "the whole folder, once every file has settled");
+    const patch = path.join(root, "patches/0100AAAA00000000/Korean Patch/atmosphere/contents/0100AAAA00000000");
+    assert.deepEqual(fs.readdirSync(patch).sort(), ["exefs", "romfs"]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

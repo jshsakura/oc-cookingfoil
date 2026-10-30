@@ -7,7 +7,8 @@
  *   save      a folder named after a title id: a save needs the game picked, so it stays
  *
  * Patches and homebrew are placed by the upload page's own code (folder-place.js, homebrew-upload.js); a
- * ScummVM game is plain moves. Pure.
+ * ScummVM game is plain moves. A folder with a file still being copied into it waits whole: placing the settled part
+ * would leave the rest to form a second, half-finished group. Pure.
  */
 import path from "node:path";
 import { systemOfFolder } from "../retro/systems.js";
@@ -20,12 +21,16 @@ const HEX16 = /^[0-9a-f]{16}$/i;
  * [{ rel, inner }], body }] with `inner` relative to the group's folder; `moves` are ScummVM moves like
  * planExtras'; `held` are { rel, code }; `rest` are the items that are none of these. Pure.
  */
-export function planFolders(items, systems) {
+export function planFolders(items, systems, unsettled = []) {
   const groups = [];
   const moves = [];
   const held = [];
   const taken = new Set();
   const rels = items.map((i) => i.rel);
+  const waits = (prefix) => unsettled.some((r) => r.startsWith(prefix));
+  const wait = (prefix) => {
+    for (const rel of rels.filter((r) => r.startsWith(prefix) && !taken.has(r))) { held.push({ rel, code: "settling" }); taken.add(rel); }
+  };
 
   // Patches: the folder above atmosphere/ names the patch.
   const patchRoots = new Map();
@@ -38,6 +43,7 @@ export function planFolders(items, systems) {
   for (const [root, files] of patchRoots) {
     const name = root ? cleanStem(path.posix.basename(root)) : null;
     if (!name) { for (const rel of files) { held.push({ rel, code: "patchName" }); taken.add(rel); } continue; }
+    if (waits(root)) { wait(root); continue; }
     const all = rels.filter((r) => r.startsWith(root));
     for (const rel of all) taken.add(rel);
     groups.push({ kind: "patch", root, files: all.map((rel) => ({ rel, inner: rel.slice(root.length) })), body: { name } });
@@ -50,6 +56,7 @@ export function planFolders(items, systems) {
     const folder = systems.scummvm?.folder;
     const top = dir.split("/")[0];
     if (!folder || systemOfFolder(top, systems)) continue;
+    if (waits(`${dir}/`)) { wait(`${dir}/`); continue; }
     for (const r of rels.filter((x) => x.startsWith(`${dir}/`) && !taken.has(x))) {
       taken.add(r);
       moves.push({ from: r, root: "retro", to: `roms/${folder}/${path.posix.basename(dir)}/${r.slice(dir.length + 1)}`, system: "scummvm", by: "folder" });
@@ -67,6 +74,7 @@ export function planFolders(items, systems) {
     if (systemOfFolder(top, systems)) continue; // a console folder, not an app
     if (HEX16.test(top)) { for (const rel of files) held.push({ rel, code: "save" }); files.forEach((f) => taken.add(f)); continue; }
     if (!files.some((r) => /\.nro$/i.test(r))) continue;
+    if (waits(`${top}/`)) { wait(`${top}/`); continue; }
     files.forEach((f) => taken.add(f));
     groups.push({ kind: "homebrew", root: `${top}/`, files: files.map((rel) => ({ rel, inner: rel.slice(top.length + 1) })), body: {} });
   }
