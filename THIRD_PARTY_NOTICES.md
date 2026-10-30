@@ -9,6 +9,10 @@ files are in [`licenses/`](./licenses) in this repository.
 
 - **nstool** (jakcron/nstool v1.9.2), MIT. Reads NCA/NACP data from game files with
   the user's own keys. License: `licenses/nstool-MIT.txt`.
+- **libchdr** (rtissera/libchdr, built from source at the commit named in the Dockerfile), BSD-3-Clause, with its
+  bundled LZMA SDK (public domain), zstd (BSD) and miniz (MIT). Source: https://github.com/rtissera/libchdr.
+  A small program of ours, `docker/chdtrack`, uses it to hash the first track of `.chd` disc images in the
+  drop box so they can be matched against the Redump list. License: `licenses/libchdr-BSD-3-Clause.txt`.
 - **nsz** (nicoboss/nsz), MIT. Decompresses `.nsz` / `.xcz`. License: `licenses/nsz-MIT.txt`.
 - **libvips**, LGPL-3.0-or-later, dynamically linked through sharp.
 

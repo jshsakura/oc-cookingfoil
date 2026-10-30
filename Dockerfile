@@ -32,6 +32,23 @@ RUN make -j"$(nproc)" deps && \
     cp bin/nstool /nstool && \
     strip /nstool
 
+# ---- chdtrack: first-track hasher for .chd disc images, on libchdr ----
+# Redump lists a disc by its tracks, a CHD stores 2448-byte frames, so the drop box has to decode the image to
+# name it. chdman (MAME) needs SDL2 even for this and has no Alpine package; libchdr (BSD-3-Clause, the CHD reader
+# RetroArch cores use) is a small C library, and docker/chdtrack/chdtrack.c prints the first track's CRC-32 and size.
+FROM alpine:3.24 AS chdtrack-builder
+RUN apk add --no-cache git build-base cmake
+WORKDIR /build
+ARG LIBCHDR_REF=47d794151b2b
+RUN git clone https://github.com/rtissera/libchdr.git && git -C libchdr checkout "${LIBCHDR_REF}"
+RUN cmake -S libchdr -B libchdr/build -DBUILD_SHARED_LIBS=OFF -DCHDR_WANT_TESTS=OFF -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build libchdr/build -j"$(nproc)"
+COPY docker/chdtrack/chdtrack.c /build/chdtrack.c
+RUN gcc -O2 -Wall -Ilibchdr/include -Ilibchdr/build/include -Ilibchdr/deps/miniz-3.1.2 chdtrack.c \
+        libchdr/build/libchdr-static.a libchdr/build/deps/lzma-26.02/libchdr-lzma.a \
+        libchdr/build/deps/zstd-1.5.7/libzstd.a libchdr/build/deps/miniz-3.1.2/libminiz.a -lm -o /chdtrack && \
+    strip /chdtrack
+
 # ---- runtime ----
 FROM node:22-alpine AS runtime
 
@@ -47,6 +64,7 @@ ENV NODE_ENV=production \
     # A server that still mounts /games, /data, /keys, ... separately keeps them.
     COOK_STORAGE_DIR=/storage \
     COOK_NSTOOL_BIN=/usr/local/bin/nstool \
+    COOK_CHDTRACK_BIN=/usr/local/bin/chdtrack \
     COOK_NSZ_BIN=/usr/bin/nsz \
     # Info + errors by default; bump to `oc-cookingfoil*` for full traces
     # (incl. per-icon cache I/O during prewarm — chatty on big libraries).
@@ -61,6 +79,9 @@ WORKDIR /app
 
 # nstool — copied from the builder stage. Single static binary, ~1-2 MB.
 COPY --from=nstool-builder /nstool /usr/local/bin/nstool
+
+# chdtrack — copied from the builder stage; hashes the first track of a .chd disc image for the drop box.
+COPY --from=chdtrack-builder /chdtrack /usr/local/bin/chdtrack
 
 # License texts for this project and every bundled binary.
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/cookingfoil/

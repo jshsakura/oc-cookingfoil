@@ -451,6 +451,7 @@ It builds on:
 
 - [blawar/titledb](https://github.com/blawar/titledb) for title names, descriptions and artwork addresses, fetched at run time.
 - [nstool](https://github.com/jakcron/nstool) (MIT) and [nsz](https://github.com/nicoboss/nsz) (MIT), bundled in the image.
+- [libchdr](https://github.com/rtissera/libchdr) (BSD-3-Clause; bundled LZMA SDK public domain, zstd BSD, miniz MIT), built from source into the image. A small program of ours (`docker/chdtrack`) uses it to hash the first track of `.chd` disc images in the drop box so they match the Redump list. Without it, a `.chd` stays with a reason.
 - [libretro-thumbnails](https://github.com/libretro-thumbnails) box art and [The Bezel Project](https://github.com/thebezelproject) bezels, fetched at run time.
 - The [LaunchBox Games Database](https://gamesdb.launchbox-app.com/), [IGDB](https://www.igdb.com/) and Steam for game details and scores, fetched at run time.
 - [libretro-database](https://github.com/libretro/libretro-database) (CC BY-SA 4.0), which carries the No-Intro and Redump lists, fetched at run time to recognize ROMs put in the drop box. Nothing from it is shipped, and the admin can turn the download off.
