@@ -4,6 +4,8 @@
  * rows that keep coming as the list scrolls, and a copy's progress while it runs.
  */
 export const LIBRARY_CSS = /* css */ `
+/* The last-scan line is the rescan button's tooltip. */
+.wrap:has(#fb) #scan-status{display:none}
 #fb .fb-body{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start}
 /* Fixed columns: a hidden pane leaves its column empty instead of the list sliding into it. */
 #fb .fb-tree{grid-column:1}#fb .fb-main{grid-column:2;min-width:0}#fb .fb-side{grid-column:3}
@@ -65,7 +67,6 @@ export const LIBRARY_CSS = /* css */ `
   #fb .fb-q{flex:0 1 220px}
   #fb .fb-bar button{height:34px}
   #fb .fb-bar .ib{width:34px}
-  #fb .fb-note,.wrap:has(#fb) #scan-status{display:none}
   .adm-shell>.wrap:has(#fb){padding-top:calc(var(--adm-hdr-h) + 12px);padding-bottom:12px}
   body:has(.ch-launch:not([hidden])) .adm-shell>.wrap:has(#fb){padding-bottom:12px}
   #tab-library:has(#fb){position:relative}

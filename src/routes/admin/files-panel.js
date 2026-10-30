@@ -65,23 +65,35 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-name button{border:0;background:none;padding:0;color:var(--text);font-weight:700;text-align:left}
 #fb .fb-name button:hover{text-decoration:underline}
 #fb .fb-id{flex:0 0 auto;color:var(--faint);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
-#fb tr.fb-skel td{height:52px;padding:0 16px}
-#fb tr.fb-skel span{display:block;height:12px;width:42%;border-radius:var(--r-xs);background:var(--line);animation:fb-skel 1s ease-in-out infinite alternate}
-#fb tr.fb-skel:nth-child(3n+2) span{width:30%}#fb tr.fb-skel:nth-child(3n) span{width:55%}
-@keyframes fb-skel{to{opacity:.35}}
-@media (prefers-reduced-motion:reduce){#fb tr.fb-skel span{animation:none}}
+/* While a folder loads, rows of the real shape wait in its place: the box, the icon, a name of some length, its size
+   and date; in the grid, tiles. One light sweeps across all of them together (the gradient is fixed to the screen). */
+#fb tr.fb-skel{pointer-events:none}
+#fb .sk{display:block;height:12px;border-radius:var(--r-pill);background:linear-gradient(100deg,var(--line) 40%,color-mix(in srgb,var(--line) 40%,var(--panel)) 50%,var(--line) 60%) fixed;background-size:200vw 100%;animation:fb-sweep 1.4s linear infinite}
+#fb .sk-box{width:18px;height:18px;border-radius:var(--r-xs)}
+#fb .sk-ico{width:28px;height:28px;flex:none;border-radius:var(--r-sm)}
+#fb .sk-name{display:flex;align-items:center;gap:10px}
+#fb .sk-line{flex:0 1 auto}
+#fb .sk-sm{width:44px;margin-left:auto}
+#fb .sk-md{width:120px}
+#fb.grid tr.fb-skel .sk-name{flex-direction:column;gap:10px}
+#fb.grid tr.fb-skel .sk-ico{width:120px;height:120px;border-radius:var(--r-lg)}
+#fb.grid tr.fb-skel .sk-line{width:70%!important}
+@keyframes fb-sweep{from{background-position:100vw 0}to{background-position:-100vw 0}}
+@media (prefers-reduced-motion:reduce){#fb .sk{animation:none}}
 #fb .fb-act{display:flex;gap:6px;justify-content:flex-end}
 #fb .fb-act button.ib{width:34px;height:34px;padding:0;position:relative}
 #fb .fb-act button.ib>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 #fb input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--accent)}
 #fb .fb-empty{padding:48px 16px;text-align:center;color:var(--muted)}
 /* The bar holds to the window's bottom edge while the list runs past it, and ends the list when it does not. */
-#fb .fb-foot{position:sticky;bottom:0;z-index:3;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-4px;
-  padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:color-mix(in srgb,var(--panel) 92%,transparent);backdrop-filter:blur(8px);box-shadow:0 -4px 16px var(--shadow)}
+#fb .fb-foot{position:sticky;bottom:0;z-index:3;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-13px;
+  padding:8px 14px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px)}
 #fb .fb-info{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 #fb .fb-foot[data-sel] .fb-info{color:var(--text);font-weight:700}
 #fb .fb-sel-act{display:flex;gap:6px}#fb .fb-foot:not([data-sel]) .fb-sel-act{display:none}
-#fb .fb-note{margin:0;font-size:var(--fs-xs)}
+#fb .fb-note{display:none}
+/* 하위 폴더까지 widens a search, so it shows while there is something to search for. */
+#fb .fb-bar:has(#fb-q:placeholder-shown) .fb-deep{display:none}
 /* Files dragged over the list: the list is the target, outlined, with what dropping does said on it. */
 #fb .fb-wrap{position:relative}
 #fb .fb-drop{display:none;position:absolute;inset:0;z-index:4;place-items:center;border:2px dashed var(--accent);border-radius:inherit;
@@ -300,7 +312,12 @@ function fbFoot(){const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   if(!n&&d&&d.items.length<d.total)$('fb-info').textContent+=' · '+topFill('fb.shown',{shown:num(d.items.length)});
   fbSide();}
 // Placeholder rows while another folder, page or search loads; a refresh of the same view keeps its rows.
-function fbSkel(){$('fb-empty').hidden=true;$('fb-rows').replaceChildren(...Array.from({length:8},()=>{const tr=el('tr',null,'fb-skel');const c=td(null);c.colSpan=5;c.append(el('span'));tr.append(c);return tr;}));}
+const FB_SKEL_W=[62,44,71,38,55,67,48,59,41,64];
+function fbSkel(){$('fb-empty').hidden=true;const sk=(cls,w)=>{const i=el('i',null,'sk '+cls);if(w)i.style.width=w+'%';return i;};
+  $('fb-rows').replaceChildren(...FB_SKEL_W.map((w)=>{const tr=el('tr',null,'fb-skel');tr.setAttribute('aria-hidden','true');
+    const name=el('span',null,'sk-name');name.append(sk('sk-ico'),sk('sk-line',w));const n=td(null);n.append(name);
+    const sel=td(null,'c-sel');sel.append(sk('sk-box'));const size=td(null,'c-size');size.append(sk('sk-sm'));const at=td(null,'c-mtime');at.append(sk('sk-md'));
+    tr.append(sel,n,size,at,td(null,'c-act'));return tr;}));}
 // The first page; the rest come as the list scrolls (fbMore).
 // A refresh of the same view asks for as many rows as were shown, so the list does not shrink under the reader.
 async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
