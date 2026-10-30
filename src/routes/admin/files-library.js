@@ -58,7 +58,23 @@ export const LIBRARY_CSS = /* css */ `
 @media (min-width:900px){
   .adm-shell>.wrap:has(#fb){max-width:none}
   #fb{gap:0;height:calc(100dvh - var(--fb-top,220px) - var(--fb-below,24px));min-height:320px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);overflow:hidden}
-  #fb .fb-bar{padding:10px 12px;border-bottom:1px solid var(--line)}
+  #fb .fb-bar{padding:8px 10px;gap:6px;border-bottom:1px solid var(--line)}
+  /* The window takes every line the screen has: the bar wraps at most once, the trash note and the scan line
+     step aside (the scan line is the rescan button's tooltip), and the chat button floats over the status bar. */
+  #fb .fb-crumb{flex:1 1 140px}
+  #fb .fb-q{flex:0 1 220px}
+  #fb .fb-bar button{height:34px}
+  #fb .fb-bar .ib{width:34px}
+  #fb .fb-note,.wrap:has(#fb) #scan-status{display:none}
+  .adm-shell>.wrap:has(#fb){padding-top:calc(var(--adm-hdr-h) + 12px);padding-bottom:12px}
+  body:has(.ch-launch:not([hidden])) .adm-shell>.wrap:has(#fb){padding-bottom:12px}
+  #tab-library:has(#fb){position:relative}
+  #tab-library:has(#fb)>.hd{position:absolute;top:0;right:0;margin:0;z-index:1}
+  #tab-library:has(#fb)>.hd h2{display:none}
+  #tab-library:has(#fb)>.hd #rescan{height:34px}
+  #tab-library:has(#fb) #lib-subtabs{padding-right:150px}
+  .wrap:has(#fb) .subtabs{margin-bottom:12px}
+  #fb #fb-foot{padding:6px 12px;margin:0;min-height:0;border-width:1px 0 0;border-radius:0;box-shadow:none}
   #fb .fb-body{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
   #fb .fb-tree,#fb .fb-side,#fb .fb-main{position:static;max-height:none;min-height:0;overflow:auto;border:0;border-radius:0;margin:0}
   #fb.tree-on .fb-tree{margin:0;border-right:1px solid var(--line);background:var(--sunk)}
@@ -203,8 +219,11 @@ const fbWindow=matchMedia('(min-width:900px)');
 new IntersectionObserver((es)=>{fbMoreSeen=es.some((e)=>e.isIntersecting);if(fbMoreSeen)fbMore();},{root:fbWindow.matches?$('fb-main'):null,rootMargin:'600px 0px'}).observe($('fb-more'));
 // The window ends at the bottom of the screen: its height is the screen less where it starts on the page and
 // less what the page puts under it, both measured, so the page itself never scrolls.
+// What is under it is counted element by element: the page's own height is the screen's at least, so measuring
+// from it would keep whatever gap the last fit left.
 function fbFit(){const f=$('fb');if(!f.isConnected)return;const top=f.getBoundingClientRect().top+window.scrollY;
-  const below=Math.max(0,document.scrollingElement.scrollHeight-(top+f.offsetHeight));
+  const wrap=f.closest('.wrap');let below=wrap?parseFloat(getComputedStyle(wrap).paddingBottom)||0:0;
+  for(let n=f;n&&n!==wrap;n=n.parentElement)for(let s=n.nextElementSibling;s;s=s.nextElementSibling)if(s.offsetParent)below+=s.offsetHeight;
   f.style.setProperty('--fb-top',Math.round(top)+'px');f.style.setProperty('--fb-below',Math.ceil(below)+'px');}
 window.addEventListener('resize',fbFit);new ResizeObserver(fbFit).observe(document.body);fbFit();
 

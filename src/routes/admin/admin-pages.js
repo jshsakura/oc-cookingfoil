@@ -176,7 +176,7 @@ body.adm-shell{padding:0}
    page, top right, the same place and the same downward menus as on a phone. The band and the brand row
    share one height and one bottom line. */
 @media (min-width:900px){
-body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh;--adm-hdr-h:64px}
+body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh;--adm-hdr-h:52px}
 .adm-side{display:flex;flex-direction:column;align-self:start;height:100vh;height:100dvh;padding:0;background:var(--panel);border-right:1px solid var(--line)}
 .adm-side>.adm-hdr{display:contents}
 .adm-side .brand{order:0;flex:none;display:flex;align-items:center;height:var(--adm-hdr-h);margin:0;padding:0 22px;box-sizing:border-box;border-bottom:1px solid var(--line)}
