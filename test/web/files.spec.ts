@@ -280,6 +280,11 @@ test('rows dragged onto a folder or onto the path move there', async ({ page }) 
 test('a pick comes down as one zip, and a text or image file opens in a preview', async ({ page }) => {
   put('notes.txt', 'line one\nline two');
   put('cover.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="red"/></svg>');
+  // Newest first, so cover.svg sits just before notes.txt: the preview's ← goes from one to the other.
+  for (const [rel, ago] of [['cover.svg', 10], ['notes.txt', 20]] as const) {
+    const t = new Date(Date.now() - ago * 1000);
+    fs.utimesSync(path.join(base, rel), t, t);
+  }
   await signIn(page);
   await page.goto('/admin/games?tab=folder&path=fb-test');
   await row(page, 'Alpha').locator('td.c-size').click();
