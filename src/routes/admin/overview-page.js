@@ -84,7 +84,7 @@ const WARNINGS={
 };
 // Counted to-dos: where the button goes and the words; the config warnings above keep their own.
 const TODO={
-  damaged:{t:'ov.t.damaged',d:'ov.t.damagedD',go:'/admin/games#library/verify'},
+  damaged:{t:'ov.t.damaged',d:'ov.t.damagedD',go:'/admin/games?view=verify&check=damaged#library/verify'},
   'pending-devices':{t:'ov.t.pendingDevices',d:'ov.t.pendingDevicesD',go:'/admin/devices'},
   'pending-accounts':{t:'ov.t.pendingAccounts',d:'ov.t.pendingAccountsD',go:'/admin/users'},
   inbox:{t:'ov.t.inbox',d:'ov.t.inboxD',go:'/admin/inbox'},

@@ -58,3 +58,26 @@ test('the library tab shows the file check counts and its full hash button', asy
   await expect(page.locator('#lv-state')).toContainText('nstool 이나 키가 없어');
   await expect(page.getByRole('button', { name: '전체 해시 검사' })).toBeVisible();
 });
+
+test('the overview link to damaged files opens the check on the damaged files alone, and the cards filter', async ({ page }) => {
+  const flagged = [
+    { path: 'Broken [0100000000010000][v0].nsp', verdict: 'damaged', reason: 'truncated' },
+    { path: 'Patched A [0100000000020000][v0].nsp', verdict: 'modified', reason: 'signature-fail' },
+    { path: 'Patched B [0100000000030000][v0].nsp', verdict: 'modified', reason: 'signature-fail' },
+  ];
+  await page.route('**/admin/api/library/verify', (route) => route.fulfill({ json: {
+    status: 'idle', pending: 0, hashPending: 0, total: 3, counts: { ok: 0, modified: 2, damaged: 1, unchecked: 0, misnamed: 0 }, flagged, flaggedTotal: 3,
+  } }));
+  await signIn(page);
+  await page.goto('/admin/games?view=verify&check=damaged#library/verify');
+  const rows = page.locator('#lv-list [role="row"]', { hasText: '다시 검사' });
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Broken');
+  const damaged = page.locator('#lv-cards button.card', { hasText: '손상' });
+  await expect(damaged).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#lv-cards button.card', { hasText: '수정' }).click();
+  await expect(rows).toHaveCount(2);
+  expect(new URL(page.url()).searchParams.get('check')).toBe('modified');
+  await page.locator('#lv-cards button.card', { hasText: '수정' }).click();
+  await expect(rows).toHaveCount(3);
+});
