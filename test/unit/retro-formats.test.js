@@ -67,7 +67,7 @@ test("parseSlt keeps files and drops folders and encrypted entries", () => {
   assert.deepEqual(parseSlt(text), [{ name: "a.gba", size: 4, crc32: "abcdef01" }]);
 });
 
-function setup(files, lists = {}) {
+function setup(files, lists = {}, ko = {}) {
   const root = tmp();
   for (const [rel, body] of Object.entries(files)) {
     const abs = path.join(root, rel);
@@ -76,7 +76,7 @@ function setup(files, lists = {}) {
     fs.utimesSync(abs, old(), old());
   }
   const reads = [];
-  const hasher = createDropHasher({ lookup: (crc) => { reads.push(crc); return lists[crc] ?? []; } });
+  const hasher = createDropHasher({ lookup: (crc) => { reads.push(crc); return lists[crc] ?? []; }, lookupKo: (crc) => ko[crc] ?? [] });
   const org = createOrganizer({
     incomingDir: path.join(root, "incoming"),
     romsDir: path.join(root, "games"),
@@ -134,6 +134,23 @@ test("a cooked PLAYSTATION image: BOOT goes to ps1, BOOT2 is held as PS2, no SYS
     const held = Object.fromEntries(org.view().held.map((h) => [h.rel, h.code]));
     assert.deepEqual(held, { "two.iso": "ps2", "three.iso": "psUnsure" });
     assert.deepEqual([...await sniffSystems([{ rel: "x.iso", abs: path.join(root, "incoming/three.iso") }], new Map(), DEFAULT_SYSTEMS)], [["x.iso", "psUnsure"]]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a Korean-patched ROM no list has is placed and named by the retro database's own hashes", async () => {
+  const patched = Buffer.from("korean patched rom");
+  const original = Buffer.from("original rom");
+  const { root, org } = setup(
+    { "incoming/anything.bin": patched, "incoming/Orig.bin": original },
+    { [crcOf(original)]: [{ system: "md", name: "Phantasy Star (USA)" }] },
+    { [crcOf(patched)]: [{ system: "md", ko: "판타지 스타", en: "Phantasy Star (Korean Translation)" }], [crcOf(original)]: [{ system: "md", ko: "판타지 스타", en: null }] },
+  );
+  try {
+    assert.equal((await org.sweep()).moved, 2);
+    assert.ok(fs.existsSync(path.join(root, "retro/roms/md/판타지 스타 (Phantasy Star (Korean Translation)).bin")), "no list has it; the database names it");
+    assert.ok(fs.existsSync(path.join(root, "retro/roms/md/판타지 스타 (Phantasy Star (USA)).bin")), "the list names the original, the database adds the Korean title");
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

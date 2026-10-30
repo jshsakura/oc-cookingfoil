@@ -99,7 +99,7 @@ export function cleanStem(text) {
 const DISC_RE = /\s*\(Disc (\d+)\)/;
 
 /** The name a hash-confirmed dump is filed under: "한글명 (English)" when the Korean name is known, else the list's name. Pure. */
-export const dumpStem = (dump) => cleanStem(dump.ko ? `${dump.ko} (${dump.name})` : dump.name);
+export const dumpStem = (dump) => cleanStem(dump.ko && dump.ko !== dump.name ? `${dump.ko} (${dump.name})` : dump.name);
 
 /**
  * The plan for the drop box's other files. `items` is [{ rel }] (settled, not

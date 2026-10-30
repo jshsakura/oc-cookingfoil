@@ -78,8 +78,10 @@ function index(raw) {
   const bySha1 = new Map();
   const byCrc = new Map();
   const byTitle = new Map();
+  const anyCrc = new Map(); // crc → [{ system, ko, en }]
   for (const [system, rows] of Object.entries(raw.systems ?? {})) {
     for (const row of Object.values(rows)) {
+      if (row[2]) anyCrc.set(row[2], [...(anyCrc.get(row[2]) ?? []), { system, ko: row[0], en: row[1] ?? null }]);
       if (row[3]) bySha1.set(`${system}/${row[3]}`, row);
       if (row[2]) byCrc.set(`${system}/${row[2]}`, row);
       if (row[1]) byTitle.set(`${system}/${normalizeTitle(row[1])}`, { ko: row[0], en: row[1] });
@@ -88,7 +90,7 @@ function index(raw) {
   for (const [system, rows] of Object.entries(raw.titles ?? {})) {
     for (const [title, ko] of Object.entries(rows)) if (!byTitle.has(`${system}/${title}`)) byTitle.set(`${system}/${title}`, { ko, en: null });
   }
-  return { raw, bySha1, byCrc, byTitle };
+  return { raw, bySha1, byCrc, byTitle, anyCrc };
 }
 
 /** "Metal Slug Advance (Japan) [!]" → "metal slug advance": tags gone, case and punctuation ignored. Pure. */
@@ -138,4 +140,12 @@ export function koreanNameSystem(system) {
 /** Whether some ROM of `system` in the dictionary has this CRC-32 (worth reading the whole file to confirm). */
 export function koreanNameCrc(system, crc32) {
   return Boolean(crc32 && load().byCrc.has(`${system}/${hex(crc32, 8)}`));
+}
+
+/**
+ * Every game of any system whose CRC-32 is in the dictionary: [{ system, ko, en }]. The plugin lists
+ * Korean-patched ROMs the No-Intro and Redump lists do not have, so this names a console for them too.
+ */
+export function koreanNamesByCrc(crc32) {
+  return load().anyCrc.get(hex(crc32, 8)) ?? [];
 }
