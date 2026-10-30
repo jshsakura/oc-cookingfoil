@@ -39,6 +39,7 @@ import { dlcDisplayName } from "./dlc-name.js";
 import { incomingInGames } from "../helpers/envs.js";
 import { isReadme } from "../helpers/readme-name.js";
 import { moveNoClobber, withPartial } from "../library/safe-move.js";
+import { measure } from "../library/trash.js";
 import { activityText } from "./meta-messages.js";
 
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
@@ -379,7 +380,8 @@ export function createOrganizer(deps) {
 
   /**
    * The drop-box files an undo put back that must stay: rel → true while size and mtime still match. A whole
-   * folder put back (a patch or an app) keeps every file under it while the folder's total size and file count match.
+   * folder put back (a patch or an app) keeps every file under it while the folder, measured as the journal measured
+   * it (every file, dot files and readmes too), still has the same file count and total size.
    */
   async function undoneSet(files) {
     const list = await Promise.resolve(deps.undone?.() ?? []).catch(() => []);
@@ -389,8 +391,8 @@ export function createOrganizer(deps) {
       return u && u.size === f.size && Math.round(u.mtimeMs) === Math.round(f.mtimeMs);
     }).map((f) => f.rel));
     for (const u of list.filter((x) => x.dir)) {
-      const inside = files.filter((f) => f.rel.startsWith(`${u.rel}/`));
-      if (inside.length === u.files && inside.reduce((n, f) => n + f.size, 0) === u.size) for (const f of inside) keep.add(f.rel);
+      const now = await measure(path.join(dir, ...u.rel.split("/"))).catch(() => null);
+      if (now?.type === "dir" && now.files === u.files && now.size === u.size) for (const f of files) if (f.rel.startsWith(`${u.rel}/`)) keep.add(f.rel);
     }
     return keep;
   }

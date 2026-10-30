@@ -49,19 +49,24 @@ test("a folder the drop box placed is noted as one move, with what an undo must 
   assert.deepEqual(noted, [{ action: "organize", from: path.join(root, "incoming/Korean Patch"), to: abs, extra: { rewrite: { type: "drop-patch", key: "k" } } }]);
 });
 
-test("a folder undone back into the drop box stays whole while it is the same folder, and moves again once it changes", async () => {
+test("a patch folder with a readme and a dot file, undone through the journal, stays in the drop box until it changes", async () => {
   const root = fs.mkdtempSync(path.join(tmp, "b-"));
-  const base = path.join(root, "incoming");
-  put(base, "Korean Patch/atmosphere/contents/0100AAAA00000000/exefs/main", "main");
-  put(base, "Korean Patch/atmosphere/contents/0100AAAA00000000/romfs/a.bin", "ab");
+  const incoming = { key: "incoming", dir: path.join(root, "incoming") };
+  const patches = { key: "patches", dir: path.join(root, "patches") };
+  fs.mkdirSync(incoming.dir, { recursive: true });
+  const placedAt = "0100AAAA00000000/Korean Patch";
+  put(patches.dir, `${placedAt}/atmosphere/contents/0100AAAA00000000/exefs/main`, "main");
+  put(patches.dir, `${placedAt}/atmosphere/contents/0100AAAA00000000/romfs/a.bin`, "ab");
+  put(patches.dir, `${placedAt}/README.md`, "read me");
+  put(patches.dir, `${placedAt}/.DS_Store`, "junk");
+  const line = await journal.recordMove({ action: "organize", fromRoot: incoming, from: "Korean Patch", toRoot: patches, to: placedAt });
+  await journal.undoMove([incoming, patches], line.id);
   let placed = 0;
-  let held = [{ rel: "Korean Patch", dir: true, files: 2, size: 6, mtimeMs: 0 }];
-  const org = organizer(root, { undone: () => held, placeFolder: async () => { placed++; return {}; } });
+  const org = organizer(root, { undone: () => journal.undoneHeld([incoming, patches], "incoming"), placeFolder: async () => { placed++; return {}; } });
   await org.sweep();
   assert.equal(placed, 0, "left where the undo put it");
-  assert.equal(org.view().held.length, 2);
-  assert.ok(org.view().held.every((h) => h.code === "undone"));
-  held = [{ rel: "Korean Patch", dir: true, files: 3, size: 6, mtimeMs: 0 }];
+  assert.ok(org.view().held.length > 0 && org.view().held.every((h) => h.code === "undone"));
+  put(incoming.dir, "Korean Patch/atmosphere/contents/0100AAAA00000000/romfs/b.bin", "more");
   await org.sweep();
   assert.equal(placed, 1, "a changed folder is sorted again");
 });
