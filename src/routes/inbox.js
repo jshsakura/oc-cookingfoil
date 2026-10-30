@@ -4,6 +4,10 @@
  * Telegram alert and sorts them later from the admin page or the folder.
  *
  *   GET  /api/inbox   { enabled, maxBytes, freeBytes }
+ *   POST /api/inbox/chunks, PUT /api/inbox/chunks/:id   + X-CSRF-Token: a file in resumable pieces
+ *                     (routes/web-chunks.js); its announced size is held against the quota when it starts
+ *   POST /api/inbox/finish   JSON + X-CSRF-Token: { ids, paths?, memo, links }, the files sent as above
+ *                     → the answer of the multipart request. A refusal before anything moves keeps the pieces.
  *   POST /api/inbox   multipart + X-CSRF-Token:
  *                       files   zero or more files
  *                       paths   JSON list of folder-relative paths, one per file, when a folder was picked
@@ -44,6 +48,9 @@ import { createKeyRate } from "../security/key-rate.js";
 import debug from "../debug.js";
 import { isMetaCode, metaText } from "../meta/meta-messages.js";
 import { requestLang } from "../meta/langs.js";
+import * as chunks from "../meta/upload-chunks.js";
+import { moveFile } from "../meta/library-upload.js";
+import { chunkErrorBody, mountWebChunks } from "./web-chunks.js";
 
 export const RATE_MAX = 5;
 const RATE_WINDOW_MS = 60_000;
@@ -132,6 +139,17 @@ const tooBigVars = () => ({ size: inbox.fmtBytes(envs.inboxMaxBytes) });
 
 const tellAdmin = (text, id) => alert("inbox", text, { subject: id });
 
+/** A write from this site's page carrying its CSRF token; otherwise the refusal is answered and false returned. */
+function writeOk(req, res, csrf = csrfOk) {
+  const origin = req.get("Origin");
+  if (origin && origin !== resolveOrigin(req, envs.publicBaseUrl)) return void fail(req, res, 403, "origin", "origin mismatch");
+  if (!csrf(req)) return void fail(req, res, 403, "csrf", "csrf token missing or wrong");
+  return true;
+}
+
+/** Whose chunked uploads these are: the slug alone is cut short for a Google account, so the name goes with it. */
+const chunkAccount = (user) => (user ? `inbox:${JSON.stringify([user.slug, user.name])}` : null);
+
 /**
  * The upload itself, as one handler: `whoOf(req)` names the uploader ({ name, label, slug }) or
  * null, `csrf(req)` checks the request's token, `notify(text, id)` tells the admin.
@@ -141,9 +159,7 @@ export function inboxUpload({ whoOf = signedIn, notify = tellAdmin, csrf = csrfO
     res.set("Cache-Control", "no-store");
     const user = whoOf(req);
     if (!user) return fail(req, res, 401, "signin", "inbox.signin");
-    const origin = req.get("Origin");
-    if (origin && origin !== resolveOrigin(req, envs.publicBaseUrl)) return fail(req, res, 403, "origin", "origin mismatch");
-    if (!csrf(req)) return fail(req, res, 403, "csrf", "csrf token missing or wrong");
+    if (!writeOk(req, res, csrf)) return;
     if (!envs.inboxEnabled) return fail(req, res, 404, "off", "inbox.off");
     // Refused before a byte is read: an announced size that can't fit.
     const announced = Number(req.get("content-length")) || 0;
@@ -226,5 +242,80 @@ export default function inboxRouter({ whoOf = signedIn, notify = tellAdmin } = {
     res.json({ enabled: envs.inboxEnabled, maxBytes: envs.inboxMaxBytes, freeBytes: Math.max(0, envs.inboxQuotaBytes - used) });
   });
   router.post("/", inboxUpload({ whoOf, notify }));
+
+  const dir = chunks.webChunksDir("inbox");
+  mountWebChunks(router, {
+    purpose: "inbox",
+    account: (req) => chunkAccount(whoOf(req)),
+    signedOut: (req, res) => fail(req, res, 401, "signin", "inbox.signin"),
+    guardWrites: (req, res) => writeOk(req, res),
+    // What the multipart request is held to, at the moment the upload starts: one upload's size, and room in the quota.
+    check: async (_req, { id, size }) => {
+      if (!envs.inboxEnabled) throw new inbox.InboxError(404, "off", "inbox.off");
+      if (size > envs.inboxMaxBytes) throw new inbox.InboxError(413, "too-big", "inbox.tooBig", tooBigVars());
+      if ((await inbox.usage()) + inFlight + (await chunks.declaredBytes(dir, id)) + size > envs.inboxQuotaBytes) throw new inbox.InboxError(507, "full", "inbox.full");
+    },
+    answer: (req, res, err) => err instanceof inbox.InboxError && (fail(req, res, err.status, err.code, err.key, err.vars), true),
+  });
+  router.post("/finish", express.json({ limit: "256kb" }), (req, res) => finishChunked(req, res, { whoOf, notify, dir }));
   return router;
+}
+
+/**
+ * Leaves the finished chunked uploads `ids` (none: a note alone) as one note, held to the multipart request's
+ * limits. Every refusal comes before a piece is claimed, so the pieces stay to be sent again.
+ */
+async function finishChunked(req, res, { whoOf, notify, dir }) {
+  res.set("Cache-Control", "no-store");
+  const user = whoOf(req);
+  if (!user) return fail(req, res, 401, "signin", "inbox.signin");
+  if (!writeOk(req, res)) return;
+  if (!envs.inboxEnabled) return fail(req, res, 404, "off", "inbox.off");
+  const { ids = [], paths = null, memo, links } = req.body ?? {};
+  if (!Array.isArray(ids) || ids.length > MAX_FILES || new Set(ids).size !== ids.length || ids.some((id) => !chunks.ID_RE.test(String(id)))) return fail(req, res, 400, "limit", "inbox.limit");
+  const account = chunkAccount(user);
+  const text = inbox.cleanMemo(memo);
+  let urls;
+  try {
+    urls = inbox.parseLinks(links);
+    if (!ids.length && !text && !urls.length) throw new inbox.InboxError(400, "empty", "inbox.empty");
+    const parts = [];
+    for (const id of ids) parts.push(await chunks.completed(dir, String(id), account));
+    const bytes = parts.reduce((sum, p) => sum + p.size, 0);
+    if (bytes > envs.inboxMaxBytes) throw new inbox.InboxError(413, "too-big", "inbox.tooBig", tooBigVars());
+    if ((await inbox.usage()) + inFlight + bytes > envs.inboxQuotaBytes) throw new inbox.InboxError(507, "full", "inbox.full");
+  } catch (err) {
+    if (err instanceof inbox.InboxError) return fail(req, res, err.status, err.code, err.key, err.vars);
+    if (err instanceof chunks.ChunkError) return res.status(err.status).json(chunkErrorBody(req, err));
+    throw err;
+  }
+  if (!uploadRate.hit(user.slug).ok) return fail(req, res, 429, "rate", "inbox.rate");
+
+  const work = await inbox.newStaging();
+  try {
+    const fromFolder = Array.isArray(paths) && paths.length === ids.length;
+    const files = [];
+    let bytes = 0;
+    for (const [i, id] of ids.entries()) {
+      const part = await chunks.claim(dir, String(id), account);
+      const dest = path.join(work, "in", `f${i}`);
+      try {
+        await moveFile(part.path, dest);
+      } finally {
+        await fsp.rm(part.path, { force: true });
+      }
+      files.push({ path: dest, name: fromFolder ? String(paths[i]) : part.name });
+      bytes += part.size;
+    }
+    const note = await inbox.create({ user: user.name, slug: user.slug, work, files, memo: text, links: urls });
+    debug.log("inbox: %s left %d files (%d bytes) in pieces, %d links", user.slug, files.length, bytes, urls.length);
+    notify(inbox.alertText({ ...note, user: user.label }), note.id);
+    res.status(201).json({ ok: true, id: note.id, files: note.files.length, bytes, items: note.files.map(({ name, size }) => ({ name, size })) });
+  } catch (err) {
+    await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+    if (err instanceof inbox.InboxError) return fail(req, res, err.status, err.code, err.key, err.vars);
+    if (err instanceof chunks.ChunkError) return res.status(err.status).json(chunkErrorBody(req, err));
+    debug.error("inbox: finish failed: %s", err.message);
+    fail(req, res, 500, "error", "inbox.error");
+  }
 }

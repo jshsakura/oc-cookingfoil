@@ -25,6 +25,7 @@ import { publicBaseUrl } from "../helpers/envs.js";
 import { resolveOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
 import { ROW_ICON_NAMES } from "../retro/menu.js";
+import { CHUNK_CLIENT } from "./chunk-client.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // The names the page's buttons may use (landing.html, BTN_ICON_FOR and data-icon), and the retro preview's row icons.
@@ -88,6 +89,7 @@ export function fillTemplate(raw) {
     .replace("__CHAT_WIDGET_SCRIPT__", () => WEB_CHAT_WIDGET_SCRIPT)
     .replace("__ACTIVITY_BUTTON__", () => ACTIVITY_BUTTON_HTML)
     .replace("__ACTIVITY_HTML__", () => ACTIVITY_HTML)
+    .replace("__CHUNK_CLIENT__", () => CHUNK_CLIENT)
     .replace("__ACTIVITY_SCRIPT__", () => activityScript({ web: true }));
 }
 

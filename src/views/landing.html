@@ -1645,6 +1645,10 @@
     <div class="restart-banner" id="restart-banner" role="status" aria-live="polite" hidden></div>
 
     <script>
+      // Resumable uploads (routes/chunk-client.js): every file this page sends goes up in pieces first.
+      __CHUNK_CLIENT__
+    </script>
+    <script>
       // ─── i18n ──────────────────────────────────────────────────────────────
       const I18N = {
         ko: {
@@ -5114,10 +5118,13 @@
           };
           // Where the item's pictures are served: grid rows and the window use these addresses.
           const pub = art.kind === "homebrew" ? `/api/homebrew/${art.id}` : `/api/patches/${art.id}`;
-          const send = async (method, path, body, json = false) => {
+          // `file`: a picture, sent in resumable pieces first, with its crop in X-Crop.
+          const send = async (method, path, body, json = false, file = null, crop = null) => {
             try {
               const headers = json ? { Accept: "application/json", "Content-Type": "application/json" } : { Accept: "application/json" };
-              const r = await fetch(base + path, { method, body: json ? JSON.stringify(body) : body, headers });
+              const r = file
+                ? await chunkedPost("/api/art/chunks", base + path, file, { headers: crop ? { ...headers, "X-Crop": JSON.stringify(crop) } : headers })
+                : await fetch(base + path, { method, body: json ? JSON.stringify(body) : body, headers });
               const d = await r.json().catch(() => ({}));
               if (!r.ok) { toast(d.error || t("art.failed")); return; }
               toast(method === "DELETE" ? t("art.removed") : json ? t("art.cropped") : t("art.saved"));
@@ -5136,11 +5143,7 @@
                 maxShots: 8,
               },
               find: art.find || { q: "", base: null },
-              upload: (slot, file, crop) => {
-                const fd = new FormData(); fd.append("file", file, file.name);
-                if (crop) fd.append("crop", JSON.stringify(crop));
-                return send("POST", `/${slot}`, fd);
-              },
+              upload: (slot, file, crop) => send("POST", `/${slot}`, null, false, file, crop),
               recrop: (slot, n, crop) => send("POST", slot === "screenshot" ? `/screenshot/${n}/crop` : `/${slot}/crop`, { crop }, true),
               remove: (slot, n) => send("DELETE", slot === "screenshot" ? `/screenshot/${n}` : `/${slot}`),
             }));
@@ -6656,9 +6659,8 @@
         } catch { toast(t("art.failed")); }
       }
       function uploadArt(baseId, kind, file, crop = null) {
-        const fd = new FormData(); fd.append("file", file, file.name);
-        if (crop) fd.append("crop", JSON.stringify(crop));
-        return artChanged(baseId, fetch(`/api/art/${baseId}/${kind}`, { method: "POST", body: fd }), t("art.saved"));
+        const headers = crop ? { Accept: "application/json", "X-Crop": JSON.stringify(crop) } : { Accept: "application/json" };
+        return artChanged(baseId, chunkedPost("/api/art/chunks", `/api/art/${baseId}/${kind}`, file, { headers }), t("art.saved"));
       }
       function recropArt(baseId, kind, idx, crop) {
         const url = kind === "screenshot" ? `/api/art/${baseId}/screenshot/${idx}/crop` : `/api/art/${baseId}/${kind}/crop`;
@@ -6832,9 +6834,8 @@
         if (!canEditArt) return;
         const mine = retroSeq;
         async function upload(_slot, file) {
-          const fd = new FormData(); fd.append("file", file, file.name);
           try {
-            const r = await fetch(`/api/art/retro/${encodeURIComponent(g.id)}/boxart`, { method: "POST", body: fd, headers: { Accept: "application/json" } });
+            const r = await chunkedPost("/api/art/chunks", `/api/art/retro/${encodeURIComponent(g.id)}/boxart`, file, { headers: { Accept: "application/json" } });
             const d = await r.json().catch(() => ({}));
             if (!r.ok) { toast(d.error || t("art.failed")); return; }
           } catch { toast(t("art.failed")); return; }
@@ -7053,37 +7054,38 @@
           if (!picked.length && !memo && !links) return say(t("share.empty"), "bad");
           if (badLinks(links)) return say(t("share.bad_link"), "bad");
           if (maxBytes && total() > maxBytes) return say(t("share.too_big", fmtBytes(maxBytes)), "bad");
-          const fd = new FormData();
-          for (const p of picked) fd.append("files", p.file, p.file.name);
-          if (picked.some((p) => p.path !== p.file.name)) fd.append("paths", JSON.stringify(picked.map((p) => p.path)));
-          fd.append("memo", memo);
-          fd.append("links", links);
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", "/api/inbox");
-          xhr.setRequestHeader("X-CSRF-Token", session?.csrf ?? "");
+          const headers = { "X-CSRF-Token": session?.csrf ?? "" };
           $("share-send").disabled = true;
           $("share-progress").hidden = false; $("share-bar").style.width = "0%";
           say(t("share.sending", 0));
-          xhr.upload.addEventListener("progress", (e) => {
-            if (!e.lengthComputable) return;
-            const pct = Math.round((e.loaded / e.total) * 100);
-            $("share-bar").style.width = pct + "%";
-            say(t("share.sending", pct));
-          });
           const finish = () => { $("share-send").disabled = false; $("share-progress").hidden = true; };
-          xhr.addEventListener("load", () => {
+          const failed = (r) => {
             finish();
-            let body = {};
-            try { body = JSON.parse(xhr.responseText); } catch { /* not JSON */ }
-            if (xhr.status === 201) {
-              $("share-form").reset(); picked = []; relabel();
-              return say(t("share.done"), "ok");
-            }
+            if (r.status === 0) return say(t("share.failed", t("share.network")), "bad");
+            const body = r.d || {};
             if (body.code === "too-big") return say(t("share.too_big", fmtBytes(maxBytes)), "bad");
-            say(ERR[body.code] ? t(ERR[body.code]) : t("share.failed", body.error || "HTTP " + xhr.status), "bad");
-          });
-          xhr.addEventListener("error", () => { finish(); say(t("share.failed", t("share.network")), "bad"); });
-          xhr.send(fd);
+            say(ERR[body.code] ? t(ERR[body.code]) : t("share.failed", body.error || "HTTP " + r.status), "bad");
+          };
+          // Each file goes up in resumable pieces (POST /api/inbox/chunks); one request then leaves them with the note.
+          (async () => {
+            const sum = picked.reduce((n, p) => n + p.file.size, 0) || 1;
+            let before = 0;
+            const ids = [];
+            for (const p of picked) {
+              const up = await chunkUploadTo("/api/inbox/chunks", p.file, {
+                headers,
+                onBytes: (n) => { const pct = Math.round(((before + n) / sum) * 100); $("share-bar").style.width = pct + "%"; say(t("share.sending", pct)); },
+              });
+              if (up.status !== 200) return failed(up);
+              ids.push(up.id); before += p.file.size;
+            }
+            const paths = picked.some((p) => p.path !== p.file.name) ? picked.map((p) => p.path) : undefined;
+            const r = await chunkCall("POST", "/api/inbox/finish", JSON.stringify({ ids, paths, memo, links }), "application/json", null, headers);
+            if (r.status !== 201) return failed(r);
+            finish();
+            $("share-form").reset(); picked = []; relabel();
+            say(t("share.done"), "ok");
+          })();
         }
         $("inbox-link").addEventListener("click", (e) => { e.preventDefault(); open(); });
         $("share-close").addEventListener("click", close);

@@ -150,6 +150,15 @@ export const OPT_OUT = {
   "PUT /admin/api/upload/chunks/:id": "binary-upload",
   "DELETE /admin/api/upload/chunks/:id": "binary-upload",
   "POST /admin/api/upload/:kind/finish": "binary-upload",
+  // The same on the public site (routes/web-chunks.js): the share inbox, the upload tray and the picture editor.
+  "POST /api/inbox/chunks": "binary-upload",
+  "PUT /api/inbox/chunks/:id": "binary-upload",
+  "POST /api/inbox/finish": "binary-upload",
+  "POST /api/uploads/chunks": "binary-upload",
+  "PUT /api/uploads/chunks/:id": "binary-upload",
+  "POST /api/uploads/finish": "binary-upload",
+  "POST /api/art/chunks": "binary-upload",
+  "PUT /api/art/chunks/:id": "binary-upload",
   // MCP's Streamable HTTP endpoint (src/mcp/route.js): calls arrive as POST; GET and DELETE answer 2025-era clients.
   "POST /mcp": "mcp-transport",
   "GET /mcp": "mcp-transport",
