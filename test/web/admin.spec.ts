@@ -75,8 +75,8 @@ test('library tab shows the catalog state and starts a rescan', async ({ page })
   await expect(rescan).toBeDisabled();
   await expect(page.locator('#toast')).toContainText('다시 스캔을 마쳤습니다', { timeout: 15000 });
   await expect(rescan).toBeEnabled();
-  await expect(page.locator('#scan-status')).toBeVisible();
-  await expect(page.locator('#scan-status')).toContainText('마지막으로 전부 읽은 때는');
+  // On a wide screen the scan line is the rescan button's tooltip, so the browser takes that line.
+  await expect(page.locator('#rescan')).toHaveAttribute('title', /마지막으로 전부 읽은 때는/);
 });
 
 test('a featured row picked in the admin page reaches the sections list by base id', async ({ page, request }) => {

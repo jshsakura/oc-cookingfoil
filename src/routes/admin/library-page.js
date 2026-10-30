@@ -100,7 +100,7 @@ async function loadLibrary(refreshPanel=true){
 const scanBusy=(s)=>s.state==='running'||s.fullPending;
 const scanTook=(f)=>topFill('lp.scanTook',{files:num(f.files),sec:(f.ms/1000).toFixed(1)});
 function scanShow(s){const b=$('rescan');b.disabled=scanBusy(s);b.setAttribute('aria-busy',String(scanBusy(s)));
-  $('scan-status').textContent=s.state==='running'?topText('lp.scanRunning'):s.fullPending?topText('lp.scanPending')
+  b.title=$('scan-status').textContent=s.state==='running'?topText('lp.scanRunning'):s.fullPending?topText('lp.scanPending')
     :s.lastFull?topFill('lp.scanLast',{at:fmt(s.lastFull.at),took:scanTook(s.lastFull)}):'';}
 let scanPoll=null;
 function scanWatch(since){
