@@ -33,6 +33,7 @@ import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import * as patchInfo from "../../meta/patch-info.js";
 import multer from "multer";
 import debug from "../../debug.js";
 import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir } from "../../helpers/envs.js";
@@ -403,13 +404,23 @@ function mountChunkRoutes(router, guard) {
   }));
 }
 
-/** The drop box's way into the upload page's own placing: a folder of `kind` ("patch" | "homebrew"), its files as { abs, rel }. */
+/**
+ * The drop box's way into the upload page's own placing: a folder of `kind` ("patch" | "homebrew"), its files as
+ * { abs, rel }. The result carries where the folder landed (`abs`) and, for a patch, what an undo has to forget (`rewrite`).
+ */
 export async function placeDropFolder(kind, items, body) {
   const work = await newWork(kind);
   try {
-    return kind === "homebrew"
-      ? await placeHomebrew(items, work, { by: null })
-      : await placeFolderKind({ kind, items, body, work, fromFolder: true, rootOf });
+    if (kind === "homebrew") {
+      const res = await placeHomebrew(items, work, { by: null });
+      return { ...res, abs: path.join(rootOf("homebrew"), ...res.where.split("/")) };
+    }
+    const res = await placeFolderKind({ kind, items, body, work, fromFolder: true, rootOf });
+    return {
+      ...res,
+      abs: path.join(rootOf(kind), ...res.where.split("/")),
+      ...(kind === "patch" ? { rewrite: { type: "drop-patch", key: patchInfo.keyOf(path.posix.dirname(res.where), path.posix.basename(res.where)) } } : {}),
+    };
   } finally {
     await dropWork(work);
   }

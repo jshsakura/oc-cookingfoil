@@ -346,6 +346,10 @@ export async function recordMove({ action, by, from, to, extra = {} }) {
 
 // What an undo changes back besides the place, by the move's `rewrite`.
 const UNDO_REWRITE = {
+  // A patch folder the drop box placed had its information put in the store; back in the drop box it has none.
+  "drop-patch": async (op) => {
+    (await import("../meta/patch-info.js")).remove(op.rewrite.key);
+  },
   // A patch moved to another game had the paths that name the game renamed, and its store entry moved.
   "patch-title": async (op, abs) => {
     const { rewritePatchPaths } = await import("../routes/admin/content-api.js");
