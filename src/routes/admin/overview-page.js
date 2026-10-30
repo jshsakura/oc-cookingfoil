@@ -152,7 +152,7 @@ function renderRecent(list){const box=$('ov-recent');box.replaceChildren();
 const OV_KIND={base:'ov.kind.base',update:'ov.kind.update',dlc:'ov.kind.dlc'};
 function ovDay(at){return new Date(at).toLocaleDateString(loc(),{month:'short',day:'numeric'});}
 function ovRow(iconId,name,sub,tag,at){const li=el('li');
-  if(iconId&&/^[0-9A-F]{16}$/i.test(iconId)){const im=document.createElement('img');im.alt='';im.loading='lazy';im.src='/api/library/icon/'+iconId+'?size=sm';im.onerror=()=>{im.style.visibility='hidden';};li.append(im);}
+  if(iconId&&/^[0-9A-F]{16}$/i.test(iconId)){const im=document.createElement('img');im.alt='';im.loading='lazy';im.dataset.miss='joystick';im.src='/api/library/icon/'+iconId+'?size=sm';li.append(im);}
   const nm=el('span',name,'nm');if(sub)nm.append(el('small',sub));li.title=name;
   li.append(nm);if(tag)li.append(pill(tag,''));const t=el('time',ovDay(at));t.dateTime=new Date(at).toISOString();li.append(t);return li;}
 function renderAdded(a){

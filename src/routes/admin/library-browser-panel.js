@@ -40,7 +40,7 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files .lb-q{position:relative;flex:1 1 260px;display:flex}
 #lib-files .lb-q .ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
 #lib-files .lb-q input{width:100%;padding-left:38px}
-#lib-files .lb-bar select{flex:0 0 auto}
+#lib-files .lb-bar select{flex:0 0 auto;min-width:9.5em}
 #lib-files .lb-filter{display:flex;align-items:center;gap:10px;min-width:0}
 #lib-files .lb-filter .lb-kinds{flex:1 1 auto;min-width:0}
 #lib-files .lb-note{margin:4px 0 0;font-size:var(--fs-xs)}
@@ -53,7 +53,7 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files button:not(:disabled):active{transform:scale(.96)}
 #lib-files .lb-count{margin:0}
 #lib-files .lb-for{display:flex;gap:10px;align-items:center}#lib-files .lb-for>div{min-width:0}
-#lib-files .lb-gw{width:36px;height:36px;flex:none;border-radius:var(--r-md);overflow:hidden;background:var(--sunk);border:1px solid var(--line)}#lib-files .lb-gi{display:block;width:100%;height:100%;object-fit:cover}
+#lib-files .lb-gw{width:36px;height:36px;flex:none;border-radius:var(--r-md);overflow:hidden;background:var(--sunk);border:1px solid var(--line)}#lib-files .lb-gi{display:block;width:100%;height:100%;object-fit:cover}#lib-files .lb-gi.img-miss{display:grid}
 #lib-files .lb-list{min-height:120px}
 /* The server sorts and counts the whole list above; the grid's own page-only sort box and count would say it twice. */
 #lib-files .lb-list .grid-sort,#lib-files .lb-list .grid-count{display:none}
@@ -145,13 +145,18 @@ function lbEditButton(f,k){
   if(lbIsGame(k)&&/^[0-9A-F]{16}$/i.test(f.titleId||'')){const b=tbtn('info','hb.descBtn',()=>lbGameInfo(f));const t=topFill('lb.gameInfoTitle',{name:f.name||f.rel||topText('lo.colFile')});b.title=t;b.setAttribute('aria-label',t);return b;}
   if((k==='patch'||k==='save')&&f.id){const b=tbtn('edit','hb.editBtn',()=>lbEditContent(f,k));b.setAttribute('aria-label',topFill('hb.editAria',{name:f.name||topText('lb.item')}));return b;}
   return null;}
-// A patch or save leads with its game, icon and name, so the list says which game each one is for.
+// Every row leads with a picture: the game's icon, or a tile with the kind's icon when there is none, so names line up.
+// A patch or save then names its game first, so the list says which game each one is for.
+const LB_MISS={homebrew:'package',other:'file'};
+function lbPic(f,k){const pic=el('span',null,'lb-gw');
+  if(/^[0-9A-F]{16}$/i.test(f.titleId||'')){const ico=el('img',null,'lb-gi');ico.alt='';ico.loading='lazy';ico.dataset.miss='joystick';ico.src='/api/library/icon/'+f.titleId+'?size=sm';pic.append(ico);}
+  else{const t=el('span',null,'lb-gi img-miss');t.innerHTML=IMG_MISS[LB_MISS[k]||'joystick'];pic.append(t);}
+  return pic;}
 function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kind:kind;
-  if(k==='patch'||k==='save'){const row=el('div',null,'lb-for');const ico=el('img',null,'lb-gi');ico.alt='';ico.loading='lazy';
-    ico.style.visibility='hidden';ico.onload=()=>{ico.style.visibility='';};
-    if(/^[0-9A-F]{16}$/i.test(f.titleId||''))ico.src='/api/library/icon/'+f.titleId+'?size=sm';
-    const t=el('div');const pic=el('span',null,'lb-gw');pic.append(ico);t.append(el('b',f.game||topText('lb.unknownGame')),el('div',(f.name||'-')+(f.rel?' · '+f.rel:''),'muted'));row.append(pic,t);n.append(row);}
-  else{n.append(el('b',f.name||'-'));if(f.rel)n.append(el('div',f.rel,'muted'));}
+  const row=el('div',null,'lb-for');const t=el('div');
+  if(k==='patch'||k==='save')t.append(el('b',f.game||topText('lb.unknownGame')),el('div',(f.name||'-')+(f.rel?' · '+f.rel:''),'muted'));
+  else{t.append(el('b',f.name||'-'));if(f.rel)t.append(el('div',f.rel,'muted'));}
+  row.append(lbPic(f,k),t);n.append(row);
   tr.append(n);
   const game=lbIsGame(k);
   if(kind==='all')tr.append(td(LB_KIND[k]?topText(LB_KIND[k]):k),td(f.titleId||'-','mono lb-num'));

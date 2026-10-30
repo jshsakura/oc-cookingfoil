@@ -12,6 +12,8 @@
  * and lets go of the interval when the page goes away, so a page that is left
  * stops asking its API.
  */
+import { icon } from "../../views/icons.js";
+
 export const COMMON_SCRIPT = /* js */ `
 const $=(id)=>document.getElementById(id);
 // Numbers and dates follow the picked language: Korean grouping for ko, the
@@ -268,5 +270,16 @@ function subtabs(tab){const bar=$(tab+'-subtabs');if(!bar)return;
     next.searchParams.delete('path');
     history.replaceState(null,'',next);st.show(b.dataset.sub);if(window.__admMark)window.__admMark();});
   SUBTABS[tab]=st;}
+
+// A picture that does not load leaves a tile of the same size with an icon in it, never a broken box or a hole.
+// data-miss names the icon (a game, an app); code that puts its own stand-in in place goes first, since this
+// waits a turn and leaves an image that is no longer on the page alone.
+const IMG_MISS={image:${JSON.stringify(icon("image"))},joystick:${JSON.stringify(icon("joystick"))},package:${JSON.stringify(icon("package"))},file:${JSON.stringify(icon("file"))}};
+document.addEventListener('error',(e)=>{const img=e.target;if(!(img instanceof HTMLImageElement)||img.dataset.missed)return;
+  setTimeout(()=>{if(!img.isConnected||img.naturalWidth)return;const cs=getComputedStyle(img);
+    const tile=document.createElement('span');tile.className=(img.className?img.className+' ':'')+'img-miss';tile.setAttribute('aria-hidden','true');
+    tile.innerHTML=IMG_MISS[img.dataset.miss]||IMG_MISS.image;
+    if(parseFloat(cs.width)>=8){tile.style.width=cs.width;tile.style.height=cs.height;tile.style.borderRadius=cs.borderRadius;}
+    img.dataset.missed='1';img.replaceWith(tile);},0);},true);
 
 `;

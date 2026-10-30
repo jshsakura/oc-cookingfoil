@@ -367,8 +367,9 @@ test('back, forward and up walk the folders, and a typed address opens one', asy
 test('a search through subfolders shows where each find is, and properties count through folders', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/games?tab=folder&path=fb-test');
-  await page.locator('#fb-deep').check();
+  await expect(page.locator('#fb-deep')).toBeHidden();
   await page.locator('#fb-q').fill('two');
+  await page.locator('#fb-deep').check();
   await expect(row(page, 'two.nsp')).toBeVisible();
   await expect(row(page, 'two.nsp').locator('.fb-where')).toHaveText('fb-test/Alpha');
   await page.locator('#fb-q').fill('');

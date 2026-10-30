@@ -25,6 +25,8 @@ export const SCALE = `--r-xs:4px;--r-sm:6px;--r-md:10px;--r-lg:12px;--r-xl:14px;
 --white:#ffffff;--ground:#f2f1ee;--medal-1:#f5c542;--medal-1-ink:#3d2e00;--medal-2:#cfd3d9;--medal-2-ink:#2a2e35;--medal-3:#d9a574;--medal-3-ink:#3b2410`;
 
 export const ADMIN_CSS = /* css */ `
+.img-miss{display:inline-grid;place-items:center;flex:none;box-sizing:border-box;background:var(--sunk);color:var(--faint);overflow:hidden;visibility:visible}
+.img-miss svg{width:46%;height:46%;max-width:28px;max-height:28px;min-width:14px;min-height:14px}
 :root{${SCALE}}
 /* iOS zooms the page into any field under 16px when it takes the focus; on a touch screen every
    field is 16px, whatever a panel's own rule says. */
