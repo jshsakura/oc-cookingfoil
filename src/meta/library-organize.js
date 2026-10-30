@@ -399,7 +399,7 @@ export function createOrganizer(deps) {
     return name;
   }
 
-  async function sweepOnce({ retry = false } = {}) {
+  async function sweepOnce({ retry = false, whole = new Set() } = {}) {
     const all = await listFiles(dir);
     const keep = await undoneSet(all);
     const kept = all.filter((f) => keep.has(f.rel)).map((f) => heldItem(f.rel, "undone"));
@@ -414,8 +414,8 @@ export function createOrganizer(deps) {
     const others = [];
     const settling = [];
     for (const f of files) {
-      // A file still being copied is not opened yet.
-      const settled = now - f.mtimeMs >= SETTLE_MS;
+      // A file still being copied is not opened yet; one the caller put there whole needs no wait.
+      const settled = whole.has(f.rel) || now - f.mtimeMs >= SETTLE_MS;
       if (!GAME_RE.test(f.rel)) {
         if (settled) others.push(f);
         else settling.push(heldItem(f.rel, "settling"));
@@ -423,7 +423,7 @@ export function createOrganizer(deps) {
       }
       const read = settled ? await identify(f) : { id: identityFromName(f.rel), source: "name" };
       const nacpName = settled ? await nacpNameOf(f, read.id, { epoch, retry }) : null;
-      items.push({ rel: f.rel, mtimeMs: f.mtimeMs, id: read.id, source: read.source, nacpName });
+      items.push({ rel: f.rel, mtimeMs: settled ? Math.min(f.mtimeMs, now - SETTLE_MS) : f.mtimeMs, id: read.id, source: read.source, nacpName });
     }
     const present = new Set(files.map((f) => f.abs));
     for (const abs of nacpNames.keys()) if (!present.has(abs)) nacpNames.delete(abs);
@@ -466,10 +466,13 @@ export function createOrganizer(deps) {
 
   /**
    * Sorts the drop box now; one sweep at a time (a second call waits for the
-   * running one). `retry` reads again the NACPs that could not be read before.
+   * running one). `retry` reads again the NACPs that could not be read before; `whole` is the
+   * drop-box rels the caller wrote completely (an upload), sorted without waiting for them to settle,
+   * after a sweep already running.
    */
-  function sweep({ retry = false } = {}) {
-    running ??= sweepOnce({ retry })
+  async function sweep({ retry = false, whole = null } = {}) {
+    if (whole?.size && running) await running;
+    running ??= sweepOnce({ retry, whole: whole ?? new Set() })
       .catch((err) => {
         state = { ...state, error: `${REASONS.readFailed}: ${err.message}`, errorCode: "readFailed", errorDetail: err.message, sweptAt: new Date().toISOString() };
         return { moved: 0 };

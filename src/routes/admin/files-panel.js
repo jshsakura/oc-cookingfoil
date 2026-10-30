@@ -164,7 +164,6 @@ export const FOLDER_HTML = `<div id="fb">
     </div>
     <button type="button" id="fb-mkdir">${icon("plus")}${top("fb.newFolder")}</button>
     <button type="button" id="fb-upload">${icon("upload")}${top("fb.upload")}</button>
-    <button type="button" id="fb-upload-dir">${icon("folder")}${top("fb.uploadDir")}</button>
     <input type="file" id="fb-file" multiple tabindex="-1" aria-hidden="true">
     <input type="file" id="fb-dir" webkitdirectory multiple tabindex="-1" aria-hidden="true">
   </div>
@@ -372,26 +371,31 @@ async function fbUpOne(it){
   if(r.status!==200){it.state='fail';it.msg=r.d?.error||topText('u.rNet');return;}
   const f=await chunkCall('POST','/admin/api/files/upload',JSON.stringify({root:it.root,path:it.path,items:[{id:r.id,rel:it.rel}]}),'application/json');
   if(f.status!==200){it.state='fail';it.msg=f.d.error||String(f.status);return;}
-  fbu.placed+=f.d.placed.length;fbu.skipped+=f.d.skipped.length;it.state=f.d.placed.length?'done':'skip';}
+  fbu.placed+=f.d.placed.length;fbu.skipped+=f.d.skipped.length;it.state=f.d.placed.length?'done':'skip';it.to=f.d.placed[0];}
 async function fbUpRun(){fbu.busy=true;fbUpShow();let it;
   while((it=fbu.items.find((x)=>x.state==='wait'))){it.state='up';fbUpPaint(it);
     await fbUpOne(it);fbUpPaint(it);fbUpShow();
     if(it.root===fb.root&&it.path===fb.path&&!fbu.items.some((x)=>x.state==='wait'))fbLoad();}
   if(fbu.placed||fbu.skipped)toast(fbu.skipped?topFill('fb.upSome',{n:num(fbu.placed),s:num(fbu.skipped)}):topFill('fb.uploaded',{n:num(fbu.placed)}));
-  Object.assign(fbu,{busy:false,placed:0,skipped:0});fbUpShow();}
+  const whole=fbu.placed?fbu.items.filter((x)=>x.root==='incoming'&&x.state==='done'&&x.to).map((x)=>x.to):[];
+  Object.assign(fbu,{busy:false,placed:0,skipped:0});fbUpShow();
+  if(whole.length)fbSortBox(whole.slice(-500));}
+// What went up into the drop box is whole already, so it is sorted now instead of at the next timed sweep.
+async function fbSortBox(whole){try{const d=await api('/admin/api/library/organize/sweep',{method:'POST',body:{whole}});
+  if(d.moved)toast(topText('lo.moved').split('{n}').join(num(d.moved)));if(fb.root==='incoming')fbLoad();}catch(err){toast(err.message);}}
 $('fb-up-stop').addEventListener('click',()=>{for(const it of fbu.items)fbUpStop(it);});
 $('fb-up-close').addEventListener('click',()=>{fbu.items=[];$('fb-u-list').replaceChildren();fbUpShow();});
 $('fb-up-fold').addEventListener('click',(e)=>{const b=e.currentTarget;const open=b.getAttribute('aria-expanded')!=='true';
   b.setAttribute('aria-expanded',String(open));$('fb-u-list').hidden=!open;});
 // A page left while files go up asks first; what was sent waits a day and the same file picks up where it stopped.
 window.addEventListener('beforeunload',(e)=>{if(fbu.busy){e.preventDefault();e.returnValue='';}});
-{let depth=0;const wrap=document.querySelector('#fb .fb-wrap');const has=(e)=>[...(e.dataTransfer?.types||[])].includes('Files');
+// Files dropped anywhere on the page go up into the open folder; a folder keeps its shape.
+{let depth=0;const wrap=document;const has=(e)=>$('fb').offsetParent!==null&&[...(e.dataTransfer?.types||[])].includes('Files');
   wrap.addEventListener('dragenter',(e)=>{if(!has(e))return;e.preventDefault();depth++;$('fb').classList.add('dragging');});
   wrap.addEventListener('dragover',(e)=>{if(!has(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
   wrap.addEventListener('dragleave',()=>{if(--depth<=0){depth=0;$('fb').classList.remove('dragging');}});
   wrap.addEventListener('drop',async(e)=>{if(!has(e))return;e.preventDefault();depth=0;$('fb').classList.remove('dragging');fbUpload(await fbDropped(e.dataTransfer));});}
 $('fb-upload').addEventListener('click',()=>$('fb-file').click());
-$('fb-upload-dir').addEventListener('click',()=>$('fb-dir').click());
 // A picked folder names each file under it (webkitRelativePath), so the folder lands with its shape like a dropped one.
 for(const id of ['fb-file','fb-dir'])$(id).addEventListener('change',(e)=>{const files=[...e.target.files];e.target.value='';
   fbUpload(files.map((f)=>({file:f,rel:f.webkitRelativePath||f.name})));});
