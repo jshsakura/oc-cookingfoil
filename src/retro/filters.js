@@ -68,10 +68,10 @@ const SIZES = [
 ];
 
 export const SORTS = [
-  { key: "rating", ...text({ en: "Rating", ko: "평점순", ja: "評価順", zh: "按评分", "zh-Hant": "按評分", es: "Valoración", fr: "Note", de: "Wertung", it: "Voto", pt: "Nota", ru: "По рейтингу", nl: "Score" }) },
-  { key: "name", ...text({ en: "Name", ko: "이름순", ja: "名前順", zh: "按名称", "zh-Hant": "按名稱", es: "Nombre", fr: "Nom", de: "Name", it: "Nome", pt: "Nome", ru: "По названию", nl: "Naam" }) },
-  { key: "added", ...text({ en: "Recently added", ko: "최근 추가순", ja: "追加順", zh: "最近添加", "zh-Hant": "最近新增", es: "Añadidos recientemente", fr: "Ajouts récents", de: "Zuletzt hinzugefügt", it: "Aggiunti di recente", pt: "Adicionados recentemente", ru: "Недавно добавленные", nl: "Recent toegevoegd" }) },
-  { key: "size", ...text({ en: "Size", ko: "용량순", ja: "サイズ順", zh: "按大小", "zh-Hant": "按大小", es: "Tamaño", fr: "Taille", de: "Größe", it: "Dimensione", pt: "Tamanho", ru: "По размеру", nl: "Grootte" }) },
+  { key: "added", ...text({ en: "Recently added", ko: "최근 추가순", ja: "追加が新しい順", zh: "最近添加", "zh-Hant": "最近新增", es: "Añadidos recientemente", fr: "Ajouts récents", de: "Zuletzt hinzugefügt", it: "Aggiunti di recente", pt: "Adicionados recentemente", ru: "Недавно добавленные", nl: "Recent toegevoegd" }) },
+  { key: "name", ...text({ en: "Name", ko: "이름순", ja: "名前順", zh: "按名称", "zh-Hant": "名稱", es: "Nombre", fr: "Nom", de: "Name", it: "Nome", pt: "Nome", ru: "Название", nl: "Naam" }) },
+  { key: "size", ...text({ en: "Largest", ko: "용량 큰순", ja: "容量が大きい順", zh: "容量最大", "zh-Hant": "容量最大", es: "Más grandes", fr: "Les plus volumineux", de: "Größte", it: "Più grandi", pt: "Maiores", ru: "Самые большие", nl: "Grootste" }) },
+  { key: "rating", ...text({ en: "Rating", ko: "평점순", ja: "評価順", zh: "评分", "zh-Hant": "評分", es: "Valoración", fr: "Note", de: "Bewertung", it: "Valutazione", pt: "Avaliação", ru: "Оценка", nl: "Beoordeling" }) },
 ];
 
 const option = (key, label, count, params) => ({ key, ...label, count, params });

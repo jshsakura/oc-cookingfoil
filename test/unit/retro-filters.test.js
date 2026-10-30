@@ -29,8 +29,8 @@ test("every group the console's games can fill, worded in four languages, with o
   assert.deepEqual(groupOf(out, "size").options.map((o) => [o.ko, o.count]), [["10MB 이하", 2], ["100MB 이하", 3], ["1GB 이하", 3]]);
   assert.deepEqual(groupOf(out, "features").options.map((o) => [o.ko, o.count, o.params]), [["한국어", 1, { korean: "1" }], ["업적", 1, { achievements: "1" }], ["전용 베젤", 1, { bezel: "1" }]]);
   for (const g of out.groups) for (const l of ["en", "ko", "ja", "zh"]) assert.ok(g[l] && g.options.every((o) => o[l]), `${g.key} ${l}`);
-  assert.deepEqual(out.sorts.map((s) => s.key), ["rating", "name", "added", "size"]);
-  assert.equal(SORTS[0].ko, "평점순");
+  assert.deepEqual(out.sorts.map((s) => s.key), ["added", "name", "size", "rating"]);
+  assert.deepEqual(SORTS.map((s) => s.ko), ["최근 추가순", "이름순", "용량 큰순", "평점순"]);
 });
 
 test("a console with no metadata sends only what it knows", () => {

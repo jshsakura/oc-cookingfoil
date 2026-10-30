@@ -667,8 +667,12 @@ test('patches and homebrew open newest update first, and the order picked is kep
   await page.route('**/api/homebrew?*', (route) => route.fulfill({ json: { homebrew: [
     app('zed', 'Zed Tool', '2026-09-01T00:00:00Z'), app('abc', 'Abc Tool', '2025-01-01T00:00:00Z'),
   ] } }));
-  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  // A reverse order saved before those options went away falls back to newest first.
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); localStorage.setItem('cookingfoil:xsort:saves', 'name-desc'); } catch { /* none */ } });
   await page.goto('/#patches');
+  await expect(page.locator('#saves-sort')).toHaveValue('updated');
+  await expect(page.locator('select.sort-select option[value="name-desc"], select.sort-select option[value="size-asc"]')).toHaveCount(0);
+  await expect(page.locator('#patches-sort option')).toHaveText(['정렬: 최근 추가순', '정렬: 이름순', '정렬: 용량 큰순']);
 
   const heads = page.locator('#patches-list .xgroup .xhead strong');
   await expect(heads).toHaveText(['Bravo', 'Alpha']);

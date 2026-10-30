@@ -20,6 +20,11 @@ test.beforeEach(() => {
   put('Alpha/two.nsp', '22');
   put('Beta/keep.txt');
   put('loose.nsp', '333');
+  // The list opens newest first, so the times are pinned: Alpha, then Beta, then the loose file.
+  const at = (rel: string, ago: number) => { const t = new Date(Date.now() - ago * 1000); fs.utimesSync(path.join(base, rel), t, t); };
+  at('Alpha', 60);
+  at('Beta', 120);
+  at('loose.nsp', 180);
 });
 test.afterAll(() => fs.rmSync(base, { recursive: true, force: true }));
 
@@ -35,6 +40,17 @@ test('a folder opens, the path leads back, and the address keeps the place', asy
   await expect(row(page, 'Beta')).toBeVisible();
   await page.goBack();
   await expect(row(page, 'two.nsp')).toBeVisible();
+});
+
+test('the list opens newest first, and a header click sorts by that column', async ({ page }) => {
+  const t = new Date(); fs.utimesSync(path.join(base, 'Beta'), t, t);
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await expect(page.locator('#fb thead [data-sort="mtime"]')).toHaveAttribute('aria-sort', 'descending');
+  await expect(page.locator('#fb-rows tr .fb-name')).toHaveText(['Beta', 'Alpha', 'loose.nsp']);
+  await page.locator('#fb thead [data-sort="name"]').click();
+  await expect(page.locator('#fb thead [data-sort="name"]')).toHaveAttribute('aria-sort', 'ascending');
+  await expect(page.locator('#fb-rows tr .fb-name')).toHaveText(['Alpha', 'Beta', 'loose.nsp']);
 });
 
 test('a new folder, a rename, a move and a trash each change the disk', async ({ page }) => {
