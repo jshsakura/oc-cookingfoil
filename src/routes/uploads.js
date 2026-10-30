@@ -11,6 +11,10 @@
  *        Server returns the upload id + parsed metadata if the filename
  *        carries a recognizable titleId.
  *
+ *      Or in resumable pieces (routes/web-chunks.js): POST /api/uploads/chunks,
+ *        PUT /api/uploads/chunks/:id?offset=N, then POST /api/uploads/finish
+ *        { ids: [id] } places the file as the multipart request does.
+ *
  *   2. GET /api/uploads
  *        Lists pending uploads (id, original name, size, parsed metadata,
  *        receivedAt). The dashboard renders these as an "Apply" tray.
@@ -50,6 +54,8 @@ import { parseFromFilename } from "../meta/filename-parser.js";
 import { moveFile } from "../meta/library-upload.js";
 import * as trashService from "../library/trash-service.js";
 import debug from "../debug.js";
+import * as chunks from "../meta/upload-chunks.js";
+import { WebRefusal, chunkErrorBody, mountWebChunks } from "./web-chunks.js";
 
 const GAME_EXT_RE = /\.(nsp|nsz|xci|xcz|nro)$/i;
 // Reject control chars, path separators, and dotfile-style names.
@@ -155,6 +161,59 @@ export default function uploadsRouter() {
   router.use((_req, res, next) => {
     if (uploadsEnabled) return next();
     res.status(503).json({ error: "uploads disabled; enable uploads in server settings or set COOK_UPLOADS_ENABLED=true" });
+  });
+
+  // A file in resumable pieces (routes/web-chunks.js), then POST /finish { ids: [id] } places it in the tray as the
+  // multipart request does. The tray's own limits are held against the announced size when the upload starts.
+  const chunkDir = chunks.webChunksDir("uploads");
+  /** Room in the tray for `size` more bytes, with every other partial's announced size held (not `except`'s). */
+  const roomFor = async (size, except) => {
+    const pending = await listUploads();
+    if (pending.length >= MAX_PENDING_UPLOADS) throw new WebRefusal(409, "full", `${MAX_PENDING_UPLOADS} uploads are pending; apply or delete some first`);
+    const held = await chunks.declaredBytes(chunkDir, except);
+    if (pending.reduce((sum, u) => sum + u.size, 0) + held + size > uploadMaxBytes) throw new WebRefusal(413, "full", "pending uploads would pass the upload size limit; apply or delete some first");
+  };
+  mountWebChunks(router, {
+    purpose: "uploads",
+    account: chunks.accountOf,
+    check: async (_req, { id, name, size }) => {
+      if (!safeBaseName(name)) throw new WebRefusal(400, "bad-name", "invalid filename or unsupported extension");
+      if (size > uploadMaxBytes) throw new WebRefusal(413, "too-big", "file is over the upload size limit");
+      await roomFor(size, id);
+    },
+  });
+  router.post("/finish", express.json({ limit: "16kb" }), async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+    if (ids.length !== 1 || !chunks.ID_RE.test(ids[0])) return res.status(400).json({ error: "finish one upload", code: "ids" });
+    const account = chunks.accountOf(req);
+    let diskName = null;
+    try {
+      const done = await chunks.completed(chunkDir, ids[0], account);
+      const name = safeBaseName(done.name);
+      if (!name) throw new WebRefusal(400, "bad-name", "invalid filename or unsupported extension");
+      // Its own announced size is not held on top of itself: the other partials are, as at the start.
+      await roomFor(done.size, ids[0]);
+      const part = await chunks.claim(chunkDir, ids[0], account);
+      diskName = `${newUploadId()}__${name}`;
+      try {
+        await moveFile(part.path, path.join(uploadsDir, diskName));
+      } finally {
+        await fs.rm(part.path, { force: true });
+      }
+    } catch (err) {
+      if (err instanceof WebRefusal) return res.status(err.status).json({ error: err.message, code: err.code });
+      if (err instanceof chunks.ChunkError) return res.status(err.status).json(chunkErrorBody(req, err));
+      debug.error("uploads: finish failed: %s", err.message);
+      return res.status(500).json({ error: "upload failed" });
+    }
+    const desc = await describeUpload(diskName);
+    if (!desc) {
+      await fs.rm(path.join(uploadsDir, diskName), { force: true });
+      return res.status(500).json({ error: "post-write describe failed" });
+    }
+    debug.log("uploads: received %s (%d bytes) in pieces", desc.name, desc.size);
+    res.status(201).json(desc);
   });
 
   const storage = makeStorage();

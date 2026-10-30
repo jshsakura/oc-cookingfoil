@@ -74,8 +74,11 @@ export async function offsetOf(dir, id, account) {
   }
 }
 
-/** Starts (or finds) the upload of one file: { id, offset }. Refuses a file the disk cannot hold. */
-export async function begin(dir, { account, kind, name, size, lastModified }) {
+/**
+ * Starts (or finds) the upload of one file: { id, offset }. Refuses a file the disk cannot hold. `check`, when
+ * given, is the caller's own limits (a quota), told which upload this is so it does not count against itself.
+ */
+export async function begin(dir, { account, kind, name, size, lastModified }, check = null) {
   const clean = safeRelPath(name);
   if (!clean || clean.includes("/") || !Number.isSafeInteger(size) || size < 0 || !Number.isSafeInteger(lastModified)) throw new ChunkError(400, "upload.badName");
   if (kind === FILE_KIND && size > FILE_MAX_BYTES) throw new ChunkError(413, "upload.chunkTooBig");
@@ -83,6 +86,7 @@ export async function begin(dir, { account, kind, name, size, lastModified }) {
   await fsp.mkdir(dir, { recursive: true });
   const have = await offsetOf(dir, id, account);
   const held = have?.offset ?? 0;
+  await check?.({ id, name: clean, size });
   const free = await freeBytes(dir);
   if (size - held + FREE_MARGIN_BYTES > free) throw new ChunkError(507, "upload.noSpace", { need: gib(size - held + FREE_MARGIN_BYTES), free: gib(free) });
   if (have) await touch(dir, id);
@@ -144,6 +148,32 @@ export async function discard(dir, id, account) {
   await fsp.rm(partOf(dir, id), { force: true });
 }
 
+/** Bytes the partials in `dir` were announced to be, every account's, leaving out upload `except`. For a quota. */
+export async function declaredBytes(dir, except = null) {
+  let total = 0;
+  for (const name of await fsp.readdir(dir).catch(() => [])) {
+    if (!name.endsWith(".json") || name === `${except}.json`) continue;
+    const info = await fsp.readFile(path.join(dir, name), "utf8").then(JSON.parse, () => null);
+    total += Number(info?.size) || 0;
+  }
+  return total;
+}
+
+/** The raw body of a request, at most `max` bytes; it is held in memory so a piece lands whole or not at all. */
+export async function rawBody(req, max) {
+  const declared = Number(req.headers["content-length"]);
+  if (!Number.isFinite(declared) || declared < 0) throw new ChunkError(411, "upload.badOffset");
+  if (declared > max) throw new ChunkError(413, "upload.chunkTooBig");
+  const parts = [];
+  let got = 0;
+  for await (const part of req) {
+    got += part.length;
+    if (got > max) throw new ChunkError(413, "upload.chunkTooBig");
+    parts.push(part);
+  }
+  return Buffer.concat(parts, got);
+}
+
 /** Removes the partials in `dir` nobody has touched for `maxAge` ms. */
 export async function sweep(dir, maxAge = PARTIAL_MAX_AGE_MS, now = Date.now()) {
   for (const name of await fsp.readdir(dir).catch(() => [])) {
@@ -174,11 +204,16 @@ export function dropChunksDir(key) {
 }
 
 /**
- * `account`'s finished upload `id` of the "file" kind, moved to `dest` (or read, with no `dest`); the partial
- * is gone after. The part is claimed by a rename first, so two requests naming one id never both get it.
+ * Where one purpose of the public site keeps its uploads (routes/web-chunks.js): the share inbox, the upload
+ * tray, the picture editor. Every partial records its account, so one person's id names nothing to another.
  */
-export async function takeFile(id, { account, dest = null, limit = Infinity } = {}) {
-  const dir = fileChunksDir();
+export const webChunksDir = (purpose) => path.join(dataDir, "upload-chunks", "web", purpose);
+
+/**
+ * `account`'s finished upload `id` in `dir`, claimed: its part renamed out of reach and its info gone, so two
+ * requests naming one id never both get it. { name, size, path }; the caller moves or removes `path`.
+ */
+export async function claim(dir, id, account) {
   const part = await completed(dir, String(id), account);
   const claimed = `${part.path}.taking-${crypto.randomBytes(4).toString("hex")}`;
   try {
@@ -186,14 +221,23 @@ export async function takeFile(id, { account, dest = null, limit = Infinity } = 
   } catch {
     throw new ChunkError(404, "upload.unknownChunk");
   }
+  await fsp.rm(infoOf(dir, id), { force: true });
+  return { name: part.name, size: part.size, path: claimed };
+}
+
+/**
+ * `account`'s finished upload `id` (the "file" kind unless `dir` says another), moved to `dest` (or read, with
+ * no `dest`); the partial is gone after.
+ */
+export async function takeFile(id, { account, dest = null, limit = Infinity, dir = fileChunksDir() } = {}) {
+  const part = await claim(dir, id, account);
   try {
-    await fsp.rm(infoOf(dir, id), { force: true });
     if (part.size > limit) throw new ChunkError(413, "upload.chunkTooBig");
-    if (dest) await moveFile(claimed, dest);
-    const bytes = dest ? null : await fsp.readFile(claimed);
+    if (dest) await moveFile(part.path, dest);
+    const bytes = dest ? null : await fsp.readFile(part.path);
     return { name: part.name, size: part.size, bytes };
   } finally {
-    await fsp.rm(claimed, { force: true });
+    await fsp.rm(part.path, { force: true });
   }
 }
 

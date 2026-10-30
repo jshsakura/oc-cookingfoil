@@ -92,6 +92,8 @@ import { withRequired } from "./admin/patches-api.js";
 import { parseCrop, CropError } from "../meta/art-crop.js";
 import { versionedArtwork } from "../meta/artwork-version.js";
 import { requestLang } from "../meta/langs.js";
+import * as chunks from "../meta/upload-chunks.js";
+import { WebRefusal, chunkErrorBody, mountWebChunks } from "./web-chunks.js";
 
 // Images are small relative to game files; 16 MiB is plenty for a 4K banner
 // and keeps a single decode bounded.
@@ -126,8 +128,30 @@ export default function artRouter() {
     },
   });
 
+  // A picture may go up in resumable pieces first (routes/web-chunks.js); the request that uses it then names it
+  // in X-Chunk-Id, with its crop (if any) in X-Crop. Behind the same admin check as every route here (index.js).
+  mountWebChunks(router, {
+    purpose: "art",
+    account: chunks.accountOf,
+    check: async (_req, { size }) => {
+      if (size > MAX_IMAGE_BYTES) throw new WebRefusal(413, "too-big", "the picture is too large");
+    },
+  });
+  async function fromChunk(req, res, next) {
+    try {
+      const got = await chunks.takeFile(req.get("X-Chunk-Id"), { account: chunks.accountOf(req), dir: chunks.webChunksDir("art"), limit: MAX_IMAGE_BYTES });
+      req.file = { buffer: got.bytes, originalname: got.name, size: got.size };
+      req.body = { crop: req.get("X-Crop") || undefined };
+      next();
+    } catch (err) {
+      if (!(err instanceof chunks.ChunkError)) return next(err);
+      res.status(err.status).json(chunkErrorBody(req, err));
+    }
+  }
+
   // Wrap multer so its validation/size errors come back as clean 4xx JSON.
   function single(req, res, next) {
+    if (req.get("X-Chunk-Id")) return void fromChunk(req, res, next);
     upload.single("file")(req, res, (err) => {
       if (!err) return next();
       const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;

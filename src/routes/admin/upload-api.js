@@ -366,22 +366,7 @@ const chunkBody = (req, err) => ({ error: apiWord(req, err.key, err.vars), code:
 const chunksDir = (kind) => (kind === chunks.FILE_KIND ? chunks.fileChunksDir()
   : chunks.isDropKind(kind) ? chunks.dropChunksDir(kind.slice(chunks.DROP_PREFIX.length))
   : path.join(stagingOf(kind), "chunks"));
-const { accountOf } = chunks;
-
-/** The raw body of a request, at most `max` bytes; it is held in memory so a piece lands whole or not at all. */
-async function rawBody(req, max) {
-  const declared = Number(req.headers["content-length"]);
-  if (!Number.isFinite(declared) || declared < 0) throw new chunks.ChunkError(411, "upload.badOffset");
-  if (declared > max) throw new chunks.ChunkError(413, "upload.chunkTooBig");
-  const parts = [];
-  let got = 0;
-  for await (const part of req) {
-    got += part.length;
-    if (got > max) throw new chunks.ChunkError(413, "upload.chunkTooBig");
-    parts.push(part);
-  }
-  return Buffer.concat(parts, got);
-}
+const { accountOf, rawBody } = chunks;
 
 /**
  * One mechanism for every admin upload (meta/upload-chunks.js). :kind is a library kind, or "file" for a file
