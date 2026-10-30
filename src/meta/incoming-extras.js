@@ -30,6 +30,8 @@ export const EXTRA_REASON_TEXT = Object.freeze({
     missingPart: "목록 파일이 가리키는 파일이 임시 폴더에 없습니다",
     psUnsure: "PlayStation 디스크 이미지인데 PS1 인지 PS2 인지 알 수 없어 옮기지 않았습니다. 해시 목록에도 없습니다",
     ps2: "PS2 게임은 스위치에서 돌릴 수 없어 옮기지 않았습니다",
+    patchName: "폴더 이름이 패치 이름이 됩니다. atmosphere 를 폴더 안에 넣어 다시 올립니다",
+    save: "세이브는 어느 게임의 것인지 정해야 해서 업로드 탭에서 올립니다",
     unknown: "어디로 보낼지 모르는 파일입니다",
   },
   en: {
@@ -41,6 +43,8 @@ export const EXTRA_REASON_TEXT = Object.freeze({
     missingPart: "A file the list file names is not in the drop box",
     psUnsure: "This PLAYSTATION disc image cannot be told from a PS2 one, and no hash list has it, so it was not moved",
     ps2: "PS2 games do not run on the Switch, so this was not moved",
+    patchName: "The folder name becomes the patch name. Put atmosphere inside a folder and drop it again",
+    save: "A save needs its game picked, so upload it on the upload tab",
     unknown: "Where this file goes is not known",
   },
   ja: {
@@ -52,6 +56,8 @@ export const EXTRA_REASON_TEXT = Object.freeze({
     missingPart: "一覧ファイルが指すファイルが一時フォルダーにありません",
     psUnsure: "PlayStationのディスクイメージですがPS1かPS2か分からず、ハッシュリストにもないため移しませんでした",
     ps2: "PS2のゲームはSwitchで動かせないため移しませんでした",
+    patchName: "フォルダー名がパッチ名になります。atmosphere をフォルダーに入れて入れ直します",
+    save: "セーブはゲームを選ぶ必要があるため、アップロードタブでアップロードします",
     unknown: "どこに送るか分からないファイルです",
   },
   zh: {
@@ -63,6 +69,8 @@ export const EXTRA_REASON_TEXT = Object.freeze({
     missingPart: "列表文件指向的文件不在临时文件夹中",
     psUnsure: "这是 PlayStation 光盘镜像，无法分辨是 PS1 还是 PS2，哈希列表中也没有，因此没有移动",
     ps2: "PS2 游戏无法在 Switch 上运行，因此没有移动",
+    patchName: "文件夹名称将成为补丁名称。请把 atmosphere 放进文件夹后重新放入",
+    save: "存档需要选择对应的游戏，请在上传标签页上传",
     unknown: "不知道该把这个文件放到哪里",
   },
 });

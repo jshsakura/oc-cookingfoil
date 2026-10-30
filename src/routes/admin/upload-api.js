@@ -38,9 +38,6 @@ import debug from "../../debug.js";
 import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir } from "../../helpers/envs.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import { libraryGames } from "../../meta/library-games.js";
-import * as userPatches from "../../meta/user-patches.js";
-import * as patchInfo from "../../meta/patch-info.js";
-import { SAVE_TYPES } from "../../meta/library-saves.js";
 import { savesCatalog } from "../saves.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { syncArt } from "../../retro/art/sync.js";
@@ -57,21 +54,19 @@ import { packDirOf } from "../../retro/pack-status.js";
 import { ClientBuildError, compareVersions, inspectNro } from "../../meta/client-build.js";
 import { CLIENT_NRO, clientBuildStatus, latestBuild } from "../client-update.js";
 import { actorOf } from "../../library/trash-service.js";
-import { apiText, apiWord } from "./api-words.js";
-import { patchPlan } from "../../meta/patch-intake.js";
+import { apiWord } from "./api-words.js";
 import {
-  GAME_EXT_RE, UploadError, backupSaveType, baseTitleId, homebrewApp, homebrewLayout, moveFile, mustBeFree, retroLayout,
-  safeName, safeRelPath, saveLayout, unzip, walk, MAX_UPLOAD_FILES as MAX_FILES,
+  GAME_EXT_RE, UploadError, moveFile, mustBeFree, retroLayout,
+  safeName, safeRelPath, unzip, walk, MAX_UPLOAD_FILES as MAX_FILES,
 } from "../../meta/library-upload.js";
 import * as chunks from "../../meta/upload-chunks.js";
 import { FILE_ROOT_KEYS } from "../../library/file-roots.js";
+import { placeFolderKind, refuse } from "../../meta/folder-place.js";
 
 const KINDS = ["game", "retro", "patch", "save", "homebrew", "client", "core"];
 
 const FIELD_NAMES = ["system", "homebrew", "titleId", "name", "description", "descriptionKo", "saveType", "required", "port", "replace"];
 
-/** A refusal answered with the api-words.js message `key` in the request's language. */
-const refuse = (status, key, vars = {}) => Object.assign(new UploadError(status, apiText("en", key, vars)), { key, vars });
 
 const rootOf = (kind) => ({ game: romsDirPath, retro: retroDir, patch: patchesDir, save: savesDir, homebrew: homebrewDir, client: path.dirname(CLIENT_NRO), core: path.join(packDirOf(retroDir), "cores") })[kind];
 // Staging sits on the destination's disk so the final move is a rename. Games
@@ -178,72 +173,6 @@ async function placeRetro(items, body) {
   return { where: `roms/${system.folder}/${names[0]}`, files: names.length };
 }
 
-const BACKUP_META_MAX = 64 * 1024;
-
-/** A game save's backup .meta files dropped from `items`, with the save type the last one names. */
-async function takeBackupMeta(items) {
-  const kept = [];
-  let saveType = null;
-  for (const it of items) {
-    const small = /\.meta$/i.test(it.rel) && (await fsp.stat(it.abs)).size <= BACKUP_META_MAX;
-    const type = small ? backupSaveType(it.rel, await fsp.readFile(it.abs, "utf8")) : null;
-    if (small && (type || /(^|\/)\.dropkeep\.meta$/i.test(it.rel))) saveType = type ?? saveType;
-    else kept.push(it);
-  }
-  return { items: kept, saveType };
-}
-
-/** Build the folder in staging, then rename it into place in one step. */
-async function placeFolder(kind, items, body, work, fromFolder) {
-  // The target is a game (its base title id) or a homebrew app (its switch/<app>/ folder name).
-  const app = body.homebrew ? homebrewApp(body.homebrew) : null;
-  if (body.homebrew && !app) throw refuse(400, "upload.pickApp");
-  // A patch may come without a game picked: its own title folder names the game (patch-intake.js).
-  const plan = kind === "patch" && !app ? patchPlan(items.map((i) => i.rel), baseTitleId(body.titleId)) : null;
-  if (plan) items = plan.files.map((f) => ({ ...items.find((i) => i.rel === f.from), rel: f.to }));
-  const tid = app ? null : plan ? plan.titleId : baseTitleId(body.titleId);
-  if (!app && !tid) throw refuse(400, "upload.pickTarget");
-  const name = safeName(body.name);
-  if (!name) throw refuse(400, "upload.noName");
-  let saveType = null;
-  if (kind === "save" && !app) {
-    ({ items, saveType } = await takeBackupMeta(items));
-    if (SAVE_TYPES.includes(body.saveType)) saveType = body.saveType;
-    if (!items.length) throw refuse(400, "upload.noSave");
-  }
-  const paths = items.map((i) => i.rel);
-  const rels = app ? homebrewLayout(paths, app, fromFolder) : plan ? paths : saveLayout(paths, fromFolder);
-  const under = app ? `homebrew/${app}` : tid;
-  const metaName = kind === "patch" ? "patch.json" : "meta.json";
-  if (rels.some((r) => r.toLowerCase() === metaName)) {
-    throw kind === "patch" ? refuse(400, "upload.noPatchJson") : refuse(400, "upload.serverMeta", { name: metaName });
-  }
-  const dest = path.join(rootOf(kind), ...under.split("/"), name);
-  mustBeFree(dest, `${under}/${name}`);
-  const out = path.join(work, "out");
-  for (const [i, it] of items.entries()) await moveFile(it.abs, path.join(out, ...rels[i].split("/")));
-  const description = String(body.description ?? "").trim().slice(0, 2000);
-  const descriptionKo = String(body.descriptionKo ?? "").trim().slice(0, 2000);
-  // The default text is the English one, or the Korean one when that is all
-  // there is; the Korean text is kept apart when both are given.
-  const text = {
-    ...(description || descriptionKo ? { description: description || descriptionKo } : {}),
-    ...(description && descriptionKo ? { ko: { description: descriptionKo } } : {}),
-  };
-  const meta = kind === "patch"
-    ? { name, ...text, ...(!app && body.required === "true" ? { required: true } : {}) }
-    : { name, ...text, ...(saveType ? { saveType } : {}) };
-  // A save keeps its meta.json; a patch's information lives in the store, set once the folder is in place.
-  if (kind !== "patch") await fsp.writeFile(path.join(out, metaName), `${JSON.stringify(meta, null, 1)}\n`);
-  await fsp.mkdir(path.dirname(dest), { recursive: true });
-  await fsp.rename(out, dest);
-  if (kind === "patch") {
-    patchInfo.set(patchInfo.keyOf(under, name), meta);
-    userPatches.scan().catch((err) => debug.error("upload: patch rescan failed: %s", err.message));
-  }
-  return { where: `${under}/${name}`, files: rels.length };
-}
-
 /**
  * Removes an upload's work folder, except a homebrew folder an upload replaced
  * (work/previous) that could not be moved to the trash: that one is a person's
@@ -341,7 +270,7 @@ async function handleUpload(req, kind, work, receive) {
       : kind === "homebrew" ? await placeHomebrew(items, work, { port: req.body?.port === "true", by: actorOf(req) })
       : kind === "client" ? await placeClient(items, req)
       : kind === "core" ? await placeCoreUpload(items, req.body)
-      : await placeFolder(kind, items, req.body, work, fromFolder);
+      : await placeFolderKind({ kind, items, body: req.body, work, fromFolder, rootOf });
     debug.log("upload: %s → %s (%d files)", kind, placed.where, placed.files);
     // The saves listing is refreshed in the background; one uploaded here shows on the next list.
     if (kind === "save") savesCatalog().invalidate();
@@ -472,4 +401,16 @@ function mountChunkRoutes(router, guard) {
     });
     res.status(status).json(answer);
   }));
+}
+
+/** The drop box's way into the upload page's own placing: a folder of `kind` ("patch" | "homebrew"), its files as { abs, rel }. */
+export async function placeDropFolder(kind, items, body) {
+  const work = await newWork(kind);
+  try {
+    return kind === "homebrew"
+      ? await placeHomebrew(items, work, { by: null })
+      : await placeFolderKind({ kind, items, body, work, fromFolder: true, rootOf });
+  } finally {
+    await dropWork(work);
+  }
 }

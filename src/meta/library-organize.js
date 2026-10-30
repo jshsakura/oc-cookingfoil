@@ -32,6 +32,7 @@ import { parseFromFilename } from "./filename-parser.js";
 import { identify as sharedIdentify, forget as sharedForget, identityFromName } from "./file-identity.js";
 import { EXTRA_REASON_TEXT, planExtras } from "./incoming-extras.js";
 import { sniffSystems } from "./drop-sniff.js";
+import { planFolders } from "./drop-folders.js";
 import { cleanName, firstName, freeFileName, isMeaningless, nameFromFile } from "./organize-naming.js";
 import { fileKey } from "../helpers/hash-cache.js";
 import { dlcDisplayName } from "./dlc-name.js";
@@ -343,6 +344,7 @@ export async function moveAcross(from, to) {
  *                      a failed read is tried again when nacpEpoch() changes or a sweep asks to retry
  *   nacpEpoch()        what a NACP read depends on (keys, nstool), as a comparable value
  *   retroDir, homebrewDir, systems()   where the other files go, and loadSystems()
+ *   placeFolder(kind, items, body)   puts a folder-shaped drop ("patch" | "homebrew") in place with the upload page's own code; optional
  *   identifyRoms(files, refs, systems)   rel → { systems, name } for the files a hash database lists (drop-hash.js); optional
  *   readRefs(abs)      the files a .cue / .m3u names, relative to its folder
  *   begin(kind, opts)  an activity job
@@ -429,13 +431,14 @@ export function createOrganizer(deps) {
     const present = new Set(files.map((f) => f.abs));
     for (const abs of nacpNames.keys()) if (!present.has(abs)) nacpNames.delete(abs);
     const plan = planOrganize({ incoming: items, romsRels: await deps.romsRels(), adminName, titledbName, now });
-    const refs = await listRefs(others);
     const systems = deps.systems();
-    const identified = deps.identifyRoms ? await deps.identifyRoms(others, refs, systems).catch(() => new Map()) : new Map();
-    const extras = planExtras({ items: others, refs, sniffed: await sniffSystems(others, refs, systems), identified, systems });
-    const moves = [...plan.moves.map((m) => ({ ...m, root: "games" })), ...extras.moves];
+    const folders = planFolders(others, systems, files.filter((f) => !whole.has(f.rel) && now - f.mtimeMs < SETTLE_MS).map((f) => f.rel));
+    const refs = await listRefs(folders.rest);
+    const identified = deps.identifyRoms ? await deps.identifyRoms(folders.rest, refs, systems).catch(() => new Map()) : new Map();
+    const extras = planExtras({ items: folders.rest, refs, sniffed: await sniffSystems(folders.rest, refs, systems), identified, systems });
+    const moves = [...plan.moves.map((m) => ({ ...m, root: "games" })), ...folders.moves, ...extras.moves];
     const rootDir = { games: deps.romsDir, retro: deps.retroDir, homebrew: deps.homebrewDir };
-    const movedIn = { games: 0, retro: 0, homebrew: 0 };
+    const movedIn = { games: 0, retro: 0, homebrew: 0, folders: 0 };
     const job = moves.length ? deps.begin("organize", { title: activityText("act.organize"), total: moves.length }) : null;
     const failed = [];
     for (const [i, m] of moves.entries()) {
@@ -455,6 +458,22 @@ export function createOrganizer(deps) {
       }
       job?.step(i + 1, m.to);
     }
+    const folderHeld = folders.held.map((h) => heldItem(h.rel, h.code));
+    for (const g of folders.groups) {
+      const files = g.files.map((f) => f.rel);
+      if (!deps.placeFolder) { folderHeld.push(...files.map((rel) => heldItem(rel, g.kind === "patch" ? "patch" : "homebrewFolder"))); continue; }
+      try {
+        const res = await deps.placeFolder(g.kind, g.files.map((f) => ({ abs: path.join(dir, f.rel), rel: f.inner })), g.body);
+        for (const rel of files) {
+          forget(path.join(dir, rel));
+          await dropEmptyDirs(dir, rel);
+        }
+        movedIn.folders += 1;
+        state.recent = [{ from: g.root, to: res.where, root: g.kind, by: "folder", at: new Date().toISOString() }, ...state.recent].slice(0, RECENT_MAX);
+      } catch (err) {
+        folderHeld.push(...files.map((rel) => heldItem(rel, "moveFailed", { from: g.root }, err.key ?? err.code ?? err.message)));
+      }
+    }
     const placed = new Set(moves.filter((m) => !failed.some((f) => f.rel === m.from)).map((m) => m.to));
     for (const w of extras.writes) {
       if (!w.after.every((t) => placed.has(t))) continue;
@@ -465,12 +484,12 @@ export function createOrganizer(deps) {
         if (err.code !== "EEXIST") debug.error("organize: could not write %s: %s", to, err.message);
       }
     }
-    const moved = movedIn.games + movedIn.retro + movedIn.homebrew;
+    const moved = movedIn.games + movedIn.retro + movedIn.homebrew + movedIn.folders;
     job?.done(activityText("act.organized", { n: moved }));
     if (movedIn.games) deps.rescan();
     if (movedIn.retro) deps.rescanRetro();
     if (movedIn.homebrew) deps.rescanHomebrew();
-    const held = [...kept, ...settling, ...plan.held, ...extras.held, ...failed];
+    const held = [...kept, ...settling, ...plan.held, ...folderHeld, ...extras.held, ...failed];
     state = { ...state, held, sweptAt: new Date().toISOString(), error: null, errorCode: null, errorDetail: null, waiting: held.filter((h) => h.code === "settling").length };
     return { moved };
   }
