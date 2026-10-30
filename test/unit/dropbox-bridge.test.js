@@ -81,3 +81,25 @@ test("one account holds only its own share of sign-ins in progress", async () =>
   assert.ok(Number(full.headers.get("retry-after")) > 0);
   assert.equal((await as("bob")).status, 200, "another account still signs in");
 });
+
+test("a console that brings its own PKCE challenge gets only the code: the server never holds a verifier", async () => {
+  const verifier = crypto.randomBytes(48).toString("base64url");
+  const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
+  const r = await post("/v1/sessions/start", { device_id: "console-1", code_challenge: challenge, code_challenge_method: "S256" });
+  assert.equal(r.status, 200);
+  const s = await r.json();
+  const authorize = new URL(s.authorize_url);
+  assert.equal(authorize.searchParams.get("code_challenge"), challenge, "Dropbox is asked for the console's own challenge");
+  assert.equal(authorize.searchParams.get("code_challenge_method"), "S256");
+  await fetch(`${base}/oauth/dropbox/callback?state=${authorize.searchParams.get("state")}&code=AUTHCODE`);
+  const done = await (await post(`/v1/sessions/${s.session_id}/consume`, { poll_token: s.poll_token })).json();
+  assert.equal(done.authorization_code, "AUTHCODE");
+  assert.equal("code_verifier" in done, false, "a code without its verifier is worthless to whoever reads it here");
+});
+
+test("a malformed challenge or another method is refused instead of falling back to a server-made verifier", async () => {
+  for (const body of [{ code_challenge: "short" }, { code_challenge: "a".repeat(43), code_challenge_method: "plain" }, { code_challenge: "a".repeat(42) + "=" }]) {
+    const r = await post("/v1/sessions/start", { device_id: "console-1", ...body });
+    assert.equal(r.status, 400, JSON.stringify(body));
+  }
+});
