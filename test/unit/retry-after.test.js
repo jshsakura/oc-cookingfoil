@@ -42,7 +42,7 @@ test("too many Dropbox sign-ins at once answers 429 with Retry-After", async () 
   const server = app.listen(0);
   after(() => server.close());
   const url = `http://127.0.0.1:${server.address().port}${bridge.BRIDGE_PATH}/v1/sessions/start`;
-  const start = () => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  const start = () => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code_challenge: "A".repeat(43), code_challenge_method: "S256" }) });
   let r;
   for (let i = 0; i <= bridge.MAX_SESSIONS; i++) r = await start();
   assert.equal(r.status, 429);

@@ -22,8 +22,13 @@ const post = (path, body = {}) => fetch(base + path, { method: "POST", headers: 
 beforeEach(() => bridge.resetForTests());
 test.after(() => server.close());
 
+// The console makes the verifier and sends only its S256 challenge.
+const VERIFIER = crypto.randomBytes(48).toString("base64url");
+const CHALLENGE = crypto.createHash("sha256").update(VERIFIER).digest("base64url");
+const PKCE = { code_challenge: CHALLENGE, code_challenge_method: "S256" };
+
 async function start() {
-  const r = await post("/v1/sessions/start", { device_id: "console-1" });
+  const r = await post("/v1/sessions/start", { device_id: "console-1", ...PKCE });
   assert.equal(r.status, 200);
   return r.json();
 }
@@ -48,8 +53,9 @@ test("a sign-in goes pending, approved by the phone's callback, then consumed ex
   const done = await (await post(`/v1/sessions/${s.session_id}/consume`, { poll_token: s.poll_token })).json();
   assert.equal(done.authorization_code, "AUTHCODE");
   assert.equal(done.token_endpoint, "https://api.dropboxapi.com/oauth2/token");
-  // PKCE: the challenge sent to Dropbox is the S256 of the verifier handed to the console.
-  assert.equal(crypto.createHash("sha256").update(done.code_verifier).digest("base64url"), authorize.searchParams.get("code_challenge"));
+  // PKCE: Dropbox is asked for the console's challenge, and no verifier comes back from here.
+  assert.equal(authorize.searchParams.get("code_challenge"), CHALLENGE);
+  assert.equal("code_verifier" in done, false);
   assert.equal((await post(`/v1/sessions/${s.session_id}/consume`, { poll_token: s.poll_token })).status, 409, "one use only");
 });
 
@@ -74,7 +80,7 @@ test("a denied sign-in reports failed with Dropbox's reason", async () => {
 });
 
 test("one account holds only its own share of sign-ins in progress", async () => {
-  const as = (user) => fetch(`${base}/v1/sessions/start`, { method: "POST", headers: { "Content-Type": "application/json", "X-Test-User": user }, body: "{}" });
+  const as = (user) => fetch(`${base}/v1/sessions/start`, { method: "POST", headers: { "Content-Type": "application/json", "X-Test-User": user }, body: JSON.stringify(PKCE) });
   for (let i = 0; i < bridge.MAX_SESSIONS_PER_ACCOUNT; i++) assert.equal((await as("alice")).status, 200);
   const full = await as("alice");
   assert.equal(full.status, 429);
@@ -97,8 +103,8 @@ test("a console that brings its own PKCE challenge gets only the code: the serve
   assert.equal("code_verifier" in done, false, "a code without its verifier is worthless to whoever reads it here");
 });
 
-test("a malformed challenge or another method is refused instead of falling back to a server-made verifier", async () => {
-  for (const body of [{ code_challenge: "short" }, { code_challenge: "a".repeat(43), code_challenge_method: "plain" }, { code_challenge: "a".repeat(42) + "=" }]) {
+test("a sign-in without the console's own challenge, malformed or of another method, is refused", async () => {
+  for (const body of [{}, { code_challenge: "short" }, { code_challenge: "a".repeat(43), code_challenge_method: "plain" }, { code_challenge: "a".repeat(42) + "=" }]) {
     const r = await post("/v1/sessions/start", { device_id: "console-1", ...body });
     assert.equal(r.status, 400, JSON.stringify(body));
   }
