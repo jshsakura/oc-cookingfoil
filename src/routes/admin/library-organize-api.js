@@ -12,6 +12,7 @@ import * as gameDescriptions from "../../meta/game-descriptions.js";
 import * as extractedMeta from "../../meta/extracted-meta-store.js";
 import { extractFromPfs0, resolveBinary } from "../../meta/extract-providers/nsp.js";
 import { keysFile } from "../../security/prod-keys.js";
+import { placeDropFolder } from "./upload-api.js";
 import { createOrganizer } from "../../meta/library-organize.js";
 import { cleanName, nameIn } from "../../meta/organize-naming.js";
 import { loadSystems } from "../../retro/systems.js";
@@ -66,6 +67,7 @@ export const defaultOrganizer = createOrganizer({
     if (env.retroDb) hashDb.ensureFresh(systems);
     return dropHasher.identify(files, refs, systems);
   },
+  placeFolder: placeDropFolder,
   readRefs: async (abs) => retroCatalog.referencedFiles(path.extname(abs).toLowerCase(), await fsp.readFile(abs, "utf8")),
   begin: activity.begin,
   rescan: () => libraryCache.invalidate({ rescan: true }),
