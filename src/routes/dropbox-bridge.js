@@ -2,15 +2,20 @@
  * Dropbox sign-in bridge for the client app's save sync, speaking the same
  * protocol as oc-save-keeper's bridge so its client code works unchanged:
  *
- *   POST /api/dropbox/v1/sessions/start              → { session_id, poll_token, authorize_url, expires_in, poll_url }
+ *   POST /api/dropbox/v1/sessions/start              { code_challenge?, code_challenge_method? } → { session_id, poll_token, authorize_url, expires_in, poll_url }
  *   POST /api/dropbox/v1/sessions/:id/status         { poll_token } → { status, retry_after }
- *   POST /api/dropbox/v1/sessions/:id/consume        { poll_token } → { authorization_code, code_verifier, state, redirect_uri, token_endpoint }
+ *   POST /api/dropbox/v1/sessions/:id/consume        { poll_token } → { authorization_code, code_verifier?, state, redirect_uri, token_endpoint }
  *   GET  /api/dropbox/oauth/dropbox/callback         where Dropbox sends the phone back
  *
  * The console shows authorize_url as a QR code, the phone signs in to Dropbox,
  * and the console then trades the code for tokens itself (PKCE, no client
  * secret). The tokens never pass through this server and no save data ever
  * does. Sessions live in memory for 15 minutes.
+ *
+ * A console that sends its own S256 code_challenge keeps the verifier to itself: the server then holds only
+ * the code, which Dropbox will not trade without that verifier, so reading this server's memory or the code on
+ * its way gets nobody a token. A console that sends none gets a verifier made here, as oc-save-keeper's bridge
+ * does; that path goes once every client sends its own.
  *
  * The session endpoints sit behind the library's own sign-in (accounts or a
  * paired device), so only people allowed into the library can use the operator's
@@ -42,6 +47,8 @@ const byState = new Map();  // state → session_id
 const token = (bytes) => crypto.randomBytes(bytes).toString("base64url");
 const sha256 = (s) => crypto.createHash("sha256").update(s).digest();
 const challengeOf = (verifier) => sha256(verifier).toString("base64url");
+// RFC 7636: an S256 challenge is the base64url of a SHA-256, 43 characters without padding.
+const CHALLENGE_RE = /^[A-Za-z0-9_-]{43}$/;
 
 /** Seconds until the oldest sign-in in progress (of `owner`, when given) expires and frees its place. */
 function firstExpiryIn(now = Date.now(), owner = null) {
@@ -92,7 +99,11 @@ export function dropboxSessionsRouter() {
     const owner = ownerKey(req);
     if (sessionsOf(owner) >= MAX_SESSIONS_PER_ACCOUNT) return tooManyRequests(res, firstExpiryIn(Date.now(), owner)).json({ detail: "too many sign-ins in progress for this account" });
     if (sessions.size >= MAX_SESSIONS) return tooManyRequests(res, firstExpiryIn()).json({ detail: "too many sign-ins in progress" });
-    const id = token(18), state = token(18), poll = token(24), verifier = token(64);
+    const given = req.body?.code_challenge;
+    if (given !== undefined && (typeof given !== "string" || !CHALLENGE_RE.test(given) || (req.body?.code_challenge_method ?? "S256") !== "S256")) {
+      return res.status(400).json({ detail: "code_challenge must be an S256 challenge" });
+    }
+    const id = token(18), state = token(18), poll = token(24), verifier = given ? "" : token(64);
     const redirectUri = redirectUriFor(req);
     sessions.set(id, {
       status: "pending", owner, state, pollHash: sha256(poll), verifier, code: "", error: "",
@@ -102,7 +113,7 @@ export function dropboxSessionsRouter() {
     const authorize = new URL(AUTHORIZE_URL);
     authorize.search = new URLSearchParams({
       client_id: integrations.get("dropbox").appKey, redirect_uri: redirectUri, response_type: "code",
-      token_access_type: "offline", state, code_challenge_method: "S256", code_challenge: challengeOf(verifier),
+      token_access_type: "offline", state, code_challenge_method: "S256", code_challenge: given || challengeOf(verifier),
     }).toString();
     const base = redirectUri.slice(0, -"/oauth/dropbox/callback".length);
     res.json({
@@ -126,7 +137,7 @@ export function dropboxSessionsRouter() {
     if (s.status === "failed") return res.status(409).json({ detail: s.error || "authorization failed" });
     if (s.status === "consumed") return res.status(409).json({ detail: "already consumed" });
     const out = {
-      authorization_code: s.code, code_verifier: s.verifier, state: s.state,
+      authorization_code: s.code, ...(s.verifier ? { code_verifier: s.verifier } : {}), state: s.state,
       redirect_uri: s.redirectUri, token_endpoint: TOKEN_URL,
     };
     // One use: the code and verifier are gone the moment they are handed over.
