@@ -241,9 +241,9 @@ function gridKind(items,i){let kind=null;for(const r of items){const n=r._n[i],k
   if(kind&&kind!==now)return 'text';kind=now;}return kind;}
 function gridOrders(cols,defs,items){const out=[];
   defs.forEach((d,i)=>{if(!d.sortable||!cols[i])return;const t=cols[i],k=gridKind(items,i),c=d.colId;
-    if(k==='date'||k==='ago')out.push({label:topFill('gd.recent',{label:t}),key:c+':desc'},{label:topFill('gd.oldest',{label:t}),key:c+':asc'});
-    else if(k==='number')out.push({label:topFill('gd.largest',{label:t}),key:c+':desc'},{label:topFill('gd.smallest',{label:t}),key:c+':asc'});
-    else if(k==='text')out.push({label:topFill('gd.az',{label:t}),key:c+':asc'},{label:topFill('gd.za',{label:t}),key:c+':desc'});});
+    if(k==='date'||k==='ago')out.push({label:topFill('gd.recent',{label:t}),key:c+':desc'});
+    else if(k==='number')out.push({label:topFill('gd.largest',{label:t}),key:c+':desc'});
+    else if(k==='text')out.push({label:topFill('gd.az',{label:t}),key:c+':asc'});});
   return out;}
 function gridFilters(cols,defs,items){if(items.length<4)return [];const out=[];
   defs.forEach((d,i)=>{if(!d.sortable||!cols[i]||gridKind(items,i)!=='text')return;

@@ -1398,9 +1398,7 @@
           <select class="sort-select" id="sort">
             <option value="added-desc"   data-i18n="sort.added_desc"></option>
             <option value="name"         data-i18n="sort.name_asc"></option>
-            <option value="name-desc"    data-i18n="sort.name_desc"></option>
             <option value="size-desc"    data-i18n="sort.size_desc"></option>
-            <option value="size-asc"     data-i18n="sort.size_asc"></option>
             <option value="release-desc" data-i18n="sort.release_desc"></option>
             <option value="score-desc"   data-i18n="sort.score_desc"></option>
           </select>
@@ -1452,9 +1450,8 @@
           <h2><span data-i18n="tab.patches"></span><span class="rule"></span><span class="count" id="patches-count">0</span></h2>
           <div class="toolbar"><input class="search" id="patches-search" type="search" autocomplete="off" />
           <select class="sort-select" id="patches-sort" data-xsort="patches">
-            <option value="updated" data-i18n="sort.updated_desc"></option>
+            <option value="updated" data-i18n="sort.added_desc"></option>
             <option value="name" data-i18n="sort.name_asc"></option>
-            <option value="name-desc" data-i18n="sort.name_desc"></option>
             <option value="size" data-i18n="sort.size_desc"></option>
           </select>
           </div>
@@ -1467,9 +1464,8 @@
           <h2><span data-i18n="tab.saves"></span><span class="rule"></span><span class="count" id="saves-count">0</span></h2>
           <div class="toolbar"><input class="search" id="saves-search" type="search" autocomplete="off" />
           <select class="sort-select" id="saves-sort" data-xsort="saves">
-            <option value="updated" data-i18n="sort.updated_desc"></option>
+            <option value="updated" data-i18n="sort.added_desc"></option>
             <option value="name" data-i18n="sort.name_asc"></option>
-            <option value="name-desc" data-i18n="sort.name_desc"></option>
             <option value="size" data-i18n="sort.size_desc"></option>
           </select>
           </div>
@@ -1482,9 +1478,8 @@
           <h2><span data-i18n="tab.tools"></span><span class="rule"></span><span class="count" id="tools-count">0</span></h2>
           <div class="toolbar"><input class="search" id="tools-search" type="search" autocomplete="off" />
           <select class="sort-select" id="tools-sort" data-xsort="tools">
-            <option value="updated" data-i18n="sort.updated_desc"></option>
+            <option value="updated" data-i18n="sort.added_desc"></option>
             <option value="name" data-i18n="sort.name_asc"></option>
-            <option value="name-desc" data-i18n="sort.name_desc"></option>
             <option value="size" data-i18n="sort.size_desc"></option>
           </select>
           </div>
@@ -1496,9 +1491,8 @@
           <h2><span data-i18n="tab.ports"></span><span class="rule"></span><span class="count" id="ports-count">0</span></h2>
           <div class="toolbar"><input class="search" id="ports-search" type="search" autocomplete="off" />
           <select class="sort-select" id="ports-sort" data-xsort="ports">
-            <option value="updated" data-i18n="sort.updated_desc"></option>
+            <option value="updated" data-i18n="sort.added_desc"></option>
             <option value="name" data-i18n="sort.name_asc"></option>
-            <option value="name-desc" data-i18n="sort.name_desc"></option>
             <option value="size" data-i18n="sort.size_desc"></option>
           </select>
           </div>
@@ -1792,7 +1786,7 @@
           "hero.dlc": (n) => `DLC ${n}개`,
           "hero.released": (d) => `${d} 출시`,
           "sort.added_desc": "정렬: 최근 추가순",
-          "sort.score_desc": "정렬: 평점 높은순",
+          "sort.score_desc": "정렬: 평점순",
           "modal.score": "평점",
           "score.count": (n) => `${n.toLocaleString()}명`,
           "action.refresh": "새로고침",
@@ -1857,12 +1851,9 @@
           "pill.needPatch": "필수 패치",
           "pill.patch": "패치",
           "misc.unnamed": "(이름 없음)",
-          "sort.name_asc": "정렬: 이름 ㄱ→ㅎ",
-          "sort.name_desc": "정렬: 이름 ㅎ→ㄱ",
-          "sort.size_desc": "정렬: 크기(큰 것부터)",
-          "sort.size_asc": "정렬: 크기(작은 것부터)",
-          "sort.release_desc": "정렬: 출시일(최신순)",
-          "sort.updated_desc": "정렬: 최근 업데이트순",
+          "sort.name_asc": "정렬: 이름순",
+          "sort.size_desc": "정렬: 용량 큰순",
+          "sort.release_desc": "정렬: 출시일순",
           "empty.loading": "타이틀 라이브러리 로딩 중…",
           "empty.none": "조건에 맞는 타이틀이 없습니다.<br>검색·필터를 비워보세요.",
           "empty.library": "<strong>아직 라이브러리에 등록된 게임이 없습니다.</strong>관리자가 게임 폴더에 파일을 넣으면 여기에 바로 나타납니다.",
@@ -2212,12 +2203,9 @@
           "pill.needPatch": "Required mod",
           "pill.patch": "Mod",
           "misc.unnamed": "(unnamed)",
-          "sort.name_asc": "Sort: Name (A→Z)",
-          "sort.name_desc": "Sort: Name (Z→A)",
-          "sort.size_desc": "Sort: Size (large)",
-          "sort.size_asc": "Sort: Size (small)",
-          "sort.release_desc": "Sort: Release (newest)",
-          "sort.updated_desc": "Sort: Recently updated",
+          "sort.name_asc": "Sort: Name",
+          "sort.size_desc": "Sort: Largest",
+          "sort.release_desc": "Sort: Release date",
           "empty.loading": "Loading title library…",
           "empty.none": "No matches.<br>Try clearing search or filter.",
           "empty.library": "<strong>No games in the library yet.</strong>They show up here as soon as the admin puts files in the games folder.",
@@ -2236,7 +2224,7 @@
           "toast.copyFail": "Copy failed",
           "modal.size": "Size",
           "modal.score": "Score",
-          "sort.score_desc": "Sort: highest score",
+          "sort.score_desc": "Sort: Rating",
           "score.count": (n) => `${n.toLocaleString()} reviews`,
           "modal.release": "Release",
           "modal.titleId": "Title ID",
@@ -2570,13 +2558,10 @@
           "pill.needPatch": "必須パッチ",
           "pill.patch": "パッチ",
           "misc.unnamed": "(名前なし)",
-          "sort.name_asc": "並び替え: 名前 (昇順)",
-          "sort.name_desc": "並び替え: 名前 (降順)",
-          "sort.size_desc": "並び替え: サイズ (大きい順)",
-          "sort.size_asc": "並び替え: サイズ (小さい順)",
-          "sort.release_desc": "並び替え: 発売日 (新しい順)",
-          "sort.updated_desc": "並び替え: 更新が新しい順",
-          "sort.score_desc": "並び替え: 評価が高い順",
+          "sort.name_asc": "並び替え: 名前順",
+          "sort.size_desc": "並び替え: 容量が大きい順",
+          "sort.release_desc": "並び替え: 発売日順",
+          "sort.score_desc": "並び替え: 評価順",
           "empty.loading": "ライブラリを読み込んでいます…",
           "empty.none": "一致するゲームがありません。<br>検索やフィルターを解除してみてください。",
           "empty.library": "<strong>ライブラリにはまだゲームがありません。</strong>管理者がゲームフォルダーにファイルを入れると、すぐここに表示されます。",
@@ -2928,13 +2913,10 @@
           "pill.needPatch": "必需补丁",
           "pill.patch": "补丁",
           "misc.unnamed": "(未命名)",
-          "sort.name_asc": "排序：名稱 (A→Z)",
-          "sort.name_desc": "排序：名稱 (Z→A)",
-          "sort.size_desc": "排序：大小 (大→小)",
-          "sort.size_asc": "排序：大小 (小→大)",
-          "sort.release_desc": "排序：發售日 (新→舊)",
-          "sort.updated_desc": "排序：最近更新",
-          "sort.score_desc": "排序：評分最高",
+          "sort.name_asc": "排序：名稱",
+          "sort.size_desc": "排序：容量最大",
+          "sort.release_desc": "排序：發售日",
+          "sort.score_desc": "排序：評分",
           "empty.loading": "正在載入遊戲庫…",
           "empty.none": "沒有符合的遊戲。<br>請清除搜尋或篩選。",
           "empty.library": "<strong>遊戲庫中還沒有遊戲。</strong>管理員將檔案放入遊戲資料夾後，會立即顯示在這裡。",
@@ -3963,14 +3945,12 @@
         const list = state.kind === "base" || state.kind === "wish" ? oneCardPerTitle(matched) : matched;
         list.sort((a, b) => {
           switch (state.sort) {
-            case "name-desc":    return b.item.name.localeCompare(a.item.name);
             case "size-desc":    return b.size - a.size;
-            case "size-asc":     return a.size - b.size;
             case "release-desc": return (b.releaseDate || 0) - (a.releaseDate || 0);
-            case "added-desc":   return b.added - a.added;
             case "score-desc":   return (scoreFor(b)?.score ?? -1) - (scoreFor(a)?.score ?? -1) || a.item.name.localeCompare(b.item.name);
-            case "name":
-            default:             return a.item.name.localeCompare(b.item.name);
+            case "name":         return a.item.name.localeCompare(b.item.name);
+            case "added-desc":
+            default:             return b.added - a.added;
           }
         });
         return list;
@@ -5447,12 +5427,10 @@
           ranked.sort((a, b) =>
             order === "updated" ? b.updated - a.updated || byName(a.name, b.name)
             : order === "size" ? b.size - a.size || byName(a.name, b.name)
-            : order === "name-desc" ? byName(b.name, a.name)
             : byName(a.name, b.name));
           const within = (a, b) =>
             order === "updated" ? updated(b) - updated(a) || byName(a.name, b.name)
             : order === "size" ? (Number(b.size) || 0) - (Number(a.size) || 0) || byName(a.name, b.name)
-            : order === "name-desc" ? byName(b.name, a.name)
             : byName(a.name, b.name);
           const total = ranked.reduce((n, g) => n + g.count, 0);
           // Pages hold whole games, so a game with many items never runs across pages.
@@ -5688,7 +5666,7 @@
               const order = xorder(view);
               if (order === "updated") return timeOf(y.released_at) - timeOf(x.released_at) || byName(x, y);
               if (order === "size") return (Number(y.size) || 0) - (Number(x.size) || 0) || byName(x, y);
-              return order === "name-desc" ? byName(y, x) : byName(x, y);
+              return byName(x, y);
             });
           $(view + "-list").replaceChildren(...list.map(card));
           $(view + "-count").textContent = list.length.toLocaleString();

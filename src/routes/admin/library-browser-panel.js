@@ -20,8 +20,6 @@ const PATHS = {
   other: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 13a2 2 0 1 1 2.5 1.94V16M12 19h.01"/>',
   all: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
-  asc: '<path d="M3 8l4-4 4 4M7 4v16M13 8h8M13 12h6M13 16h4"/>',
-  desc: '<path d="M3 16l4 4 4-4M7 20V4M13 8h4M13 12h6M13 16h8"/>',
   prev: '<path d="m15 18-6-6 6-6"/>',
   next: '<path d="m9 18 6-6-6-6"/>',
 };
@@ -95,7 +93,6 @@ export const LIB_BROWSER_HTML = `<div id="lib-files">
       <label class="lb-q">${svg("search")}<input type="search" id="lb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("lb.qPh")} ${topLabel("lb.qLabel")}></label>
       <button type="submit" id="lb-go">${svg("search")}<span data-top="rpt.find">${top("rpt.find")}</span></button>
       <select id="lb-sort" ${topLabel("lb.sortLabel")}><option value="mtime" data-top="lb.byMtime">${TOP_WORDS.ko["lb.byMtime"]}</option><option value="name" data-top="fp.byName">${TOP_WORDS.ko["fp.byName"]}</option><option value="size" data-top="lb.bySize">${TOP_WORDS.ko["lb.bySize"]}</option></select>
-      <button type="button" id="lb-order" ${topLabel("lb.orderAriaDesc")}><span id="lb-order-ico">${svg("desc")}</span><span id="lb-order-t">${top("lb.desc")}</span></button>
     </form>
     <div class="lb-filter">
       <div class="lb-kinds hide-bar" id="lb-kinds" role="group" ${topLabel("f.type")}>
@@ -110,7 +107,7 @@ export const LIB_BROWSER_HTML = `<div id="lib-files">
   </div>`;
 
 export const LIB_BROWSER_SCRIPT = /* js */ `
-const LB_ICON=${JSON.stringify({ prev: svg("prev"), next: svg("next"), asc: svg("asc"), desc: svg("desc") })};
+const LB_ICON=${JSON.stringify({ prev: svg("prev"), next: svg("next") })};
 const LB_KIND=${JSON.stringify(Object.fromEntries(KINDS))};
 const LB_PER=25;
 const LB_ALL=['base','update','dlc','patch','save','homebrew','other'];
@@ -119,7 +116,7 @@ const lb={kind:'all',page:1,sort:'mtime',order:'desc',q:'',seq:0,timer:null,pend
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const lbDate=(s)=>s?new Date(s*1000).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'-';
 // A language switch re-renders the open list so dates and counts follow the new locale.
-function lbRelabel(){lbOrderLabel();if(location.hash.startsWith('#library')&&!lb.pending)lbLoad();}
+function lbRelabel(){if(location.hash.startsWith('#library')&&!lb.pending)lbLoad();}
 function lbIndicator(){const t=$('lb-tab-'+lb.kind),ind=$('lb-ind');if(!t||!t.offsetWidth)return;
   ind.style.width=t.offsetWidth+'px';ind.style.height=t.offsetHeight+'px';ind.style.transform='translate('+t.offsetLeft+'px,'+t.offsetTop+'px)';}
 function lbSkeleton(){const m=$('lb-list');m.replaceChildren();const t=el('table');
@@ -213,10 +210,6 @@ function lbSelect(kind){if(kind===lb.kind)return;lb.kind=kind;lb.page=1;
 $('lb-kinds').addEventListener('click',(e)=>{const b=e.target.closest('button[data-kind]');if(b)lbSelect(b.dataset.kind);});
 $('lb-bar').addEventListener('submit',(e)=>{e.preventDefault();clearTimeout(lb.timer);lb.q=$('lb-q').value.trim();lb.page=1;lbLoad();});
 $('lb-q').addEventListener('input',()=>{clearTimeout(lb.timer);lb.timer=setTimeout(()=>{const q=$('lb-q').value.trim();if(q===lb.q)return;lb.q=q;lb.page=1;lbLoad();},300);});
-$('lb-sort').addEventListener('change',()=>{lb.sort=$('lb-sort').value;lb.order=lb.sort==='name'?'asc':'desc';lbOrderLabel();lb.page=1;lbLoad();});
-function lbOrderLabel(){const asc=lb.order==='asc';$('lb-order-ico').innerHTML=asc?LB_ICON.asc:LB_ICON.desc;$('lb-order-t').textContent=asc?topText('lb.asc'):topText('lb.desc');
-  $('lb-order').title=topText('lb.orderTitle');$('lb-order').setAttribute('aria-label',topText(asc?'lb.orderAriaAsc':'lb.orderAriaDesc'));}
-$('lb-order').addEventListener('click',()=>{lb.order=lb.order==='asc'?'desc':'asc';lbOrderLabel();lb.page=1;lbLoad();});
+$('lb-sort').addEventListener('change',()=>{lb.sort=$('lb-sort').value;lb.order=lb.sort==='name'?'asc':'desc';lb.page=1;lbLoad();});
 window.addEventListener('resize',()=>lbIndicator());
-lbOrderLabel();
 `;

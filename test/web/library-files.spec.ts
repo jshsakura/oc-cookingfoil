@@ -29,7 +29,8 @@ test('the library tab lists files by kind with counts, pages and a search inside
   await expect(page.locator('#lb-tab-all')).toHaveAttribute('aria-pressed', 'true');
   // The list opens newest first; by name the fixtures come back to the top.
   await expect(page.locator('#lb-sort')).toHaveValue('mtime');
-  await expect(page.locator('#lb-order-t')).toHaveText('내림차순');
+  // One direction per sort, as on the console: no direction button.
+  await expect(page.locator('#lb-order')).toHaveCount(0);
   await page.locator('#lb-sort').selectOption('name');
   await expect(page.locator('#lb-list')).toContainText('게임 데이터');
   await page.locator('#lb-tab-base').click();
