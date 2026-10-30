@@ -197,7 +197,7 @@ export async function undoMove(roots, id, { by = null, now = Date.now(), after =
     const st = await measure(path.join(toRoot.dir, ...op.to.split("/")));
     if (!(await moveAcross(path.join(toRoot.dir, ...op.to.split("/")), back))) throw trashError("taken");
     // What came back, written first, so the drop box can tell it is the same file it must leave alone.
-    await withLocks([journalOf(r)], () => append(r, { undo: want, at: now, by, back: { root: op.fromRoot, rel: op.from, size: st.size, mtimeMs: st.mtimeMs, type: st.type } }));
+    await withLocks([journalOf(r)], () => append(r, { undo: want, at: now, by, back: { root: op.fromRoot, rel: op.from, size: st.size, mtimeMs: st.mtimeMs, type: st.type, ...(st.type === "dir" ? { files: st.files } : {}) } }));
     // The file is back and held; what else the move changed is put back after, and a failure there is reported, not undone.
     let warning = null;
     if (after) {
@@ -217,7 +217,7 @@ export async function undoMove(roots, id, { by = null, now = Date.now(), after =
 
 /**
  * Files undone back into root `key` that must stay where they are: [{ id, rel, size, mtimeMs }]
- * for each undo not released yet. The drop box leaves a file alone while it matches one.
+ * for each undo not released yet; a folder has `dir: true` and its file count. The drop box leaves a file alone while it matches one.
  */
 export function undoneHeld(roots, key) {
   const out = [];
@@ -226,7 +226,7 @@ export function undoneHeld(roots, key) {
     const released = new Set(lines.filter((l) => l.release).map((l) => l.release));
     for (const l of lines) {
       if (!l.undo || released.has(l.undo) || l.back?.root !== key || !cleanRel(l.back.rel)) continue;
-      out.push({ id: l.undo, rel: l.back.rel, size: l.back.size, mtimeMs: l.back.mtimeMs });
+      out.push({ id: l.undo, rel: l.back.rel, size: l.back.size, mtimeMs: l.back.mtimeMs, ...(l.back.type === "dir" ? { dir: true, files: l.back.files } : {}) });
     }
   }
   return out;

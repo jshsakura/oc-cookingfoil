@@ -39,6 +39,7 @@ import { dlcDisplayName } from "./dlc-name.js";
 import { incomingInGames } from "../helpers/envs.js";
 import { isReadme } from "../helpers/readme-name.js";
 import { moveNoClobber, withPartial } from "../library/safe-move.js";
+import { measure } from "../library/trash.js";
 import { activityText } from "./meta-messages.js";
 
 export const GAME_RE = /\.(nsp|nsz|xci|xcz)$/i;
@@ -349,7 +350,8 @@ export async function moveAcross(from, to) {
  *   readRefs(abs)      the files a .cue / .m3u names, relative to its folder
  *   begin(kind, opts)  an activity job
  *   rescan()           after games moved; rescanRetro(), rescanHomebrew() after those
- *   journal({ action, from, to })   notes each move (absolute paths) in the operations journal, so it can be undone
+ *   journal({ action, from, to, extra })   notes each move (absolute paths) in the operations journal, so it can be undone;
+ *                      a folder placed by placeFolder is noted as one move when its result has `abs` (and `rewrite`, what an undo changes back)
  *   undone()           files an undo put back in the drop box: [{ rel, size, mtimeMs }]. Each stays where it
  *                      is while it is that same file, until the admin releases it (library/journal.js)
  */
@@ -376,14 +378,23 @@ export function createOrganizer(deps) {
     return refs;
   }
 
-  /** The drop-box files an undo put back that must stay: rel → true while size and mtime still match. */
+  /**
+   * The drop-box files an undo put back that must stay: rel → true while size and mtime still match. A whole
+   * folder put back (a patch or an app) keeps every file under it while the folder, measured as the journal measured
+   * it (every file, dot files and readmes too), still has the same file count and total size.
+   */
   async function undoneSet(files) {
     const list = await Promise.resolve(deps.undone?.() ?? []).catch(() => []);
-    const want = new Map(list.map((u) => [u.rel, u]));
-    return new Set(files.filter((f) => {
+    const want = new Map(list.filter((u) => !u.dir).map((u) => [u.rel, u]));
+    const keep = new Set(files.filter((f) => {
       const u = want.get(f.rel);
       return u && u.size === f.size && Math.round(u.mtimeMs) === Math.round(f.mtimeMs);
     }).map((f) => f.rel));
+    for (const u of list.filter((x) => x.dir)) {
+      const now = await measure(path.join(dir, ...u.rel.split("/"))).catch(() => null);
+      if (now?.type === "dir" && now.files === u.files && now.size === u.size) for (const f of files) if (f.rel.startsWith(`${u.rel}/`)) keep.add(f.rel);
+    }
+    return keep;
   }
 
   /**
@@ -469,6 +480,7 @@ export function createOrganizer(deps) {
           await dropEmptyDirs(dir, rel);
         }
         movedIn.folders += 1;
+        if (res.abs) await deps.journal?.({ action: "organize", from: path.join(dir, g.root.replace(/\/$/, "")), to: res.abs, extra: res.rewrite ? { rewrite: res.rewrite } : {} });
         state.recent = [{ from: g.root, to: res.where, root: g.kind, by: "folder", at: new Date().toISOString() }, ...state.recent].slice(0, RECENT_MAX);
       } catch (err) {
         folderHeld.push(...files.map((rel) => heldItem(rel, "moveFailed", { from: g.root }, err.key ?? err.code ?? err.message)));
