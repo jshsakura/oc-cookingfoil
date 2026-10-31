@@ -290,6 +290,43 @@ test('rows dragged onto a folder or onto the path move there', async ({ page }) 
   expect(has('one.nsp') && has('two.nsp') && !has('Alpha/one.nsp')).toBe(true);
 });
 
+test('the toolbar shows every action, the address starts with the storage name, and the info pane shows the game', async ({ page }) => {
+  put('Known [0100000000010000][v0].nsp');
+  const asked: number[] = [];
+  page.on('response', (r) => { if (r.url().includes('/api/title/')) asked.push(r.status()); });
+  await page.route('**/api/title/*', (r) => r.fulfill({ json: { id: '0100000000010000', name: 'Known Game', publisher: 'Example Works', releaseDate: 20240115, category: 'Action', description: 'What the game is about.', screenshots: [] } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder');
+  if ((await page.locator('#fb-t-side').getAttribute('aria-pressed')) !== 'true') await page.locator('#fb-t-side').click();
+
+  await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
+  await expect(page.locator('#fb-addr')).toHaveValue('게임');
+  await page.locator('#fb-addr').fill('게임/fb-test');
+  await page.keyboard.press('Enter');
+  await expect(row(page, 'Known [0100000000010000][v0].nsp')).toBeVisible();
+
+  await expect(page.locator('#fb-trash-btn')).toBeDisabled();
+  await expect(page.locator('#fb-paste-btn')).toBeDisabled();
+  await row(page, 'Known [0100000000010000][v0].nsp').locator('td.c-size').click();
+  await expect(page.locator('#fb-trash-btn')).toBeEnabled();
+  await expect(page.locator('#fb-rename-btn')).toBeEnabled();
+  await page.locator('#fb-copy-btn').click();
+  await expect(page.locator('#fb-paste-btn')).toBeEnabled();
+
+  await expect(page.locator('#fb-side')).toContainText('Example Works');
+  await expect(page.locator('#fb-side')).toContainText('2024-01-15');
+  await expect(page.locator('#fb-side')).toContainText('What the game is about.');
+  expect(asked.length).toBeGreaterThan(0);
+});
+
+test('the signed-in admin can read the details the info pane asks for', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder');
+  const status = await page.evaluate(async () => (await fetch('/api/title/0100000000010000')).status);
+  expect([200, 404]).toContain(status);
+});
+
 test('a drag says where it will land, and the notice after a move takes it back', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/games?tab=folder&path=fb-test');
