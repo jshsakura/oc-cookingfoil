@@ -33,6 +33,7 @@ import { libraryRoots, refresh as refreshRoots } from "./trash-service.js";
 import * as env from "../helpers/envs.js";
 
 /** The roots the browser shows. The server's own data folder (keys, tokens) is never one of them. */
+const GAME_FILE_RE = /\.(nsp|xci|nsz|xcz)$/i;
 export const FILE_ROOT_KEYS = Object.freeze(["games", "incoming", "retro", "homebrew", "patches", "saves"]);
 
 const SORTS = new Set(["name", "size", "mtime", "type"]);
@@ -318,6 +319,14 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return { root: key, rel: toRel, undo: note?.id ?? null };
   }
 
+  /** Whether the folder has a game file in it, or in a folder in it when `depth` is 1 (a game's update and DLC folders). */
+  async function holdsGame(dir, depth) {
+    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+    if (entries.some((e) => e.isFile() && GAME_FILE_RE.test(e.name))) return true;
+    for (const e of depth ? entries.filter((x) => x.isDirectory()) : []) if (await holdsGame(path.join(dir, e.name), depth - 1)) return true;
+    return false;
+  }
+
   async function move(key, rels, toKey, toRel, { by = null } = {}) {
     const dest = await folder(toKey, toRel);
     const moved = [];
@@ -333,6 +342,11 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
       }
       if (inside(at.real, dest.real)) {
         skipped.push({ rel, code: "into-itself" });
+        continue;
+      }
+      // A game's own folder (a folder directly in the games folder) never goes inside another game's folder.
+      if (key === "games" && !at.rel.includes("/") && toKey === "games" && dest.rel && (await holdsGame(at.real, 1)) && (await holdsGame(dest.real, 0))) {
+        skipped.push({ rel, code: "game-into-game" });
         continue;
       }
       // A folder holding a fenced one (the server's data, another root) would carry it out of its fence.
