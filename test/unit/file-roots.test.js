@@ -15,11 +15,12 @@ function setup() {
   const base = path.join(tmp, `s${n++}`);
   const games = { key: "games", dir: path.join(base, "games") };
   const retro = { key: "retro", dir: path.join(base, "retro") };
+  const patches = { key: "patches", dir: path.join(base, "patches") };
   const outside = path.join(base, "outside");
-  for (const d of [games.dir, retro.dir, outside]) fs.mkdirSync(d, { recursive: true });
+  for (const d of [games.dir, retro.dir, patches.dir, outside]) fs.mkdirSync(d, { recursive: true });
   const refreshed = [];
-  const fr = createFileRoots({ roots: () => [games, retro], refresh: (keys) => refreshed.push(...keys) });
-  return { fr, games, retro, outside, refreshed };
+  const fr = createFileRoots({ roots: () => [games, retro, patches], refresh: (keys) => refreshed.push(...keys) });
+  return { fr, games, retro, patches, outside, refreshed };
 }
 const put = (dir, rel, body = "x") => {
   fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
@@ -125,9 +126,10 @@ test("a move takes several items into a folder, across roots too, and stops at a
   const clash = await fr.move("games", ["a.nsp"], "games", "Into");
   assert.deepEqual(clash.moved, []);
   assert.deepEqual(clash.skipped.map((s) => [s.rel, s.code]), [["a.nsp", "exists"]]);
-  const across = await fr.move("games", ["a.nsp"], "retro", "");
-  assert.deepEqual(across.moved.map((m) => m.to), ["a.nsp"]);
-  assert.ok(has(retro.dir, "a.nsp"));
+  put(games.dir, "notes.txt", "N");
+  const across = await fr.move("games", ["notes.txt"], "retro", "");
+  assert.deepEqual(across.moved.map((m) => m.to), ["notes.txt"]);
+  assert.ok(has(retro.dir, "notes.txt"));
   assert.deepEqual([...new Set(refreshed)].sort(), ["games", "retro"]);
 });
 
@@ -257,4 +259,27 @@ test("a game's folder is not moved into another game's folder, but a file or a f
   put(games.dir, "one.nsp");
   const together = await fr.move("games", ["one.nsp", "Neon Abyss 2"], "games", "Plain");
   assert.deepEqual(together.moved.map((m) => m.to), ["Plain/one.nsp", "Plain/Neon Abyss 2"]);
+});
+
+test("a Switch game is not moved or copied where it would not be read as one, a plain file still is", async () => {
+  const { fr, games, retro, patches } = setup();
+  put(games.dir, "lone.nsp");
+  put(games.dir, "Shelf/Some Game/game.xci");
+  put(games.dir, "readme.txt");
+  const moved = await fr.move("games", ["lone.nsp", "Shelf", "readme.txt"], "retro", "");
+  assert.deepEqual(moved.skipped, [{ rel: "lone.nsp", code: "game-wrong-root" }, { rel: "Shelf", code: "game-wrong-root" }]);
+  assert.deepEqual(moved.moved.map((m) => m.to), ["readme.txt"]);
+  const copied = await fr.copy("games", ["lone.nsp"], "patches", "");
+  assert.deepEqual([copied.copied, copied.skipped], [[], [{ rel: "lone.nsp", code: "game-wrong-root" }]]);
+  assert.ok(has(games.dir, "lone.nsp") && has(games.dir, "Shelf/Some Game/game.xci") && !has(retro.dir, "lone.nsp") && !has(patches.dir, "lone.nsp"));
+});
+
+test("a title's patch folder is not moved into another title's folder, a patch inside one still moves", async () => {
+  const { fr, patches } = setup();
+  put(patches.dir, "0100AAAA00000000/Korean/atmosphere/main");
+  put(patches.dir, "0100BBBB00000000/Cheats/x.txt");
+  const nested = await fr.move("patches", ["0100AAAA00000000"], "patches", "0100BBBB00000000");
+  assert.deepEqual(nested.skipped, [{ rel: "0100AAAA00000000", code: "title-into-title" }]);
+  const inner = await fr.move("patches", ["0100BBBB00000000/Cheats"], "patches", "0100AAAA00000000");
+  assert.equal(inner.moved.length, 1);
 });

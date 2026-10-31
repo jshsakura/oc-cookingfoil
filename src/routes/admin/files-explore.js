@@ -78,7 +78,9 @@ async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,pat
   if(c.mode==='cut'){fb.clip=null;await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
   try{const out=await fbCopyRun({root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path});
     if(out.copied.length)fbUndoPush({trash:{root:to.root,paths:out.copied.map((x)=>x.to)}});
-    toast(out.skipped.length?topFill('fb.copiedSome',{n:num(out.copied.length),s:num(out.skipped.length)}):topFill('fb.copied',{n:num(out.copied.length)}));fbLoad();}
+    const why=fbWhy(out.skipped);if(!out.copied.length&&why){toast(why);fbLoad();return;}
+    const msg=(out.skipped.length?topFill('fb.copiedSome',{n:num(out.copied.length),s:num(out.skipped.length)}):topFill('fb.copied',{n:num(out.copied.length)}))+(why?' '+why:'');
+    if(out.copied.length)fbToastUndo(msg);else toast(msg);fbLoad();}
   catch(err){toast(err.message);}}
 // Ctrl+Z takes back this tab's steps, newest first: a move or rename through the journal, a trash out of the
 // trash, a new folder or a copy into the trash. The trash page keeps every step, from any tab.

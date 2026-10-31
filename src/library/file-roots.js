@@ -34,6 +34,9 @@ import * as env from "../helpers/envs.js";
 
 /** The roots the browser shows. The server's own data folder (keys, tokens) is never one of them. */
 const GAME_FILE_RE = /\.(nsp|xci|nsz|xcz)$/i;
+const TITLE_ID_RE = /^[0-9A-F]{16}$/i;
+// Roots no Switch game file belongs in: a game there is never read as a game, and leaves the games list.
+const NO_GAMES_ROOTS = new Set(["retro", "patches", "saves"]);
 export const FILE_ROOT_KEYS = Object.freeze(["games", "incoming", "retro", "homebrew", "patches", "saves"]);
 
 const SORTS = new Set(["name", "size", "mtime", "type"]);
@@ -327,10 +330,38 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return false;
   }
 
+  /**
+   * The moves and copies a person makes by mistake, refused before anything is touched. Each rule looks at
+   * one item (`at`, in root `key`) and the destination as it was before the batch began (`to`, from destFacts), and names the
+   * refusal the page explains. The order is the order they are checked in.
+   */
+  const PLACE_RULES = [
+    // A game's own folder (a folder directly in the games folder) never goes inside another game's folder.
+    { code: "game-into-game", test: async ({ at, key, to }) => to.inGame && key === "games" && !at.rel.includes("/") && (await holdsGame(at.real, 1)) },
+    // A title's folder of patches or saves never goes inside another title's folder.
+    { code: "title-into-title", test: async ({ at, key, to }) => to.inTitle && key === to.key && !at.rel.includes("/") && TITLE_ID_RE.test(path.basename(at.rel)) },
+    // A Switch game never lands where it would not be read as one.
+    { code: "game-wrong-root", test: async ({ at, to }) => NO_GAMES_ROOTS.has(to.key) && (GAME_FILE_RE.test(at.rel) || (await holdsGame(at.real, 2))) },
+  ];
+
+  /** The destination, judged once before anything moves: whether it is a game's folder or a title's, or inside one. */
+  async function destFacts(dest, toKey, key) {
+    const top = dest.rel ? dest.rel.split("/")[0] : null;
+    return {
+      key: toKey,
+      inGame: key === "games" && toKey === "games" && Boolean(top) && (await holdsGame(path.join(dest.root.dir, top), 1)),
+      inTitle: (toKey === "patches" || toKey === "saves") && Boolean(top) && TITLE_ID_RE.test(top),
+    };
+  }
+
+  async function refusal(at, key, to) {
+    for (const rule of PLACE_RULES) if (await rule.test({ at, key, to })) return rule.code;
+    return null;
+  }
+
   async function move(key, rels, toKey, toRel, { by = null } = {}) {
     const dest = await folder(toKey, toRel);
-    // Whether the destination is a game's folder, or inside one, is judged once, before anything moves.
-    const destInGame = key === "games" && toKey === "games" && Boolean(dest.rel) && (await holdsGame(path.join(dest.root.dir, dest.rel.split("/")[0]), 1));
+    const facts = await destFacts(dest, toKey, key);
     const moved = [];
     const skipped = [];
     for (const rel of rels) {
@@ -346,9 +377,9 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
         skipped.push({ rel, code: "into-itself" });
         continue;
       }
-      // A game's own folder (a folder directly in the games folder) never goes inside another game's folder.
-      if (destInGame && !at.rel.includes("/") && (await holdsGame(at.real, 1))) {
-        skipped.push({ rel, code: "game-into-game" });
+      const refused = await refusal(at, key, facts);
+      if (refused) {
+        skipped.push({ rel, code: refused });
         continue;
       }
       // A folder holding a fenced one (the server's data, another root) would carry it out of its fence.
@@ -385,6 +416,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
   /** progress.started(part) as each copy begins in its partial, progress.placed(abs) once it is in place. */
   async function copy(key, rels, toKey, toRel, progress = null) {
     const dest = await folder(toKey, toRel);
+    const facts = await destFacts(dest, toKey, key);
     const copied = [];
     const skipped = [];
     for (const rel of rels) {
@@ -402,6 +434,11 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
       }
       if (at.walls.fenced.some((f) => inside(at.real, f))) {
         skipped.push({ rel, code: "bad-path" });
+        continue;
+      }
+      const refused = await refusal(at, key, facts);
+      if (refused) {
+        skipped.push({ rel, code: refused });
         continue;
       }
       const isDir = (await fsp.stat(at.real)).isDirectory();

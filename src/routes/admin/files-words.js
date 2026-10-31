@@ -16,7 +16,7 @@ const KEYS = [
   "fb.p.note", "fb.p.cut",
   "fb.tree", "fb.side", "fb.tree.open", "fb.tree.close", "fb.k.base", "fb.k.update", "fb.k.dlc", "fb.old", "fb.c.damaged", "fb.c.modified", "fb.p.titleId", "fb.p.version", "fb.p.check", "fb.p.sizeAsk", "fb.side.none", "fb.side.files", "fb.copyProg", "fb.shown",
   "fb.share", "fb.shareAsk", "fb.share1h", "fb.share1d", "fb.share7d", "fb.shareCopied", "fb.shareCopy", "fb.shareUntil", "fb.shareEnd", "fb.shareEnded",
-  "fb.gameIntoGame", "fb.dragTo",
+  "fb.gameIntoGame", "fb.dragTo", "fb.titleIntoTitle", "fb.gameWrongRoot", "fb.extAsk",
 ];
 
 const ROWS = {
@@ -36,6 +36,7 @@ const ROWS = {
     "공유 링크", "링크가 있으면 누구나 이 파일을 받을 수 있습니다. 얼마 동안 열어 둘지 고릅니다", "1시간", "하루", "7일", "링크를 복사했습니다. {when}까지 받을 수 있습니다", "아래 링크를 복사해 보냅니다. {when}까지 받을 수 있습니다", "{when}까지 공유 중", "링크 끊기", "링크를 끊었습니다",
     "게임 폴더는 다른 게임 폴더 안에 넣지 않습니다.",
     "{name} 폴더로 옮깁니다",
+    "타이틀 폴더는 다른 타이틀 폴더 안에 넣지 않습니다.", "Switch 게임 파일은 게임 폴더에만 둡니다. 여기서는 게임으로 읽지 않습니다.", "확장자를 바꾸면 이 파일을 알아보지 못할 수 있습니다. 바꿀까요?",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -53,6 +54,7 @@ const ROWS = {
     "Share link", "Anyone with the link can download this file. Choose how long it stays open", "1 hour", "1 day", "7 days", "Link copied. It works until {when}", "Copy the link below and send it. It works until {when}", "Shared until {when}", "End link", "The link has ended",
     "A game folder doesn't go inside another game's folder.",
     "Move to {name}",
+    "A title's folder doesn't go inside another title's folder.", "Switch game files stay in the games folder. They aren't read as games here.", "Changing the extension may make this file unrecognizable. Change it?",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -70,6 +72,7 @@ const ROWS = {
     "共有リンク", "リンクを知っていれば誰でもこのファイルを受け取れます。有効期間を選びます", "1時間", "1日", "7日", "リンクをコピーしました。{when}まで受け取れます", "下のリンクをコピーして送ります。{when}まで受け取れます", "{when}まで共有中", "リンクを止める", "リンクを止めました",
     "ゲームのフォルダーは、別のゲームのフォルダーの中には入れません。",
     "{name} に移動します",
+    "タイトルのフォルダーは、別のタイトルのフォルダーの中には入れません。", "Switch のゲームファイルはゲームフォルダーにだけ置きます。ここではゲームとして読み込みません。", "拡張子を変えると、このファイルを認識できなくなることがあります。変更しますか?",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -87,6 +90,7 @@ const ROWS = {
     "分享链接", "拿到链接的人都能下载这个文件。请选择有效时长", "1 小时", "1 天", "7 天", "链接已复制。{when} 前可以下载", "复制下面的链接发送出去。{when} 前可以下载", "分享至 {when}", "停用链接", "链接已停用",
     "游戏文件夹不能放进另一个游戏的文件夹里。",
     "移动到 {name}",
+    "标题文件夹不能放进另一个标题的文件夹里。", "Switch 游戏文件只放在游戏文件夹中。这里不会作为游戏读取。", "更改扩展名可能导致无法识别此文件。要更改吗?",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -104,6 +108,7 @@ const ROWS = {
     "分享連結", "拿到連結的人都能下載這個檔案。請選擇有效時長", "1 小時", "1 天", "7 天", "連結已複製。{when} 前可以下載", "複製下面的連結傳送出去。{when} 前可以下載", "分享至 {when}", "停用連結", "連結已停用",
     "遊戲資料夾不能放進另一個遊戲的資料夾裡。",
     "移動到 {name}",
+    "標題資料夾不能放進另一個標題的資料夾裡。", "Switch 遊戲檔案只放在遊戲資料夾中。這裡不會當作遊戲讀取。", "變更副檔名可能導致無法辨識此檔案。要變更嗎?",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -121,6 +126,7 @@ const ROWS = {
     "Enlace para compartir", "Cualquiera con el enlace puede descargar este archivo. Elige cuánto tiempo sigue abierto", "1 hora", "1 día", "7 días", "Enlace copiado. Funciona hasta {when}", "Copia el enlace de abajo y envíalo. Funciona hasta {when}", "Compartido hasta {when}", "Cerrar enlace", "El enlace se ha cerrado",
     "Una carpeta de juego no se mueve dentro de la de otro juego.",
     "Mover a {name}",
+    "La carpeta de un título no se mueve dentro de la de otro título.", "Los juegos de Switch se quedan en la carpeta de juegos. Aquí no se leen como juegos.", "Cambiar la extensión puede hacer que este archivo no se reconozca. ¿Cambiarla?",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -138,6 +144,7 @@ const ROWS = {
     "Lien de partage", "Toute personne ayant le lien peut télécharger ce fichier. Choisissez sa durée", "1 heure", "1 jour", "7 jours", "Lien copié. Il fonctionne jusqu'au {when}", "Copiez le lien ci-dessous et envoyez-le. Il fonctionne jusqu'au {when}", "Partagé jusqu'au {when}", "Fermer le lien", "Le lien est fermé",
     "Le dossier d'un jeu ne se place pas dans le dossier d'un autre jeu.",
     "Déplacer vers {name}",
+    "Le dossier d'un titre ne se place pas dans le dossier d'un autre titre.", "Les jeux Switch restent dans le dossier des jeux. Ici, ils ne sont pas lus comme des jeux.", "Changer l'extension peut rendre ce fichier méconnaissable. La changer ?",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -155,6 +162,7 @@ const ROWS = {
     "Freigabelink", "Jeder mit dem Link kann diese Datei herunterladen. Wähle, wie lange er gilt", "1 Stunde", "1 Tag", "7 Tage", "Link kopiert. Er gilt bis {when}", "Kopiere den Link unten und sende ihn. Er gilt bis {when}", "Freigegeben bis {when}", "Link beenden", "Der Link ist beendet",
     "Der Ordner eines Spiels kommt nicht in den Ordner eines anderen Spiels.",
     "Nach {name} verschieben",
+    "Der Ordner eines Titels kommt nicht in den Ordner eines anderen Titels.", "Switch-Spieldateien bleiben im Spieleordner. Hier werden sie nicht als Spiele gelesen.", "Wenn Sie die Endung ändern, wird diese Datei eventuell nicht mehr erkannt. Ändern?",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -172,6 +180,7 @@ const ROWS = {
     "Link di condivisione", "Chiunque abbia il link può scaricare questo file. Scegli per quanto resta aperto", "1 ora", "1 giorno", "7 giorni", "Link copiato. Funziona fino al {when}", "Copia il link qui sotto e invialo. Funziona fino al {when}", "Condiviso fino al {when}", "Chiudi link", "Il link è stato chiuso",
     "La cartella di un gioco non va dentro quella di un altro gioco.",
     "Sposta in {name}",
+    "La cartella di un titolo non va dentro quella di un altro titolo.", "I giochi Switch restano nella cartella dei giochi. Qui non vengono letti come giochi.", "Cambiare l'estensione può rendere il file irriconoscibile. Cambiarla?",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -189,6 +198,7 @@ const ROWS = {
     "Link de partilha", "Qualquer pessoa com o link pode transferir este ficheiro. Escolha quanto tempo fica aberto", "1 hora", "1 dia", "7 dias", "Link copiado. Funciona até {when}", "Copie o link abaixo e envie-o. Funciona até {when}", "Partilhado até {when}", "Encerrar link", "O link foi encerrado",
     "A pasta de um jogo não vai dentro da pasta de outro jogo.",
     "Mover para {name}",
+    "A pasta de um título não vai dentro da pasta de outro título.", "Os jogos de Switch ficam na pasta de jogos. Aqui não são lidos como jogos.", "Mudar a extensão pode fazer este arquivo não ser reconhecido. Mudar?",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -206,6 +216,7 @@ const ROWS = {
     "Deellink", "Iedereen met de link kan dit bestand downloaden. Kies hoe lang hij open blijft", "1 uur", "1 dag", "7 dagen", "Link gekopieerd. Hij werkt tot {when}", "Kopieer de link hieronder en stuur hem door. Hij werkt tot {when}", "Gedeeld tot {when}", "Link beëindigen", "De link is beëindigd",
     "De map van een spel komt niet in de map van een ander spel.",
     "Verplaatsen naar {name}",
+    "De map van een titel komt niet in de map van een andere titel.", "Switch-spellen blijven in de spellenmap. Hier worden ze niet als spel gelezen.", "Als je de extensie wijzigt, wordt dit bestand mogelijk niet meer herkend. Wijzigen?",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -223,6 +234,7 @@ const ROWS = {
     "Ссылка для скачивания", "Любой, у кого есть ссылка, может скачать этот файл. Выберите срок действия", "1 час", "1 день", "7 дней", "Ссылка скопирована. Она действует до {when}", "Скопируйте ссылку ниже и отправьте её. Она действует до {when}", "Доступно до {when}", "Закрыть ссылку", "Ссылка закрыта",
     "Папку игры нельзя помещать в папку другой игры.",
     "Переместить в {name}",
+    "Папку тайтла нельзя помещать в папку другого тайтла.", "Игры Switch хранятся только в папке игр. Здесь они не читаются как игры.", "После смены расширения файл может перестать распознаваться. Изменить?",
   ],
 };
 
