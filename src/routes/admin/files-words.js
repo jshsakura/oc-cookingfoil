@@ -16,6 +16,7 @@ const KEYS = [
   "fb.p.note", "fb.p.cut",
   "fb.tree", "fb.side", "fb.tree.open", "fb.tree.close", "fb.k.base", "fb.k.update", "fb.k.dlc", "fb.old", "fb.c.damaged", "fb.c.modified", "fb.p.titleId", "fb.p.version", "fb.p.check", "fb.p.sizeAsk", "fb.side.none", "fb.side.files", "fb.copyProg", "fb.shown",
   "fb.share", "fb.shareAsk", "fb.share1h", "fb.share1d", "fb.share7d", "fb.shareCopied", "fb.shareCopy", "fb.shareUntil", "fb.shareEnd", "fb.shareEnded",
+  "fb.gameIntoGame",
 ];
 
 const ROWS = {
@@ -33,6 +34,7 @@ const ROWS = {
     "참고", "항목이 너무 많아 앞의 10만 개까지만 셌습니다",
     "폴더 트리", "상세 정보", "폴더 펼치기", "폴더 접기", "본편", "업데이트", "DLC", "구버전", "손상", "수정됨", "타이틀 ID", "버전", "검사", "크기 계산", "항목을 고르면 여기에 정보가 나옵니다", "파일 {n}개 · {size}", "복사하는 중 · {done} / {total} ({p}%)", "{shown}개 표시",
     "공유 링크", "링크가 있으면 누구나 이 파일을 받을 수 있습니다. 얼마 동안 열어 둘지 고릅니다", "1시간", "하루", "7일", "링크를 복사했습니다. {when}까지 받을 수 있습니다", "아래 링크를 복사해 보냅니다. {when}까지 받을 수 있습니다", "{when}까지 공유 중", "링크 끊기", "링크를 끊었습니다",
+    "게임 폴더는 다른 게임 폴더 안에 넣지 않습니다.",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -48,6 +50,7 @@ const ROWS = {
     "Note", "Too many items: only the first 100,000 were counted",
     "Folder tree", "Details", "Expand folder", "Collapse folder", "Base game", "Update", "DLC", "Outdated", "Damaged", "Modified", "Title ID", "Version", "Check", "Count size", "Pick an item to see its details here", "{n} files · {size}", "Copying · {done} of {total} ({p}%)", "{shown} shown",
     "Share link", "Anyone with the link can download this file. Choose how long it stays open", "1 hour", "1 day", "7 days", "Link copied. It works until {when}", "Copy the link below and send it. It works until {when}", "Shared until {when}", "End link", "The link has ended",
+    "A game folder doesn't go inside another game's folder.",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -63,6 +66,7 @@ const ROWS = {
     "注意", "項目が多すぎるため、最初の10万個までを数えました",
     "フォルダーツリー", "詳細", "フォルダーを開く", "フォルダーを閉じる", "本編", "アップデート", "DLC", "旧バージョン", "破損", "改変あり", "タイトルID", "バージョン", "検査", "サイズを計算", "項目を選ぶとここに詳細が表示されます", "ファイル{n}個 · {size}", "コピー中 · {done} / {total}（{p}%）", "{shown}件を表示",
     "共有リンク", "リンクを知っていれば誰でもこのファイルを受け取れます。有効期間を選びます", "1時間", "1日", "7日", "リンクをコピーしました。{when}まで受け取れます", "下のリンクをコピーして送ります。{when}まで受け取れます", "{when}まで共有中", "リンクを止める", "リンクを止めました",
+    "ゲームのフォルダーは、別のゲームのフォルダーの中には入れません。",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -78,6 +82,7 @@ const ROWS = {
     "注意", "项目过多，仅统计了前 100,000 项",
     "文件夹树", "详细信息", "展开文件夹", "折叠文件夹", "本体", "更新", "DLC", "旧版本", "已损坏", "已修改", "标题 ID", "版本", "检查", "计算大小", "选择一个项目即可在此查看详细信息", "{n} 个文件 · {size}", "正在复制 · {done} / {total}（{p}%）", "显示 {shown} 个",
     "分享链接", "拿到链接的人都能下载这个文件。请选择有效时长", "1 小时", "1 天", "7 天", "链接已复制。{when} 前可以下载", "复制下面的链接发送出去。{when} 前可以下载", "分享至 {when}", "停用链接", "链接已停用",
+    "游戏文件夹不能放进另一个游戏的文件夹里。",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -93,6 +98,7 @@ const ROWS = {
     "注意", "項目過多，僅計算了前 100,000 項",
     "資料夾樹", "詳細資訊", "展開資料夾", "收合資料夾", "本體", "更新", "DLC", "舊版本", "已損壞", "已修改", "標題 ID", "版本", "檢查", "計算大小", "選擇一個項目即可在此查看詳細資訊", "{n} 個檔案 · {size}", "正在複製 · {done} / {total}（{p}%）", "顯示 {shown} 個",
     "分享連結", "拿到連結的人都能下載這個檔案。請選擇有效時長", "1 小時", "1 天", "7 天", "連結已複製。{when} 前可以下載", "複製下面的連結傳送出去。{when} 前可以下載", "分享至 {when}", "停用連結", "連結已停用",
+    "遊戲資料夾不能放進另一個遊戲的資料夾裡。",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -108,6 +114,7 @@ const ROWS = {
     "Nota", "Demasiados elementos: solo se contaron los primeros 100.000",
     "Árbol de carpetas", "Detalles", "Desplegar carpeta", "Plegar carpeta", "Juego base", "Actualización", "DLC", "Desactualizada", "Dañado", "Modificado", "ID de título", "Versión", "Comprobación", "Calcular tamaño", "Elige un elemento para ver aquí sus detalles", "{n} archivos · {size}", "Copiando · {done} de {total} ({p}%)", "{shown} mostrados",
     "Enlace para compartir", "Cualquiera con el enlace puede descargar este archivo. Elige cuánto tiempo sigue abierto", "1 hora", "1 día", "7 días", "Enlace copiado. Funciona hasta {when}", "Copia el enlace de abajo y envíalo. Funciona hasta {when}", "Compartido hasta {when}", "Cerrar enlace", "El enlace se ha cerrado",
+    "Una carpeta de juego no se mueve dentro de la de otro juego.",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -123,6 +130,7 @@ const ROWS = {
     "Remarque", "Trop d'éléments : seuls les 100 000 premiers ont été comptés",
     "Arborescence", "Détails", "Déplier le dossier", "Replier le dossier", "Jeu de base", "Mise à jour", "DLC", "Obsolète", "Endommagé", "Modifié", "ID de titre", "Version", "Vérification", "Calculer la taille", "Choisissez un élément pour voir ses détails ici", "{n} fichiers · {size}", "Copie · {done} sur {total} ({p} %)", "{shown} affichés",
     "Lien de partage", "Toute personne ayant le lien peut télécharger ce fichier. Choisissez sa durée", "1 heure", "1 jour", "7 jours", "Lien copié. Il fonctionne jusqu'au {when}", "Copiez le lien ci-dessous et envoyez-le. Il fonctionne jusqu'au {when}", "Partagé jusqu'au {when}", "Fermer le lien", "Le lien est fermé",
+    "Le dossier d'un jeu ne se place pas dans le dossier d'un autre jeu.",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -138,6 +146,7 @@ const ROWS = {
     "Hinweis", "Zu viele Einträge: nur die ersten 100.000 wurden gezählt",
     "Ordnerbaum", "Details", "Ordner aufklappen", "Ordner zuklappen", "Hauptspiel", "Update", "DLC", "Veraltet", "Beschädigt", "Verändert", "Titel-ID", "Version", "Prüfung", "Größe berechnen", "Wähle einen Eintrag, um hier seine Details zu sehen", "{n} Dateien · {size}", "Kopiere · {done} von {total} ({p} %)", "{shown} angezeigt",
     "Freigabelink", "Jeder mit dem Link kann diese Datei herunterladen. Wähle, wie lange er gilt", "1 Stunde", "1 Tag", "7 Tage", "Link kopiert. Er gilt bis {when}", "Kopiere den Link unten und sende ihn. Er gilt bis {when}", "Freigegeben bis {when}", "Link beenden", "Der Link ist beendet",
+    "Der Ordner eines Spiels kommt nicht in den Ordner eines anderen Spiels.",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -153,6 +162,7 @@ const ROWS = {
     "Nota", "Troppi elementi: contati solo i primi 100.000",
     "Albero delle cartelle", "Dettagli", "Espandi cartella", "Comprimi cartella", "Gioco base", "Aggiornamento", "DLC", "Obsoleto", "Danneggiato", "Modificato", "ID titolo", "Versione", "Controllo", "Calcola dimensione", "Scegli un elemento per vederne qui i dettagli", "{n} file · {size}", "Copia in corso · {done} di {total} ({p}%)", "{shown} mostrati",
     "Link di condivisione", "Chiunque abbia il link può scaricare questo file. Scegli per quanto resta aperto", "1 ora", "1 giorno", "7 giorni", "Link copiato. Funziona fino al {when}", "Copia il link qui sotto e invialo. Funziona fino al {when}", "Condiviso fino al {when}", "Chiudi link", "Il link è stato chiuso",
+    "La cartella di un gioco non va dentro quella di un altro gioco.",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -168,6 +178,7 @@ const ROWS = {
     "Observação", "Itens demais: só os primeiros 100.000 foram contados",
     "Árvore de pastas", "Detalhes", "Expandir pasta", "Recolher pasta", "Jogo base", "Atualização", "DLC", "Desatualizada", "Danificado", "Modificado", "ID do título", "Versão", "Verificação", "Calcular tamanho", "Escolha um item para ver os detalhes aqui", "{n} arquivos · {size}", "Copiando · {done} de {total} ({p}%)", "{shown} exibidos",
     "Link de partilha", "Qualquer pessoa com o link pode transferir este ficheiro. Escolha quanto tempo fica aberto", "1 hora", "1 dia", "7 dias", "Link copiado. Funciona até {when}", "Copie o link abaixo e envie-o. Funciona até {when}", "Partilhado até {when}", "Encerrar link", "O link foi encerrado",
+    "A pasta de um jogo não vai dentro da pasta de outro jogo.",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -183,6 +194,7 @@ const ROWS = {
     "Let op", "Te veel items: alleen de eerste 100.000 zijn geteld",
     "Mappenboom", "Details", "Map uitklappen", "Map inklappen", "Basisspel", "Update", "DLC", "Verouderd", "Beschadigd", "Gewijzigd", "Titel-ID", "Versie", "Controle", "Grootte berekenen", "Kies een item om hier de details te zien", "{n} bestanden · {size}", "Kopiëren · {done} van {total} ({p}%)", "{shown} getoond",
     "Deellink", "Iedereen met de link kan dit bestand downloaden. Kies hoe lang hij open blijft", "1 uur", "1 dag", "7 dagen", "Link gekopieerd. Hij werkt tot {when}", "Kopieer de link hieronder en stuur hem door. Hij werkt tot {when}", "Gedeeld tot {when}", "Link beëindigen", "De link is beëindigd",
+    "De map van een spel komt niet in de map van een ander spel.",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -198,6 +210,7 @@ const ROWS = {
     "Примечание", "Слишком много элементов: подсчитаны только первые 100 000",
     "Дерево папок", "Сведения", "Развернуть папку", "Свернуть папку", "Основная игра", "Обновление", "DLC", "Устарело", "Повреждён", "Изменён", "ID игры", "Версия", "Проверка", "Посчитать размер", "Выберите элемент, чтобы увидеть здесь сведения", "Файлов: {n} · {size}", "Копирование · {done} из {total} ({p}%)", "Показано: {shown}",
     "Ссылка для скачивания", "Любой, у кого есть ссылка, может скачать этот файл. Выберите срок действия", "1 час", "1 день", "7 дней", "Ссылка скопирована. Она действует до {when}", "Скопируйте ссылку ниже и отправьте её. Она действует до {when}", "Доступно до {when}", "Закрыть ссылку", "Ссылка закрыта",
+    "Папку игры нельзя помещать в папку другой игры.",
   ],
 };
 
