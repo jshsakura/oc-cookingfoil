@@ -81,7 +81,9 @@ export const LIBRARY_CSS = /* css */ `
   #tab-library:has(#fb) #lib-subtabs{padding-right:150px}
   .wrap:has(#fb) .subtabs{margin-bottom:12px}
   #fb #fb-foot{padding:6px 12px;margin:0;min-height:0;border-width:1px 0 0;border-radius:0;box-shadow:none}
-  #fb .fb-body{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+  /* Only the list gives way: however long it is, the toolbars and the status bar keep their height. */
+  #fb>*{flex:none}
+  #fb>.fb-body{flex:1 1 0;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
   #fb .fb-tree,#fb .fb-side,#fb .fb-main{position:static;max-height:none;min-height:0;overflow:auto;border:0;border-radius:0;margin:0}
   #fb.tree-on .fb-tree{margin:0;border-right:1px solid var(--line);background:var(--sunk)}
   #fb.side-on .fb-side{margin:0;border-left:1px solid var(--line)}
@@ -244,11 +246,12 @@ new IntersectionObserver((es)=>{fbMoreSeen=es.some((e)=>e.isIntersecting);if(fbM
 // less what the page puts under it, both measured, so the page itself never scrolls.
 // What is under it is counted element by element: the page's own height is the screen's at least, so measuring
 // from it would keep whatever gap the last fit left.
-function fbFit(){const f=$('fb');if(!f.isConnected)return;const top=f.getBoundingClientRect().top+window.scrollY;
+// Measured only while it shows: a hidden explorer sits at the top with the other tabs' panels counted below it.
+function fbFit(){const f=$('fb');if(!f.offsetParent)return;const top=f.getBoundingClientRect().top+window.scrollY;
   const wrap=f.closest('.wrap');let below=wrap?parseFloat(getComputedStyle(wrap).paddingBottom)||0:0;
   for(let n=f;n&&n!==wrap;n=n.parentElement)for(let s=n.nextElementSibling;s;s=s.nextElementSibling)if(s.offsetParent)below+=s.offsetHeight;
   f.style.setProperty('--fb-top',Math.round(top)+'px');f.style.setProperty('--fb-below',Math.ceil(below)+'px');}
-window.addEventListener('resize',fbFit);new ResizeObserver(fbFit).observe(document.body);fbFit();
+window.addEventListener('resize',fbFit);{const fit=new ResizeObserver(fbFit);fit.observe(document.body);fit.observe($('fb'));}fbFit();
 
 // ── folder sizes, from the server's cache (library/folder-sizes.js) ─
 // A size seen once shows at once when the folder lists again, and is then brought up to date.
