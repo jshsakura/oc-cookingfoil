@@ -86,7 +86,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--accent)}
 #fb .fb-empty{padding:48px 16px;text-align:center;color:var(--muted)}
 /* The bar holds to the window's bottom edge while the list runs past it, and ends the list when it does not. */
-#fb .fb-foot{position:sticky;bottom:0;z-index:3;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-13px;
+#fb .fb-foot{position:sticky;bottom:0;z-index:3;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:0;
   padding:8px 14px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px)}
 #fb .fb-info{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 #fb .fb-foot[data-sel] .fb-info{color:var(--text);font-weight:700}
