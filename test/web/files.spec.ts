@@ -129,6 +129,19 @@ test('the keyboard walks the rows, Enter opens a folder, Backspace goes back up,
   expect(has('keyed.nsp') && !has('loose.nsp')).toBe(true);
 });
 
+test('a rename that changes a file extension asks first, and a no keeps the name', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await row(page, 'loose.nsp').locator('td.c-size').click();
+  await page.keyboard.press('F2');
+  await page.locator('#ask-input').fill('loose.txt');
+  await page.locator('#ask-ok').click();
+  await expect(page.locator('#ask-text')).toHaveText('확장자를 바꾸면 이 파일을 알아보지 못할 수 있습니다. 바꿀까요?');
+  await page.locator('#ask-no').click();
+  await expect(row(page, 'loose.nsp')).toBeVisible();
+  expect(has('loose.nsp') && !has('loose.txt')).toBe(true);
+});
+
 test('a right click opens a menu of what the pick allows, and on the empty list a new folder and an upload', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/games?tab=folder&path=fb-test');

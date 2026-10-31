@@ -119,7 +119,10 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 /* A folder row or a step of the path that rows dragged from the list would move into. */
 #fb tbody tr.fb-target td{background:rgba(var(--accent-rgb),.18)}
 #fb .fb-dragtip{position:fixed;z-index:60;pointer-events:none;padding:6px 12px;border-radius:var(--r-pill);background:var(--text);color:var(--bg);font-size:var(--fs-sm);font-weight:var(--fw-bold);white-space:nowrap;box-shadow:0 4px 16px var(--shadow)}
-.toast:has(.toast-act){display:flex;align-items:center;gap:14px;pointer-events:auto}
+/* The undo notice takes clicks only while it shows, and on the explorer it sits above the status bar it would cover. */
+.toast:has(.toast-act){display:flex;align-items:center;gap:14px}
+.toast.show:has(.toast-act){pointer-events:auto}
+body:has(#fb) .toast{bottom:84px}
 .toast .toast-act{all:unset;cursor:pointer;color:var(--accent);font-weight:var(--fw-bold);padding:2px 4px;border-radius:var(--r-xs)}
 .toast .toast-act:focus-visible{outline:2px solid var(--accent)}
 #fb .fb-crumb button.fb-target{background:rgba(var(--accent-rgb),.18);color:var(--text)}
@@ -340,13 +343,15 @@ async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
   $('fb-rows').replaceChildren(...d.items.map(fbRow));
   const e=$('fb-empty');e.hidden=d.items.length>0;e.textContent=fb.q?topText('fb.noMatch'):topText('fb.empty');fbFoot();
   if(d.cut)toast(topText('fb.deepCut'));fbThumbs();fbTreeSync();fbSizeRows(d.items);}
+const fbExt=(name)=>(/\\.[^./]+$/.exec(name)?.[0]||'').toLowerCase();
 async function fbRename(f){const name=await askText(topText('fb.renameAsk'),f.name);if(name==null||!name.trim()||name.trim()===f.name)return;
+  if(f.type==='file'&&fbExt(name.trim())!==fbExt(f.name)&&!await ask(topText('fb.extAsk')))return;
   try{const out=await api('/admin/api/files/rename',{method:'POST',body:{root:fb.root,path:f.rel,name:name.trim()}});fb.sel.delete(f.rel);
-    fbUndoPush({journal:[out.undo]});toast(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
+    fbUndoPush({journal:[out.undo]});fbToastUndo(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
 async function fbTrash(rels){if(!rels.length)return;
   if(!await ask(topFill('fb.askTrash',{n:num(rels.length)}),{danger:true}))return;
   try{const out=await api('/admin/api/files/trash',{method:'POST',body:{root:fb.root,paths:rels}});for(const r of rels)fb.sel.delete(r);
-    fbUndoPush({restore:out.restore});toast(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
+    fbUndoPush({restore:out.restore});fbToastUndo(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
 async function fbMkdir(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{const out=await api('/admin/api/files/mkdir',{method:'POST',body:{root:fb.root,path:fb.path,name:name.trim()}});
     fbUndoPush({trash:{root:out.root,paths:[out.rel]}});toast(topText('fb.made'));fbLoad();}catch(err){toast(err.message);}}
@@ -437,11 +442,14 @@ function fbMove(){const rels=[...fb.sel];if(!rels.length)return;fbm.root=fb.root
   $('fb-m-no').onclick=done;
   $('fb-m-ok').onclick=()=>{const to={root:fbm.root,path:fbm.path};done();fbMoveTo(rels,to.root,to.path);};
   dlg.showModal();fbMoveLoad();}
+// A move or copy the server refused as a likely mistake says why, in the page's words (file-roots.js PLACE_RULES).
+const FB_WHY={'game-into-game':'fb.gameIntoGame','title-into-title':'fb.titleIntoTitle','game-wrong-root':'fb.gameWrongRoot'};
+function fbWhy(skipped){const s=skipped.find((x)=>FB_WHY[x.code]);return s?topText(FB_WHY[s.code]):'';}
 async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){
   try{const out=await api('/admin/api/files/move',{method:'POST',body:{root:fromRoot,paths:rels,toRoot,toPath}});
     for(const m of out.moved)fb.sel.delete(m.from);fbUndoPush({journal:out.moved.map((m)=>m.undo)});
-    if(!out.moved.length&&out.skipped.some((s)=>s.code==='game-into-game')){toast(topText('fb.gameIntoGame'));fbLoad();return;}
-    const msg=out.skipped.length?topFill('fb.movedSome',{moved:num(out.moved.length),skipped:num(out.skipped.length)}):topFill('fb.moved',{n:num(out.moved.length)});
+    const why=fbWhy(out.skipped);if(!out.moved.length&&why){toast(why);fbLoad();return;}
+    const msg=(out.skipped.length?topFill('fb.movedSome',{moved:num(out.moved.length),skipped:num(out.skipped.length)}):topFill('fb.moved',{n:num(out.moved.length)}))+(why?' '+why:'');
     if(out.moved.length)fbToastUndo(msg);else toast(msg);fbLoad();}
   catch(err){toast(err.message);}}
 // Rows dragged onto a folder row or a step of the path move there, the whole pick when the dragged row is in it.
@@ -452,8 +460,8 @@ function fbDragStart(e,rel){if(!fb.sel.has(rel))fbPick(rel);fb.drag=[...fb.sel];
   // One file dragged out of the window onto the desktop downloads there (Chromium's DownloadURL).
   const f=fb.drag.length===1&&fbItem(fb.drag[0]);
   if(f&&f.type==='file')e.dataTransfer.setData('DownloadURL','application/octet-stream:'+f.name+':'+location.origin+'/admin/api/files/download?'+new URLSearchParams({root:fb.root,path:f.rel}));}
-// A move by mouse is easy to make by mistake, so the drag says where it will land, beside the pointer, and the
-// notice after a move carries the undo that takes it back.
+// A move by mouse is easy to make by mistake, so the drag says where it will land, beside the pointer. The notice
+// after any change that can be taken back (a move, a copy, a rename, a delete) carries the undo for a few seconds.
 function fbTip(e,dest){const tip=$('fb-dragtip');if(!e){tip.hidden=true;return;}
   const name=dest?dest.split('/').pop():(document.querySelector('#fb-crumb li:first-child')?.textContent||'');
   tip.textContent=topFill('fb.dragTo',{name});tip.hidden=false;tip.style.left=(e.clientX+16)+'px';tip.style.top=(e.clientY+18)+'px';}
