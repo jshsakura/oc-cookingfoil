@@ -329,6 +329,8 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
 
   async function move(key, rels, toKey, toRel, { by = null } = {}) {
     const dest = await folder(toKey, toRel);
+    // Whether the destination is a game's folder, or inside one, is judged once, before anything moves.
+    const destInGame = key === "games" && toKey === "games" && Boolean(dest.rel) && (await holdsGame(path.join(dest.root.dir, dest.rel.split("/")[0]), 1));
     const moved = [];
     const skipped = [];
     for (const rel of rels) {
@@ -345,7 +347,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
         continue;
       }
       // A game's own folder (a folder directly in the games folder) never goes inside another game's folder.
-      if (key === "games" && !at.rel.includes("/") && toKey === "games" && dest.rel && (await holdsGame(at.real, 1)) && (await holdsGame(dest.real, 0))) {
+      if (destInGame && !at.rel.includes("/") && (await holdsGame(at.real, 1))) {
         skipped.push({ rel, code: "game-into-game" });
         continue;
       }

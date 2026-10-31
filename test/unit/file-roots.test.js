@@ -118,8 +118,8 @@ test("a move takes several items into a folder, across roots too, and stops at a
   put(games.dir, "a.nsp", "A");
   put(games.dir, "B/b.nsp", "B");
   fs.mkdirSync(path.join(games.dir, "Into"));
-  const r = await fr.move("games", ["B", "a.nsp"], "games", "Into");
-  assert.deepEqual(r.moved.map((m) => m.to), ["Into/B", "Into/a.nsp"]);
+  const r = await fr.move("games", ["a.nsp", "B"], "games", "Into");
+  assert.deepEqual(r.moved.map((m) => m.to), ["Into/a.nsp", "Into/B"]);
   assert.ok(has(games.dir, "Into/B/b.nsp"));
   put(games.dir, "a.nsp", "again");
   const clash = await fr.move("games", ["a.nsp"], "games", "Into");
@@ -248,4 +248,13 @@ test("a game's folder is not moved into another game's folder, but a file or a f
   assert.equal(file.moved.length, 1);
   const inner = await fr.move("games", ["Titan Quest/Extras"], "games", "Neon Abyss 2");
   assert.equal(inner.moved.length, 1);
+  // Into a folder inside a game is into the game.
+  put(games.dir, "Titan Quest/Extras/more.txt");
+  const deeper = await fr.move("games", ["Neon Abyss 2"], "games", "Titan Quest/Extras");
+  assert.deepEqual(deeper.skipped, [{ rel: "Neon Abyss 2", code: "game-into-game" }]);
+  // Picked together with a loose file into a plain folder: the file does not make the folder a game's.
+  fs.mkdirSync(path.join(games.dir, "Plain"));
+  put(games.dir, "one.nsp");
+  const together = await fr.move("games", ["one.nsp", "Neon Abyss 2"], "games", "Plain");
+  assert.deepEqual(together.moved.map((m) => m.to), ["Plain/one.nsp", "Plain/Neon Abyss 2"]);
 });

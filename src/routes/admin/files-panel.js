@@ -435,6 +435,7 @@ function fbMove(){const rels=[...fb.sel];if(!rels.length)return;fbm.root=fb.root
 async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){
   try{const out=await api('/admin/api/files/move',{method:'POST',body:{root:fromRoot,paths:rels,toRoot,toPath}});
     for(const m of out.moved)fb.sel.delete(m.from);fbUndoPush({journal:out.moved.map((m)=>m.undo)});
+    if(!out.moved.length&&out.skipped.some((s)=>s.code==='game-into-game')){toast(topText('fb.gameIntoGame'));fbLoad();return;}
     toast(out.skipped.length?topFill('fb.movedSome',{moved:num(out.moved.length),skipped:num(out.skipped.length)}):topFill('fb.moved',{n:num(out.moved.length)}));fbLoad();}
   catch(err){toast(err.message);}}
 // Rows dragged onto a folder row or a step of the path move there, the whole pick when the dragged row is in it.
