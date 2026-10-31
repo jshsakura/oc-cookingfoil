@@ -118,6 +118,10 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-u-list button.ib{width:28px;height:28px;padding:0}
 /* A folder row or a step of the path that rows dragged from the list would move into. */
 #fb tbody tr.fb-target td{background:rgba(var(--accent-rgb),.18)}
+#fb .fb-dragtip{position:fixed;z-index:60;pointer-events:none;padding:6px 12px;border-radius:var(--r-pill);background:var(--text);color:var(--bg);font-size:var(--fs-sm);font-weight:var(--fw-bold);white-space:nowrap;box-shadow:0 4px 16px var(--shadow)}
+.toast:has(.toast-act){display:flex;align-items:center;gap:14px;pointer-events:auto}
+.toast .toast-act{all:unset;cursor:pointer;color:var(--accent);font-weight:var(--fw-bold);padding:2px 4px;border-radius:var(--r-xs)}
+.toast .toast-act:focus-visible{outline:2px solid var(--accent)}
 #fb .fb-crumb button.fb-target{background:rgba(var(--accent-rgb),.18);color:var(--text)}
 #fb tbody tr[draggable="true"]{-webkit-user-drag:element}
 #fb-view{width:min(960px,calc(100vw - 32px));max-height:calc(100vh - 32px);display:none;flex-direction:column;gap:10px}
@@ -196,6 +200,7 @@ export const FOLDER_HTML = `<div id="fb">
   </div>
   <aside class="fb-side" id="fb-side" ${topLabel("fb.side")} aria-live="polite"></aside>
   </div>
+  <div id="fb-dragtip" class="fb-dragtip" hidden aria-hidden="true"></div>
   <div id="fb-menu" role="menu" hidden ${topLabel("fb.menu")}></div>
   <p class="muted fb-note">${top("fb.note")}</p>
   <div class="fb-foot" id="fb-foot">
@@ -436,7 +441,8 @@ async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){
   try{const out=await api('/admin/api/files/move',{method:'POST',body:{root:fromRoot,paths:rels,toRoot,toPath}});
     for(const m of out.moved)fb.sel.delete(m.from);fbUndoPush({journal:out.moved.map((m)=>m.undo)});
     if(!out.moved.length&&out.skipped.some((s)=>s.code==='game-into-game')){toast(topText('fb.gameIntoGame'));fbLoad();return;}
-    toast(out.skipped.length?topFill('fb.movedSome',{moved:num(out.moved.length),skipped:num(out.skipped.length)}):topFill('fb.moved',{n:num(out.moved.length)}));fbLoad();}
+    const msg=out.skipped.length?topFill('fb.movedSome',{moved:num(out.moved.length),skipped:num(out.skipped.length)}):topFill('fb.moved',{n:num(out.moved.length)});
+    if(out.moved.length)fbToastUndo(msg);else toast(msg);fbLoad();}
   catch(err){toast(err.message);}}
 // Rows dragged onto a folder row or a step of the path move there, the whole pick when the dragged row is in it.
 // Only the list's own drags count: files dragged in from the desktop are uploads (the list's drop handlers).
@@ -446,12 +452,21 @@ function fbDragStart(e,rel){if(!fb.sel.has(rel))fbPick(rel);fb.drag=[...fb.sel];
   // One file dragged out of the window onto the desktop downloads there (Chromium's DownloadURL).
   const f=fb.drag.length===1&&fbItem(fb.drag[0]);
   if(f&&f.type==='file')e.dataTransfer.setData('DownloadURL','application/octet-stream:'+f.name+':'+location.origin+'/admin/api/files/download?'+new URLSearchParams({root:fb.root,path:f.rel}));}
+// A move by mouse is easy to make by mistake, so the drag says where it will land, beside the pointer, and the
+// notice after a move carries the undo that takes it back.
+function fbTip(e,dest){const tip=$('fb-dragtip');if(!e){tip.hidden=true;return;}
+  const name=dest?dest.split('/').pop():(document.querySelector('#fb-crumb li:first-child')?.textContent||'');
+  tip.textContent=topFill('fb.dragTo',{name});tip.hidden=false;tip.style.left=(e.clientX+16)+'px';tip.style.top=(e.clientY+18)+'px';}
+function fbToastUndo(msg){toast(msg);const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
+  b.addEventListener('click',()=>{t.classList.remove('show');fbUndo();});t.append(b);
+  clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),FB_UNDO_TOAST_MS);}
+const FB_UNDO_TOAST_MS=7000;
 function fbDropTarget(node,dest){const ours=(e)=>fb.drag&&[...e.dataTransfer.types].includes(FB_DRAG)&&dest()!==false;
-  node.addEventListener('dragover',(e)=>{if(!ours(e))return;e.preventDefault();e.dataTransfer.dropEffect='move';node.classList.add('fb-target');});
-  node.addEventListener('dragleave',()=>node.classList.remove('fb-target'));
-  node.addEventListener('drop',(e)=>{node.classList.remove('fb-target');if(!ours(e))return;e.preventDefault();e.stopPropagation();
+  node.addEventListener('dragover',(e)=>{if(!ours(e))return;e.preventDefault();e.dataTransfer.dropEffect='move';node.classList.add('fb-target');fbTip(e,dest());});
+  node.addEventListener('dragleave',()=>{node.classList.remove('fb-target');fbTip(null);});
+  node.addEventListener('drop',(e)=>{node.classList.remove('fb-target');fbTip(null);if(!ours(e))return;e.preventDefault();e.stopPropagation();
     const rels=fb.drag;fb.drag=null;fbMoveTo(rels,fb.root,dest());});}
-document.addEventListener('dragend',()=>{fb.drag=null;for(const n of document.querySelectorAll('#fb .fb-target'))n.classList.remove('fb-target');});
+document.addEventListener('dragend',()=>{fb.drag=null;fbTip(null);for(const n of document.querySelectorAll('#fb .fb-target'))n.classList.remove('fb-target');});
 // Several items, or a folder, come down as one zip: the server gets the list, the browser's own download takes the file.
 async function fbZip(rels){if(!rels.length)return;toast(topText('fb.zipping'));
   try{const out=await api('/admin/api/files/zip',{method:'POST',body:{root:fb.root,paths:rels}});location.href=out.url;}catch(err){toast(err.message);}}
