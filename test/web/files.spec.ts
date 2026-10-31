@@ -277,6 +277,23 @@ test('rows dragged onto a folder or onto the path move there', async ({ page }) 
   expect(has('one.nsp') && has('two.nsp') && !has('Alpha/one.nsp')).toBe(true);
 });
 
+test('a drag says where it will land, and the notice after a move takes it back', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await row(page, 'loose.nsp').locator('td.c-size').hover();
+  await page.mouse.down();
+  const target = await row(page, 'Alpha').locator('td.c-size').boundingBox();
+  await page.mouse.move(target!.x + 10, target!.y + 10, { steps: 8 });
+  await expect(page.locator('#fb-dragtip')).toHaveText('Alpha 폴더로 옮깁니다');
+  await page.mouse.up();
+  await expect(page.locator('#fb-dragtip')).toBeHidden();
+  await expect(page.locator('#toast')).toContainText('1개를 옮겼습니다');
+  expect(has('Alpha/loose.nsp')).toBe(true);
+  await page.locator('#toast').getByRole('button', { name: '되돌리기' }).click();
+  await expect(row(page, 'loose.nsp')).toBeVisible();
+  expect(has('loose.nsp') && !has('Alpha/loose.nsp')).toBe(true);
+});
+
 test('a pick comes down as one zip, and a text or image file opens in a preview', async ({ page }) => {
   put('notes.txt', 'line one\nline two');
   put('cover.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="red"/></svg>');
