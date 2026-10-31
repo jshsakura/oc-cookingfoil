@@ -58,7 +58,8 @@ export function createFileFacts({ files = libraryCache.files, integrity = findin
     return items.map((item) => {
       const f = byRel.get(item.rel);
       if (f) {
-        const base = f.baseTitleId ?? (f.titleId ? baseTitleIdOf(f.titleId) : null);
+        const own = f.titleId ?? titleIdIn(item.name);
+        const base = f.baseTitleId ?? (own ? baseTitleIdOf(own) : null);
         const newest = f.kind === "update" && base ? latest(base) : null;
         const finding = integrity(item.rel);
         const check = CHECKS.has(finding?.verdict) ? finding.verdict : null;

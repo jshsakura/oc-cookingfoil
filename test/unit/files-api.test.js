@@ -364,3 +364,11 @@ test("a share link sends one file to anyone until it runs out or is ended, and o
   assert.equal((await post("/api/files/share", { root: "games", path: "../x", hours: 1 })).status, 400);
   for (const [m, p] of [["POST", "/api/files/share"], ["GET", "/api/files/shares"], ["POST", "/api/files/share/end"]]) assert.equal(tokenBlocked(m, p), true, `${m} ${p}`);
 });
+
+test("a scanned file with no title id of its own keeps the one its name starts with", async () => {
+  const { createFileFacts } = await import("../../src/library/file-facts.js");
+  const rel = "fb/0100000000010000 Known.nsp";
+  const facts = createFileFacts({ files: () => [{ rel }], integrity: () => null, latest: () => null });
+  const [item] = facts("games", [{ name: "0100000000010000 Known.nsp", rel, type: "file" }]);
+  assert.equal(item.titleId, "0100000000010000");
+});

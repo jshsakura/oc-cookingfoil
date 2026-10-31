@@ -291,7 +291,13 @@ test('rows dragged onto a folder or onto the path move there', async ({ page }) 
 });
 
 test('the toolbar shows every action, the address starts with the storage name, and the info pane shows the game', async ({ page }) => {
-  put('Known [0100000000010000][v0].nsp');
+  put('0100000000010000 Known.nsp');
+  await page.route('**/admin/api/files/list?*', async (r) => {
+    const res = await r.fetch();
+    const json = await res.json();
+    for (const item of json.items ?? []) if (item.name.includes('Known')) item.titleId = '0100000000010000';
+    await r.fulfill({ response: res, json });
+  });
   const asked: number[] = [];
   page.on('response', (r) => { if (r.url().includes('/api/title/')) asked.push(r.status()); });
   await page.route('**/api/title/*', (r) => r.fulfill({ json: { id: '0100000000010000', name: 'Known Game', publisher: 'Example Works', releaseDate: 20240115, category: 'Action', description: 'What the game is about.', screenshots: [] } }));
@@ -304,11 +310,11 @@ test('the toolbar shows every action, the address starts with the storage name, 
   await expect(page.locator('#fb-addr')).toHaveValue('게임');
   await page.locator('#fb-addr').fill('게임/fb-test');
   await page.keyboard.press('Enter');
-  await expect(row(page, 'Known [0100000000010000][v0].nsp')).toBeVisible();
+  await expect(row(page, '0100000000010000 Known.nsp')).toBeVisible();
 
   await expect(page.locator('#fb-trash-btn')).toBeDisabled();
   await expect(page.locator('#fb-paste-btn')).toBeDisabled();
-  await row(page, 'Known [0100000000010000][v0].nsp').locator('td.c-size').click();
+  await row(page, '0100000000010000 Known.nsp').locator('td.c-size').click();
   await expect(page.locator('#fb-trash-btn')).toBeEnabled();
   await expect(page.locator('#fb-rename-btn')).toBeEnabled();
   await page.locator('#fb-copy-btn').click();
@@ -603,6 +609,43 @@ test('a share link downloads the file without signing in', async ({ page, baseUR
   expect(got.headers()['content-disposition']).toContain('loose.nsp');
   expect((await stranger.get(`/share/${'A'.repeat(32)}`)).status()).toBe(404);
   await stranger.dispose();
+});
+
+test('a long folder never squeezes the status bar or the toolbars, in the list or the icon view', async ({ page }) => {
+  for (let i = 0; i < 120; i++) put(`many/game ${i}.nsp`);
+  await page.setViewportSize({ width: 1440, height: 720 });
+  await signIn(page);
+  await page.goto('/admin/games');
+  await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
+  await page.locator('#fb-addr').fill('게임/fb-test/many');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#fb-rows tr').nth(20)).toBeVisible();
+  await page.locator('#fb-all').check({ force: true });
+  for (const view of ['#fb-v-list', '#fb-v-grid']) {
+    await page.locator(view).click();
+    const box = await page.evaluate(() => {
+      const of = (q: string) => document.querySelector(q)!.getBoundingClientRect();
+      const fb = of('#fb'), foot = of('#fb-foot'), clear = of('#fb-clear'), cmds = of('#fb .fb-cmds'), mkdir = of('#fb-mkdir'), body = of('#fb .fb-body');
+      return { fbBottom: fb.bottom, footTop: foot.top, footBottom: foot.bottom, clearTop: clear.top, clearBottom: clear.bottom, cmdsBottom: cmds.bottom, mkdirBottom: mkdir.bottom, bodyBottom: body.bottom, vh: innerHeight };
+    });
+    expect(box.clearTop, view).toBeGreaterThanOrEqual(box.footTop);
+    expect(box.clearBottom, view).toBeLessThanOrEqual(box.footBottom);
+    expect(box.footBottom, view).toBeLessThanOrEqual(box.fbBottom);
+    expect(box.fbBottom, view).toBeLessThanOrEqual(box.vh);
+    expect(box.mkdirBottom, view).toBeLessThanOrEqual(box.cmdsBottom);
+    expect(box.bodyBottom, view).toBeLessThanOrEqual(box.footTop + 0.5);
+  }
+});
+
+test('the explorer window fills the screen on a tall window, whichever page opens first', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await signIn(page);
+  for (const url of ['/admin/games', '/admin/retro?tab=folder', '/admin/retro', '/admin/homebrew']) {
+    await page.goto(url);
+    await expect(page.locator('#fb-rows tr').first()).toBeVisible();
+    const bottom = await page.evaluate(() => document.getElementById('fb')!.getBoundingClientRect().bottom);
+    expect(bottom, url).toBeGreaterThan(960);
+  }
 });
 
 test('the status bar sits under the list and never covers its last row, narrow or wide', async ({ page }) => {
