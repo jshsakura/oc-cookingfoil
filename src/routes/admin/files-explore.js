@@ -12,7 +12,6 @@ export const EXPLORE_CSS = /* css */ `
 #fb .fb-seg{display:inline-flex;gap:2px;padding:3px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-lg)}
 #fb .fb-nav .ib{width:38px;height:38px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 #fb .fb-seg .ib{width:32px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:var(--r-md);background:none;color:var(--muted)}
-#fb .fb-upb .ico{transform:rotate(90deg)}
 #fb .fb-seg .ib[aria-pressed="true"]{background:var(--panel);color:var(--text);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2)}
 #fb .fb-crumb{cursor:text;min-height:38px;border-radius:var(--r-md)}
 #fb .fb-crumb:hover{background:var(--sunk)}
@@ -53,11 +52,13 @@ $('fb-back').addEventListener('click',()=>{if(fb.hi>0)history.back();});
 $('fb-fwd').addEventListener('click',()=>{if(fb.hi<fb.hmax)history.forward();});
 $('fb-upb').addEventListener('click',fbParent);
 // The path turns into a text box to type a folder into; Enter goes there, Esc or leaving it puts the path back.
-function fbAddrOpen(){const a=$('fb-addr');a.value='/'+fb.path;$('fb-crumb').hidden=true;a.hidden=false;a.focus();a.select();}
+function fbAddrOpen(){const a=$('fb-addr');a.value=[fbRootName(fb.root),...(fb.path?[fb.path]:[])].join('/');$('fb-crumb').hidden=true;a.hidden=false;a.focus();a.select();}
 function fbAddrClose(){$('fb-addr').hidden=true;$('fb-crumb').hidden=false;}
 $('fb-crumb').addEventListener('click',(e)=>{if(!e.target.closest('button'))fbAddrOpen();});
 $('fb-addr').addEventListener('keydown',(e)=>{if(e.key==='Escape'){e.preventDefault();fbAddrClose();}
-  else if(e.key==='Enter'){e.preventDefault();const to=$('fb-addr').value.split('/').map((p)=>p.trim()).filter(Boolean).join('/');fbAddrClose();fbGo(fb.root,to);}});
+  else if(e.key==='Enter'){e.preventDefault();const parts=$('fb-addr').value.split('/').map((p)=>p.trim()).filter(Boolean);
+    // The address starts with the storage's own name; typing another one's goes there.
+    const root=fb.roots.find((r)=>fbRootName(r.key)===parts[0]);if(root)parts.shift();fbAddrClose();fbGo(root?root.key:fb.root,parts.join('/'));}});
 $('fb-addr').addEventListener('blur',fbAddrClose);
 $('fb-deep').addEventListener('change',(e)=>{fb.deep=e.target.checked;if(fb.q){fbLoad();}});
 // Letters typed on a row go to the first name that starts with them; one letter again steps to the next such name.
@@ -71,14 +72,14 @@ $('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.
 // Cut, copy and paste. A cut is a move when it is pasted (the rows stay dimmed until then); a copy is made on the
 // server, checked against the original, and a name the folder has gets a number.
 const fbClipped=(rel)=>fb.clip?.mode==='cut'&&fb.clip.root===fb.root&&fb.clip.rels.includes(rel);
-function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fb.clip={mode,root:fb.root,rels};
+function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fb.clip={mode,root:fb.root,rels};fbCmds();
   for(const r of document.querySelectorAll('#fb-rows tr'))r.classList.toggle('fb-cut',fbClipped(r.dataset.rel));
   toast(topFill(mode==='cut'?'fb.clipCut':'fb.clipCopy',{n:num(rels.length)}));}
 async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,path:fb.path};
   if(c.mode==='cut'){fb.clip=null;await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
   try{const out=await fbCopyRun({root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path});
     if(out.copied.length)fbUndoPush({trash:{root:to.root,paths:out.copied.map((x)=>x.to)}});
-    const why=fbWhy(out.skipped);if(!out.copied.length&&why){toast(why);fbLoad();return;}
+    const why=fbRefusal(out.skipped);if(!out.copied.length&&why){toast(why);fbLoad();return;}
     const msg=(out.skipped.length?topFill('fb.copiedSome',{n:num(out.copied.length),s:num(out.skipped.length)}):topFill('fb.copied',{n:num(out.copied.length)}))+(why?' '+why:'');
     if(out.copied.length)fbToastUndo(msg);else toast(msg);fbLoad();}
   catch(err){toast(err.message);}}
@@ -87,7 +88,7 @@ async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,pat
 const FB_UNDO_MAX=30;
 function fbUndoPush(step){const journal=(step.journal||[]).filter(Boolean);
   if(step.journal&&!journal.length)return;if(step.restore&&!step.restore.length)return;
-  fb.undos.push({...step,journal});if(fb.undos.length>FB_UNDO_MAX)fb.undos.shift();}
+  fb.undos.push({...step,journal});if(fb.undos.length>FB_UNDO_MAX)fb.undos.shift();fbCmds();}
 // Every part of a step is tried even when one fails (a file changed since), and the first refusal is said.
 async function fbUndo(){const step=fb.undos.pop();if(!step){toast(topText('fb.undoNone'));return;}
   const calls=[...[...step.journal].reverse().map((id)=>['/admin/api/trash/undo',{id}])];

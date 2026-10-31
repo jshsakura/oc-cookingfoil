@@ -29,6 +29,10 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-side .fb-s-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 #fb .fb-side .fb-s-art{width:96px;height:96px;border-radius:var(--r-lg);object-fit:cover;background:var(--sunk)}
 #fb .fb-side .fb-s-art.ico{padding:24px;color:var(--muted)}
+#fb .fb-side .fb-s-meta{display:grid;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+#fb .fb-side .fb-s-about{margin:0;font-size:var(--fs-xs);line-height:1.6;color:var(--muted);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:8;overflow:hidden}
+#fb .fb-side .fb-s-shots{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#fb .fb-side .fb-s-shots img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-sm);background:var(--sunk)}
 #fb .fb-side h4{margin:0;font-size:var(--fs-md);overflow-wrap:anywhere}
 #fb .fb-side .fb-s-sub{font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
 #fb .fb-side .fb-s-why{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.55;color:var(--muted)}
@@ -66,6 +70,7 @@ export const LIBRARY_CSS = /* css */ `
   #fb .fb-crumb{flex:1 1 140px}
   #fb .fb-q{flex:0 1 220px}
   #fb .fb-bar button{height:34px}
+  #fb .fb-cmds{padding:2px 10px;border-bottom:1px solid var(--line)}
   #fb .fb-bar .ib{width:34px}
   .adm-shell>.wrap:has(#fb){padding-top:calc(var(--adm-hdr-h) + 12px);padding-bottom:12px}
   body:has(.ch-launch:not([hidden])) .adm-shell>.wrap:has(#fb){padding-bottom:12px}
@@ -139,7 +144,24 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
   const links=el('div',null,'fb-s-links');
   if(f.type==='file'){act.append(fbSideBtn(FB_ICON.share,'fb.share',()=>fbShare(f,links)));fbShareList(f,links);}
   act.append(fbSideBtn(FB_ICON.rename,'fb.rename',()=>fbRename(f)),fbSideBtn(FB_ICON.trash,'fb.trash',()=>fbTrash([f.rel]),'danger'));
-  s.replaceChildren(head,act,links,dl,...fbWhy(f));}
+  s.replaceChildren(head,act,links,dl,...fbWhy(f));fbSideMeta(s,f,head);}
+// What is known about the game a file or folder belongs to: the same details a console shows, kept once per game.
+const fbMetaKnown=new Map();
+const fbMetaDate=(v)=>{const t=String(v||'');return t.length===8?t.slice(0,4)+'-'+t.slice(4,6)+'-'+t.slice(6):t;};
+function fbMetaRows(d){return [['fb.m.publisher',d.publisher],['fb.m.released',fbMetaDate(d.releaseDate)],['fb.m.genre',d.category],['fb.m.players',d.numberOfPlayers],['fb.m.region',d.region],
+  ['fb.m.rating',d.rating],['fb.m.score',d.score!=null?d.score+(d.scoreLabel?' · '+d.scoreLabel:''):null],['fb.m.latest',d.latestVersion!=null?'v'+d.latestVersion:null],['fb.m.dlc',d.dlcTotal||null],['fb.m.firmware',d.requiredFirmware]]
+  .filter(([,v])=>v!=null&&v!=='');}
+async function fbSideMeta(s,f,head){const id=String(f.titleId||'').toUpperCase();if(!/^[0-9A-F]{16}$/.test(id))return;
+  const box=el('div',null,'fb-s-meta');s.append(box);let d=fbMetaKnown.get(id);
+  if(d===undefined){for(const w of [80,60,90])box.append(Object.assign(el('i',null,'sk'),{style:'width:'+w+'%'}));
+    try{d=await api('/api/title/'+id+'?lang='+encodeURIComponent(adminLang));}catch{d=null;}fbMetaKnown.set(id,d);}
+  if(!box.isConnected)return;box.replaceChildren();if(!d){box.remove();return;}
+  if(d.name&&!f.title){head.querySelector('h4').textContent=d.name;if(!head.querySelector('.fb-s-sub'))head.querySelector('h4').after(el('div',f.name,'fb-s-sub'));}
+  const rows=fbMetaRows(d);if(rows.length){const dl=el('dl');dl.append(...rows.flatMap(([k,v])=>[el('dt',topText(k)),el('dd',String(v))]));box.append(dl);}
+  if(d.description)box.append(el('p',d.description,'fb-s-about'));
+  const shots=(d.screenshots||[]).map((x)=>typeof x==='string'?x:x?.url).filter(Boolean).slice(0,4);
+  if(shots.length){const g=el('div',null,'fb-s-shots');for(const url of shots){const a=el('a');a.href=url;a.target='_blank';a.rel='noopener';const i=el('img');i.alt='';i.loading='lazy';i.src=url;a.append(i);g.append(a);}box.append(g);}
+  if(!box.childElementCount)box.remove();}
 
 // ── share links: one file, anyone with the link, for a while (library/file-shares.js) ─
 async function fbShare(f,links){const root=fb.root;

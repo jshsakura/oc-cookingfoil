@@ -65,7 +65,8 @@ test('a file uploaded into the drop box is sorted at once, without the copy wait
   try {
     await signIn(page);
     await page.goto('/admin/incoming/temp');
-    await expect(page.locator('#fb-upload')).toBeVisible();
+    await expect(page.locator('#up-entry')).toBeVisible();
+    await expect(page.locator('#fb-upload'), 'one upload button on the screen: the header\'s').toHaveCount(0);
     await expect(page.locator('#fb-upload-dir'), 'one upload button; a folder goes by drop or the menu').toHaveCount(0);
     await page.locator('#fb-file').setInputFiles({ name: 'Fresh Quest.gba', mimeType: 'application/octet-stream', buffer: Buffer.from('fresh rom') });
     await expect(page.locator('#toast')).toContainText('1개 옮겼습니다');
