@@ -537,3 +537,19 @@ test('a share link downloads the file without signing in', async ({ page, baseUR
   expect((await stranger.get(`/share/${'A'.repeat(32)}`)).status()).toBe(404);
   await stranger.dispose();
 });
+
+test('the status bar sits under the list and never covers its last row, narrow or wide', async ({ page }) => {
+  await signIn(page);
+  for (const width of [820, 1440]) {
+    await page.setViewportSize({ width, height: 640 });
+    await page.goto('/admin/games');
+    await expect(page.locator('#fb-rows tr').first()).toBeVisible();
+    const [mainBottom, footTop, footBottom] = await page.evaluate(() => [
+      document.getElementById('fb-main')!.getBoundingClientRect().bottom,
+      document.getElementById('fb-foot')!.getBoundingClientRect().top,
+      document.getElementById('fb-foot')!.getBoundingClientRect().bottom,
+    ]);
+    expect(footTop).toBeGreaterThanOrEqual(mainBottom - 0.5);
+    expect(footBottom).toBeLessThanOrEqual(640);
+  }
+});
