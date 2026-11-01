@@ -43,9 +43,6 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-side .fb-s-badges{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
 #fb .fb-side dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;margin:0;font-size:var(--fs-sm)}
 #fb .fb-side dt{color:var(--muted)}#fb .fb-side dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-#fb .fb-side .fb-s-act{display:flex;justify-content:center;gap:6px}
-#fb .fb-side .fb-s-act .ib{width:38px;height:38px;padding:0;display:inline-grid;place-items:center}
-#fb .fb-side .fb-s-act .ib .ico{width:18px;height:18px}
 #fb .fb-side .fb-s-links:empty{display:none}
 #fb .fb-side .fb-s-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 4px 10px;border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-sm)}
 #fb .fb-side .fb-s-link+.fb-s-link{margin-top:4px}
@@ -140,13 +137,8 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
       try{const r=await api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:[f.rel]}});
         dd.textContent=topFill('fb.p.bytes',{size:fbSize(r.bytes),bytes:num(r.bytes)})+' · '+topFill('fb.p.holdsVal',{files:num(r.files),dirs:num(Math.max(0,r.dirs-1))});}
       catch(err){dd.textContent=err.message;}});dd.append(b);dl.append(el('dt',topText('fb.p.size')),dd);}
-  // The actions are a row of icons under the name; their words are in the tooltip and for screen readers.
-  const act=el('div',null,'fb-s-act');
-  act.append(fbSideBtn(FB_ICON.download,f.type==='dir'?'fb.zip':'fb.download',()=>f.type==='dir'?fbZip([f.rel]):fbDownload(f)));
-  const links=el('div',null,'fb-s-links');
-  if(f.type==='file'){act.append(fbSideBtn(FB_ICON.share,'fb.share',()=>fbShare(f,links)));fbShareList(f,links);}
-  act.append(fbSideBtn(FB_ICON.rename,'fb.rename',()=>fbRename(f)),fbSideBtn(FB_ICON.trash,'fb.trash',()=>fbTrash([f.rel]),'danger'));
-  s.replaceChildren(head,act,links,dl,...fbWhy(f));fbSideMeta(s,f,head);}
+  const links=el('div',null,'fb-s-links');if(f.type==='file')fbShareList(f,links);
+  s.replaceChildren(head,links,dl,...fbWhy(f));fbSideMeta(s,f,head);}
 // What is known about the game a file or folder belongs to: the same details a console shows, kept once per game.
 const fbMetaKnown=new Map();
 const fbMetaDate=(v)=>{const t=String(v||'');return t.length===8?t.slice(0,4)+'-'+t.slice(4,6)+'-'+t.slice(6):t;};
@@ -166,7 +158,7 @@ async function fbSideMeta(s,f,head){const id=String(f.titleId||'').toUpperCase()
   if(!box.childElementCount)box.remove();}
 
 // ── share links: one file, anyone with the link, for a while (library/file-shares.js) ─
-async function fbShare(f,links){const root=fb.root;
+async function fbShare(f){const root=fb.root;
   const hours=await askPick(topText('fb.shareAsk'),[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d']].map(([value,k])=>({value,label:topText(k)})));
   if(!hours)return;
   let r;try{r=await api('/admin/api/files/share',{method:'POST',body:{root,path:f.rel,hours:Number(hours)}});}catch(err){toast(err.message);return;}
@@ -174,7 +166,7 @@ async function fbShare(f,links){const root=fb.root;
   // Over plain http the browser keeps the clipboard shut; the link is then shown to copy by hand.
   try{await navigator.clipboard.writeText(r.url);toast(topFill('fb.shareCopied',{when}));}
   catch{await askDialog(topFill('fb.shareCopy',{when}),r.url);}
-  if(root===fb.root&&links.isConnected)fbShareList(f,links);}
+  if(root===fb.root)fbSide();}
 async function fbShareList(f,links){const root=fb.root;let r;
   try{r=await api('/admin/api/files/shares?'+new URLSearchParams({root,path:f.rel}));}catch{return;}
   if(!links.isConnected)return;
