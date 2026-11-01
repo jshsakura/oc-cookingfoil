@@ -1241,5 +1241,6 @@
   "This console is suspended on this server. Contact the server's admin.": "Deze console is op deze server geschorst. Neem contact op met de beheerder van de server.",
   "This console needs to be approved again. Scan the QR code to link it to your account.": "Deze console moet opnieuw worden goedgekeurd. Scan de QR-code om hem aan je account te koppelen.",
   "v{0} stopped twice on this console before it opened, so it is not installed again. A bug report went to the server.": "v{0} is op deze console twee keer gestopt voordat hij opende en wordt daarom niet opnieuw geïnstalleerd. Er is een foutrapport naar de server gestuurd.",
-  "Lost the connection to the server while reading the file: {0}": "De verbinding met de server viel weg tijdens het lezen van het bestand: {0}"
+  "Lost the connection to the server while reading the file: {0}": "De verbinding met de server viel weg tijdens het lezen van het bestand: {0}",
+  "Set the date and time in System Settings > System, then open the app again. What happened goes to the server on its own once it connects.": "Stel de datum en tijd in bij Systeeminstellingen > Console en open de app daarna opnieuw. Wat er gebeurde, wordt automatisch naar de server gestuurd zodra er verbinding is."
 }
