@@ -210,7 +210,7 @@ test("a copy lands beside a taken name with a number and leaves the original", a
   assert.equal(fs.readFileSync(path.join(games.dir, "Copy", "Pack (2)", "p.nsp"), "utf8"), "pp");
   assert.equal(fs.readFileSync(path.join(games.dir, "Copy", "x.nsp"), "utf8"), "xx");
   const into = await (await post("/api/files/copy", { root: "games", paths: ["Copy/Pack"], toPath: "Copy/Pack" })).json();
-  assert.deepEqual(into, { copied: [], skipped: [{ rel: "Copy/Pack", code: "into-itself" }] });
+  assert.deepEqual(into, { copied: [], notes: [], skipped: [{ rel: "Copy/Pack", code: "into-itself" }] });
 });
 
 test("a search with deep finds names in every folder below, and info counts through folders", async () => {

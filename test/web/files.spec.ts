@@ -333,6 +333,38 @@ test('the signed-in admin can read the details the info pane asks for', async ({
   expect([200, 404]).toContain(status);
 });
 
+test('at a laptop width the command bar keeps its words on one line', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await signIn(page);
+  await page.goto('/admin/games');
+  await expect(page.locator('#fb-trash-btn > span')).toBeVisible();
+  const [first, last] = await page.evaluate(() => ['#fb-mkdir', '#fb-undo-btn'].map((q) => document.querySelector(q)!.getBoundingClientRect().top));
+  expect(last).toBe(first);
+});
+
+test('the move dialog names its destination, and a move that will not read right says so with its undo', async ({ page }) => {
+  put('A/a [0100000000010000][v0].nsp');
+  put('B/b [0100000000020000][v0].nsp');
+  await signIn(page);
+  await page.goto('/admin/games');
+  await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
+  await page.locator('#fb-addr').fill('게임/fb-test/A');
+  await page.keyboard.press('Enter');
+  await row(page, 'a [0100000000010000][v0].nsp').locator('td.c-size').click();
+  await page.locator('#fb-move-btn').click();
+  await expect(page.locator('#fb-m-ok')).toBeDisabled();
+  await page.locator('#fb-m-crumb button', { hasText: 'fb-test' }).click();
+  await expect(page.locator('#fb-m-ok')).toHaveText('fb-test 폴더로 옮깁니다');
+  await page.locator('#fb-m-list button').filter({ has: page.getByText('B', { exact: true }) }).click();
+  await expect(page.locator('#fb-m-ok')).toHaveText('B 폴더로 옮깁니다');
+  await page.locator('#fb-m-ok').click();
+  await expect(page.locator('#toast')).toContainText('다른 게임이 들어 있는 폴더입니다');
+  expect(has('B/a [0100000000010000][v0].nsp')).toBe(true);
+  await expect(page.locator('#fb-all')).not.toBeChecked();
+  await page.locator('#toast .toast-act').click();
+  await expect.poll(() => has('A/a [0100000000010000][v0].nsp')).toBe(true);
+});
+
 test('a drag says where it will land, and the notice after a move takes it back', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/games?tab=folder&path=fb-test');

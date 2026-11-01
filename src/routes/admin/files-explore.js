@@ -81,7 +81,8 @@ async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,pat
     if(out.copied.length)fbUndoPush({trash:{root:to.root,paths:out.copied.map((x)=>x.to)}});
     const why=fbRefusal(out.skipped);if(!out.copied.length&&why){toast(why);fbLoad();return;}
     const msg=(out.skipped.length?topFill('fb.copiedSome',{n:num(out.copied.length),s:num(out.skipped.length)}):topFill('fb.copied',{n:num(out.copied.length)}))+(why?' '+why:'');
-    if(out.copied.length)fbToastUndo(msg);else toast(msg);fbLoad();}
+    const note=fbNotes(out.notes);
+    if(out.copied.length)fbToastUndo(note?msg+'. '+note:msg,note?FB_NOTE_TOAST_MS:FB_UNDO_TOAST_MS);else toast(msg);fbLoad();}
   catch(err){toast(err.message);}}
 // Ctrl+Z takes back this tab's steps, newest first: a move or rename through the journal, a trash out of the
 // trash, a new folder or a copy into the trash. The trash page keeps every step, from any tab.

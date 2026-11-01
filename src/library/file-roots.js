@@ -29,6 +29,7 @@ import { copyChecked, moveAcross, moveNoClobber, withLocks, withPartial } from "
 import { numbered, trashItems } from "./trash.js";
 import { recordMove } from "./journal.js";
 import { createFolderSizes } from "./folder-sizes.js";
+import { reviewPlace } from "./place-review.js";
 import { libraryRoots, refresh as refreshRoots } from "./trash-service.js";
 import * as env from "../helpers/envs.js";
 
@@ -364,6 +365,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     const facts = await destFacts(dest, toKey, key);
     const moved = [];
     const skipped = [];
+    const notes = [];
     for (const rel of rels) {
       let at;
       try {
@@ -403,9 +405,11 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
       }
       const note = await recordMove({ action: "move", by, fromRoot: at.root, from: at.rel, toRoot: dest.root, to });
       moved.push({ from: at.rel, to, undo: note?.id ?? null });
+      const awkward = await reviewPlace({ name, abs: path.join(dest.real, name), isDir: (await fsp.stat(path.join(dest.real, name))).isDirectory(), toKey, destRel: dest.rel, destReal: dest.real, rootDir: dest.root.dir });
+      if (awkward) notes.push({ rel: to, code: awkward });
     }
     if (moved.length) refresh([key, toKey]);
-    return { moved, skipped };
+    return { moved, skipped, notes };
   }
 
   /**
@@ -419,6 +423,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     const facts = await destFacts(dest, toKey, key);
     const copied = [];
     const skipped = [];
+    const notes = [];
     for (const rel of rels) {
       let at;
       try {
@@ -462,11 +467,17 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
           progress?.placed(abs);
         }
       }
-      if (to) copied.push({ from: at.rel, to });
+      if (to) {
+        copied.push({ from: at.rel, to });
+        const name = path.basename(to);
+        const abs = path.join(dest.real, name);
+        const awkward = await reviewPlace({ name, abs, isDir: (await fsp.stat(abs)).isDirectory(), toKey, destRel: dest.rel, destReal: dest.real, rootDir: dest.root.dir });
+        if (awkward) notes.push({ rel: to, code: awkward });
+      }
       else skipped.push({ rel, code: "exists" });
     }
     if (copied.length) refresh([toKey]);
-    return { copied, skipped };
+    return { copied, skipped, notes };
   }
 
   /**

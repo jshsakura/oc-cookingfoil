@@ -283,3 +283,39 @@ test("a title's patch folder is not moved into another title's folder, a patch i
   const inner = await fr.move("patches", ["0100BBBB00000000/Cheats"], "patches", "0100AAAA00000000");
   assert.equal(inner.moved.length, 1);
 });
+
+test("a move or copy says when what landed will not read as what it is, and still happens", async () => {
+  const { fr, games, retro } = setup();
+  put(games.dir, "Game A/a [0100000000010000][v0].nsp");
+  put(games.dir, "Game A/a update [0100000000010800][v65536].nsp");
+  put(games.dir, "Game B/b [0100000000020000][v0].nsp");
+  put(games.dir, "Shelf/keep.txt");
+  put(games.dir, "loose [0100000000010800][v1].nsp");
+
+  const same = await fr.move("games", ["loose [0100000000010800][v1].nsp"], "games", "Game A");
+  assert.deepEqual([same.moved.length, same.notes], [1, []]);
+  const other = await fr.move("games", ["Game A/a update [0100000000010800][v65536].nsp"], "games", "Game B");
+  assert.equal(other.moved.length, 1);
+  assert.deepEqual(other.notes.map((n) => n.code), ["other-game"]);
+  const plain = await fr.move("games", ["Game B/b [0100000000020000][v0].nsp"], "games", "Shelf");
+  assert.deepEqual(plain.notes, []);
+
+  put(retro.dir, "roms/snes/.keep");
+  put(retro.dir, "roms/snes/deep/deeper/.keep");
+  put(retro.dir, "roms/nes/.keep");
+  put(retro.dir, "roms/mystery/.keep");
+  put(retro.dir, "bios/.keep");
+  const place = async (name, to) => { put(retro.dir, `in/${name}`); return (await fr.move("retro", [`in/${name}`], "retro", to)).notes.map((n) => n.code); };
+  assert.deepEqual(await place("a.sfc", "roms/snes"), []);
+  assert.deepEqual(await place("b.sfc", "roms/snes/deep"), []);
+  assert.deepEqual(await place("c.sfc", "roms/nes"), ["retro-wrong-system"]);
+  assert.deepEqual(await place("d.sfc", "roms/snes/deep/deeper"), ["retro-too-deep"]);
+  assert.deepEqual(await place("e.sfc", "roms/mystery"), ["retro-no-system"]);
+  assert.deepEqual(await place("f.sfc", ""), ["retro-no-system"]);
+  assert.deepEqual(await place("g.zip", "bios"), []);
+  assert.deepEqual(await place("note.txt", "roms/nes"), []);
+
+  put(retro.dir, "in/h.sfc");
+  const copied = await fr.copy("retro", ["in/h.sfc"], "retro", "roms/nes");
+  assert.deepEqual([copied.copied.length, copied.notes.map((n) => n.code)], [1, ["retro-wrong-system"]]);
+});
