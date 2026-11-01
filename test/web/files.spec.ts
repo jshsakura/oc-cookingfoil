@@ -370,7 +370,7 @@ test('정리 shows what it will move, does it in one go, and the notice takes it
   put('dump/alpha up [0100ABCD00010800][v65536].nsp');
   put('dump/what.nsp');
   await signIn(page);
-  await page.goto('/admin/games');
+  await page.goto('/admin/files');
   await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
   await page.locator('#fb-addr').fill('게임/fb-test/dump');
   await page.keyboard.press('Enter');
