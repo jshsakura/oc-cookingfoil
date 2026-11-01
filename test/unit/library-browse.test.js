@@ -33,7 +33,7 @@ const sample = () => [
 
 test("game files keep their kind, name, version and the file check", () => {
   const [alpha, update, beta, , nro] = gameItems();
-  assert.deepEqual(alpha, { name: "Alpha", kind: "base", rel: games[0].rel, size: 300, mtime: 1000, ext: ".nsp", titleId: "0100000000010000", game: null, version: 0, integrity: "modified", id: null, source: null, repo: null });
+  assert.deepEqual(alpha, { name: "Alpha", kind: "base", rel: games[0].rel, size: 300, mtime: 1000, ext: ".nsp", titleId: "0100000000010000", game: null, version: 0, integrity: "modified", id: null, source: null, repo: null, icon: null });
   assert.equal(update.version, 65536);
   assert.equal(update.integrity, "unchecked");
   assert.equal(beta.integrity, "damaged");
@@ -206,7 +206,7 @@ mountLibraryBrowseApi(router, (req, res) => (req.get("x-admin") ? true : (res.st
     games: async () => gameItems(),
     patches: async () => [lb.item("patch", { name: "한글패치", rel: "0100000000010000/한글패치", size: 20 })],
     saves: async () => { throw new Error("saves folder is gone"); },
-    homebrew: async () => [lb.item("homebrew", { name: "Hand App", rel: "switch/handapp/handapp.nro", size: 7 })],
+    homebrew: async () => [lb.item("homebrew", { name: "Hand App", rel: "switch/handapp/handapp.nro", size: 7, id: "handapp", icon: "/api/homebrew/handapp/icon?v=abc" })],
   },
   other: { list: async () => [{ rel: "A/readme.txt", size: 2, mtime: 10 }], invalidate: () => { updated = "invalidated"; } },
   onLibraryUpdate: (fn) => { updated = fn; },
@@ -230,6 +230,11 @@ test("the route answers every kind's count, and a failing listing only leaves it
   assert.deepEqual(d.counts, { base: 2, update: 1, dlc: 1, patch: 1, save: 0, homebrew: 2, other: 1 });
   assert.deepEqual(d.items.map((i) => i.rel), ["A/readme.txt"]);
   assert.deepEqual(Object.keys(d).sort(), ["counts", "items", "order", "page", "pages", "perPage", "sort", "total"]);
+});
+
+test("a homebrew app comes with its own icon, since it has no title id to find one by", async () => {
+  const d = await (await get("?kind=homebrew&q=Hand")).json();
+  assert.deepEqual(d.items.map((i) => i.icon), ["/api/homebrew/handapp/icon?v=abc"]);
 });
 
 test("the route refuses a wrong parameter as JSON with a stable code", async () => {

@@ -344,6 +344,19 @@ export default function adminPageRouter() {
     await serveAdminPage(req, res, ADMIN_PAGE_BY_PATH.get("/admin"));
   });
 
+  const redirectKeeping = (res, to, query) => {
+    const extra = new URLSearchParams(query).toString();
+    res.redirect(302, extra ? `${to}${to.includes("?") ? "&" : "?"}${extra}` : to);
+  };
+  // /admin/files is the file browser over the games folder; an old link that names another folder
+  // opens that folder on its own page.
+  const FILES_TAB = { retro: "/admin/retro", homebrew: "/admin/homebrew", patches: "/admin/patches", saves: "/admin/saves" };
+  router.get("/files", (req, res, next) => {
+    const { root, ...rest } = req.query;
+    if (root === "incoming") return redirectKeeping(res, "/admin/incoming/temp", rest);
+    if (FILES_TAB[root]) return redirectKeeping(res, `${FILES_TAB[root]}?tab=folder`, rest);
+    next();
+  });
   // The router is mounted at /admin, so each page registers by its path with
   // the mount prefix taken off ("/users", not "/admin/users"); the sidebar and
   // the bridge script keep the full address for the browser.
@@ -359,20 +372,7 @@ export default function adminPageRouter() {
   const MOVED = {
     "/titles": "/admin/games?view=info", "/integrity": "/admin/games?view=verify", "/organize": "/admin/incoming/temp",
   };
-  const redirectKeeping = (res, to, query) => {
-    const extra = new URLSearchParams(query).toString();
-    res.redirect(302, extra ? `${to}${to.includes("?") ? "&" : "?"}${extra}` : to);
-  };
   for (const [from, to] of Object.entries(MOVED)) router.get(from, (req, res) => redirectKeeping(res, to, req.query));
-  // The standalone file browser is gone: each library page has the file browser of its own folder as its "파일" tab.
-  const FILES_TAB = {
-    games: "/admin/games", retro: "/admin/retro", homebrew: "/admin/homebrew", patches: "/admin/patches", saves: "/admin/saves",
-  };
-  router.get("/files", (req, res) => {
-    const { root, ...rest } = req.query;
-    if (root === "incoming") return redirectKeeping(res, "/admin/incoming/temp", rest);
-    redirectKeeping(res, `${FILES_TAB[root] ?? FILES_TAB.games}?tab=folder`, rest);
-  });
   // Alerts moved under the settings: an old bookmark lands on the new address.
   router.get("/notifications", (req, res) => res.redirect(301, "/admin/settings/notifications"));
 

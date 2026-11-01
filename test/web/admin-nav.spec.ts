@@ -22,12 +22,15 @@ test('every earlier admin hash still opens its section', async ({ page }) => {
   }
 });
 
-test('library sub-pages open the panel their hash names', async ({ page }) => {
+test('library sub-pages open the panel their hash names, and the old folder one opens the 파일 page', async ({ page }) => {
   await signIn(page);
-  for (const sub of ['files', 'folder', 'verify', 'info']) {
+  for (const sub of ['files', 'verify', 'info']) {
     await page.goto(`/admin#library/${sub}`);
     await expect(page.locator(`[data-lib-panel="${sub}"]`), sub).toBeVisible();
   }
+  await page.goto('/admin#library/folder');
+  await expect(page).toHaveURL(/\/admin\/files/);
+  await expect(page.locator('#fb-rows')).toBeVisible();
 });
 
 test('the upload entry in the header is on every group and leads to the one upload page', async ({ page }) => {
@@ -46,12 +49,12 @@ test('the upload entry in the header is on every group and leads to the one uplo
 
 test('where the file explorer shows, the header upload asks for files for the open folder and stays there', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder');
+  await page.goto('/admin/files');
   await expect(page.locator('#fb-refresh')).toBeVisible();
   const chooser = page.waitForEvent('filechooser');
   await page.locator('#up-entry').click();
   await chooser;
-  await expect(page).toHaveURL(/\/admin\/games/);
+  await expect(page).toHaveURL(/\/admin\/files/);
 });
 
 test('the menus are named for what they hold, in every language', async ({ page }) => {
@@ -111,12 +114,14 @@ test.describe('on a phone', () => {
     }
 
     // A row that is clipped fades at the hidden edge, and the open page is brought into view.
-    const sub = page.locator('#lib-subtabs');
+    // The games page has three tabs now and fits a phone, so the retro page's eight tabs are the clipped row.
+    const sub = page.locator('#retro-subtabs');
+    await page.goto('/admin/retro');
     await expect(sub).toHaveClass(/fade-r/);
-    await page.goto('/admin#library/info');
+    await page.goto('/admin/retro?view=sets');
     await expect(sub).toHaveClass(/fade-l/);
     // The row scrolls smoothly to it, so wait for the end of the move.
-    await expect.poll(() => page.locator('#lib-subtabs [data-lsub="info"]').evaluate((b) => {
+    await expect.poll(() => page.locator('#retro-subtabs [data-sub="sets"]').evaluate((b) => {
       const r = b.getBoundingClientRect(), p = b.parentElement!.getBoundingClientRect();
       return r.left >= p.left - 1 && r.right <= p.right + 1;
     })).toBe(true);

@@ -7,7 +7,9 @@ import { signIn } from './admin-sign-in';
 // polls stop when the tab hides or the page is left.
 
 const SPLIT: [string, string, string[], RegExp][] = [
-  ['/admin/games', '#fb-rows', ['#users', '#up-form', '#f-list', '#warnings'], /^\/admin\/api\/(library|files|counts)/],
+  ['/admin/games', '#lb-list', ['#users', '#up-form', '#f-list', '#warnings', '#fb-rows'], /^\/admin\/api\/(library|counts)/],
+  ['/admin/library', '#lb-list', ['#users', '#up-form', '#f-list', '#warnings', '#fb-rows', '#lib-subtabs'], /^\/admin\/api\/(library|counts)/],
+  ['/admin/files', '#fb-rows', ['#users', '#up-form', '#f-list', '#warnings', '#lib-files'], /^\/admin\/api\/(library|files|counts)/],
   ['/admin/homebrew', '#fb-rows', ['#users', '#up-form', '#f-list', '#pt-q'], /^\/admin\/api\/(homebrew|files|counts)/],
   ['/admin', '#ov-status', ['#users', '#up-form', '#cr-form', '#f-list', '#cards'], /^\/admin\/api\/(overview|counts)/],
   ['/admin/upload', '#up-drop', ['#users', '#f-list', '#warnings', '#lib-files'], /^\/admin\/api\/(upload\/targets|games\/search|counts)/],

@@ -27,6 +27,8 @@ export const ADMIN_PAGES = [
   { path: "/admin/incoming/temp", tab: "organize", label: "m.organize", row: "incoming", icon: "folder" },
   { path: "/admin/inbox", tab: "inbox", label: "m.inbox", row: "incoming", icon: "send", count: "inbox-count" },
   // the libraries: each page holds its own jobs as tabs
+  { path: "/admin/library", tab: "all", label: "m.allList", group: "library", icon: "log" },
+  { path: "/admin/files", tab: "files", label: "m.files", group: "library", icon: "folder" },
   { path: "/admin/games", tab: "library", label: "m.grpGames", group: "library", icon: "grid" },
   { path: "/admin/retro", tab: "retro", label: "m.retro", group: "library", icon: "joystick" },
   { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", group: "library", icon: "package", param: "tab" },
@@ -73,7 +75,7 @@ export const PATH_FOR_TAB = {
   overview: "/admin", users: "/admin/users", devices: "/admin/devices", settings: "/admin/settings/server",
   alerts: "/admin/settings/notifications", logs: "/admin/logs/downloads", featured: "/admin/featured",
   library: "/admin/games", organize: "/admin/incoming/temp", nsz: "/admin/convert", upload: "/admin/upload", inbox: "/admin/inbox",
-  homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash", client: "/admin/client", patches: "/admin/patches", saves: "/admin/saves",
+  all: "/admin/library", files: "/admin/files", homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash", client: "/admin/client", patches: "/admin/patches", saves: "/admin/saves",
 };
 
 const countSpan = (id, withIds) => `<span class="count"${withIds ? ` id="${id}"` : ` data-count-id="${id}"`} hidden></span>`;
@@ -246,9 +248,11 @@ function pathForHash(parts){const [tab,sub]=parts;
   if(tab==='settings')return ({integrations:'/admin/settings/integrations',security:PAGE.path==='/admin/settings/login'?PAGE.path:'/admin/settings/admin',tokens:'/admin/settings/automation',plugins:'/admin/settings/plugins'})[sub]||'/admin/settings/server';
   if(tab==='logs')return ({client:'/admin/logs/clients',deny:'/admin/logs/security'})[sub]||'/admin/logs/downloads';
   return H2P[tab]||'/admin';}
-// The temp folder, patches and saves were tabs of the games page; each is a page of its own now.
-if(PAGE.path==='/admin/games'){const gone={organize:'/admin/incoming/temp',patches:'/admin/patches',saves:'/admin/saves',server:'/admin/settings/server'};
-  const q=new URLSearchParams(location.search);const was=q.get('view')||location.hash.split('/')[1],to=gone[was];
+// The temp folder, patches, saves and the file browser were tabs of the games page; each is a page of its own now.
+if(PAGE.path==='/admin/games'){const gone={organize:'/admin/incoming/temp',patches:'/admin/patches',saves:'/admin/saves',server:'/admin/settings/server',folder:'/admin/files'};
+  const q=new URLSearchParams(location.search);
+  if(q.get('tab')==='folder'){location.replace('/admin/files'+location.search);return;}
+  const was=q.get('view')||location.hash.split('/')[1],to=gone[was];
   if(to&&(q.get('view')||location.hash.startsWith('#library/'))){q.delete('view');if(was==='patches'||was==='saves')q.set('tab','list');const s=q.toString();location.replace(to+(s?'?'+s:''));return;}}
 const legacy=location.hash.slice(1).split('/');
 if(H2P[legacy[0]]&&(legacy[0]!==PAGE.tab||(['settings','logs'].includes(legacy[0])&&legacy[1]&&pathForHash(legacy)!==PAGE.path))){

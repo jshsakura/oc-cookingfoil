@@ -255,11 +255,23 @@ test('the addresses the menu plan retired redirect to where their job lives now'
       await expect(page.locator(`#${name}-subtabs [data-sub="list"]`)).toHaveAttribute('aria-selected', 'true');
     }
   }
-  // The standalone file browser is gone: /admin/files lands on the "파일" tab of the folder's page.
+  // The games page's 파일 tab became the 파일 page: its old links land there, the folder kept.
+  const kept = `${process.env.COOK_GAMES_DIR}/fb-old`;
+  fs.mkdirSync(kept, { recursive: true });
+  for (const [old, want] of [
+    ['/admin/games?tab=folder&path=fb-old', /\/admin\/files\?tab=folder&path=fb-old(#|$)/],
+    ['/admin/games?view=folder', /\/admin\/files(\?|#|$)/], ['/admin/games#library/folder', /\/admin\/files(\?|#|$)/],
+  ] as [string, RegExp][]) {
+    await page.goto(old);
+    await expect(page, old).toHaveURL(want);
+    await expect(page.locator('#tab-files'), old).toBeVisible();
+  }
+  fs.rmSync(kept, { recursive: true, force: true });
+  // An old /admin/files link to another folder still lands on that folder's own 파일 tab.
   const files: [string, string][] = [
-    ['/admin/files?root=games&path=a', '/admin/games?tab=folder&path=a'], ['/admin/files?root=retro', '/admin/retro?tab=folder'],
+    ['/admin/files?root=retro', '/admin/retro?tab=folder'],
     ['/admin/files?root=homebrew', '/admin/homebrew?tab=folder'], ['/admin/files?root=patches', '/admin/patches?tab=folder'],
-    ['/admin/files?root=saves', '/admin/saves?tab=folder'], ['/admin/files?root=incoming', '/admin/incoming/temp'], ['/admin/files', '/admin/games?tab=folder'],
+    ['/admin/files?root=saves', '/admin/saves?tab=folder'], ['/admin/files?root=incoming', '/admin/incoming/temp'],
   ];
   for (const [from, to] of files) {
     const res = await page.request.get(from, { maxRedirects: 0 });
@@ -269,14 +281,15 @@ test('the addresses the menu plan retired redirect to where their job lives now'
 });
 
 // Every library page has a "파일" tab: the file browser of its own folder, no root switcher, the crumb starting at the folder.
+// The games folder has a 파일 page of its own instead: the sidebar item is its tab.
 const FOLDER_PAGES: [string, string, string][] = [
-  ['/admin/games', 'games', '#lib-subtabs [data-lsub="folder"]'], ['/admin/retro', 'retro', '#retro-subtabs [data-sub="folder"]'],
+  ['/admin/files', 'games', 'aside.adm-side > nav a[aria-current="page"]'], ['/admin/retro', 'retro', '#retro-subtabs [data-sub="folder"]'],
   ['/admin/homebrew', 'homebrew', '#homebrew-subtabs [data-sub="folder"]'], ['/admin/patches', 'patches', '#patches-subtabs [data-sub="folder"]'],
   ['/admin/saves', 'saves', '#saves-subtabs [data-sub="folder"]'],
 ];
 const FOLDER_NAMES: Record<string, string> = { games: '게임', retro: '레트로 게임', homebrew: '홈브류', patches: '패치', saves: '세이브' };
 for (const [path, root, tab] of FOLDER_PAGES) {
-  test(`the ${root} page has a 파일 tab that lists its folder and keeps the place in the address`, async ({ page }) => {
+  test(root === 'games' ? 'the 파일 page lists the games folder and keeps the place in the address' : `the ${root} page has a 파일 tab that lists its folder and keeps the place in the address`, async ({ page }) => {
     await signIn(page);
     const dir = { games: process.env.COOK_GAMES_DIR, retro: process.env.COOK_RETRO_DIR, homebrew: process.env.COOK_HOMEBREW_DIR, patches: process.env.COOK_PATCHES_DIR, saves: process.env.COOK_SAVES_DIR }[root];
     expect(dir, `${root} folder of the test server`).toBeTruthy();
@@ -306,7 +319,7 @@ test('the sidebar lists each group in the agreed order, with no separate securit
   await expect(side.locator('details.adm-grp')).toHaveCount(4);
   await expect(side.locator('details.adm-grp[data-grp="sec"]')).toHaveCount(0);
   const hrefs = (sel: string) => side.locator(`${sel} a.adm-item`).evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  expect(await hrefs('details[data-grp="library"]')).toEqual(['/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/featured', '/admin/trash']);
+  expect(await hrefs('details[data-grp="library"]')).toEqual(['/admin/library', '/admin/files', '/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/featured', '/admin/trash']);
   expect(await hrefs('details[data-grp="people"]')).toEqual(['/admin/users', '/admin/devices', '/admin/client']);
   expect(await hrefs('details[data-grp="ops"]')).toEqual(['/admin/convert', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']);
   expect(await hrefs('details[data-grp="set"]')).toEqual(['/admin/settings/server', '/admin/settings/login', '/admin/settings/admin', '/admin/settings/notifications', '/admin/settings/integrations', '/admin/settings/plugins', '/admin/settings/automation']);
