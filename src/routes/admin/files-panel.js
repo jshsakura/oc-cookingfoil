@@ -30,10 +30,9 @@ export const FILES_CSS = /* css */ `
 #fb .fb-cmd:disabled{opacity:.35;cursor:default}
 #fb .fb-cmd.danger:not(:disabled){color:var(--bad)}
 #fb .fb-sep{width:1px;height:20px;margin:0 6px;background:var(--line)}
-#fb .fb-cmds .fb-views{margin-left:auto}
 #fb .fb-nav .ib:disabled{opacity:.35;cursor:default}
 /* A narrow window keeps the icons; the names stay as tooltips. */
-@container (max-width:1000px){#fb .fb-cmd:not(#fb-mkdir) span{display:none}#fb .fb-cmd:not(#fb-mkdir){padding:0 9px}}
+@container (max-width:900px){#fb .fb-cmd:not(#fb-mkdir) span{display:none}#fb .fb-cmd:not(#fb-mkdir){padding:0 9px}}
 #fb thead [data-sort] span:last-child:not([data-top]){font-size:.7em;color:var(--muted);margin-left:4px}
 #fb .fb-crumb{flex:1 1 320px;display:flex;align-items:center;gap:2px;flex-wrap:wrap;min-width:0;margin:0;padding:0;list-style:none}
 #fb .fb-crumb li{display:flex;align-items:center;gap:2px;min-width:0}
@@ -135,7 +134,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 /* The undo notice takes clicks only while it shows, and on the explorer it sits above the status bar it would cover. */
 .toast:has(.toast-act){display:flex;align-items:center;gap:14px}
 .toast.show:has(.toast-act){pointer-events:auto}
-body:has(#fb) .toast{bottom:84px}
+body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-radius:var(--r-lg)}
 .toast .toast-act{all:unset;cursor:pointer;color:var(--accent);font-weight:var(--fw-bold);padding:2px 4px;border-radius:var(--r-xs)}
 .toast .toast-act:focus-visible{outline:2px solid var(--accent)}
 #fb .fb-crumb button.fb-target{background:rgba(var(--accent-rgb),.18);color:var(--text)}
@@ -153,7 +152,7 @@ body:has(#fb) .toast{bottom:84px}
 #fb-move .fb-m-crumb{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:8px 0;color:var(--muted);font-size:var(--fs-sm)}
 #fb-move .fb-m-crumb button{border:0;background:none;padding:2px 4px;color:var(--muted);font-weight:700}
 #fb-move .fb-m-list{max-height:min(50vh,420px);overflow:auto;border:1px solid var(--line);border-radius:var(--r-lg);margin:0 0 12px;padding:4px}
-#fb-move .fb-m-list button{display:flex;width:100%;align-items:center;gap:8px;border:0;background:none;padding:9px 10px;border-radius:var(--r-md);text-align:left;color:var(--text)}
+#fb-move .fb-m-list button{display:flex;width:100%;height:auto;justify-content:flex-start;align-items:center;gap:8px;border:0;background:none;padding:9px 10px;border-radius:var(--r-md);text-align:left;color:var(--text)}
 #fb-move .fb-m-list button:hover{background:var(--sunk)}
 #fb-move .fb-m-list .ico{color:var(--accent)}
 #fb-move .fb-m-list p{margin:12px;color:var(--muted)}
@@ -185,6 +184,16 @@ export const FOLDER_HTML = `<div id="fb">
     <input type="text" class="fb-addr" id="fb-addr" hidden autocomplete="off" spellcheck="false" ${topLabel("fb.crumbLabel")}>
     <label class="fb-q">${icon("search")}<input type="search" id="fb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("fb.qPh")} ${topLabel("fb.qPh")}></label>
     <label class="fb-deep"><input type="checkbox" id="fb-deep">${top("fb.deep")}</label>
+    <div class="fb-views">
+      <div class="fb-seg" role="group">
+        <button type="button" class="ib" id="fb-v-list" aria-pressed="true" ${topLabel("fb.viewList")}>${icon("log")}</button>
+        <button type="button" class="ib" id="fb-v-grid" aria-pressed="false" ${topLabel("fb.viewGrid")}>${icon("grid")}</button>
+      </div>
+      <div class="fb-seg" role="group">
+        <button type="button" class="ib" id="fb-t-tree" aria-pressed="false" ${topLabel("fb.tree")}>${icon("folder")}</button>
+        <button type="button" class="ib" id="fb-t-side" aria-pressed="false" ${topLabel("fb.side")}>${icon("info")}</button>
+      </div>
+    </div>
   </div>
   <div class="fb-cmds" role="toolbar" ${topLabel("fb.menu")}>
     <button type="button" class="fb-cmd" id="fb-mkdir">${icon("plus")}<span>${top("fb.newFolder")}</span></button>
@@ -199,16 +208,6 @@ export const FOLDER_HTML = `<div id="fb">
     <button type="button" class="fb-cmd danger" id="fb-trash-btn">${icon("trash")}<span>${top("fb.trash")}</span></button>
     <i class="fb-sep"></i>
     <button type="button" class="fb-cmd" id="fb-undo-btn">${icon("undo")}<span>${top("fb.undo")}</span></button>
-    <div class="fb-views">
-      <div class="fb-seg" role="group">
-        <button type="button" class="ib" id="fb-v-list" aria-pressed="true" ${topLabel("fb.viewList")}>${icon("log")}</button>
-        <button type="button" class="ib" id="fb-v-grid" aria-pressed="false" ${topLabel("fb.viewGrid")}>${icon("grid")}</button>
-      </div>
-      <div class="fb-seg" role="group">
-        <button type="button" class="ib" id="fb-t-tree" aria-pressed="false" ${topLabel("fb.tree")}>${icon("folder")}</button>
-        <button type="button" class="ib" id="fb-t-side" aria-pressed="false" ${topLabel("fb.side")}>${icon("info")}</button>
-      </div>
-    </div>
     <input type="file" id="fb-file" multiple tabindex="-1" aria-hidden="true">
     <input type="file" id="fb-dir" webkitdirectory multiple tabindex="-1" aria-hidden="true">
   </div>
@@ -243,7 +242,7 @@ export const FOLDER_HTML = `<div id="fb">
       <ol class="fb-u-list" id="fb-u-list"></ol>
     </section>
     <div class="fb-sel-act">
-      <button type="button" id="fb-clear">${top("fb.clear")}</button>
+      <button type="button" id="fb-clear">${icon("x")}${top("fb.clear")}</button>
     </div>
     <span class="fb-job" id="fb-job" hidden><progress max="100" value="0"></progress><span aria-live="polite"></span></span>
   </div>
@@ -454,7 +453,7 @@ for(const id of ['fb-file','fb-dir'])$(id).addEventListener('change',(e)=>{const
   fbUpload(files.map((f)=>({file:f,rel:f.webkitRelativePath||f.name})));});
 // The move dialog walks folders only, starting where the list is; "Move here" takes the selection there.
 const fbm={root:'',path:'',seq:0};
-async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');
+async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');fbMoveOk();
   fbRootButtons($('fb-m-roots'),fbm.root,(k)=>{fbm.root=k;fbm.path='';fbMoveLoad();});
   const c=$('fb-m-crumb');c.replaceChildren();const parts=fbm.path?fbm.path.split('/'):[];
   const add=(label,to)=>{if(c.childNodes.length)c.append(el('span','/'));const b=el('button',label);b.type='button';b.addEventListener('click',()=>{fbm.path=to;fbMoveLoad();});c.append(b);};
@@ -463,6 +462,8 @@ async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');
   if(n!==fbm.seq)return;const dirs=d.items.filter((f)=>f.type==='dir'&&!(fbm.root===fb.root&&fb.sel.has(f.rel)));
   list.replaceChildren(...dirs.map((f)=>{const b=el('button');b.type='button';b.innerHTML=FB_ICON.dir;b.append(el('span',f.name));b.addEventListener('click',()=>{fbm.path=f.rel;fbMoveLoad();});return b;}));
   if(!dirs.length)list.append(el('p',topText('fb.empty')));}
+// The button names the folder it moves into, and does nothing where the pick already is.
+function fbMoveOk(){const ok=$('fb-m-ok');ok.textContent=topFill('fb.dragTo',{name:fbm.path.split('/').pop()||fbRootName(fbm.root)});ok.disabled=fbm.root===fb.root&&fbm.path===fb.path;}
 function fbMove(){const rels=[...fb.sel];if(!rels.length)return;fbm.root=fb.root;fbm.path=fb.path;const dlg=$('fb-move');
   const done=()=>{$('fb-m-ok').onclick=$('fb-m-no').onclick=null;dlg.close();};
   $('fb-m-no').onclick=done;
@@ -470,13 +471,17 @@ function fbMove(){const rels=[...fb.sel];if(!rels.length)return;fbm.root=fb.root
   dlg.showModal();fbMoveLoad();}
 // A move or copy the server refused as a likely mistake says why, in the page's words (file-roots.js PLACE_RULES).
 const FB_WHY={'game-into-game':'fb.gameIntoGame','title-into-title':'fb.titleIntoTitle','game-wrong-root':'fb.gameWrongRoot'};
+// What the server noticed about where something landed (library/place-review.js): allowed, but it may not read as it should.
+const FB_NOTE={'other-game':'fb.r.otherGame','retro-no-system':'fb.r.noSystem','retro-wrong-system':'fb.r.wrongSystem','retro-too-deep':'fb.r.tooDeep'};
+const fbNotes=(notes)=>[...new Set((notes||[]).map((x)=>FB_NOTE[x.code]).filter(Boolean))].map(topText).join(' ');
 function fbRefusal(skipped){const s=skipped.find((x)=>FB_WHY[x.code]);return s?topText(FB_WHY[s.code]):'';}
 async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){
   try{const out=await api('/admin/api/files/move',{method:'POST',body:{root:fromRoot,paths:rels,toRoot,toPath}});
     for(const m of out.moved)fb.sel.delete(m.from);fbUndoPush({journal:out.moved.map((m)=>m.undo)});
     const why=fbRefusal(out.skipped);if(!out.moved.length&&why){toast(why);fbLoad();return;}
     const msg=(out.skipped.length?topFill('fb.movedSome',{moved:num(out.moved.length),skipped:num(out.skipped.length)}):topFill('fb.moved',{n:num(out.moved.length)}))+(why?' '+why:'');
-    if(out.moved.length)fbToastUndo(msg);else toast(msg);fbLoad();}
+    const note=fbNotes(out.notes);
+    if(out.moved.length)fbToastUndo(note?msg+'. '+note:msg,note?FB_NOTE_TOAST_MS:FB_UNDO_TOAST_MS);else toast(msg);fbLoad();}
   catch(err){toast(err.message);}}
 // Rows dragged onto a folder row or a step of the path move there, the whole pick when the dragged row is in it.
 // Only the list's own drags count: files dragged in from the desktop are uploads (the list's drop handlers).
@@ -491,10 +496,11 @@ function fbDragStart(e,rel){if(!fb.sel.has(rel))fbPick(rel);fb.drag=[...fb.sel];
 function fbTip(e,dest){const tip=$('fb-dragtip');if(!e){tip.hidden=true;return;}
   const name=dest?dest.split('/').pop():(document.querySelector('#fb-crumb li:first-child')?.textContent||'');
   tip.textContent=topFill('fb.dragTo',{name});tip.hidden=false;tip.style.left=(e.clientX+16)+'px';tip.style.top=(e.clientY+18)+'px';}
-function fbToastUndo(msg){toast(msg);const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
+function fbToastUndo(msg,ms=FB_UNDO_TOAST_MS){toast(msg);const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
   b.addEventListener('click',()=>{t.classList.remove('show');fbUndo();});t.append(b);
-  clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),FB_UNDO_TOAST_MS);}
+  clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),ms);}
 const FB_UNDO_TOAST_MS=7000;
+const FB_NOTE_TOAST_MS=15000;
 function fbDropTarget(node,dest){const ours=(e)=>fb.drag&&[...e.dataTransfer.types].includes(FB_DRAG)&&dest()!==false;
   node.addEventListener('dragover',(e)=>{if(!ours(e))return;e.preventDefault();e.dataTransfer.dropEffect='move';node.classList.add('fb-target');fbTip(e,dest());});
   node.addEventListener('dragleave',()=>{node.classList.remove('fb-target');fbTip(null);});

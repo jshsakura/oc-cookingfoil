@@ -18,6 +18,7 @@ const KEYS = [
   "fb.share", "fb.shareAsk", "fb.share1h", "fb.share1d", "fb.share7d", "fb.shareCopied", "fb.shareCopy", "fb.shareUntil", "fb.shareEnd", "fb.shareEnded",
   "fb.gameIntoGame", "fb.dragTo", "fb.titleIntoTitle", "fb.gameWrongRoot", "fb.extAsk", "fb.refresh",
   "fb.m.publisher", "fb.m.released", "fb.m.genre", "fb.m.players", "fb.m.region", "fb.m.rating", "fb.m.score", "fb.m.latest", "fb.m.dlc", "fb.m.firmware",
+  "fb.r.otherGame", "fb.r.noSystem", "fb.r.wrongSystem", "fb.r.tooDeep",
 ];
 
 const ROWS = {
@@ -40,6 +41,7 @@ const ROWS = {
     "타이틀 폴더는 다른 타이틀 폴더 안에 넣지 않습니다.", "Switch 게임 파일은 게임 폴더에만 둡니다. 여기서는 게임으로 읽지 않습니다.", "확장자를 바꾸면 이 파일을 알아보지 못할 수 있습니다. 바꿀까요?",
     "새로 고침",
     "배급사", "출시일", "장르", "인원", "지역", "연령 등급", "평점", "최신 버전", "DLC", "필요 펌웨어",
+    "다른 게임이 들어 있는 폴더입니다. 게임이 섞이지 않았는지 확인해 주세요.", "이 위치에서는 게임으로 인식되지 않습니다. roms 아래 기기 폴더로 옮겨 주세요.", "이 기기 폴더에서는 이 확장자를 게임으로 인식하지 않습니다.", "폴더가 너무 깊어 게임으로 인식되지 않습니다.",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -60,6 +62,7 @@ const ROWS = {
     "A title's folder doesn't go inside another title's folder.", "Switch game files stay in the games folder. They aren't read as games here.", "Changing the extension may make this file unrecognizable. Change it?",
     "Refresh",
     "Publisher", "Released", "Genre", "Players", "Region", "Age rating", "Score", "Latest version", "DLC", "Required firmware",
+    "This folder holds another game. Check that the games did not get mixed.", "Games are not recognised here. Move it to a console folder under roms.", "This console folder does not recognise this file type as a game.", "This folder is too deep for the game to be recognised.",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -80,6 +83,7 @@ const ROWS = {
     "タイトルのフォルダーは、別のタイトルのフォルダーの中には入れません。", "Switch のゲームファイルはゲームフォルダーにだけ置きます。ここではゲームとして読み込みません。", "拡張子を変えると、このファイルを認識できなくなることがあります。変更しますか?",
     "更新",
     "発売元", "発売日", "ジャンル", "人数", "地域", "年齢区分", "評価", "最新バージョン", "DLC", "必要なファームウェア",
+    "別のゲームが入っているフォルダーです。ゲームが混ざっていないか確認してください。", "この場所ではゲームとして認識されません。roms 内の機種フォルダーに移してください。", "この機種フォルダーでは、この拡張子はゲームとして認識されません。", "フォルダーが深すぎてゲームとして認識されません。",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -100,6 +104,7 @@ const ROWS = {
     "标题文件夹不能放进另一个标题的文件夹里。", "Switch 游戏文件只放在游戏文件夹中。这里不会作为游戏读取。", "更改扩展名可能导致无法识别此文件。要更改吗?",
     "刷新",
     "发行商", "发行日期", "类型", "人数", "地区", "年龄分级", "评分", "最新版本", "DLC", "所需固件",
+    "此文件夹包含另一款游戏。请确认游戏没有混在一起。", "此位置无法识别为游戏。请移到 roms 下的主机文件夹。", "此主机文件夹不会将此扩展名识别为游戏。", "文件夹层级太深，无法识别为游戏。",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -120,6 +125,7 @@ const ROWS = {
     "標題資料夾不能放進另一個標題的資料夾裡。", "Switch 遊戲檔案只放在遊戲資料夾中。這裡不會當作遊戲讀取。", "變更副檔名可能導致無法辨識此檔案。要變更嗎?",
     "重新整理",
     "發行商", "發行日期", "類型", "人數", "地區", "年齡分級", "評分", "最新版本", "DLC", "所需韌體",
+    "此資料夾包含另一款遊戲。請確認遊戲沒有混在一起。", "此位置無法辨識為遊戲。請移到 roms 下的主機資料夾。", "此主機資料夾不會將此副檔名辨識為遊戲。", "資料夾層級太深，無法辨識為遊戲。",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -140,6 +146,7 @@ const ROWS = {
     "La carpeta de un título no se mueve dentro de la de otro título.", "Los juegos de Switch se quedan en la carpeta de juegos. Aquí no se leen como juegos.", "Cambiar la extensión puede hacer que este archivo no se reconozca. ¿Cambiarla?",
     "Actualizar",
     "Editor", "Lanzamiento", "Género", "Jugadores", "Región", "Clasificación", "Puntuación", "Última versión", "DLC", "Firmware necesario",
+    "Esta carpeta contiene otro juego. Comprueba que no se hayan mezclado.", "Aquí no se reconocen juegos. Muévelo a una carpeta de consola dentro de roms.", "Esta carpeta de consola no reconoce este tipo de archivo como juego.", "Esta carpeta es demasiado profunda para reconocer el juego.",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -160,6 +167,7 @@ const ROWS = {
     "Le dossier d'un titre ne se place pas dans le dossier d'un autre titre.", "Les jeux Switch restent dans le dossier des jeux. Ici, ils ne sont pas lus comme des jeux.", "Changer l'extension peut rendre ce fichier méconnaissable. La changer ?",
     "Actualiser",
     "Éditeur", "Sortie", "Genre", "Joueurs", "Région", "Classification", "Note", "Dernière version", "DLC", "Firmware requis",
+    "Ce dossier contient un autre jeu. Vérifiez que les jeux ne sont pas mélangés.", "Les jeux ne sont pas reconnus ici. Déplacez-le dans un dossier de console sous roms.", "Ce dossier de console ne reconnaît pas ce type de fichier comme un jeu.", "Ce dossier est trop profond pour que le jeu soit reconnu.",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -180,6 +188,7 @@ const ROWS = {
     "Der Ordner eines Titels kommt nicht in den Ordner eines anderen Titels.", "Switch-Spieldateien bleiben im Spieleordner. Hier werden sie nicht als Spiele gelesen.", "Wenn Sie die Endung ändern, wird diese Datei eventuell nicht mehr erkannt. Ändern?",
     "Aktualisieren",
     "Publisher", "Erschienen", "Genre", "Spieler", "Region", "Altersfreigabe", "Wertung", "Neueste Version", "DLC", "Benötigte Firmware",
+    "Dieser Ordner enthält ein anderes Spiel. Prüfe, ob die Spiele vermischt wurden.", "Spiele werden hier nicht erkannt. Verschiebe es in einen Konsolenordner unter roms.", "Dieser Konsolenordner erkennt diesen Dateityp nicht als Spiel.", "Dieser Ordner liegt zu tief, um das Spiel zu erkennen.",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -200,6 +209,7 @@ const ROWS = {
     "La cartella di un titolo non va dentro quella di un altro titolo.", "I giochi Switch restano nella cartella dei giochi. Qui non vengono letti come giochi.", "Cambiare l'estensione può rendere il file irriconoscibile. Cambiarla?",
     "Aggiorna",
     "Editore", "Uscita", "Genere", "Giocatori", "Regione", "Classificazione", "Punteggio", "Ultima versione", "DLC", "Firmware richiesto",
+    "Questa cartella contiene un altro gioco. Controlla che i giochi non si siano mescolati.", "Qui i giochi non vengono riconosciuti. Spostalo in una cartella console dentro roms.", "Questa cartella console non riconosce questo tipo di file come gioco.", "Questa cartella è troppo profonda per riconoscere il gioco.",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -220,6 +230,7 @@ const ROWS = {
     "A pasta de um título não vai dentro da pasta de outro título.", "Os jogos de Switch ficam na pasta de jogos. Aqui não são lidos como jogos.", "Mudar a extensão pode fazer este arquivo não ser reconhecido. Mudar?",
     "Atualizar",
     "Publicadora", "Lançamento", "Gênero", "Jogadores", "Região", "Classificação", "Nota", "Versão mais recente", "DLC", "Firmware necessário",
+    "Esta pasta contém outro jogo. Verifique se os jogos não se misturaram.", "Jogos não são reconhecidos aqui. Mova para uma pasta de console em roms.", "Esta pasta de console não reconhece este tipo de arquivo como jogo.", "Esta pasta é profunda demais para o jogo ser reconhecido.",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -240,6 +251,7 @@ const ROWS = {
     "De map van een titel komt niet in de map van een andere titel.", "Switch-spellen blijven in de spellenmap. Hier worden ze niet als spel gelezen.", "Als je de extensie wijzigt, wordt dit bestand mogelijk niet meer herkend. Wijzigen?",
     "Vernieuwen",
     "Uitgever", "Uitgebracht", "Genre", "Spelers", "Regio", "Leeftijdsklasse", "Score", "Nieuwste versie", "DLC", "Vereiste firmware",
+    "Deze map bevat een ander spel. Controleer of de spellen niet door elkaar zijn geraakt.", "Spellen worden hier niet herkend. Verplaats het naar een consolemap onder roms.", "Deze consolemap herkent dit bestandstype niet als spel.", "Deze map ligt te diep om het spel te herkennen.",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -260,6 +272,7 @@ const ROWS = {
     "Папку тайтла нельзя помещать в папку другого тайтла.", "Игры Switch хранятся только в папке игр. Здесь они не читаются как игры.", "После смены расширения файл может перестать распознаваться. Изменить?",
     "Обновить",
     "Издатель", "Дата выхода", "Жанр", "Игроки", "Регион", "Возрастной рейтинг", "Оценка", "Последняя версия", "DLC", "Нужная прошивка",
+    "В этой папке другая игра. Проверьте, что игры не смешались.", "Здесь игры не распознаются. Переместите в папку консоли внутри roms.", "Эта папка консоли не распознаёт такой тип файла как игру.", "Папка слишком глубоко, игра не будет распознана.",
   ],
 };
 
