@@ -45,14 +45,14 @@ test('every page opens its own section, marks the sidebar and keeps its address 
   }
 });
 
-test('the retro page lists its eight jobs as tabs, the files first, and keeps the chosen one in its address', async ({ page }) => {
+test('the retro page lists its nine jobs as tabs, the files first, and keeps the chosen one in its address', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
   await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('레트로 게임');
   await expect(page.locator('#retro-subtabs [data-sub="cores"]')).toHaveAttribute('aria-selected', 'true');
   const items = page.locator('#retro-subtabs [data-sub]');
-  await expect(items).toHaveCount(8);
+  await expect(items).toHaveCount(9);
   await expect(items.first()).toHaveAttribute('data-sub', 'folder');
   await expect(items.last()).toHaveAttribute('data-sub', 'sets');
 });

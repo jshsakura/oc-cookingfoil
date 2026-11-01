@@ -603,6 +603,16 @@ export function createAutoCores({
   }
 
   /** A pinned core goes to the retro trash and the nightly build takes its place; a failed fetch puts it back. */
+  /** Fetches one core the pack does not have yet from its source (a core picked by hand); one already there is left alone. */
+  function install(core) {
+    if (!CORE_RE.test(String(core))) throw PackError.of("badCore", {}, { status: 400 });
+    return start("install", [core], async (act) => {
+      if ((await hashOf(path.join(packDir(), coreRel(core)))) !== null) return { installed: [], already: true };
+      if (sourceOf(core) === "upload") return { installed: [], upload: true };
+      return installAll([core], act);
+    });
+  }
+
   function useOfficial(core) {
     if (!CORE_RE.test(String(core))) throw PackError.of("badCore", {}, { status: 400 });
     return start("official", [core], async () => {
@@ -707,6 +717,7 @@ export function createAutoCores({
   return {
     check,
     update,
+    install,
     useOfficial,
     useUserVersion,
     recover,

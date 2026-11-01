@@ -22,13 +22,15 @@
  *   POST /admin/api/retro-cores/auto          fetches the missing cores of the consoles with games now, from the
  *                                             libretro nightly buildbot (202 { started, cores } or 200 { started: false, reason })
  *   POST /admin/api/retro-cores/update        replaces each server core whose CRC-32 the nightly index changed (202)
+ *   POST /admin/api/retro-cores/install       { core, system? } fetches one core the pack does not have (202); one already there
+ *                                             is left alone. With system, that console plays with the core once it is in the pack
  *   POST /admin/api/retro-cores/official      { core } the user's core goes to the retro trash, the nightly one takes its place (202)
  *   POST /admin/api/retro-cores/user-version  { core, hidden? } the user's core comes back from the trash, or with
  *                                             `hidden` the held file of that name (200 { core, restored, trashed? })
  *   409 while another core job or a pack fill runs.
  *
  * E = { size, sha256, modifiedAt, origin: "official" | "modified" | "extra" } (src/retro/core-list.js).
- * Each systems[] entry carries coreState { id, core, state, reason?, message?, retryAt?, origin?, source?, built?,
+ * Each systems[] entry carries advice { pick, why, alts: [{ core, why }], separate } (src/retro/core-advice.js) or null, and coreState { id, core, state, reason?, message?, retryAt?, origin?, source?, built?,
  * crc32?, userVersion? } (src/retro/auto-cores.js coreStates), and `auto` is the upkeep's
  * { enabled, source, job, failures, last, hidden: [{ file, core, name, size, modifiedAt }] } (hidden: a user's
  * core left beside a taken place by a crash or a lost race, held for the admin). The GET only reads: it moves
@@ -56,6 +58,7 @@ import { autoCores } from "../../retro/auto-cores.js";
 import { PackError } from "../../retro/pack-bundle.js";
 import { coreError, coreErrorText, coreWord } from "../../retro/core-messages.js";
 import { requestLang } from "../../meta/langs.js";
+import { adviceFor } from "../../retro/core-advice.js";
 
 let hashCache = null;
 
@@ -85,7 +88,7 @@ export async function retroCoresView() {
  */
 export function localizeCoresView(view, lang) {
   const say = (x, field) => (x?.code ? { ...x, [field]: coreErrorText(lang, x) } : x);
-  return { ...view, systems: view.systems.map((sys) => ({ ...sys, coreState: say(sys.coreState, "message") })), auto: { ...view.auto, last: say(view.auto.last, "error") } };
+  return { ...view, systems: view.systems.map((sys) => ({ ...sys, coreState: say(sys.coreState, "message"), advice: adviceFor(sys.id, lang) })), auto: { ...view.auto, last: say(view.auto.last, "error") } };
 }
 
 export function mountRetroCoresApi(router, requireSession) {
@@ -170,6 +173,23 @@ export function mountRetroCoresApi(router, requireSession) {
   const jobView = (j) => ({ started: true, kind: j.kind, cores: [...j.cores], startedAt: j.startedAt, done: j.done });
   job("auto", async (a) => a.check(await retroCatalog.current(retroDir), { force: true }));
   job("update", async (a) => jobView(a.update()));
+  // With `system`, the console switches to the core once it is in the pack.
+  job("install", async (a, body) => {
+    const system = typeof body.system === "string" ? body.system : null;
+    if (system && !(await retroCatalog.current(retroDir)).systems[system]) throw PackError.of("noSystem", {}, { status: 404 });
+    const started = a.install(body.core);
+    if (system) {
+      started.done.then(async (out) => {
+        if (out?.error || !(out?.already || out?.installed?.includes(body.core))) return;
+        const catalog = await retroCatalog.current(retroDir);
+        const tableCore = catalog.systems[system]?.tableCore ?? catalog.systems[system]?.core;
+        systemCores.set(system, body.core === tableCore ? null : body.core);
+        await retroCatalog.rescan(retroDir);
+        debug.log("admin retro-cores: %s plays with %s", system, body.core);
+      }).catch((err) => debug.error("admin retro-cores: %s not switched: %s", system, err.message));
+    }
+    return jobView(started);
+  });
   job("official", async (a, body) => jobView(a.useOfficial(body.core)));
   job("user-version", async (a, body) => a.useUserVersion(body.core, { hidden: typeof body.hidden === "string" ? body.hidden : null }));
 

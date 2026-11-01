@@ -206,6 +206,11 @@ function rebuildManifest() {
   return building;
 }
 
+/** The pack's files changed (a config edited on the admin page): the next request reads them again. */
+export function basePackChanged() {
+  manifest = null;
+}
+
 /** The manifest; stale ones refresh in the background, the first waits a little then reports pending. */
 async function currentManifest() {
   // A core switched on or off changes what the pack holds: the old manifest no longer applies.

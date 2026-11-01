@@ -10,6 +10,7 @@
 import { icon } from "../../views/icons.js";
 import { RETRO_KO_HTML, RETRO_KO_SCRIPT } from "./retro-ko-panel.js";
 import { RETRO_PATCH_HTML, RETRO_PATCH_SCRIPT } from "./retro-patch-panel.js";
+import { RETRO_CONFIG_CSS, RETRO_CONFIG_HTML, RETRO_CONFIG_SCRIPT } from "./retro-config-panel.js";
 import { RETRO_VARIANTS_CSS, RETRO_VARIANTS_HTML, RETRO_VARIANTS_SCRIPT } from "./retro-variants-panel.js";
 import { RQ_WORDS } from "./retro-requirements-words.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
@@ -21,6 +22,7 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
     <button type="button" role="tab" data-sub="art">${icon("image")}${top("ra.title")}</button>
     <button type="button" role="tab" data-sub="ratings">${icon("star")}${top("rt.ratings")}</button>
     <button type="button" role="tab" data-sub="cores">${icon("package")}${top("ra.coresTitle")}</button>
+    <button type="button" role="tab" data-sub="raconf">${icon("sliders")}${top("rcf.tab")}</button>
     <button type="button" role="tab" data-sub="names">${icon("tag")}${top("rk.tab")}</button>
     <button type="button" role="tab" data-sub="patch">${icon("upload")}${top("rpt.tab")}</button>
     <button type="button" role="tab" data-sub="dups">${icon("copy")}${top("rv.title")}</button>
@@ -64,6 +66,9 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <div class="scroll" id="rc-systems" data-skel></div>
   <h3>${top("ra.installed")}</h3>
   <div class="scroll" id="rc-list" data-skel></div>
+  </div>
+  <div data-sub-panel="raconf" hidden>
+${RETRO_CONFIG_HTML}
   </div>
   <div data-sub-panel="names" hidden>
 ${RETRO_KO_HTML}
@@ -111,7 +116,7 @@ ${RETRO_VARIANTS_HTML}
   </form>
 </dialog>`;
 
-export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + `
+export const RETRO_ART_CSS = RETRO_VARIANTS_CSS + RETRO_CONFIG_CSS + `
 .ra-scaffold{margin:0 0 12px}.ra-scaffold summary{cursor:pointer;font-weight:var(--fw-bold)}
 .ra-scaffold-list{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.ra-scaffold-list code{font-size:var(--fs-xs)}
 .rm-form{display:grid;gap:12px}.rm-form label{display:grid;gap:4px}.rm-form textarea{width:100%;resize:vertical}
@@ -155,17 +160,18 @@ export const RETRO_ART_SCRIPT = /* js */ `
 let raData=null,raGame=null,raTimer=null;
 // One sub-tab at a time, the folder first; the address carries any other.
 // var, not let: the tab can open while the page's script is still being read.
-var RETRO_SUBS=['folder','art','ratings','cores','names','patch','dups','sets'];
+var RETRO_SUBS=['folder','art','ratings','cores','raconf','names','patch','dups','sets'];
 var retroSub='folder';
 function retroShowSub(sub){retroSub=RETRO_SUBS.includes(sub)?sub:'folder';
   if(retroSub!=='folder'){const next=new URL(location.href);
     if(next.searchParams.get('view')!==retroSub||next.searchParams.has('tab')||next.searchParams.has('path')){
       next.searchParams.set('view',retroSub);next.searchParams.delete('tab');next.searchParams.delete('path');history.replaceState(null,'',next);}}
   for(const b of document.querySelectorAll('#retro-subtabs [data-sub]'))b.setAttribute('aria-selected',String(b.dataset.sub===retroSub));
-  const panel=['art','ratings','cores','names','patch','folder'].includes(retroSub)?retroSub:'versions';
+  const panel=['art','ratings','cores','raconf','names','patch','folder'].includes(retroSub)?retroSub:'versions';
   for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=p.dataset.subPanel!==panel;
   if(panel==='folder')fbOpen('retro');
   if(panel==='names')loadRetroKo();
+  if(panel==='raconf')loadRetroConfig();
   if(panel==='patch')loadRetroPatch();
   if(panel==='cores'){loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});}
   if(panel==='versions'&&rvView!==retroSub){rvView=retroSub;rvShow();loadRetroVariants();}
@@ -236,12 +242,12 @@ function rcPicker(s){const sel=el('select');sel.setAttribute('aria-label',s.name
   if(s.others.length)sel.append(group(topText('t.a.other'),s.others));
   sel.addEventListener('change',()=>rcSetSystem(s,sel.value,sel));return sel;}
 function rcSystems(list){
-  table('rc-systems',[topText('rk.colSystem'),topText('m.grpGames'),topText('rt.cores'),''],list.map((s)=>{const tr=el('tr');
+  table('rc-systems',[topText('rk.colSystem'),topText('m.grpGames'),topText('rt.cores'),topText('rc.adv.col'),''],list.map((s)=>{const tr=el('tr');
     const cs=s.coreState;const state=cs?acPill(cs):!s.installed?pill(topText('ac.missing.auto-off'),'warn'):'';const swap=cs?acSwap(cs):'';
     const picked=s.core!==s.tableCore?pill(topText('rc.changedFromDefault'),''):'';
     const back=s.core!==s.tableCore?tbtn('restore','rc.toDefault',()=>rcSetSystem(s,s.tableCore)):'';
     const extra=td();if(cs)extra.append(rcSource(cs.core));if(state)extra.append(state);if(swap)extra.append(swap);if(picked)extra.append(picked);if(back)extra.append(back);
-    tr.append(td(s.name),td(topFill('ss.nCount',{n:s.games})),raCell(rcPicker(s)),extra);return tr;}),topText('rc.noSystems'));}
+    tr.append(td(s.name),td(topFill('ss.nCount',{n:s.games})),raCell(rcPicker(s)),rcAdvice(s),extra);return tr;}),topText('rc.noSystems'));}
 async function rcSetSystem(s,core,sel){
   if(!await ask(topFill('rc.setQ',{name:s.name,n:s.games,core}))){if(sel)sel.value=s.core;return;}
   try{await api('/admin/api/retro-cores/system',{method:'POST',body:{system:s.id,core}});toast(topFill('rc.setDone',{name:s.name,core}));loadRetroCores();}
@@ -483,4 +489,4 @@ $('ra-dialog').addEventListener('paste',(e)=>{const f=[...(e.clipboardData?.file
 $('ra-search').addEventListener('submit',(e)=>{e.preventDefault();raSearch();});
 $('ra-sgdb-go').addEventListener('click',raSgdb);
 $('ra-none').addEventListener('click',async()=>{if(await ask(topText('ra.noneQ')))raApply('/admin/api/retro-art/match',{game:raGame.id,name:null});});
-`+RETRO_KO_SCRIPT+RETRO_PATCH_SCRIPT+RETRO_VARIANTS_SCRIPT;
+`+RETRO_KO_SCRIPT+RETRO_PATCH_SCRIPT+RETRO_VARIANTS_SCRIPT+RETRO_CONFIG_SCRIPT;

@@ -68,6 +68,7 @@ import { mountRetroVariantsApi } from "./admin/retro-variants-api.js";
 import { mountRetroKoApi } from "./admin/retro-ko-api.js";
 import { mountRetroPatchApi } from "./admin/retro-patch-api.js";
 import { mountRetroCoresApi } from "./admin/retro-cores-api.js";
+import { mountRetroConfigApi } from "./admin/retro-config-api.js";
 import { mountRetroPackApi } from "./admin/retro-pack-api.js";
 import { mountApiTokensApi } from "./admin/api-tokens-api.js";
 import { mountServerSettingsApi } from "./admin/server-settings-api.js";
@@ -640,6 +641,7 @@ export default function adminPageRouter() {
   mountRetroKoApi(router, requireSession);
   mountRetroPatchApi(router, requireSession);
   mountRetroCoresApi(router, requireSession);
+  mountRetroConfigApi(router, requireSession);
   mountRetroPackApi(router, requireSession);
   mountApiTokensApi(router, requireSession);
   mountServerSettingsApi(router, requireSession);
