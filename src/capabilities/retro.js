@@ -171,6 +171,20 @@ export const retroCapabilities = [
     },
   }),
   defineCapability({
+    id: "retro_core_fetch",
+    area: "retro",
+    title: "Fetch one RetroArch core",
+    description: "Starts one job fetching a core the pack lacks from its source (nightly or the core repository), such as a recommended core. A core in the pack or set to the admin's upload is left alone.",
+    input: { type: "object", properties: { core: CORE_ARG }, required: ["core"] },
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/retro-cores/install" },
+    handler: async (_ctx, { core }) => {
+      const { autoCores } = await import("../retro/auto-cores.js");
+      const job = (await autoCores()).install(core);
+      return { started: true, kind: job.kind, cores: [...job.cores], startedAt: job.startedAt };
+    },
+  }),
+  defineCapability({
     id: "retro_requirements",
     area: "retro",
     title: "Cores and BIOS the retro games need",

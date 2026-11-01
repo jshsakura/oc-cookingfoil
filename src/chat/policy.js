@@ -23,7 +23,7 @@ export const AUTO_WRITES = Object.freeze({
 export const DEFAULT_TIERS = Object.freeze(Object.fromEntries([
   ...auto(
     "help", "games_search", "game_get", "game_art_search", "retro_games_search", "retro_game_get", "retro_art_status",
-    "retro_art_candidates", "retro_sgdb_search", "retro_sgdb_covers", "retro_ko_names", "retro_cores", "retro_core_files",
+    "retro_art_candidates", "retro_sgdb_search", "retro_sgdb_covers", "retro_ko_names", "retro_cores", "retro_core_files", "retro_config",
     "retro_requirements", "retro_rom_patches", "library_storage_guide", "library_folder_guide", "library_variants", "files_list",
     "jobs_list", "server_status", "server_overview", "trash_list", "trash_journal", "plugin_list", "agent_list", "account_list",
     "device_list", "integration_list", "alerts_get", "settings_get", "games_wishlist", "game_art", "games_show", "games_recommend",
@@ -31,7 +31,7 @@ export const DEFAULT_TIERS = Object.freeze(Object.fromEntries([
   ),
   ...approve(
     "game_art_set", "game_art_crop", "retro_art_sync", "retro_art_match", "retro_cover_set", "retro_ko_name_decide", "retro_ko_index",
-    "retro_cores_fetch_missing", "retro_cores_update", "trash_restore", "trash_undo",
+    "retro_cores_fetch_missing", "retro_cores_update", "retro_core_fetch", "retro_config_set", "retro_config_undo", "trash_restore", "trash_undo",
     "settings_set", "integration_set", "account_set", "device_set", "sends_set", "alerts_set", "server_restart", "server_task",
     "retro_core_enabled", "retro_core_source", "retro_core_repo", "agent_order", "agent_clear",
   ),
