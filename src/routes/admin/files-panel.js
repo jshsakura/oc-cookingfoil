@@ -24,12 +24,12 @@ export const FILES_CSS = /* css */ `
 #fb .fb-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 /* What can be done is always on the screen: an action that does not apply yet is dimmed, never hidden. */
 #fb .fb-cmds{container-type:inline-size;display:flex;align-items:center;gap:2px;flex-wrap:wrap;min-height:38px}
-#fb .fb-cmd{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-weight:var(--fw-bold);white-space:nowrap}
+#fb .fb-cmd{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 7px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-weight:var(--fw-bold);white-space:nowrap}
 #fb .fb-cmd .ico{width:16px;height:16px;flex:none}
 #fb .fb-cmd:hover:not(:disabled){background:var(--sunk)}
 #fb .fb-cmd:disabled{opacity:.35;cursor:default}
 #fb .fb-cmd.danger:not(:disabled){color:var(--bad)}
-#fb .fb-sep{width:1px;height:20px;margin:0 6px;background:var(--line)}
+#fb .fb-sep{width:1px;height:20px;margin:0 3px;background:var(--line)}
 #fb .fb-nav .ib:disabled{opacity:.35;cursor:default}
 /* A narrow window keeps the icons; the names stay as tooltips. */
 @container (max-width:900px){#fb .fb-cmd:not(#fb-mkdir) span{display:none}#fb .fb-cmd:not(#fb-mkdir){padding:0 9px}}
@@ -149,6 +149,9 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
 #fb-view .fb-v-body pre{place-self:stretch;margin:0;padding:12px 14px;font-size:var(--fs-sm);white-space:pre-wrap;word-break:break-all;max-height:calc(100vh - 200px);overflow:auto}
 #fb-view .fb-v-note{margin:0;font-size:var(--fs-xs)}
 #fb-move{width:min(560px,calc(100vw - 32px))}
+#fb-move .fb-roots{gap:4px}
+#fb-move .fb-roots button{height:32px;padding:0 10px;font-size:var(--fs-sm)}
+#fb-move .dialog-actions #fb-m-new{margin-right:auto}
 #fb-move .fb-m-crumb{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:8px 0;color:var(--muted);font-size:var(--fs-sm)}
 #fb-move .fb-m-crumb button{border:0;background:none;padding:2px 4px;color:var(--muted);font-weight:700}
 #fb-move .fb-m-list{max-height:min(50vh,420px);overflow:auto;border:1px solid var(--line);border-radius:var(--r-lg);margin:0 0 12px;padding:4px}
@@ -205,6 +208,7 @@ export const FOLDER_HTML = `<div id="fb">
     <button type="button" class="fb-cmd" id="fb-rename-btn">${icon("pencil")}<span>${top("fb.rename")}</span></button>
     <button type="button" class="fb-cmd" id="fb-move-btn">${icon("foldermove")}<span>${top("fb.move")}</span></button>
     <button type="button" class="fb-cmd" id="fb-zip-btn">${icon("download")}<span>${top("fb.download")}</span></button>
+    <button type="button" class="fb-cmd" id="fb-share-btn">${icon("send")}<span>${top("fb.share")}</span></button>
     <button type="button" class="fb-cmd danger" id="fb-trash-btn">${icon("trash")}<span>${top("fb.trash")}</span></button>
     <i class="fb-sep"></i>
     <button type="button" class="fb-cmd" id="fb-undo-btn">${icon("undo")}<span>${top("fb.undo")}</span></button>
@@ -269,7 +273,7 @@ export const FOLDER_HTML = `<div id="fb">
   <div class="fb-roots" id="fb-m-roots" role="group" ${topLabel("fb.rootsLabel")}></div>
   <div class="fb-m-crumb" id="fb-m-crumb"></div>
   <div class="fb-m-list" id="fb-m-list"></div>
-  <div class="dialog-actions"><button type="button" id="fb-m-no">${top("fb.cancel")}</button><button type="button" class="primary" id="fb-m-ok">${top("fb.moveHere")}</button></div>
+  <div class="dialog-actions"><button type="button" id="fb-m-new">${icon("plus")}${top("fb.newFolder")}</button><button type="button" id="fb-m-no">${top("fb.cancel")}</button><button type="button" class="primary" id="fb-m-ok">${top("fb.moveHere")}</button></div>
 </dialog>`;
 
 export const FILES_SCRIPT = /* js */ `
@@ -335,7 +339,7 @@ function fbPick(rel,{add=false,range=false}={}){const rels=fbRels();
   fb.focus=rel;fbPaint();}
 function fbFocusRow(){for(const r of document.querySelectorAll('#fb-rows tr'))if(r.dataset.rel===fb.focus){r.focus();r.scrollIntoView({block:'nearest'});return;}}
 function fbCmds(){const n=fb.sel.size;for(const id of ['fb-cut-btn','fb-copy-btn','fb-move-btn','fb-zip-btn','fb-trash-btn'])$(id).disabled=!n;
-  $('fb-rename-btn').disabled=n!==1;$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
+  const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=one?.type!=='file';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
 function fbFoot(){fbCmds();const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   if(n)foot.dataset.sel='';else delete foot.dataset.sel;
   $('fb-info').textContent=n?topFill('fb.selected',{n:num(n)}):d?topFill('fb.counts',{dirs:num(d.counts.dirs),files:num(d.counts.files)}):'';
@@ -462,11 +466,15 @@ async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');fbMoveOk
   if(n!==fbm.seq)return;const dirs=d.items.filter((f)=>f.type==='dir'&&!(fbm.root===fb.root&&fb.sel.has(f.rel)));
   list.replaceChildren(...dirs.map((f)=>{const b=el('button');b.type='button';b.innerHTML=FB_ICON.dir;b.append(el('span',f.name));b.addEventListener('click',()=>{fbm.path=f.rel;fbMoveLoad();});return b;}));
   if(!dirs.length)list.append(el('p',topText('fb.empty')));}
+async function fbMoveNewFolder(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
+  try{const out=await api('/admin/api/files/mkdir',{method:'POST',body:{root:fbm.root,path:fbm.path,name:name.trim()}});
+    fbUndoPush({trash:{root:out.root,paths:[out.rel]}});fbm.path=out.rel;fbMoveLoad();}catch(err){toast(err.message);}}
 // The button names the folder it moves into, and does nothing where the pick already is.
 function fbMoveOk(){const ok=$('fb-m-ok');ok.textContent=topFill('fb.dragTo',{name:fbm.path.split('/').pop()||fbRootName(fbm.root)});ok.disabled=fbm.root===fb.root&&fbm.path===fb.path;}
 function fbMove(){const rels=[...fb.sel];if(!rels.length)return;fbm.root=fb.root;fbm.path=fb.path;const dlg=$('fb-move');
   const done=()=>{$('fb-m-ok').onclick=$('fb-m-no').onclick=null;dlg.close();};
   $('fb-m-no').onclick=done;
+  $('fb-m-new').onclick=fbMoveNewFolder;
   $('fb-m-ok').onclick=()=>{const to={root:fbm.root,path:fbm.path};done();fbMoveTo(rels,to.root,to.path);};
   dlg.showModal();fbMoveLoad();}
 // A move or copy the server refused as a likely mistake says why, in the page's words (file-roots.js PLACE_RULES).
@@ -547,6 +555,7 @@ $('fb-move-btn').addEventListener('click',fbMove);
 $('fb-zip-btn').addEventListener('click',()=>{const rels=[...fb.sel];const one=rels.length===1?fbItem(rels[0]):null;if(one?.type==='file')fbDownload(one);else fbZip(rels);});
 $('fb-cut-btn').addEventListener('click',()=>fbClip('cut'));$('fb-copy-btn').addEventListener('click',()=>fbClip('copy'));$('fb-paste-btn').addEventListener('click',fbPaste);
 $('fb-rename-btn').addEventListener('click',()=>{const one=fb.sel.size===1?fbItem([...fb.sel][0]):null;if(one)fbRename(one);});
+$('fb-share-btn').addEventListener('click',()=>{const one=fb.sel.size===1?fbItem([...fb.sel][0]):null;if(one?.type==='file')fbShare(one);});
 $('fb-undo-btn').addEventListener('click',fbUndo);$('fb-refresh').addEventListener('click',()=>fbLoad());
 $('fb-trash-btn').addEventListener('click',()=>fbTrash([...fb.sel]));
 $('fb-clear').addEventListener('click',()=>{fb.sel.clear();fb.anchor=null;fbPaint();});
@@ -582,6 +591,7 @@ function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const one=rels.
     if(one&&fbKind(one))add('fb.view','view',()=>fbView(one));
     if(one?.type==='file')add('fb.download','download',()=>fbDownload(one));
     else add('fb.zip','zip',()=>fbZip(rels));
+    if(one?.type==='file')add('fb.share','share',()=>fbShare(one));
     add('fb.cut','cut',()=>fbClip('cut'));add('fb.copy','copy',()=>fbClip('copy'));
     if(one)add('fb.rename','rename',()=>fbRename(one));
     if(fb.clip)add('fb.paste','paste',fbPaste);

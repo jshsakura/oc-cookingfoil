@@ -147,7 +147,7 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await page.goto('/admin/games?tab=folder&path=fb-test');
   const menu = page.locator('#fb-menu');
   await row(page, 'loose.nsp').locator('td.c-mtime').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['내려받기', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['내려받기', '공유 링크', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
   await expect(menu.getByRole('menuitem').first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
@@ -365,6 +365,24 @@ test('the move dialog names its destination, and a move that will not read right
   await expect.poll(() => has('A/a [0100000000010000][v0].nsp')).toBe(true);
 });
 
+test('the move dialog makes the folder it needs and moves into it', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games');
+  await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
+  await page.locator('#fb-addr').fill('게임/fb-test');
+  await page.keyboard.press('Enter');
+  await row(page, 'loose.nsp').locator('td.c-size').click();
+  await page.locator('#fb-move-btn').click();
+  await page.locator('#fb-m-new').click();
+  await page.locator('#ask-input').fill('Fresh');
+  await page.locator('#ask-ok').click();
+  await expect(page.locator('#fb-m-ok')).toHaveText('Fresh 폴더로 옮깁니다');
+  await expect(page.locator('#fb-m-ok')).toBeEnabled();
+  await page.locator('#fb-m-ok').click();
+  await expect.poll(() => has('Fresh/loose.nsp')).toBe(true);
+  await expect(page.locator('#fb-share-btn')).toBeDisabled();
+});
+
 test('a drag says where it will land, and the notice after a move takes it back', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/games?tab=folder&path=fb-test');
@@ -554,9 +572,8 @@ test('on a wide screen the folder tree and the details pane open beside the list
   await row(page, 'loose.nsp').locator('.fb-name').click();
   await expect(side.getByRole('heading', { name: 'loose.nsp' })).toBeVisible();
   await expect(side).toContainText('3 B');
-  await expect(side.locator('.fb-s-act').getByRole('button')).toHaveText(['', '', '', '']);
-  await expect(side.getByRole('button', { name: '이름 바꾸기' })).toBeVisible();
-  await side.getByRole('button', { name: '공유 링크' }).click();
+  await expect(page.locator('#fb-share-btn')).toBeEnabled();
+  await page.locator('#fb-share-btn').click();
   await page.locator('#ask-select').selectOption({ label: '하루' });
   await page.locator('#ask-ok').click();
   // Without clipboard access the link is shown to copy by hand.
