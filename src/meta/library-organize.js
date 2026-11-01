@@ -191,7 +191,7 @@ function dirOf(lib, folder, kind) {
  * games folder; `adminName(titleId)` and `titledbName(titleId)` are a title's
  * name from the admin and from titledb, or null. Pure.
  */
-export function planOrganize({ incoming = [], romsRels = [], adminName = () => null, titledbName = () => null, now = Date.now(), settleMs = SETTLE_MS }) {
+export function planOrganize({ incoming = [], romsRels = [], adminName = () => null, titledbName = () => null, now = Date.now(), settleMs = SETTLE_MS, keepFolders = new Map() }) {
   const lib = indexLibrary(romsRels);
   const moves = [];
   const held = [];
@@ -211,7 +211,7 @@ export function planOrganize({ incoming = [], romsRels = [], adminName = () => n
   }
   const titleOf = (tid) => firstName([adminName(tid), titledbName(tid)]);
   const isTaken = (rel) => taken.has(same(rel));
-  const usedFolders = new Set(lib.topFolders);
+  const usedFolders = new Set([...lib.topFolders, ...[...keepFolders.values()].map(same)]);
   // A new game's folder is never one another game already has; the title id tells two same-named games apart.
   const newFolder = (title, baseId) => {
     const name = folderNameOf(title);
@@ -237,7 +237,8 @@ export function planOrganize({ incoming = [], romsRels = [], adminName = () => n
     const base = id.baseTitleId;
     const family = lib.familyFolders.get(base);
     if (family && family.size > 1) { hold(f.rel, "splitBase", id); continue; }
-    const known = family?.size === 1 ? [...family][0] : null;
+    // A tidy keeps the folder of its own a game's picked files sit in (library/tidy.js).
+    const known = family?.size === 1 ? [...family][0] : keepFolders.get(base) ?? null;
     const fileName = path.posix.basename(f.rel);
     const own = nameFromFile(fileName);
     const gameName = titleOf(base) ?? batchNacp.get(base) ?? batchNames.get(base) ?? (id.kind === "base" ? own : null);

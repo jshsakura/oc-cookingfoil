@@ -77,7 +77,7 @@ import { mountContentApi } from "./admin/content-api.js";
 import { mountLibraryFilesApi } from "./admin/library-files-api.js";
 import { mountTrashApi } from "./admin/trash-api.js";
 import { mountPluginsApi } from "./admin/plugins-api.js";
-import { mountLibraryOrganizeApi } from "./admin/library-organize-api.js";
+import { mountFilesTidyApi, mountLibraryOrganizeApi } from "./admin/library-organize-api.js";
 import { mountLibraryBrowseApi } from "./admin/library-browse-api.js";
 import { mountFilesApi } from "./admin/files-api.js";
 import { mountInboxApi } from "./admin/inbox-api.js";
@@ -652,6 +652,7 @@ export default function adminPageRouter() {
   mountLibraryOrganizeApi(router, requireSession);
   mountLibraryBrowseApi(router, requireSession);
   mountFilesApi(router, requireSession);
+  mountFilesTidyApi(router, requireSession);
   mountInboxApi(router, requireSession);
   mountServerApi(router, requireSession);
   mountNszApi(router, requireSession);

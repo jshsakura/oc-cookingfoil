@@ -19,6 +19,7 @@ const KEYS = [
   "fb.gameIntoGame", "fb.dragTo", "fb.titleIntoTitle", "fb.gameWrongRoot", "fb.extAsk", "fb.refresh",
   "fb.m.publisher", "fb.m.released", "fb.m.genre", "fb.m.players", "fb.m.region", "fb.m.rating", "fb.m.score", "fb.m.latest", "fb.m.dlc", "fb.m.firmware",
   "fb.r.otherGame", "fb.r.noSystem", "fb.r.wrongSystem", "fb.r.tooDeep",
+  "fb.tidy", "fb.tidyTitle", "fb.tidyHint", "fb.tidyRun", "fb.tidyNone", "fb.tidyHeld", "fb.tidyDone", "fb.tidyBusy",
 ];
 
 const ROWS = {
@@ -42,6 +43,7 @@ const ROWS = {
     "새로 고침",
     "배급사", "출시일", "장르", "인원", "지역", "연령 등급", "평점", "최신 버전", "DLC", "필요 펌웨어",
     "다른 게임이 들어 있는 폴더입니다. 게임이 섞이지 않았는지 확인해 주세요.", "이 위치에서는 게임으로 인식되지 않습니다. roms 아래 기기 폴더로 옮겨 주세요.", "이 기기 폴더에서는 이 확장자를 게임으로 인식하지 않습니다.", "폴더가 너무 깊어 게임으로 인식되지 않습니다.",
+    "정리", "이렇게 정리합니다", "게임마다 폴더 하나에 본편을 두고 update와 DLC는 하위 폴더로 나눕니다. 파일 이름에는 [타이틀ID][버전]을 붙입니다. 덮어쓰는 파일은 없고, 끝난 뒤 되돌릴 수 있습니다.", "{n}개를 옮깁니다", "이미 정리돼 있어 옮길 파일이 없습니다.", "그대로 두는 파일 {n}개", "{n}개를 정리했습니다", "파일을 읽고 있습니다",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -63,6 +65,7 @@ const ROWS = {
     "Refresh",
     "Publisher", "Released", "Genre", "Players", "Region", "Age rating", "Score", "Latest version", "DLC", "Required firmware",
     "This folder holds another game. Check that the games did not get mixed.", "Games are not recognised here. Move it to a console folder under roms.", "This console folder does not recognise this file type as a game.", "This folder is too deep for the game to be recognised.",
+    "Tidy up", "This is how it will be tidied", "Each game gets one folder with its base game, and updates and DLC go in subfolders. File names get [TITLEID][version]. Nothing is overwritten, and it can be undone afterwards.", "Move {n}", "Already tidy; nothing to move.", "{n} files stay where they are", "Tidied {n}", "Reading the files",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -84,6 +87,7 @@ const ROWS = {
     "更新",
     "発売元", "発売日", "ジャンル", "人数", "地域", "年齢区分", "評価", "最新バージョン", "DLC", "必要なファームウェア",
     "別のゲームが入っているフォルダーです。ゲームが混ざっていないか確認してください。", "この場所ではゲームとして認識されません。roms 内の機種フォルダーに移してください。", "この機種フォルダーでは、この拡張子はゲームとして認識されません。", "フォルダーが深すぎてゲームとして認識されません。",
+    "整理", "このように整理します", "ゲームごとに1つのフォルダーに本編を置き、アップデートとDLCはサブフォルダーに分けます。ファイル名には[タイトルID][バージョン]を付けます。上書きはせず、後から元に戻せます。", "{n}件を移動します", "すでに整理済みで、移動するファイルはありません。", "そのままにするファイル {n}件", "{n}件を整理しました", "ファイルを読み込んでいます",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -105,6 +109,7 @@ const ROWS = {
     "刷新",
     "发行商", "发行日期", "类型", "人数", "地区", "年龄分级", "评分", "最新版本", "DLC", "所需固件",
     "此文件夹包含另一款游戏。请确认游戏没有混在一起。", "此位置无法识别为游戏。请移到 roms 下的主机文件夹。", "此主机文件夹不会将此扩展名识别为游戏。", "文件夹层级太深，无法识别为游戏。",
+    "整理", "将按如下方式整理", "每款游戏一个文件夹放本体，更新和 DLC 放入子文件夹。文件名加上 [标题ID][版本]。不会覆盖任何文件，完成后可以撤销。", "移动 {n} 个", "已经整理好，没有要移动的文件。", "保持原位的文件 {n} 个", "已整理 {n} 个", "正在读取文件",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -126,6 +131,7 @@ const ROWS = {
     "重新整理",
     "發行商", "發行日期", "類型", "人數", "地區", "年齡分級", "評分", "最新版本", "DLC", "所需韌體",
     "此資料夾包含另一款遊戲。請確認遊戲沒有混在一起。", "此位置無法辨識為遊戲。請移到 roms 下的主機資料夾。", "此主機資料夾不會將此副檔名辨識為遊戲。", "資料夾層級太深，無法辨識為遊戲。",
+    "整理", "將按如下方式整理", "每款遊戲一個資料夾放本體，更新和 DLC 放入子資料夾。檔名加上 [標題ID][版本]。不會覆寫任何檔案，完成後可以復原。", "移動 {n} 個", "已經整理好，沒有要移動的檔案。", "保持原位的檔案 {n} 個", "已整理 {n} 個", "正在讀取檔案",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -147,6 +153,7 @@ const ROWS = {
     "Actualizar",
     "Editor", "Lanzamiento", "Género", "Jugadores", "Región", "Clasificación", "Puntuación", "Última versión", "DLC", "Firmware necesario",
     "Esta carpeta contiene otro juego. Comprueba que no se hayan mezclado.", "Aquí no se reconocen juegos. Muévelo a una carpeta de consola dentro de roms.", "Esta carpeta de consola no reconoce este tipo de archivo como juego.", "Esta carpeta es demasiado profunda para reconocer el juego.",
+    "Ordenar", "Así quedará ordenado", "Cada juego tiene una carpeta con el juego base, y las actualizaciones y los DLC van en subcarpetas. Los nombres llevan [IDTÍTULO][versión]. No se sobrescribe nada y se puede deshacer después.", "Mover {n}", "Ya está ordenado; no hay nada que mover.", "{n} archivos se quedan donde están", "Se ordenaron {n}", "Leyendo los archivos",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -168,6 +175,7 @@ const ROWS = {
     "Actualiser",
     "Éditeur", "Sortie", "Genre", "Joueurs", "Région", "Classification", "Note", "Dernière version", "DLC", "Firmware requis",
     "Ce dossier contient un autre jeu. Vérifiez que les jeux ne sont pas mélangés.", "Les jeux ne sont pas reconnus ici. Déplacez-le dans un dossier de console sous roms.", "Ce dossier de console ne reconnaît pas ce type de fichier comme un jeu.", "Ce dossier est trop profond pour que le jeu soit reconnu.",
+    "Ranger", "Voici comment ce sera rangé", "Chaque jeu a un dossier avec le jeu de base ; les mises à jour et les DLC vont dans des sous-dossiers. Les noms reçoivent [IDTITRE][version]. Rien n’est écrasé et cela peut être annulé ensuite.", "Déplacer {n}", "Déjà rangé ; rien à déplacer.", "{n} fichiers restent à leur place", "{n} rangés", "Lecture des fichiers",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -189,6 +197,7 @@ const ROWS = {
     "Aktualisieren",
     "Publisher", "Erschienen", "Genre", "Spieler", "Region", "Altersfreigabe", "Wertung", "Neueste Version", "DLC", "Benötigte Firmware",
     "Dieser Ordner enthält ein anderes Spiel. Prüfe, ob die Spiele vermischt wurden.", "Spiele werden hier nicht erkannt. Verschiebe es in einen Konsolenordner unter roms.", "Dieser Konsolenordner erkennt diesen Dateityp nicht als Spiel.", "Dieser Ordner liegt zu tief, um das Spiel zu erkennen.",
+    "Aufräumen", "So wird aufgeräumt", "Jedes Spiel bekommt einen Ordner mit dem Hauptspiel; Updates und DLC kommen in Unterordner. Dateinamen erhalten [TITELID][Version]. Nichts wird überschrieben, und es lässt sich danach rückgängig machen.", "{n} verschieben", "Schon aufgeräumt; nichts zu verschieben.", "{n} Dateien bleiben, wo sie sind", "{n} aufgeräumt", "Dateien werden gelesen",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -210,6 +219,7 @@ const ROWS = {
     "Aggiorna",
     "Editore", "Uscita", "Genere", "Giocatori", "Regione", "Classificazione", "Punteggio", "Ultima versione", "DLC", "Firmware richiesto",
     "Questa cartella contiene un altro gioco. Controlla che i giochi non si siano mescolati.", "Qui i giochi non vengono riconosciuti. Spostalo in una cartella console dentro roms.", "Questa cartella console non riconosce questo tipo di file come gioco.", "Questa cartella è troppo profonda per riconoscere il gioco.",
+    "Riordina", "Ecco come verrà riordinato", "Ogni gioco ha una cartella con il gioco base; aggiornamenti e DLC vanno in sottocartelle. I nomi ricevono [IDTITOLO][versione]. Nulla viene sovrascritto e si può annullare dopo.", "Sposta {n}", "Già in ordine; niente da spostare.", "{n} file restano dove sono", "Riordinati {n}", "Lettura dei file",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -231,6 +241,7 @@ const ROWS = {
     "Atualizar",
     "Publicadora", "Lançamento", "Gênero", "Jogadores", "Região", "Classificação", "Nota", "Versão mais recente", "DLC", "Firmware necessário",
     "Esta pasta contém outro jogo. Verifique se os jogos não se misturaram.", "Jogos não são reconhecidos aqui. Mova para uma pasta de console em roms.", "Esta pasta de console não reconhece este tipo de arquivo como jogo.", "Esta pasta é profunda demais para o jogo ser reconhecido.",
+    "Organizar", "É assim que vai ficar organizado", "Cada jogo tem uma pasta com o jogo base; atualizações e DLC vão para subpastas. Os nomes recebem [IDTÍTULO][versão]. Nada é sobrescrito e dá para desfazer depois.", "Mover {n}", "Já está organizado; nada para mover.", "{n} arquivos ficam onde estão", "{n} organizados", "Lendo os arquivos",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -252,6 +263,7 @@ const ROWS = {
     "Vernieuwen",
     "Uitgever", "Uitgebracht", "Genre", "Spelers", "Regio", "Leeftijdsklasse", "Score", "Nieuwste versie", "DLC", "Vereiste firmware",
     "Deze map bevat een ander spel. Controleer of de spellen niet door elkaar zijn geraakt.", "Spellen worden hier niet herkend. Verplaats het naar een consolemap onder roms.", "Deze consolemap herkent dit bestandstype niet als spel.", "Deze map ligt te diep om het spel te herkennen.",
+    "Opruimen", "Zo wordt het opgeruimd", "Elk spel krijgt een map met het basisspel; updates en DLC gaan in submappen. Bestandsnamen krijgen [TITELID][versie]. Er wordt niets overschreven en het kan daarna ongedaan worden gemaakt.", "{n} verplaatsen", "Al opgeruimd; niets te verplaatsen.", "{n} bestanden blijven waar ze zijn", "{n} opgeruimd", "Bestanden worden gelezen",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -273,6 +285,7 @@ const ROWS = {
     "Обновить",
     "Издатель", "Дата выхода", "Жанр", "Игроки", "Регион", "Возрастной рейтинг", "Оценка", "Последняя версия", "DLC", "Нужная прошивка",
     "В этой папке другая игра. Проверьте, что игры не смешались.", "Здесь игры не распознаются. Переместите в папку консоли внутри roms.", "Эта папка консоли не распознаёт такой тип файла как игру.", "Папка слишком глубоко, игра не будет распознана.",
+    "Упорядочить", "Вот как будет упорядочено", "У каждой игры одна папка с основной игрой, обновления и DLC идут в подпапки. К именам добавляется [IDИГРЫ][версия]. Ничего не перезаписывается, потом можно отменить.", "Переместить {n}", "Уже упорядочено, перемещать нечего.", "{n} файлов остаются на месте", "Упорядочено: {n}", "Чтение файлов",
   ],
 };
 

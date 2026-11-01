@@ -365,6 +365,30 @@ test('the move dialog names its destination, and a move that will not read right
   await expect.poll(() => has('A/a [0100000000010000][v0].nsp')).toBe(true);
 });
 
+test('정리 shows what it will move, does it in one go, and the notice takes it all back', async ({ page }) => {
+  put('dump/alpha [0100ABCD00010000][v0].nsp');
+  put('dump/alpha up [0100ABCD00010800][v65536].nsp');
+  put('dump/what.nsp');
+  await signIn(page);
+  await page.goto('/admin/games');
+  await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
+  await page.locator('#fb-addr').fill('게임/fb-test/dump');
+  await page.keyboard.press('Enter');
+  await expect(row(page, 'what.nsp')).toBeVisible();
+  await page.locator('#fb-tidy-btn').click();
+  const dlg = page.locator('#fb-tidy');
+  await expect(dlg.locator('.fb-t-move')).toHaveCount(2);
+  await expect(dlg.locator('.fb-t-move .fb-t-to').nth(1)).toContainText('/update/');
+  await expect(dlg.locator('.fb-t-held')).toContainText('what.nsp');
+  await expect(page.locator('#fb-t-ok')).toHaveText('2개를 옮깁니다');
+  expect(has('dump/alpha [0100ABCD00010000][v0].nsp')).toBe(true);
+  await page.locator('#fb-t-ok').click();
+  await expect(page.locator('#toast')).toContainText('2개를 정리했습니다');
+  await expect.poll(() => has('dump/alpha [0100ABCD00010000][v0].nsp')).toBe(false);
+  await page.locator('#toast .toast-act').click();
+  await expect.poll(() => has('dump/alpha [0100ABCD00010000][v0].nsp') && has('dump/alpha up [0100ABCD00010800][v65536].nsp')).toBe(true);
+});
+
 test('the move dialog makes the folder it needs and moves into it', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/files');
