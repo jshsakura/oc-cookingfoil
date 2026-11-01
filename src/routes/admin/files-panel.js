@@ -149,6 +149,17 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
 #fb-view .fb-v-body pre{place-self:stretch;margin:0;padding:12px 14px;font-size:var(--fs-sm);white-space:pre-wrap;word-break:break-all;max-height:calc(100vh - 200px);overflow:auto}
 #fb-view .fb-v-note{margin:0;font-size:var(--fs-xs)}
 #fb-move{width:min(560px,calc(100vw - 32px))}
+#fb-tidy{width:min(760px,calc(100vw - 32px))}
+#fb-tidy .fb-t-sum{margin:6px 0 12px;color:var(--muted);font-size:var(--fs-sm);line-height:1.6}
+#fb-tidy .fb-t-list{list-style:none;margin:0 0 12px;padding:4px;max-height:min(55vh,480px);overflow:auto;border:1px solid var(--line);border-radius:var(--r-lg)}
+#fb-tidy .fb-t-list:empty{display:none}
+#fb-tidy .fb-t-list li{display:grid;gap:2px;padding:8px 10px;border-radius:var(--r-md);overflow-wrap:anywhere}
+#fb-tidy .fb-t-list li+li{border-top:1px solid var(--line)}
+#fb-tidy .fb-t-from{font-size:var(--fs-xs);color:var(--faint)}
+#fb-tidy .fb-t-move .fb-t-from::after{content:" →"}
+#fb-tidy .fb-t-to{font-size:var(--fs-sm);font-weight:var(--fw-bold);color:var(--text)}
+#fb-tidy .fb-t-head{font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--muted);background:var(--sunk)}
+#fb-tidy .fb-t-held .fb-t-to{font-weight:var(--fw);color:var(--muted)}
 #fb-move .fb-roots{gap:4px}
 #fb-move .fb-roots button{height:32px;padding:0 10px;font-size:var(--fs-sm)}
 #fb-move .dialog-actions #fb-m-new{margin-right:auto}
@@ -200,6 +211,8 @@ export const FOLDER_HTML = `<div id="fb">
   </div>
   <div class="fb-cmds" role="toolbar" ${topLabel("fb.menu")}>
     <button type="button" class="fb-cmd" id="fb-mkdir">${icon("plus")}<span>${top("fb.newFolder")}</span></button>
+    <i class="fb-sep"></i>
+    <button type="button" class="fb-cmd fb-tidy" id="fb-tidy-btn" hidden>${icon("sparkles")}<span>${top("fb.tidy")}</span></button>
     <i class="fb-sep"></i>
     <button type="button" class="fb-cmd" id="fb-cut-btn">${icon("scissors")}<span>${top("fb.cut")}</span></button>
     <button type="button" class="fb-cmd" id="fb-copy-btn">${icon("copy")}<span>${top("fb.copy")}</span></button>
@@ -268,6 +281,12 @@ export const FOLDER_HTML = `<div id="fb">
   <div class="dialog-actions"><button type="button" class="primary" id="fb-p-ok">${top("fb.close")}</button></div>
 </dialog>
 <div class="fb-lasso" id="fb-lasso" hidden></div>
+<dialog id="fb-tidy" aria-labelledby="fb-t-title">
+  <h3 id="fb-t-title">${top("fb.tidyTitle")}</h3>
+  <p class="fb-t-sum" id="fb-t-sum" aria-live="polite"></p>
+  <ol class="fb-t-list" id="fb-t-list"></ol>
+  <div class="dialog-actions"><button type="button" id="fb-t-no">${top("fb.cancel")}</button><button type="button" class="primary" id="fb-t-ok">${top("fb.tidy")}</button></div>
+</dialog>
 <dialog id="fb-move" aria-labelledby="fb-m-title">
   <h3 id="fb-m-title">${top("fb.moveTitle")}</h3>
   <div class="fb-roots" id="fb-m-roots" role="group" ${topLabel("fb.rootsLabel")}></div>
@@ -339,7 +358,7 @@ function fbPick(rel,{add=false,range=false}={}){const rels=fbRels();
   fb.focus=rel;fbPaint();}
 function fbFocusRow(){for(const r of document.querySelectorAll('#fb-rows tr'))if(r.dataset.rel===fb.focus){r.focus();r.scrollIntoView({block:'nearest'});return;}}
 function fbCmds(){const n=fb.sel.size;for(const id of ['fb-cut-btn','fb-copy-btn','fb-move-btn','fb-zip-btn','fb-trash-btn'])$(id).disabled=!n;
-  const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=one?.type!=='file';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
+  const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=one?.type!=='file';$('fb-tidy-btn').hidden=fb.root!=='games';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
 function fbFoot(){fbCmds();const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   if(n)foot.dataset.sel='';else delete foot.dataset.sel;
   $('fb-info').textContent=n?topFill('fb.selected',{n:num(n)}):d?topFill('fb.counts',{dirs:num(d.counts.dirs),files:num(d.counts.files)}):'';
@@ -469,6 +488,22 @@ async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');fbMoveOk
 async function fbMoveNewFolder(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{const out=await api('/admin/api/files/mkdir',{method:'POST',body:{root:fbm.root,path:fbm.path,name:name.trim()}});
     fbUndoPush({trash:{root:out.root,paths:[out.rel]}});fbm.path=out.rel;fbMoveLoad();}catch(err){toast(err.message);}}
+// 정리: the games folder's drop-box rules on the pick (or the open folder), shown first and carried out on a click
+// (library/tidy.js). The whole run comes back with one undo.
+async function fbTidy(){if(fb.root!=='games')return;const rels=fb.sel.size?[...fb.sel]:[fb.path];const dlg=$('fb-tidy');const list=$('fb-t-list');const ok=$('fb-t-ok');
+  $('fb-t-sum').textContent=topText('fb.tidyBusy');list.replaceChildren();ok.disabled=true;ok.textContent=topText('fb.tidy');ok.onclick=null;dlg.showModal();
+  let p;try{p=await api('/admin/api/files/tidy/plan',{method:'POST',body:{paths:rels}});}catch(err){$('fb-t-sum').textContent=err.message;return;}
+  if(!dlg.open)return;$('fb-t-sum').textContent=topText(p.moves.length?'fb.tidyHint':'fb.tidyNone');
+  const rows=p.moves.map((m)=>{const li=el('li',null,'fb-t-move');li.append(el('span',m.from,'fb-t-from'),el('span',m.to,'fb-t-to'));return li;});
+  if(p.held.length){rows.push(el('li',topFill('fb.tidyHeld',{n:num(p.held.length)}),'fb-t-head'));
+    for(const h of p.held){const li=el('li',null,'fb-t-held');li.append(el('span',h.rel,'fb-t-to'),el('span',h.reason,'fb-t-from'));rows.push(li);}}
+  list.replaceChildren(...rows);ok.textContent=topFill('fb.tidyRun',{n:num(p.moves.length)});ok.disabled=!p.moves.length;
+  ok.onclick=async()=>{ok.disabled=true;
+    try{const out=await api('/admin/api/files/tidy/apply',{method:'POST',body:{paths:rels,moves:p.moves}});dlg.close();fb.sel.clear();
+      fbUndoPush({journal:out.moved.map((m)=>m.undo)});const msg=topFill('fb.tidyDone',{n:num(out.moved.length)});
+      if(out.moved.length)fbToastUndo(msg);else toast(msg);fbLoad();}
+    catch(err){toast(err.message);ok.disabled=false;}};}
+$('fb-t-no').addEventListener('click',()=>$('fb-tidy').close());
 // The button names the folder it moves into, and does nothing where the pick already is.
 function fbMoveOk(){const ok=$('fb-m-ok');ok.textContent=topFill('fb.dragTo',{name:fbm.path.split('/').pop()||fbRootName(fbm.root)});ok.disabled=fbm.root===fb.root&&fbm.path===fb.path;}
 function fbMove(){const rels=[...fb.sel];if(!rels.length)return;fbm.root=fb.root;fbm.path=fb.path;const dlg=$('fb-move');
@@ -556,7 +591,7 @@ $('fb-zip-btn').addEventListener('click',()=>{const rels=[...fb.sel];const one=r
 $('fb-cut-btn').addEventListener('click',()=>fbClip('cut'));$('fb-copy-btn').addEventListener('click',()=>fbClip('copy'));$('fb-paste-btn').addEventListener('click',fbPaste);
 $('fb-rename-btn').addEventListener('click',()=>{const one=fb.sel.size===1?fbItem([...fb.sel][0]):null;if(one)fbRename(one);});
 $('fb-share-btn').addEventListener('click',()=>{const one=fb.sel.size===1?fbItem([...fb.sel][0]):null;if(one?.type==='file')fbShare(one);});
-$('fb-undo-btn').addEventListener('click',fbUndo);$('fb-refresh').addEventListener('click',()=>fbLoad());
+$('fb-undo-btn').addEventListener('click',fbUndo);$('fb-tidy-btn').addEventListener('click',fbTidy);$('fb-refresh').addEventListener('click',()=>fbLoad());
 $('fb-trash-btn').addEventListener('click',()=>fbTrash([...fb.sel]));
 $('fb-clear').addEventListener('click',()=>{fb.sel.clear();fb.anchor=null;fbPaint();});
 window.addEventListener('popstate',(e)=>{const p=new URLSearchParams(location.search);fb.hi=e.state?.fbi??0;

@@ -3,6 +3,10 @@
  *
  *   GET  /admin/api/library/organize        { incoming, sweptAt, error, running, held, heldCount, waiting, recent }
  *   POST /admin/api/library/organize/sweep  sort the drop box now; answers with the view after it
+ *
+ * The same rules on files already in the games folder (library/tidy.js), from the file explorer:
+ *   POST /admin/api/files/tidy/plan   { paths }          what a tidy would move and what it leaves, with why
+ *   POST /admin/api/files/tidy/apply  { paths, moves }   the previewed moves that still stand
  */
 import * as env from "../../helpers/envs.js";
 import * as libraryCache from "../../meta/library-cache.js";
@@ -14,6 +18,11 @@ import { extractFromPfs0, resolveBinary } from "../../meta/extract-providers/nsp
 import { keysFile } from "../../security/prod-keys.js";
 import { placeDropFolder } from "./upload-api.js";
 import { createOrganizer } from "../../meta/library-organize.js";
+import { createTidy } from "../../library/tidy.js";
+import { createFileRoots, FileError } from "../../library/file-roots.js";
+import { recordMove } from "../../library/journal.js";
+import { identify } from "../../meta/file-identity.js";
+import { requestLang } from "../../meta/langs.js";
 import { cleanName, nameIn } from "../../meta/organize-naming.js";
 import { loadSystems } from "../../retro/systems.js";
 import { hashDb } from "../../retro/hash-db.js";
@@ -78,6 +87,46 @@ export const defaultOrganizer = createOrganizer({
 });
 
 const WHOLE_MAX = 500;
+const TIDY_PATHS_MAX = 500;
+
+const tidyRoots = createFileRoots();
+export const defaultTidy = createTidy({
+  root: () => tidyRoots.roots().find((r) => r.key === "games"),
+  collect: (rels) => tidyRoots.collect("games", rels, { mayBeRoot: true }),
+  identify,
+  romsRels: async () => {
+    await libraryCache.get();
+    return libraryCache.files().map((f) => f.rel);
+  },
+  adminName: (tid) => nameIn(gameDescriptions.names(tid), env.langPriority),
+  titledbName: (tid) => nameIn(titledb.namesOf(tid), env.langPriority) ?? titledb.get(tid)?.name ?? null,
+  journal: recordMove,
+  rescan: () => libraryCache.invalidate({ rescan: true }),
+});
+
+export function mountFilesTidyApi(router, requireSession, tidy = defaultTidy) {
+  const paths = (v) => (Array.isArray(v) && v.length && v.length <= TIDY_PATHS_MAX && v.every((p) => typeof p === "string") ? v : null);
+  const handle = (fn) => async (req, res) => {
+    if (!requireSession(req, res)) return;
+    res.set("Cache-Control", "no-store");
+    const rels = paths(req.body?.paths);
+    if (!rels) return res.status(400).json({ error: apiWord(req, "failed"), code: "bad-request" });
+    try {
+      await fn(req, res, rels);
+    } catch (err) {
+      if (err instanceof FileError) return res.status(err.status).json({ error: err.message, code: err.code });
+      debug.error("admin: tidy: %s", err.message);
+      res.status(500).json({ error: apiWord(req, "failed"), code: "failed" });
+    }
+  };
+  router.post("/api/files/tidy/plan", handle(async (req, res, rels) => res.json(await tidy.plan(rels, requestLang(req)))));
+  router.post("/api/files/tidy/apply", handle(async (req, res, rels) => {
+    const moves = Array.isArray(req.body?.moves) ? req.body.moves.filter((m) => typeof m?.from === "string" && typeof m?.to === "string") : [];
+    const out = await tidy.apply(rels, moves, { by: trashService.actorOf(req) });
+    debug.log("admin: tidy: moved %d (%d skipped)", out.moved.length, out.skipped.length);
+    res.json(out);
+  }));
+}
 
 export function mountLibraryOrganizeApi(router, requireSession, organizer = defaultOrganizer) {
   const handle = (fn) => async (req, res) => {

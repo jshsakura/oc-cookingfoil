@@ -72,6 +72,8 @@ export const OPT_OUT = {
   "POST /admin/api/files/share": "token-blocked",
   "GET /admin/api/files/shares": "token-blocked",
   "POST /admin/api/files/share/end": "token-blocked",
+  "POST /admin/api/files/tidy/plan": "token-blocked",
+  "POST /admin/api/files/tidy/apply": "token-blocked",
   "GET /share/:token": "browser-only",
   // A bulk export for the scraper, not an unbounded MCP tool response.
   "GET /games.json": "catalog-export",

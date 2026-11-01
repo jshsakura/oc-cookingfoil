@@ -193,6 +193,8 @@ export async function undoMove(roots, id, { by = null, now = Date.now(), after =
     if (!check.ok) throw trashError(check.reason);
     const back = path.join(fromRoot.dir, ...op.from.split("/"));
     if (!(await realInside(fromRoot.dir, back))) throw trashError("bad-path");
+    // A tidy removes the folders it empties; the file goes back into one made again.
+    await fsp.mkdir(path.dirname(back), { recursive: true });
     await sweepPartials([path.dirname(back)]).catch(() => {});
     const st = await measure(path.join(toRoot.dir, ...op.to.split("/")));
     if (!(await moveAcross(path.join(toRoot.dir, ...op.to.split("/")), back))) throw trashError("taken");
