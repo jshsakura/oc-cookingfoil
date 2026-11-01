@@ -425,7 +425,7 @@ export function start() {
 }
 
 /** The app's icon address: an uploaded one's version first, else the build's. */
-const iconUrlOf = (e) => {
+export const iconUrlOf = (e) => {
   const v = media.iconVersion(e.id) ?? homebrewIconVersion(e);
   return `/api/homebrew/${e.id}/icon${v ? `?v=${v}` : ""}`;
 };

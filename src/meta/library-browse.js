@@ -9,10 +9,11 @@
  *                       (anything not .nsp/.nsz/.xci/.xcz/.nro), found here
  *
  * Every item has the same fields, null when unknown:
- *   { name, kind, rel, size, mtime, ext, titleId, game, version, integrity, id, source, repo }
+ *   { name, kind, rel, size, mtime, ext, titleId, game, version, integrity, id, source, repo, icon }
  * `game` is the name of the game a patch or save belongs to, so a list of them says which game each is for.
  * `id` (patch, save, homebrew), `source` ("github" | "manual") and `repo` (a followed GitHub repository)
  * are what the delete buttons need to name the item to its own remove endpoint.
+ * `icon` is a homebrew app's icon URL (also on that app's patch), which has no title id to find one by.
  * `rel` is relative to the kind's own folder, never absolute. `mtime` is in
  * epoch seconds. `integrity` (ok | modified | damaged | unchecked) is only set
  * for game files.
@@ -27,7 +28,7 @@ import { isReadme } from "../helpers/readme-name.js";
 import { metaText } from "./meta-messages.js";
 
 export const KINDS = ["base", "update", "dlc", "patch", "save", "homebrew", "other"];
-export const FIELDS = ["name", "kind", "rel", "size", "mtime", "ext", "titleId", "game", "version", "integrity", "id", "source", "repo"];
+export const FIELDS = ["name", "kind", "rel", "size", "mtime", "ext", "titleId", "game", "version", "integrity", "id", "source", "repo", "icon"];
 export const INTEGRITY = ["ok", "modified", "damaged", "unchecked"];
 const SORTS = ["name", "size", "mtime"];
 export const PER_PAGE_DEFAULT = 50;
@@ -128,7 +129,7 @@ export function safeRel(rel) {
 const extOf = (rel) => path.posix.extname(rel ?? "").toLowerCase() || null;
 
 /** One item in the browser's shape: every field present, null when unknown. Pure. */
-export function item(kind, { name, rel, size, mtime, titleId = null, game = null, version = null, integrity = null, id = null, source = null, repo = null }) {
+export function item(kind, { name, rel, size, mtime, titleId = null, game = null, version = null, integrity = null, id = null, source = null, repo = null, icon = null }) {
   const safe = safeRel(rel);
   const time = mtime == null ? NaN : Number(mtime);
   const bytes = size == null || size === "" ? NaN : Number(size);
@@ -146,6 +147,7 @@ export function item(kind, { name, rel, size, mtime, titleId = null, game = null
     id: id ?? null,
     source: source ?? null,
     repo: repo ?? null,
+    icon: icon ?? null,
   };
 }
 

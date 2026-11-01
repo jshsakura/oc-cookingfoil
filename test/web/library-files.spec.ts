@@ -5,13 +5,13 @@ import path from 'node:path';
 import { signIn } from './admin-sign-in';
 import { shot } from './shots';
 
-// The library tab's file browser: a tab per kind with its count, a page of 50
+// The 전체 목록 page's list: a tab per kind with its count, a page of 25
 // at a time, and a search that stays inside the chosen kind.
 const GAMES = process.env.COOK_GAMES_DIR!;
 const EXTRA = `${GAMES}/zz-e2e-extras`;
 
 
-test('the library tab lists files by kind with counts, pages and a search inside the kind', async ({ page, request, libraryFile }) => {
+test('the 전체 목록 page lists files by kind with counts, pages and a search inside the kind', async ({ page, request, libraryFile }) => {
   // 55 stray files: not game files, so the library list stays as it is.
   fs.rmSync(EXTRA, { recursive: true, force: true });
   for (let i = 0; i < 55; i++) libraryFile(`${path.basename(EXTRA)}/note-${String(i).padStart(2, '0')}.txt`, 'x'.repeat(i + 1));
@@ -21,7 +21,7 @@ test('the library tab lists files by kind with counts, pages and a search inside
   await request.post('/admin/api/library/rescan', { headers: { Cookie: cookie }, data: {} });
   await expect.poll(async () => (await (await request.get('/admin/api/library/browse?counts_only=1', { headers: { Cookie: cookie } })).json()).counts?.other, { timeout: 15000 }).toBeGreaterThanOrEqual(55);
 
-  await page.goto('/admin/games?view=files');
+  await page.goto('/admin/library');
   // The kinds are a filter on one list: a labelled group of toggle buttons, 전체 first and on.
   const tabs = page.locator('#lb-kinds button');
   await expect(page.locator('#lb-kinds')).toHaveAttribute('role', 'group');

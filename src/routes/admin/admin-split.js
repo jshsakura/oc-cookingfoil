@@ -1,6 +1,6 @@
 import { LIBRARY_HTML, LIBRARY_PAGE_SCRIPT } from "./library-page.js";
 import { LIBRARY_FILES_CSS, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
-import { LIB_BROWSER_CSS, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
+import { LIB_BROWSER_CSS, LIB_BROWSER_HTML, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
 import { ORGANIZE_CSS, ORGANIZE_HTML, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
 import { PATCHES_SCRIPT } from "./patches-panel.js";
 import { HOMEBREW_HTML, HOMEBREW_DIALOG_HTML, HOMEBREW_SCRIPT } from "./homebrew-page.js";
@@ -96,11 +96,24 @@ const listPage = (tab, root, listHtml) => withFolder({
 
 /** The first bundle's pages, by the path the router already knows. */
 export const SPLIT_PAGES = {
-  "/admin/games": withFolder({
+  "/admin/games": bundle({
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+LIBRARY_FILES_CSS,
     body: LIBRARY_HTML+CONTENT_DIALOG_HTML,
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT,
-    init: "libShowSub(location.hash.split('/')[1]||'folder',true);loadLibrary();",
+    init: "libShowSub(location.hash.split('/')[1]||'files',true);loadLibrary();libOpenGame();",
+  }),
+  // Every kind the library holds in one list, and the file browser over every folder: neither is the games' own.
+  "/admin/library": bundle({
+    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS,
+    body: `<section id="tab-all"><div class="hd"><h2 class="first">${top("m.allList")}</h2></div>${LIB_BROWSER_HTML}</section>${CONTENT_DIALOG_HTML}`,
+    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+PATCHES_SCRIPT+LIB_BROWSER_SCRIPT,
+    init: "lbLoad();",
+  }),
+  "/admin/files": withFolder({
+    css: LIST_HELPERS_CSS+GAME_PICKER_CSS,
+    body: `<section id="tab-files"><div class="hd"><h2 class="first">${top("m.files")}</h2></div>${FOLDER_MARK}</section>`,
+    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT,
+    init: "fbOpen('games');",
   }),
   "/admin/homebrew": withFolder({
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS,

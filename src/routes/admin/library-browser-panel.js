@@ -88,7 +88,11 @@ export const LIB_BROWSER_CSS = /* css */ `
 }
 `;
 
-export const LIB_BROWSER_HTML = `<div id="lib-files">
+/**
+ * The list over the given kinds: every kind on the 전체 목록 page, the game files on the 게임 page.
+ * 전체 asks for all of those kinds at once.
+ */
+export const libBrowserHtml = (kinds) => `<div id="lib-files" data-kinds="${kinds.join(",")}">
     <form class="lb-bar" id="lb-bar" role="search">
       <label class="lb-q">${svg("search")}<input type="search" id="lb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("lb.qPh")} ${topLabel("lb.qLabel")}></label>
       <button type="submit" id="lb-go">${svg("search")}<span data-top="rpt.find">${top("rpt.find")}</span></button>
@@ -97,7 +101,7 @@ export const LIB_BROWSER_HTML = `<div id="lib-files">
     <div class="lb-filter">
       <div class="lb-kinds hide-bar" id="lb-kinds" role="group" ${topLabel("f.type")}>
         <span class="lb-ind" id="lb-ind" aria-hidden="true"></span>
-        ${KINDS.map(([k, label], i) => `<button type="button" id="lb-tab-${k}" data-kind="${k}" aria-controls="lb-list" aria-pressed="${i === 0}">${svg(k)}<span>${top(label)}</span><span class="lb-n" id="lb-n-${k}">0</span></button>`).join("")}
+        ${KINDS.filter(([k]) => k === "all" || kinds.includes(k)).map(([k, label], i) => `<button type="button" id="lb-tab-${k}" data-kind="${k}" aria-controls="lb-list" aria-pressed="${i === 0}">${svg(k)}<span>${top(label)}</span><span class="lb-n" id="lb-n-${k}">0</span></button>`).join("")}
       </div>
     </div>
     <p class="muted lb-count" id="lb-count" aria-live="polite"></p>
@@ -105,18 +109,20 @@ export const LIB_BROWSER_HTML = `<div id="lib-files">
     <nav class="lb-pager" id="lb-pager" ${topLabel("lb.pagerLabel")} hidden></nav>
     <p class="muted lb-note">${top("lb.note")}</p>
   </div>`;
+export const LIB_BROWSER_HTML = libBrowserHtml(KINDS.slice(1).map(([k]) => k));
+export const GAME_FILES_HTML = libBrowserHtml(["base", "update", "dlc"]);
 
 export const LIB_BROWSER_SCRIPT = /* js */ `
 const LB_ICON=${JSON.stringify({ prev: svg("prev"), next: svg("next") })};
 const LB_KIND=${JSON.stringify(Object.fromEntries(KINDS))};
 const LB_PER=25;
-const LB_ALL=['base','update','dlc','patch','save','homebrew','other'];
+const LB_ALL=$('lib-files').dataset.kinds.split(',');
 const LB_CHECK={ok:['lb.ok','on'],modified:['lb.modified','warn'],damaged:['lb.damaged','off'],unchecked:['lb.unchecked','']};
 const lb={kind:'all',page:1,sort:'mtime',order:'desc',q:'',seq:0,timer:null,pending:false};
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const lbDate=(s)=>s?new Date(s*1000).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'-';
 // A language switch re-renders the open list so dates and counts follow the new locale.
-function lbRelabel(){if(location.hash.startsWith('#library')&&!lb.pending)lbLoad();}
+function lbRelabel(){if($('lib-files')&&$('lib-files').offsetParent!==null&&!lb.pending)lbLoad();}
 function lbIndicator(){const t=$('lb-tab-'+lb.kind),ind=$('lb-ind');if(!t||!t.offsetWidth)return;
   ind.style.width=t.offsetWidth+'px';ind.style.height=t.offsetHeight+'px';ind.style.transform='translate('+t.offsetLeft+'px,'+t.offsetTop+'px)';}
 function lbSkeleton(){const m=$('lb-list');m.replaceChildren();const t=el('table');
@@ -133,6 +139,8 @@ function lbCols(kind){
 // A game's name, summary and extra notes are edited on the game-info page: the row leads there with the game already open.
 function lbGameInfo(f){const tid=/^[0-9A-F]{16}$/i.test(f.titleId||'')?f.titleId.toUpperCase():'';if(!tid)return;
   const id=f.kind==='update'?tid.slice(0,13)+'000':tid;
+  // The 전체 목록 page has no game-info form: the 게임 page opens with the game in it.
+  if(!$('gd-game')){location.href='/admin/games?view=info&game='+id;return;}
   if(location.hash!=='#library/info')location.hash='#library/info';
   setTimeout(()=>{$('gd-game').value=id;openDesc(true);},0);}
 // A patch or save opens the same edit dialog the patches page uses; the list loads again when it closes.
@@ -149,7 +157,9 @@ function lbEditButton(f,k){
 // A patch or save then names its game first, so the list says which game each one is for.
 const LB_MISS={homebrew:'package',other:'file'};
 function lbPic(f,k){const pic=el('span',null,'lb-gw');
-  if(/^[0-9A-F]{16}$/i.test(f.titleId||'')){const ico=el('img',null,'lb-gi');ico.alt='';ico.loading='lazy';ico.dataset.miss='joystick';ico.src='/api/library/icon/'+f.titleId+'?size=sm';pic.append(ico);}
+  // A homebrew app (and its patch) carries its own icon; a game's comes by its title id.
+  const src=f.icon?f.icon+(f.icon.includes('?')?'&':'?')+'size=sm':/^[0-9A-F]{16}$/i.test(f.titleId||'')?'/api/library/icon/'+f.titleId+'?size=sm':null;
+  if(src){const ico=el('img',null,'lb-gi');ico.alt='';ico.loading='lazy';ico.dataset.miss=LB_MISS[k]||'joystick';ico.src=src;pic.append(ico);}
   else{const t=el('span',null,'lb-gi img-miss');t.innerHTML=IMG_MISS[LB_MISS[k]||'joystick'];pic.append(t);}
   return pic;}
 function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kind:kind;

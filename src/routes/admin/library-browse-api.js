@@ -3,7 +3,7 @@
  *
  *   GET /admin/api/library/browse?kind=&q=&ext=&minSize=&maxSize=&modifiedSince=&integrity=
  *                                &sort=&order=&page=&perPage=&fields=&counts_only=
- *     { items: [{ name, kind, rel, size, mtime, ext, titleId, game, version, integrity }],
+ *     { items: [{ name, kind, rel, size, mtime, ext, titleId, game, version, integrity, id, source, repo, icon }],
  *       total, page, perPage, pages, sort, order, counts: { base, update, dlc, patch, save, homebrew, other } }
  *     counts_only=1 → { counts, total }
  *     "pending": true → the stray-file ("other") scan of a big folder has not finished its first pass; ask again shortly
@@ -16,7 +16,7 @@ import * as libraryCache from "../../meta/library-cache.js";
 import * as userPatches from "../../meta/user-patches.js";
 import * as titledb from "../../meta/titledb-store.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
-import { defaultService as homebrewService } from "../homebrew.js";
+import { defaultService as homebrewService, iconUrlOf } from "../homebrew.js";
 import { installPathFor } from "../../meta/homebrew.js";
 import verifyQueue from "../../meta/verify-service.js";
 import { romsDirPath, patchesDir, savesDir, homebrewDir, retroDir, dataDir, incomingDir, incomingInGames } from "../../helpers/envs.js";
@@ -61,14 +61,15 @@ export function defaultSources({ verify = verifyQueue } = {}) {
     },
     async patches() {
       const names = libraryNames();
-      // A homebrew app's patch has no title id; its app's name says what it is for.
+      // A homebrew app's patch has no title id; its app's name and icon say what it is for.
       const apps = new Map((await homebrewService.list()).filter((e) => e.install_type !== "title")
-        .map((e) => [(e.install_path ?? installPathFor(e.file_name)).split("/")[1], e.name]));
+        .map((e) => [(e.install_path ?? installPathFor(e.file_name)).split("/")[1], e]));
       return (await userPatches.list()).map((p) => {
         const where = userPatches.locate(p.id);
         return item("patch", {
           name: p.name, rel: where ? `${where.dir}/${where.folder}` : null, size: p.size, mtime: p.updated_at,
-          titleId: p.title_id ?? null, game: p.homebrew ? apps.get(p.homebrew) ?? p.homebrew : gameNameOf(p.title_id, names), version: p.version ?? null, id: p.id,
+          titleId: p.title_id ?? null, game: p.homebrew ? apps.get(p.homebrew)?.name ?? p.homebrew : gameNameOf(p.title_id, names), version: p.version ?? null, id: p.id,
+          icon: p.homebrew && apps.has(p.homebrew) ? iconUrlOf(apps.get(p.homebrew)) : null,
         });
       });
     },
@@ -92,7 +93,7 @@ export function defaultSources({ verify = verifyQueue } = {}) {
         return item("homebrew", {
           name: e.name, rel: e.install_dir ?? e.install_path ?? e.file_name ?? null, size: e.size,
           mtime: Number.isFinite(when) ? when / 1000 : null, titleId: e.title_id ?? null, version: e.version ?? null,
-          id: e.id, source: e.source ?? null, repo: String(e.repo_url ?? "").replace(/^https:\/\/github\.com\//, "") || null,
+          id: e.id, icon: iconUrlOf(e), source: e.source ?? null, repo: String(e.repo_url ?? "").replace(/^https:\/\/github\.com\//, "") || null,
         });
       });
     },

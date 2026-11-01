@@ -30,7 +30,7 @@ test.afterAll(() => fs.rmSync(base, { recursive: true, force: true }));
 
 test('a folder opens, the path leads back, and the address keeps the place', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await expect(row(page, 'Alpha')).toBeVisible();
   await expect(row(page, 'loose.nsp')).toContainText('3 B');
   await row(page, 'Alpha').getByRole('button', { name: 'Alpha' }).click();
@@ -45,7 +45,7 @@ test('a folder opens, the path leads back, and the address keeps the place', asy
 test('the list opens newest first, and a header click sorts by that column', async ({ page }) => {
   const t = new Date(); fs.utimesSync(path.join(base, 'Beta'), t, t);
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await expect(page.locator('#fb thead [data-sort="mtime"]')).toHaveAttribute('aria-sort', 'descending');
   await expect(page.locator('#fb-rows tr .fb-name')).toHaveText(['Beta', 'Alpha', 'loose.nsp']);
   await page.locator('#fb thead [data-sort="name"]').click();
@@ -55,7 +55,7 @@ test('the list opens newest first, and a header click sorts by that column', asy
 
 test('a new folder, a rename, a move and a trash each change the disk', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await expect(row(page, 'Alpha')).toBeVisible();
 
   await page.locator('#fb-mkdir').click();
@@ -89,7 +89,7 @@ test('a new folder, a rename, a move and a trash each change the disk', async ({
 
 test('rows pick like a file manager: a click picks one, Ctrl adds, Shift takes the range, Ctrl+A takes the page', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   const info = page.locator('#fb-info');
   await row(page, 'Alpha').locator('td.c-size').click();
   await expect(info).toHaveText('1개를 골랐습니다');
@@ -110,7 +110,7 @@ test('rows pick like a file manager: a click picks one, Ctrl adds, Shift takes t
 
 test('the keyboard walks the rows, Enter opens a folder, Backspace goes back up, F2 renames', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await row(page, 'Alpha').locator('td.c-size').click();
   await page.keyboard.press('ArrowDown');
   await expect(row(page, 'Beta')).toBeFocused();
@@ -131,7 +131,7 @@ test('the keyboard walks the rows, Enter opens a folder, Backspace goes back up,
 
 test('a rename that changes a file extension asks first, and a no keeps the name', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await row(page, 'loose.nsp').locator('td.c-size').click();
   await page.keyboard.press('F2');
   await page.locator('#ask-input').fill('loose.txt');
@@ -144,7 +144,7 @@ test('a rename that changes a file extension asks first, and a no keeps the name
 
 test('a right click opens a menu of what the pick allows, and on the empty list a new folder and an upload', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   const menu = page.locator('#fb-menu');
   await row(page, 'loose.nsp').locator('td.c-mtime').click({ button: 'right' });
   await expect(menu.getByRole('menuitem')).toHaveText(['내려받기', '공유 링크', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
@@ -178,7 +178,7 @@ test('on a desktop the browser is one window to the bottom of the screen, and on
   for (let i = 0; i < 60; i++) put(`Many/file-${String(i).padStart(2, '0')}.nsp`);
   await page.setViewportSize({ width: 1280, height: 720 });
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test%2FMany');
+  await page.goto('/admin/files?tab=folder&path=fb-test%2FMany');
   await expect(row(page, 'file-00.nsp')).toBeVisible();
   const before = await page.locator('#fb thead th.c-name').boundingBox();
   await row(page, 'file-05.nsp').hover();
@@ -198,7 +198,7 @@ test('on a desktop the browser is one window to the bottom of the screen, and on
 test('on a phone the list fits the width', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await expect(row(page, 'Alpha')).toBeVisible();
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(390);
@@ -207,7 +207,7 @@ test('on a phone the list fits the width', async ({ page }) => {
 
 test('files dropped on the list or picked with Upload land in the open folder, in pieces', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test%2FBeta');
+  await page.goto('/admin/files?tab=folder&path=fb-test%2FBeta');
   await expect(row(page, 'keep.txt')).toBeVisible();
   await page.evaluate(() => { (window as any).UP_CHUNK_BYTES = 4; });
 
@@ -233,7 +233,7 @@ test('files dropped on the list or picked with Upload land in the open folder, i
 
 test('a picked folder keeps its shape, and the upload panel stops a file that has not finished', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test%2FBeta');
+  await page.goto('/admin/files?tab=folder&path=fb-test%2FBeta');
   await expect(row(page, 'keep.txt')).toBeVisible();
   await page.evaluate(() => { (window as any).UP_CHUNK_BYTES = 4; });
   // A picked folder names its files under it, as the browser does with webkitRelativePath.
@@ -275,7 +275,7 @@ test('a picked folder keeps its shape, and the upload panel stops a file that ha
 
 test('rows dragged onto a folder or onto the path move there', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await row(page, 'loose.nsp').locator('td.c-size').dragTo(row(page, 'Alpha').locator('td.c-size'));
   await expect(page.locator('#toast')).toContainText('1개를 옮겼습니다');
   await expect(row(page, 'loose.nsp')).toHaveCount(0);
@@ -303,7 +303,7 @@ test('the toolbar shows every action, the address starts with the storage name, 
   await page.route('**/api/title/*', (r) => r.fulfill({ json: { id: '0100000000010000', name: 'Known Game', publisher: 'Example Works', releaseDate: 20240115, category: 'Action', description: 'What the game is about.', screenshots: [] } }));
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
-  await page.goto('/admin/games?tab=folder');
+  await page.goto('/admin/files?tab=folder');
   if ((await page.locator('#fb-t-side').getAttribute('aria-pressed')) !== 'true') await page.locator('#fb-t-side').click();
 
   await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
@@ -328,7 +328,7 @@ test('the toolbar shows every action, the address starts with the storage name, 
 
 test('the signed-in admin can read the details the info pane asks for', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder');
+  await page.goto('/admin/files?tab=folder');
   const status = await page.evaluate(async () => (await fetch('/api/title/0100000000010000')).status);
   expect([200, 404]).toContain(status);
 });
@@ -336,7 +336,7 @@ test('the signed-in admin can read the details the info pane asks for', async ({
 test('at a laptop width the command bar keeps its words on one line', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await signIn(page);
-  await page.goto('/admin/games');
+  await page.goto('/admin/files');
   await expect(page.locator('#fb-trash-btn > span')).toBeVisible();
   const [first, last] = await page.evaluate(() => ['#fb-mkdir', '#fb-undo-btn'].map((q) => document.querySelector(q)!.getBoundingClientRect().top));
   expect(last).toBe(first);
@@ -346,7 +346,7 @@ test('the move dialog names its destination, and a move that will not read right
   put('A/a [0100000000010000][v0].nsp');
   put('B/b [0100000000020000][v0].nsp');
   await signIn(page);
-  await page.goto('/admin/games');
+  await page.goto('/admin/files');
   await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
   await page.locator('#fb-addr').fill('게임/fb-test/A');
   await page.keyboard.press('Enter');
@@ -367,7 +367,7 @@ test('the move dialog names its destination, and a move that will not read right
 
 test('the move dialog makes the folder it needs and moves into it', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games');
+  await page.goto('/admin/files');
   await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
   await page.locator('#fb-addr').fill('게임/fb-test');
   await page.keyboard.press('Enter');
@@ -385,7 +385,7 @@ test('the move dialog makes the folder it needs and moves into it', async ({ pag
 
 test('a drag says where it will land, and the notice after a move takes it back', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await row(page, 'loose.nsp').locator('td.c-size').hover();
   await page.mouse.down();
   const target = await row(page, 'Alpha').locator('td.c-size').boundingBox();
@@ -409,7 +409,7 @@ test('a pick comes down as one zip, and a text or image file opens in a preview'
     fs.utimesSync(path.join(base, rel), t, t);
   }
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await row(page, 'Alpha').locator('td.c-size').click();
   await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
   const download = page.waitForEvent('download');
@@ -433,7 +433,7 @@ test('a pick comes down as one zip, and a text or image file opens in a preview'
 
 test('copy and paste make a numbered copy, cut and paste move, and Ctrl+Z takes each back', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await row(page, 'loose.nsp').locator('td.c-size').click();
   await page.keyboard.press('ControlOrMeta+c');
   await page.keyboard.press('ControlOrMeta+v');
@@ -467,7 +467,7 @@ test('copy and paste make a numbered copy, cut and paste move, and Ctrl+Z takes 
 
 test('back, forward and up walk the folders, and a typed address opens one', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await expect(page.locator('#fb-back')).toBeDisabled();
   await row(page, 'Alpha').getByRole('button', { name: 'Alpha' }).click();
   await expect(row(page, 'one.nsp')).toBeVisible();
@@ -489,7 +489,7 @@ test('back, forward and up walk the folders, and a typed address opens one', asy
 
 test('a search through subfolders shows where each find is, and properties count through folders', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await expect(page.locator('#fb-deep')).toBeHidden();
   await page.locator('#fb-q').fill('two');
   await page.locator('#fb-deep').check();
@@ -510,7 +510,7 @@ test('a search through subfolders shows where each find is, and properties count
 test('the icon view tiles the rows, letters jump to a name, and a box drawn on empty space picks rows', async ({ page }) => {
   put('cover.png', 'not really a png');
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await page.locator('#fb-v-grid').click();
   await expect(page.locator('#fb')).toHaveClass(/grid/);
   await expect(page.locator('#fb thead')).toBeHidden();
@@ -535,7 +535,7 @@ test('the icon view tiles the rows, letters jump to a name, and a box drawn on e
 
 test('another folder shows placeholder rows while it loads, and a title id folder reads as its game', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await expect(row(page, 'Alpha')).toBeVisible();
   let release = () => {};
   const held = new Promise<void>((ok) => { release = ok; });
@@ -557,7 +557,7 @@ test('another folder shows placeholder rows while it loads, and a title id folde
 test('on a wide screen the folder tree and the details pane open beside the list', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   const tree = page.locator('#fb-tree');
   await expect(tree.locator('[aria-current="page"]')).toContainText('fb-test');
   await expect(tree.getByRole('button', { name: 'Beta', exact: true })).toBeVisible();
@@ -598,7 +598,7 @@ test('on a wide screen the folder tree and the details pane open beside the list
 test('a long folder keeps loading as it scrolls instead of paging', async ({ page }) => {
   for (let i = 0; i < 150; i++) put(`Many/f${String(i).padStart(3, '0')}.nsp`);
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test%2FMany');
+  await page.goto('/admin/files?tab=folder&path=fb-test%2FMany');
   await expect(page.locator('#fb-rows tr')).toHaveCount(100);
   await expect(page.locator('#fb-info')).toContainText('100개 표시');
   await page.locator('#fb-more').scrollIntoViewIfNeeded();
@@ -623,7 +623,7 @@ test("a game file shows its game's icon, kind, version and what its check found"
   });
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
   await page.route('**/api/library/icon/**', (r) => r.fulfill({ contentType: 'image/png', body: png }));
-  await page.goto('/admin/games?tab=folder&path=fb-test%2FGamey');
+  await page.goto('/admin/files?tab=folder&path=fb-test%2FGamey');
   const r = page.locator('#fb-rows tr').first();
   await expect(r.locator('img.fb-gicon')).toHaveAttribute('src', /\/api\/library\/icon\/0100AAAA00000000\?size=md/);
   await expect(r).toContainText('업데이트 v65536');
@@ -641,7 +641,7 @@ test("a game file shows its game's icon, kind, version and what its check found"
 test('a folder row shows its size, and the details pane what it holds', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   await expect(row(page, 'Alpha').locator('.c-size')).toHaveText('3 B');
   await row(page, 'Alpha').locator('.c-mtime').click();
   await expect(page.locator('#fb-side')).toContainText('파일 2개, 폴더 0개');
@@ -649,7 +649,7 @@ test('a folder row shows its size, and the details pane what it holds', async ({
 
 test('a share link downloads the file without signing in', async ({ page, baseURL }) => {
   await signIn(page);
-  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.goto('/admin/files?tab=folder&path=fb-test');
   const made = await page.evaluate(() => (window as any).api('/admin/api/files/share', { method: 'POST', body: { root: 'games', path: 'fb-test/loose.nsp', hours: 1 } }));
   const token = String(made.url).split('/share/')[1];
   const stranger = await playRequest.newContext({ baseURL });
@@ -664,7 +664,7 @@ test('a long folder never squeezes the status bar or the toolbars, in the list o
   for (let i = 0; i < 120; i++) put(`many/game ${i}.nsp`);
   await page.setViewportSize({ width: 1440, height: 720 });
   await signIn(page);
-  await page.goto('/admin/games');
+  await page.goto('/admin/files');
   await page.locator('#fb-crumb').click({ position: { x: 300, y: 10 } });
   await page.locator('#fb-addr').fill('게임/fb-test/many');
   await page.keyboard.press('Enter');
@@ -689,7 +689,7 @@ test('a long folder never squeezes the status bar or the toolbars, in the list o
 test('the explorer window fills the screen on a tall window, whichever page opens first', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
   await signIn(page);
-  for (const url of ['/admin/games', '/admin/retro?tab=folder', '/admin/retro', '/admin/homebrew']) {
+  for (const url of ['/admin/files', '/admin/retro?tab=folder', '/admin/retro', '/admin/homebrew']) {
     await page.goto(url);
     await expect(page.locator('#fb-rows tr').first()).toBeVisible();
     const bottom = await page.evaluate(() => document.getElementById('fb')!.getBoundingClientRect().bottom);
@@ -701,7 +701,7 @@ test('the status bar sits under the list and never covers its last row, narrow o
   await signIn(page);
   for (const width of [820, 1440]) {
     await page.setViewportSize({ width, height: 640 });
-    await page.goto('/admin/games');
+    await page.goto('/admin/files');
     await expect(page.locator('#fb-rows tr').first()).toBeVisible();
     const [mainBottom, footTop, footBottom] = await page.evaluate(() => [
       document.getElementById('fb-main')!.getBoundingClientRect().bottom,
