@@ -220,6 +220,7 @@ mountLibraryBrowseApi(router, (req, res) => (req.get("x-admin") ? true : (res.st
   },
   other: { list: async () => [{ rel: "A/readme.txt", size: 2, mtime: 10 }], invalidate: () => { updated = "invalidated"; } },
   onLibraryUpdate: (fn) => { updated = fn; },
+  verify: { get: (rel) => (rel.startsWith("B/Beta") ? { verdict: "damaged", reason: "hash-mismatch", detail: { ncas: [{ type: "Program" }] } } : rel.startsWith("A/Alpha") ? { verdict: "modified", reason: "signature-fail" } : null) },
 });
 app.use("/admin", router);
 const server = app.listen(0, "127.0.0.1");
@@ -245,6 +246,15 @@ test("the route answers every kind's count, and a failing listing only leaves it
 test("a homebrew app comes with its own icon, since it has no title id to find one by", async () => {
   const d = await (await get("?kind=homebrew&q=Hand")).json();
   assert.deepEqual(d.items.map((i) => i.icon), ["/api/homebrew/handapp/icon?v=abc"]);
+});
+
+test("a flagged file says why in the admin's language: modified is not damage, a hash mismatch only possibly", async () => {
+  const d = await (await fetch(BASE + "?kind=base", { headers: { "x-admin": "1", "accept-language": "ko" } })).json();
+  const by = Object.fromEntries(d.items.map((i) => [i.name, i.why]));
+  assert.equal(by.Alpha.label, "수정됨");
+  assert.equal(by.Beta.label, "손상 의심");
+  assert.equal(by.Beta.certain, false);
+  assert.match(by.Beta.help.body, /게임 프로그램/);
 });
 
 test("the route refuses a wrong parameter as JSON with a stable code", async () => {

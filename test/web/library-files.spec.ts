@@ -102,3 +102,26 @@ test('the 전체 목록 page lists files by kind with counts, pages and a search
   await shot(page.locator('#lib-files'), { path: 'out/web/library-files-390-dark.png', animations: 'disabled' });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth), { message: 'no sideways scroll on a phone' }).toBeLessThanOrEqual(390);
 });
+
+test('a flagged file says which it is: modified is plain, a hash mismatch is a warning, and its help opens beside it', async ({ page }) => {
+  await signIn(page);
+  const why = (label: string, certain: boolean) => ({ reason: 'x', certain, label, help: { title: label + ' 도움말', body: '첫 문단\n\n둘째 문단' } });
+  await page.route(/\/admin\/api\/library\/browse\?/, async (route) => { const real = await (await route.fetch()).json(); await route.fulfill({ json: { ...real,
+    items: [
+      { name: 'Mod', kind: 'base', rel: 'A/mod.nsp', size: 1, mtime: 1, integrity: 'modified', why: why('수정됨', false) },
+      { name: 'Maybe', kind: 'base', rel: 'B/maybe.nsp', size: 1, mtime: 1, integrity: 'damaged', why: why('손상 의심', false) },
+      { name: 'Cut', kind: 'base', rel: 'C/cut.nsp', size: 1, mtime: 1, integrity: 'damaged', why: why('손상됨', true) },
+    ],
+    total: 3, page: 1, pages: 1,
+  } }); });
+  await page.goto('/admin/games#library/files');
+  const pill = (name: string) => page.locator('#lb-list [role="row"]', { hasText: name }).locator('.lb-check .pill');
+  await expect(pill('Mod')).toHaveText('수정됨');
+  await expect(pill('Mod')).not.toHaveClass(/\b(off|warn)\b/);
+  await expect(pill('Maybe')).toHaveText('손상 의심');
+  await expect(pill('Maybe')).toHaveClass(/\bwarn\b/);
+  await expect(pill('Cut')).toHaveClass(/\boff\b/);
+  await page.locator('#lb-list [role="row"]', { hasText: 'Maybe' }).locator('.lv-tip').click();
+  await expect(page.locator('#lv-pop')).toContainText('손상 의심 도움말');
+  await expect(page.locator('#lv-pop p')).toHaveCount(2);
+});

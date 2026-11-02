@@ -255,16 +255,16 @@ test('the addresses the menu plan retired redirect to where their job lives now'
       await expect(page.locator(`#${name}-subtabs [data-sub="list"]`)).toHaveAttribute('aria-selected', 'true');
     }
   }
-  // The games page's 파일 tab became the 파일 page: its old links land there, the folder kept.
+  // The games page opens on its 파일 tab again: its old folder links stay there, the folder kept.
   const kept = `${process.env.COOK_GAMES_DIR}/fb-old`;
   fs.mkdirSync(kept, { recursive: true });
   for (const [old, want] of [
-    ['/admin/games?tab=folder&path=fb-old', /\/admin\/files\?tab=folder&path=fb-old(#|$)/],
-    ['/admin/games?view=folder', /\/admin\/files(\?|#|$)/], ['/admin/games#library/folder', /\/admin\/files(\?|#|$)/],
+    ['/admin/games?tab=folder&path=fb-old', /\/admin\/games\?tab=folder&path=fb-old(#|$)/],
+    ['/admin/games?view=folder', /\/admin\/games(\?|#|$)/], ['/admin/games#library/folder', /\/admin\/games(\?|#|$)/],
   ] as [string, RegExp][]) {
     await page.goto(old);
     await expect(page, old).toHaveURL(want);
-    await expect(page.locator('#tab-files'), old).toBeVisible();
+    await expect(page.locator('#fb'), old).toBeVisible();
   }
   fs.rmSync(kept, { recursive: true, force: true });
   // An old /admin/files link to another folder still lands on that folder's own 파일 tab.

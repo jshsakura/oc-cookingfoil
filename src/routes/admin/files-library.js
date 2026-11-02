@@ -180,7 +180,7 @@ function fbSideIcon(f){const w=el('span');w.innerHTML=f.type==='dir'?FB_ICON.dir
 // ── the folder tree ─────────────────────────────────────────────────
 const fbTree={root:null,open:new Set(),kids:new Map()};
 function fbTreeOn(){return $('fb').classList.contains('tree-on');}
-async function fbTreeKids(rel){const d=await api('/admin/api/files/list?'+new URLSearchParams({root:fb.root,path:rel,only:'dirs',perPage:'500'}));
+async function fbTreeKids(rel){const d=await api('/admin/api/files/list?'+fbServerQs(new URLSearchParams({root:fb.root,path:rel,only:'dirs',perPage:'500'})));
   const list=d.items.map((i)=>({rel:i.rel,name:i.title||i.name}));fbTree.kids.set(rel,list);fbTreeLeaves(list);return list;}
 // Which of these folders hold no folder, from the sizes cache, so their arrow is gone before anyone presses it.
 async function fbTreeLeaves(list){const root=fb.root;const ask=list.filter((k)=>!fbSizes.has(root+'|'+k.rel)).map((k)=>k.rel);if(!ask.length)return;
@@ -221,7 +221,7 @@ for(const name of ['tree','side']){const b=$('fb-t-'+name);
 
 // ── more rows as the list scrolls ───────────────────────────────────
 async function fbMore(){const d=fb.data;if(!d||fb.moreBusy||d.page>=d.pages)return;fb.moreBusy=true;const n=fb.seq;
-  const qs=new URLSearchParams({root:fb.root,path:fb.path,page:String(d.page+1),perPage:String(FB_PER),sort:fb.sort,order:fb.order});
+  const qs=fbServerQs(new URLSearchParams({root:fb.root,path:fb.path,page:String(d.page+1),perPage:String(FB_PER),sort:fb.sort,order:fb.order}));
   if(fb.q)qs.set('q',fb.q);if(fb.q&&fb.deep)qs.set('deep','1');
   let ok=false;
   try{const next=await api('/admin/api/files/list?'+qs);if(n!==fb.seq||fb.data!==d)return;ok=true;

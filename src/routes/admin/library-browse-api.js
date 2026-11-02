@@ -19,6 +19,7 @@ import { savesCatalog, savesEnabled } from "../saves.js";
 import { defaultService as homebrewService, iconUrlOf } from "../homebrew.js";
 import { installPathFor } from "../../meta/homebrew.js";
 import verifyQueue from "../../meta/verify-service.js";
+import { explain as explainIntegrity } from "../../meta/integrity-help.js";
 import { romsDirPath, patchesDir, savesDir, homebrewDir, retroDir, dataDir, incomingDir, incomingInGames } from "../../helpers/envs.js";
 import {
   BadParam, browse, createOtherScanner, gameItem, item, nestedDirs, parseQuery,
@@ -104,6 +105,7 @@ export function mountLibraryBrowseApi(router, requireSession, {
   sources = defaultSources(),
   other = createOtherScanner({ root: romsDirPath, ignore: [...new Set([...nestedDirs(romsDirPath, [patchesDir, savesDir, homebrewDir, retroDir, dataDir, incomingDir]), ...(incomingInGames ? [incomingInGames] : [])])], ttlMs: OTHER_TTL_MS }),
   onLibraryUpdate = libraryCache.onUpdate,
+  verify = verifyQueue,
 } = {}) {
   // A rescan of the library also looks again for stray files.
   onLibraryUpdate?.(() => other.invalidate());
@@ -143,7 +145,13 @@ export function mountLibraryBrowseApi(router, requireSession, {
     }
     try {
       const { items, pending } = await everything();
-      res.json(pending ? { ...browse(items, query), pending: true } : browse(items, query));
+      const out = browse(items, query);
+      // A modified or damaged file on this page says why, in the admin's language: modified is not damage,
+      // and a hash mismatch is only possibly damage.
+      const lang = requestLang(req);
+      const why = (it) => (it.rel && (it.integrity === "modified" || it.integrity === "damaged") ? explainIntegrity(verify.get?.(it.rel), lang) : null);
+      const page = out.items?.map((it) => { const w = why(it); return w ? { ...it, why: w } : it; });
+      res.json({ ...out, ...(page ? { items: page } : {}), ...(pending ? { pending: true } : {}) });
     } catch (err) {
       debug.error("admin: library browse: %s", err.message);
       res.status(500).json({ error: apiWord(req, "failed"), code: "failed" });

@@ -535,12 +535,14 @@ export function createVerifyQueue({
 
   function view() {
     load();
-    const counts = { ok: 0, modified: 0, damaged: 0, unchecked: 0, misnamed: 0 };
+    // suspect: the damaged files whose only finding is a hash mismatch, which may still install.
+    const counts = { ok: 0, modified: 0, damaged: 0, suspect: 0, unchecked: 0, misnamed: 0 };
     let hashPending = 0;
     const flagged = [];
     for (const row of rows.values()) {
       const v = row.verdict && row.verdict !== "unchecked" ? row.verdict : "unchecked";
       counts[v] = (counts[v] ?? 0) + 1;
+      if (v === "damaged" && row.reason === "hash-mismatch") counts.suspect++;
       if (row.wantHash && !row.hashDone) hashPending++;
       if (notice(row)) flagged.push({ path: row.path, verdict: row.verdict, reason: row.reason ?? null, checks: row.checks ?? null, detail: row.detail ?? null, at: row.at ?? null, size: row.size ?? null });
       if (row.misnamed) {

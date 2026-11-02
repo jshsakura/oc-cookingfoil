@@ -258,7 +258,7 @@ test("a modified or damaged verdict is kept, exposed, and tells the library to r
   assert.equal(q.integrityOf("fine.nsp"), null);
   assert.equal(verdictChanges, 1);
   const v = q.view();
-  assert.deepEqual(v.counts, { ok: 1, modified: 1, damaged: 0, unchecked: 0, misnamed: 0 });
+  assert.deepEqual(v.counts, { ok: 1, modified: 1, damaged: 0, suspect: 0, unchecked: 0, misnamed: 0 });
   assert.deepEqual(v.flagged.map((f) => f.path), ["mod.nsp"]);
 
   fs.rmSync(path.join(games, "mod.nsp"));

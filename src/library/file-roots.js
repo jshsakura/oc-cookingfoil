@@ -39,6 +39,13 @@ const TITLE_ID_RE = /^[0-9A-F]{16}$/i;
 // Roots no Switch game file belongs in: a game there is never read as a game, and leaves the games list.
 const NO_GAMES_ROOTS = new Set(["retro", "patches", "saves"]);
 export const FILE_ROOT_KEYS = Object.freeze(["games", "incoming", "retro", "homebrew", "patches", "saves"]);
+/**
+ * What the server makes and keeps at the top of a root: pictures it fetched, the RetroArch pack it hands out,
+ * its own lists. The list leaves them out unless asked (server=1), so the folder opens on what a person put there.
+ */
+export const SERVER_FILES = Object.freeze({
+  retro: new Set(["art-map", "thumbnails", "bezels", "screenshots", "system-icons", "retroarch", "ratings.json", "arcade-names.json", "systems.json"]),
+});
 
 const SORTS = new Set(["name", "size", "mtime", "type"]);
 const PER_PAGE = 100;
@@ -203,13 +210,18 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return { entries, cut: false };
   }
 
-  async function list(key, rel, { q = "", deep = false, sort = "name", order = "asc", page = 1, perPage = PER_PAGE, label = null, dirsOnly = false } = {}) {
+  async function list(key, rel, { q = "", deep = false, sort = "name", order = "asc", page = 1, perPage = PER_PAGE, label = null, dirsOnly = false, server = false } = {}) {
     const at = await folder(key, rel);
     if (!SORTS.has(sort)) fail("bad-param");
     const size = Math.min(Math.max(1, Number(perPage) || PER_PAGE), MAX_PER_PAGE);
     const needle = String(q ?? "").trim().toLowerCase();
     const found = deep && needle ? await deepFind(at, needle, label) : { entries: await entriesOf(at.real, at.rel, at.walls, needle, label), cut: false };
-    const entries = dirsOnly ? found.entries.filter((e) => e.type === "dir") : found.entries;
+    const own = at.rel ? null : SERVER_FILES[key];
+    const isServer = (e) => Boolean(own?.has(e.rel.split("/")[0]));
+    const shown = own && !server ? found.entries.filter((e) => !isServer(e)) : found.entries;
+    if (own && server) for (const e of shown) if (isServer(e)) e.server = true;
+    const hiddenServer = found.entries.length - shown.length;
+    const entries = dirsOnly ? shown.filter((e) => e.type === "dir") : shown;
     const dir = order === "desc" ? -1 : 1;
     // A title id folder sorts by the game it names.
     const byName = (a, b) => collator.compare(a.title ?? a.name, b.title ?? b.name);
@@ -229,6 +241,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
       root: key, path: at.rel, parent, items: entries.slice((pg - 1) * size, pg * size),
       total, page: pg, perPage: size, pages, sort, order: dir === -1 ? "desc" : "asc", deep: Boolean(deep && needle), cut: found.cut,
       counts: { dirs: entries.filter((e) => e.type === "dir").length, files: entries.filter((e) => e.type === "file").length },
+      serverFiles: own ? (server ? shown.filter(isServer).length : hiddenServer) : 0,
     };
   }
 

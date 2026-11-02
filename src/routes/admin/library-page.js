@@ -3,17 +3,20 @@ import { icon } from "../../views/icons.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
 import { LIBRARY_VERIFY_HTML } from "./library-files-panel.js";
 import { GAME_FILES_HTML } from "./library-browser-panel.js";
+import { FOLDER_MARK } from "./files-panel.js";
 import { GAME_PATCHES_HTML } from "./patches-panel.js";
 
 export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
   <div class="hd"><h2>${top("m.grpGames")}</h2><button type="button" class="primary" id="rescan">${top("lib.rescan")}</button></div>
   <p class="muted" id="scan-status" aria-live="polite"></p>
   <div class="subtabs hide-bar" id="lib-subtabs" role="tablist" ${topLabel("lp.areaAria")}>
-    <button type="button" role="tab" data-lsub="files" aria-selected="true">${icon("grid")}${top("m.gameList")}</button>
+    <button type="button" role="tab" data-lsub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
+    <button type="button" role="tab" data-lsub="files" aria-selected="false">${icon("grid")}${top("m.gameList")}</button>
     <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}${top("lb.colCheck")}</button>
     <button type="button" role="tab" data-lsub="info" aria-selected="false">${icon("book")}${top("m.titles")}</button>
   </div>
-  <div data-lib-panel="files">${GAME_FILES_HTML}
+  <div data-lib-panel="folder">${FOLDER_MARK}</div>
+  <div data-lib-panel="files" hidden>${GAME_FILES_HTML}
   <section class="lib-ops" aria-labelledby="lib-ops-h">
     <h3 class="sub-h" id="lib-ops-h">${top("ops.status")}</h3>
     <div class="cards" id="lib-cards"></div>
@@ -70,21 +73,21 @@ $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)re
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask(topText('lp.resetAsk'),{danger:true}))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast(topText('lp.resetDone'));openDesc(true);}catch(err){toast(err.message);}});
 // The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
-const LIB_SUBS=['files','verify','info'];let libSub='files';
+const LIB_SUBS=['folder','files','verify','info'];let libSub='folder';
 function libLoadSub(){
-  if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='info')loadPatches();}
+  if(libSub==='folder')fbOpen('games');else if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='info')loadPatches();}
 function libShowSub(sub,quiet){if(!LIB_SUBS.includes(sub))return;libSub=sub;
   for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.setAttribute('aria-selected',String(b.dataset.lsub===sub));
   for(const p of document.querySelectorAll('#tab-library [data-lib-panel]'))p.hidden=p.dataset.libPanel!==sub;
   if(!quiet){const next=new URL(location.href);
-    if(sub==='files')next.searchParams.delete('view');
+    if(sub==='folder')next.searchParams.delete('view');
     else{next.searchParams.set('view',sub);next.searchParams.delete('tab');next.searchParams.delete('path');}
     next.hash='#library/'+sub;
     history.replaceState(null,'',next);libLoadSub();}
   if(window.__admMark)window.__admMark();}
 for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.addEventListener('click',()=>libShowSub(b.dataset.lsub));
 addEventListener('hashchange',()=>{
-  const [tab,sub]=location.hash.slice(1).split('/');if(tab==='library')libShowSub(sub||'files');});
+  const [tab,sub]=location.hash.slice(1).split('/');if(tab==='library')libShowSub(sub||'folder');});
 // A link from the 전체 목록 page names the game to open in the game-info form.
 function libOpenGame(){const id=new URLSearchParams(location.search).get('game');if(!id||!/^[0-9A-F]{16}$/i.test(id))return;
   const next=new URL(location.href);next.searchParams.delete('game');history.replaceState(null,'',next);

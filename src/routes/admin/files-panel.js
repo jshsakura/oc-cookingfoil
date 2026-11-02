@@ -26,6 +26,8 @@ export const FILES_CSS = /* css */ `
 #fb .fb-cmds{container-type:inline-size;display:flex;align-items:center;gap:2px;flex-wrap:wrap;min-height:38px}
 #fb .fb-cmd{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 7px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-weight:var(--fw-bold);white-space:nowrap}
 #fb .fb-cmd[hidden]{display:none}
+#fb #fb-server-btn[aria-pressed="true"]{background:var(--sunk)}
+#fb-rows tr.fb-server td:not(.c-sel){opacity:.6}
 #fb .fb-cmd .ico{width:16px;height:16px;flex:none}
 #fb .fb-cmd:hover:not(:disabled){background:var(--sunk)}
 #fb .fb-cmd:disabled{opacity:.35;cursor:default}
@@ -226,6 +228,7 @@ export const FOLDER_HTML = `<div id="fb">
     <button type="button" class="fb-cmd danger" id="fb-trash-btn">${icon("trash")}<span>${top("fb.trash")}</span></button>
     <i class="fb-sep"></i>
     <button type="button" class="fb-cmd" id="fb-undo-btn">${icon("undo")}<span>${top("fb.undo")}</span></button>
+    <button type="button" class="fb-cmd" id="fb-server-btn" aria-pressed="false" hidden>${icon("layers")}<span>${top("fb.server")}</span></button>
     <input type="file" id="fb-file" multiple tabindex="-1" aria-hidden="true">
     <input type="file" id="fb-dir" webkitdirectory multiple tabindex="-1" aria-hidden="true">
   </div>
@@ -319,7 +322,7 @@ function fbCrumb(mount,root,path,go){mount.replaceChildren();const parts=path?pa
 function fbSortHeads(){for(const b of document.querySelectorAll('#fb thead [data-sort]')){const on=b.dataset.sort===fb.sort;
   if(on)b.setAttribute('aria-sort',fb.order==='asc'?'ascending':'descending');else b.removeAttribute('aria-sort');
   b.dataset.arrow=on?(fb.order==='asc'?'▲':'▼'):'';const t=b.querySelector('[data-top]');b.replaceChildren(t||b.firstChild);if(on)b.append(el('span',fb.order==='asc'?'▲':'▼'));}}
-function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-selected',String(fb.sel.has(f.rel)));tr.tabIndex=f.rel===fb.focus?0:-1;
+function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;if(f.server)tr.classList.add('fb-server');tr.setAttribute('aria-selected',String(fb.sel.has(f.rel)));tr.tabIndex=f.rel===fb.focus?0:-1;
   const cs=td(null,'c-sel');const cb=el('input');cb.type='checkbox';cb.checked=fb.sel.has(f.rel);cb.setAttribute('aria-label',topFill('fb.selectRow',{name:f.name}));
   cb.addEventListener('change',()=>{if(cb.checked)fb.sel.add(f.rel);else fb.sel.delete(f.rel);fb.anchor=fb.focus=f.rel;fbPaint();});cs.append(cb);
   const onControl=(e)=>e.target.closest('button,input,a');
@@ -376,8 +379,17 @@ function fbSkel(){$('fb-empty').hidden=true;const sk=(cls,w)=>{const i=el('i',nu
     tr.append(sel,n,size,at,td(null,'c-act'));return tr;}));}
 // The first page; the rest come as the list scrolls (fbMore).
 // A refresh of the same view asks for as many rows as were shown, so the list does not shrink under the reader.
+// What the server makes at the top of a folder (the retro pictures, the RetroArch pack, its lists) stays out of the
+// list until the switch shows it; the choice is kept in this browser.
+fb.server=(()=>{try{return localStorage.getItem('cookingfoil:fb-server')==='1';}catch{return false;}})();
+const fbServerQs=(qs)=>{if(fb.server)qs.set('server','1');return qs;};
+$('fb-server-btn').addEventListener('click',()=>{fb.server=!fb.server;try{localStorage.setItem('cookingfoil:fb-server',fb.server?'1':'0');}catch{}fbTree.kids.clear();fbLoad();});
+// Moving or deleting what the server keeps can change the retro pages or what consoles get: it asks first.
+async function fbServerOk(rels,root=fb.root){if(root!==fb.root||!fb.data)return true;
+  const ours=new Set(fb.data.items.filter((f)=>f.server).map((f)=>f.rel));
+  return !rels.some((r)=>ours.has(r))||await ask(topText('fb.serverAsk'),{danger:true});}
 async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
-  const qs=new URLSearchParams({root:fb.root,path:fb.path,sort:fb.sort,order:fb.order});if(fb.q)qs.set('q',fb.q);if(fb.q&&fb.deep)qs.set('deep','1');
+  const qs=fbServerQs(new URLSearchParams({root:fb.root,path:fb.path,sort:fb.sort,order:fb.order}));if(fb.q)qs.set('q',fb.q);if(fb.q&&fb.deep)qs.set('deep','1');
   fbNav();fbCrumb($('fb-crumb'),fb.root,fb.path,(to)=>fbGo(fb.root,to));fbSortHeads();
   const view=fb.root+'|'+qs;const pages=view===fb.view&&fb.data?Math.min(FB_MAX_PAGES,Math.max(1,fb.data.page)):1;
   qs.set('page','1');qs.set('perPage',String(FB_PER*pages));const skel=view!==fb.view?setTimeout(()=>{if(n===fb.seq)fbSkel();},FB_SKEL_MS):null;
@@ -385,18 +397,18 @@ async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
     // A folder that is gone (moved elsewhere, a stale link) leads back to the top of its storage.
     if(err.code==='not-found'&&fb.path){toast(err.message);fbGo(fb.root,'',{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());return;}
     fb.data=null;$('fb-rows').replaceChildren();const e=$('fb-empty');e.hidden=false;e.textContent=topFill('fb.loadFail',{msg:err.message});fbFoot();return;}
-  clearTimeout(skel);if(n!==fb.seq)return;d.page=pages;d.pages=Math.max(1,Math.ceil(d.total/FB_PER));fb.data=d;fb.view=view;
+  clearTimeout(skel);if(n!==fb.seq)return;const sb=$('fb-server-btn');sb.hidden=!d.serverFiles&&!(fb.server&&d.items.some((f)=>f.server));sb.setAttribute('aria-pressed',String(fb.server));d.page=pages;d.pages=Math.max(1,Math.ceil(d.total/FB_PER));fb.data=d;fb.view=view;
   const live=new Set(d.items.map((f)=>f.rel));for(const r of [...fb.sel])if(!live.has(r))fb.sel.delete(r);
   if(!live.has(fb.focus))fb.focus=d.items[0]?.rel??null;if(!live.has(fb.anchor))fb.anchor=null;
   $('fb-rows').replaceChildren(...d.items.map(fbRow));
   const e=$('fb-empty');e.hidden=d.items.length>0;e.textContent=fb.q?topText('fb.noMatch'):topText('fb.empty');fbFoot();
   if(d.cut)toast(topText('fb.deepCut'));fbThumbs();fbTreeSync();fbSizeRows(d.items);}
 const fbExt=(name)=>(/\\.[^./]+$/.exec(name)?.[0]||'').toLowerCase();
-async function fbRename(f){const name=await askText(topText('fb.renameAsk'),f.name);if(name==null||!name.trim()||name.trim()===f.name)return;
+async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await askText(topText('fb.renameAsk'),f.name);if(name==null||!name.trim()||name.trim()===f.name)return;
   if(f.type==='file'&&fbExt(name.trim())!==fbExt(f.name)&&!await ask(topText('fb.extAsk')))return;
   try{const out=await api('/admin/api/files/rename',{method:'POST',body:{root:fb.root,path:f.rel,name:name.trim()}});fb.sel.delete(f.rel);
     fbUndoPush({journal:[out.undo]});fbToastUndo(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
-async function fbTrash(rels){if(!rels.length)return;
+async function fbTrash(rels){if(!rels.length||!await fbServerOk(rels))return;
   if(!await ask(topFill('fb.askTrash',{n:num(rels.length)}),{danger:true}))return;
   try{const out=await api('/admin/api/files/trash',{method:'POST',body:{root:fb.root,paths:rels}});for(const r of rels)fb.sel.delete(r);
     fbUndoPush({restore:out.restore});fbToastUndo(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
@@ -519,7 +531,7 @@ const FB_WHY={'game-into-game':'fb.gameIntoGame','title-into-title':'fb.titleInt
 const FB_NOTE={'other-game':'fb.r.otherGame','retro-no-system':'fb.r.noSystem','retro-wrong-system':'fb.r.wrongSystem','retro-too-deep':'fb.r.tooDeep'};
 const fbNotes=(notes)=>[...new Set((notes||[]).map((x)=>FB_NOTE[x.code]).filter(Boolean))].map(topText).join(' ');
 function fbRefusal(skipped){const s=skipped.find((x)=>FB_WHY[x.code]);return s?topText(FB_WHY[s.code]):'';}
-async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){
+async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){if(!await fbServerOk(rels,fromRoot))return;
   try{const out=await api('/admin/api/files/move',{method:'POST',body:{root:fromRoot,paths:rels,toRoot,toPath}});
     for(const m of out.moved)fb.sel.delete(m.from);fbUndoPush({journal:out.moved.map((m)=>m.undo)});
     const why=fbRefusal(out.skipped);if(!out.moved.length&&why){toast(why);fbLoad();return;}

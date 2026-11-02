@@ -96,11 +96,11 @@ const listPage = (tab, root, listHtml) => withFolder({
 
 /** The first bundle's pages, by the path the router already knows. */
 export const SPLIT_PAGES = {
-  "/admin/games": bundle({
+  "/admin/games": withFolder({
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+LIBRARY_FILES_CSS,
     body: LIBRARY_HTML+CONTENT_DIALOG_HTML,
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT,
-    init: "libShowSub(location.hash.split('/')[1]||'files',true);loadLibrary();libOpenGame();",
+    init: "libShowSub(location.hash.split('/')[1]||'folder',true);loadLibrary();libOpenGame();",
   }),
   // Every kind the library holds in one list, and the file browser over every folder: neither is the games' own.
   "/admin/library": bundle({

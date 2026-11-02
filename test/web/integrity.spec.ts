@@ -52,7 +52,7 @@ test('the library tab shows the file check counts and its full hash button', asy
   await page.goto("/admin/games");
   await page.getByRole('tab', { name: '검사' }).click();
   await expect(page.getByRole('heading', { name: '검사', exact: true })).toBeVisible();
-  await expect(page.locator('#lv-cards .card')).toHaveCount(5);
+  await expect(page.locator('#lv-cards .card')).toHaveCount(6);
   await expect(page.locator('#lv-list')).toContainText('수정되거나 손상된 파일, 이름이 다른 파일이 없습니다.');
   // No nstool: the check says so instead of running.
   await expect(page.locator('#lv-state')).toContainText('nstool 이나 키가 없어');
@@ -73,7 +73,7 @@ test('the overview link to damaged files opens the check on the damaged files al
   const rows = page.locator('#lv-list [role="row"]', { hasText: '다시 검사' });
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('Broken');
-  const damaged = page.locator('#lv-cards button.card', { hasText: '손상' });
+  const damaged = page.locator('#lv-cards button.card', { has: page.getByText('손상됨', { exact: true }) });
   await expect(damaged).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#lv-cards button.card', { hasText: '수정' }).click();
   await expect(rows).toHaveCount(2);
