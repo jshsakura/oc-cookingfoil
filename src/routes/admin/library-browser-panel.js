@@ -203,6 +203,7 @@ function lbPager(d){const nav=$('lb-pager');nav.replaceChildren();nav.hidden=d.p
   let last=0;for(const p of [...want].sort((a,b)=>a-b)){if(p-last>1)nav.append(el('span','…','lb-gap'));
     nav.append(lbPageButton('',p,{current:p===d.page,far:Math.abs(p-d.page)>1&&p!==1&&p!==d.pages}));last=p;}
   const next=lbPageButton(topText('fp.next'),Math.min(d.pages,d.page+1),{icon:LB_ICON.next});next.disabled=d.page>=d.pages;nav.append(next);}
+// A version chip would pick among this page's 25 rows by an internal number (v65536), so the version column gets none.
 async function lbLoad(){const n=++lb.seq;const kind=lb.kind;
   const skel=setTimeout(()=>{if(n===lb.seq)lbSkeleton();},150);
   const qs=new URLSearchParams({kind:kind==='all'?LB_ALL.join(','):kind,page:String(lb.page),perPage:String(LB_PER),sort:lb.sort,order:lb.order});if(lb.q)qs.set('q',lb.q);
@@ -212,7 +213,7 @@ async function lbLoad(){const n=++lb.seq;const kind=lb.kind;
   $('lb-n-all').textContent=num(LB_ALL.reduce((sum,k)=>sum+(d.counts[k]||0),0));
   lb.page=d.page;
   const empty=kind==='all'?(lb.q?topText('lb.noMatch'):topText('lb.noFiles')):lb.q?topText('lb.kindNoMatch'):topFill('lb.kindNoFiles',{kind:topText(LB_KIND[kind])});
-  table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty,{paging:false,noFilter:kind==='all'?[topText('lo.colKind'),topText('lb.colCheck')]:[topText('lo.colKind')]});lbAnimate();
+  table('lb-list',lbCols(kind),d.items.map((f)=>lbRow(f,kind)),empty,{paging:false,noFilter:kind==='all'?[topText('lo.colKind'),topText('lb.colCheck'),topText('rv.colVer')]:[topText('lo.colKind'),topText('rv.colVer')]});lbAnimate();
   const from=d.total?(d.page-1)*d.perPage+1:0,to=Math.min(d.total,d.page*d.perPage);
   $('lb-count').textContent=d.total?topFill('lb.showing',{kind:kind==='all'?topText('lo.colFile'):topText(LB_KIND[kind]),total:num(d.total),from:num(from),to:num(to)}):'';
   lbPager(d);lbIndicator();

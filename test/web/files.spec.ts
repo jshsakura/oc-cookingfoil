@@ -375,6 +375,12 @@ test('정리 shows what it will move, does it in one go, and the notice takes it
   await page.locator('#fb-addr').fill('게임/fb-test/dump');
   await page.keyboard.press('Enter');
   await expect(row(page, 'what.nsp')).toBeVisible();
+  // 정리 follows the games folder's naming rules, so no other folder offers it.
+  await page.goto('/admin/retro');
+  await expect(page.locator('#fb-rows tr').first()).toBeVisible();
+  await expect(page.locator('#fb-tidy-btn')).toBeHidden();
+  await page.goBack();
+  await expect(row(page, 'what.nsp')).toBeVisible();
   await page.locator('#fb-tidy-btn').click();
   const dlg = page.locator('#fb-tidy');
   await expect(dlg.locator('.fb-t-move')).toHaveCount(2);
