@@ -26,6 +26,7 @@ import FastGlob from "fast-glob";
 import { GAME_FILE_RE } from "../helpers/file-send.js";
 import { isReadme } from "../helpers/readme-name.js";
 import { metaText } from "./meta-messages.js";
+import { META_DIR, isOurMetadata } from "./art-sidecar.js";
 
 export const KINDS = ["base", "update", "dlc", "patch", "save", "homebrew", "other"];
 export const FIELDS = ["name", "kind", "rel", "size", "mtime", "ext", "titleId", "game", "version", "integrity", "id", "source", "repo", "icon"];
@@ -218,6 +219,12 @@ export function gameItem(f, verdictOf = () => null) {
   });
 }
 
+/** Whether `rel` is a picture the server wrote into an item folder's metadata folder ("<folder>/metadata/icon.webp"). Pure. */
+export function isServerArt(rel) {
+  const parts = rel.split("/");
+  return parts.length >= 3 && parts.at(-2).toLowerCase() === META_DIR && isOurMetadata(parts.slice(-2).join("/"));
+}
+
 /**
  * Lists files under `root` that are not game files, cached for `ttlMs`.
  * Hidden files and folders are skipped, symlinks are never followed (a linked
@@ -246,6 +253,8 @@ export function createOtherScanner({ root, ignore = [], ttlMs = 60_000, now = Da
       if (!rel || !path.resolve(base, rel).startsWith(base + path.sep)) continue;
       // The server's own list of extra library entries is configuration, not a stray file; a README.md anywhere is the operator's notes.
       if (rel === "custom_entries.jsonc" || isReadme(path.posix.basename(rel))) continue;
+      // A game folder's own pictures, which the server writes into its metadata folder, are not strays either.
+      if (isServerArt(rel)) continue;
       out.push({ rel, size: e.stats?.size ?? null, mtime: e.stats ? Math.floor(e.stats.mtimeMs / 1000) : null });
     }
     // A change that came in while walking leaves this result stale, but still better than nothing for peek.
