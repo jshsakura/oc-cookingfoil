@@ -414,6 +414,44 @@ test('정리 in the retro folder moves a ROM into its console\'s folder, leaves 
   fs.rmSync(path.join(retro, 'Disc Game.cue'));
 });
 
+test('정리 takes a ROM\'s art along when it changes console, and the undo brings it all back', async ({ page }) => {
+  const retro = process.env.COOK_RETRO_DIR!;
+  const at = (rel: string) => path.join(retro, ...rel.split('/'));
+  const mapFile = at('art-map/gba.json');
+  const mapBefore = fs.existsSync(mapFile) ? fs.readFileSync(mapFile, 'utf8') : null;
+  const art = ['thumbnails/gba/Named_Boxarts/Art Move.png', 'bezels/gba/Art Move.png', 'bezels/gba/Art Move.cfg'];
+  for (const rel of ['roms/gba/Art Move.sfc', ...art]) {
+    fs.mkdirSync(path.dirname(at(rel)), { recursive: true });
+    fs.writeFileSync(at(rel), rel);
+  }
+  fs.mkdirSync(path.dirname(mapFile), { recursive: true });
+  fs.writeFileSync(mapFile, JSON.stringify({ ...(mapBefore ? JSON.parse(mapBefore) : {}), 'Art Move': 'Art Move (USA)' }));
+  const keyIn = (id: string) => { try { return Object.hasOwn(JSON.parse(fs.readFileSync(at(`art-map/${id}.json`), 'utf8')), 'Art Move'); } catch { return false; } };
+  try {
+    await signIn(page);
+    await page.goto('/admin/retro?tab=folder&path=roms%2Fgba');
+    await row(page, 'Art Move.sfc').locator('input[type=checkbox]').check();
+    await page.locator('#fb-tidy-btn').click();
+    const dlg = page.locator('#fb-tidy');
+    await expect(dlg.locator('.fb-t-move .fb-t-to')).toHaveText('roms/snes/Art Move.sfc');
+    await expect(dlg.locator('.fb-t-move .fb-t-art')).toHaveText('그림 3개도 함께 옮깁니다.');
+    await page.locator('#fb-t-ok').click();
+    await expect(page.locator('#toast')).toContainText('1개를 정리했습니다');
+    await expect.poll(() => fs.existsSync(at('thumbnails/snes/Named_Boxarts/Art Move.png'))).toBe(true);
+    expect(fs.existsSync(at('bezels/snes/Art Move.cfg'))).toBe(true);
+    expect([keyIn('gba'), keyIn('snes')]).toEqual([false, true]);
+    await page.locator('#toast .toast-act').click();
+    await expect.poll(() => fs.existsSync(at('roms/gba/Art Move.sfc'))).toBe(true);
+    await expect.poll(() => art.every((rel) => fs.existsSync(at(rel)))).toBe(true);
+    await expect.poll(() => [keyIn('gba'), keyIn('snes')]).toEqual([true, false]);
+  } finally {
+    for (const rel of ['roms/gba/Art Move.sfc', 'roms/snes/Art Move.sfc', ...art, ...art.map((r) => r.replace('/gba/', '/snes/'))]) fs.rmSync(at(rel), { force: true });
+    if (mapBefore === null) fs.rmSync(mapFile, { force: true }); else fs.writeFileSync(mapFile, mapBefore);
+    const snes = at('art-map/snes.json');
+    if (fs.existsSync(snes)) { const m = JSON.parse(fs.readFileSync(snes, 'utf8')); delete m['Art Move']; fs.writeFileSync(snes, JSON.stringify(m)); }
+  }
+});
+
 test('the move dialog makes the folder it needs and moves into it', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/files');

@@ -21,7 +21,7 @@ import { keysFile } from "../../security/prod-keys.js";
 import { placeDropFolder } from "./upload-api.js";
 import { createOrganizer } from "../../meta/library-organize.js";
 import { createTidy } from "../../library/tidy.js";
-import { createPlaceTidy, planHomebrew, planRetro, planTitled } from "../../library/tidy-places.js";
+import { createPlaceTidy, planHomebrew, planRetro, planTitled, retroFollowers } from "../../library/tidy-places.js";
 import { createFileRoots, FileError, SERVER_FILES } from "../../library/file-roots.js";
 import { recordMove } from "../../library/journal.js";
 import { identify } from "../../meta/file-identity.js";
@@ -131,11 +131,13 @@ const tidyEntries = (key) => async (rels) => {
   }
   return [...out.values()];
 };
-const placeTidy = (key, planner, rescan, keep) => createPlaceTidy({ root: tidyRoot(key), collect: tidyEntries(key), planner, keep, journal: recordMove, rescan });
+const placeTidy = (key, planner, rescan, keep, followers) => createPlaceTidy({ root: tidyRoot(key), collect: tidyEntries(key), planner, keep, journal: recordMove, rescan, followers });
 export const placeTidies = {
   retro: placeTidy("retro", (entries) => planRetro(entries, loadSystems(env.retroDir)),
     () => retroCatalog.rescan(env.retroDir).catch((err) => debug.error("tidy: retro rescan failed: %s", err.message)),
-    (d) => d === "roms" || /^roms\/[^/]+$/.test(d)),
+    // A console's folder and the server's art folders stay even when a tidy empties them.
+    (d) => d === "roms" || /^roms\/[^/]+$/.test(d) || SERVER_FILES.retro.has(d.split("/")[0]),
+    (m) => retroFollowers(env.retroDir)(m)),
   homebrew: placeTidy("homebrew", planHomebrew, () => refreshManual().catch((err) => debug.error("tidy: homebrew rescan failed: %s", err.message))),
   patches: placeTidy("patches", (entries) => planTitled(entries, "patches"), () => {}),
   saves: placeTidy("saves", (entries) => planTitled(entries, "saves"), () => savesCatalog().invalidate()),

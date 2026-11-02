@@ -359,6 +359,12 @@ const UNDO_REWRITE = {
     const back = path.basename(abs);
     if (patchInfo.has(patchInfo.keyOf(to, folder))) patchInfo.move(patchInfo.keyOf(to, folder), patchInfo.keyOf(from, back));
   },
+  // A ROM a tidy moved to another console took its art-map key along.
+  "art-key": async (op) => {
+    const { moveArtKey } = await import("./tidy-places.js");
+    const { from, to, name } = op.rewrite;
+    await moveArtKey(rootOf(op.fromRoot).dir, { from: to, to: from, name });
+  },
 };
 
 export const journal = (opts) => journalStore.listJournal(libraryRoots(), opts);
