@@ -35,8 +35,8 @@ export const LIB_ITEM_CSS = `
 #lb-dlg form textarea{min-height:72px}
 #lb-dlg .lbd-foot{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px;background:var(--panel);border-top:1px solid var(--line)}
 #lb-dlg .lbd-foot .lbd-gap{flex:1}
-#lb-files .lb-open{display:block;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
-#lb-files .lb-open:hover b,#lb-files .lb-open:focus-visible b{text-decoration:underline}
+#lib-files .lb-open{display:block;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+#lib-files .lb-open:hover b,#lib-files .lb-open:focus-visible b{text-decoration:underline}
 #lb-list [role="row"][data-open]{cursor:pointer}`;
 
 export const LIB_ITEM_HTML = `<dialog id="lb-dlg" aria-labelledby="lb-d-name">

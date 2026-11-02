@@ -101,6 +101,21 @@ test('the 전체 목록 page lists files by kind with counts, pages and a search
   await page.emulateMedia({ colorScheme: 'dark' });
   await shot(page.locator('#lib-files'), { path: 'out/web/library-files-390-dark.png', animations: 'disabled' });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth), { message: 'no sideways scroll on a phone' }).toBeLessThanOrEqual(390);
+  const lines = await page.evaluate(() => {
+    const tops = (sel: string) => new Set([...document.querySelectorAll<HTMLElement>(sel)].map((e) => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
+    return { bar: tops('#lb-bar > *').size, kinds: tops('#lb-kinds button').size };
+  });
+  expect(lines, 'the search and the kinds take one line each on a phone').toEqual({ bar: 1, kinds: 1 });
+  await expect(page.locator('#lb-go')).toHaveAccessibleName('찾기');
+  const seen = await page.evaluate(() => {
+    const box = document.getElementById('lb-kinds')!.getBoundingClientRect();
+    const tab = document.querySelector('#lb-kinds button[aria-pressed="true"]')!.getBoundingClientRect();
+    return tab.left >= box.left - 1 && tab.right <= box.right + 1;
+  });
+  expect(seen, 'the picked kind scrolls into view').toBe(true);
+  expect(await page.locator('#lb-list .lb-open').first().evaluate((e) => getComputedStyle(e).backgroundColor), 'a name reads as text, not a button').toBe('rgba(0, 0, 0, 0)');
+  await page.evaluate(() => scrollTo(0, 0));
+  await shot(page, { path: 'out/web/library-files-390-top.png', animations: 'disabled' });
 });
 
 test('a flagged file says which it is: modified is plain, a hash mismatch is a warning, and its help opens beside it', async ({ page }) => {
