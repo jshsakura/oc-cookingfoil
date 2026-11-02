@@ -122,9 +122,12 @@ const FB_THUMB_MAX=4*1048576,FB_THUMB_KEEP=300;const fbThumbUrls=new Map();
 const fbThumbSeen=new IntersectionObserver((seen)=>{for(const it of seen)if(it.isIntersecting){fbThumbSeen.unobserve(it.target);fbThumbLoad(it.target);}},{rootMargin:'200px'});
 function fbThumbs(){fbThumbSeen.disconnect();if(!fbGrid())return;
   for(const tr of document.querySelectorAll('#fb-rows tr')){const f=fbItem(tr.dataset.rel);if(f&&fbKind(f)==='image'&&f.size<=FB_THUMB_MAX&&!tr.querySelector('.fb-thumb'))fbThumbSeen.observe(tr);}}
-async function fbThumbLoad(tr){const f=fbItem(tr.dataset.rel);if(!f)return;const key=fb.root+'|'+f.rel+'|'+f.mtime;let url=fbThumbUrls.get(key);
-  if(!url){try{const r=await fetch('/admin/api/files/download?'+new URLSearchParams({root:fb.root,path:f.rel}));if(!r.ok)return;url=URL.createObjectURL(await r.blob());}catch{return;}
-    fbThumbUrls.set(key,url);if(fbThumbUrls.size>FB_THUMB_KEEP){const [k,u]=fbThumbUrls.entries().next().value;URL.revokeObjectURL(u);fbThumbUrls.delete(k);}}
+// One picture is fetched once, for the grid and the details pane alike.
+async function fbBlobUrl(f){const key=fb.root+'|'+f.rel+'|'+f.mtime;let url=fbThumbUrls.get(key);if(url)return url;
+  try{const r=await fetch('/admin/api/files/download?'+new URLSearchParams({root:fb.root,path:f.rel}));if(!r.ok)return null;url=URL.createObjectURL(await r.blob());}catch{return null;}
+  fbThumbUrls.set(key,url);if(fbThumbUrls.size>FB_THUMB_KEEP){const [k,u]=fbThumbUrls.entries().next().value;URL.revokeObjectURL(u);fbThumbUrls.delete(k);}
+  return url;}
+async function fbThumbLoad(tr){const f=fbItem(tr.dataset.rel);if(!f)return;const url=await fbBlobUrl(f);if(!url)return;
   const ic=tr.isConnected&&tr.querySelector('.fb-name>.ico');if(!ic)return;const img=el('img');img.className='fb-thumb';img.alt='';img.src=url;ic.replaceWith(img);}
 {let v=null;try{v=localStorage.getItem('fb.view');}catch{}if(v==='grid')fbSetView(true);}
 // A drag that starts on the list's empty space draws a box and picks the rows it touches (Ctrl or Shift adds to the

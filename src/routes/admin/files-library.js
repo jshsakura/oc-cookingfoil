@@ -36,6 +36,11 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-side h4{margin:0;font-size:var(--fs-md);overflow-wrap:anywhere}
 #fb .fb-side .fb-s-sub{font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
 #fb .fb-side .fb-s-why{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.55;color:var(--muted)}
+#fb .fb-about{flex:0 1000 auto;min-width:0;color:var(--faint);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fb .fb-side .fb-s-what{margin:0;font-size:var(--fs-sm);line-height:1.55;color:var(--muted)}
+#fb .fb-side .fb-s-prev{display:grid;gap:6px}
+#fb .fb-side .fb-s-prev img{display:block;max-width:100%;max-height:220px;margin:0 auto;border-radius:var(--r-md);background:var(--sunk);cursor:zoom-in}
+#fb .fb-side .fb-s-prev pre{margin:0;max-height:180px;overflow:auto;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
 #fb .fb-side .fb-s-why strong{display:block;margin-bottom:4px;font-size:var(--fs-sm);color:var(--text)}
 #fb .fb-side .fb-s-why p{margin:0 0 6px}
 #fb .fb-side .fb-s-why[data-tone="bad"] strong{color:var(--bad)}
@@ -103,11 +108,30 @@ function fbBadges(f){const out=[];
   if(f.latest===false)out.push(fbBadge(topText('fb.old'),'warn'));
   // A modified file installs as a rule; only damage is red, and a damage that may still install is amber.
   if(f.check)out.push(fbBadge(f.why?.label||topText('fb.c.'+f.check),f.check==='modified'?'':f.why?.certain===false?'warn':'bad'));
+  if(f.server)out.push(fbBadge(topText('fb.serverBadge')));
   return out;}
+// What a folder or file is for, in one plain line: the server's own folders, the console folders of retro,
+// a game's update and DLC folders, a game's patches and saves, and the Switch file kinds.
+const FB_ABOUT_SERVER={'art-map':'fb.a.artMap',thumbnails:'fb.a.thumbs',bezels:'fb.a.bezels',screenshots:'fb.a.shots','system-icons':'fb.a.icons',
+  retroarch:'fb.a.retroarch','ratings.json':'fb.a.ratings','arcade-names.json':'fb.a.arcadeNames','systems.json':'fb.a.systems'};
+const FB_ABOUT_EXT={nsp:'fb.f.nsp',nsz:'fb.f.nsz',xci:'fb.f.xci',xcz:'fb.f.xcz',nro:'fb.f.nro'};
+function fbAbout(f){const parts=f.rel.split('/');const dir=f.type==='dir';
+  if(f.server)return FB_ABOUT_SERVER[parts[0]]?topText(FB_ABOUT_SERVER[parts[0]]):'';
+  if(fb.root==='retro'){if(f.rel==='roms')return topText('fb.a.roms');
+    if(dir&&parts[0]==='roms'&&parts.length===2&&f.title)return topFill('fb.a.romsOf',{name:f.title});
+    if(!dir&&f.system)return topFill('fb.a.romOf',{name:f.system});}
+  if(fb.root==='games'&&dir){if(f.rel==='incoming')return topText('fb.a.incoming');
+    if(/^update$/i.test(f.name))return topText('fb.a.update');if(/^dlc$/i.test(f.name))return topText('fb.a.dlc');}
+  if(dir&&f.titleId&&fb.root==='patches')return topText('fb.a.patchOf');
+  if(dir&&f.titleId&&fb.root==='saves')return topText('fb.a.saveOf');
+  if(!dir&&FB_ABOUT_EXT[f.ext])return topText(FB_ABOUT_EXT[f.ext]);
+  return '';}
 // The game's icon in place of the folder or file icon; the plain icon comes back when there is none yet.
 function fbGameIcon(f,size,cls){const img=el('img');img.className=cls;img.alt='';img.loading='lazy';img.decoding='async';img.src=fbIconUrl(f.titleId,size);return img;}
 function fbDecorate(n,f){if(f.titleId){const ic=n.querySelector('.ico');if(ic){const img=fbGameIcon(f,'md','fb-gicon');img.addEventListener('error',()=>img.replaceWith(ic),{once:true});ic.replaceWith(img);}}
-  for(const b of fbBadges(f))n.append(b);}
+  for(const b of fbBadges(f))n.append(b);
+  // In the list only folders and the server's own lists say what they are; a file's kind waits in the details pane.
+  const about=(f.type==='dir'||(f.server&&!f.rel.includes('/')))&&fbAbout(f);if(about){const a=el('span',about,'fb-about');a.title=about;n.append(a);}}
 
 // ── the details pane ────────────────────────────────────────────────
 // What the file check found, in the words the console shows: a title and what it means for an install.
@@ -138,7 +162,19 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
         dd.textContent=topFill('fb.p.bytes',{size:fbSize(r.bytes),bytes:num(r.bytes)})+' · '+topFill('fb.p.holdsVal',{files:num(r.files),dirs:num(Math.max(0,r.dirs-1))});}
       catch(err){dd.textContent=err.message;}});dd.append(b);dl.append(el('dt',topText('fb.p.size')),dd);}
   const links=el('div',null,'fb-s-links');if(f.type==='file')fbShareList(f,links);
-  s.replaceChildren(head,links,dl,...fbWhy(f));fbSideMeta(s,f,head);}
+  const about=fbAbout(f);const what=about?[el('p',about,'fb-s-what')]:[];
+  s.replaceChildren(head,...what,...fbSidePreview(f),links,dl,...fbWhy(f));fbSideMeta(s,f,head);}
+// A picture shows itself and a text file its first lines, right in the pane; a click opens the full viewer.
+const FB_SIDE_TEXT=2048;
+function fbSidePreview(f){const kind=fbKind(f);if(!kind||(kind==='image'&&f.size>FB_THUMB_MAX))return [];
+  const box=el('div',null,'fb-s-prev');const open=el('button',topText('fb.view'));open.type='button';open.addEventListener('click',()=>fbView(f));
+  if(kind==='image'){const img=el('img');img.alt=f.name;img.addEventListener('click',()=>fbView(f));box.append(img,open);
+    fbBlobUrl(f).then((url)=>{if(url)img.src=url;else img.remove();});return [box];}
+  const pre=el('pre');box.append(pre,open);
+  fetch('/admin/api/files/download?'+new URLSearchParams({root:fb.root,path:f.rel}),{headers:{Range:'bytes=0-'+(FB_SIDE_TEXT-1)}})
+    .then((r)=>r.ok?r.arrayBuffer():null).then((b)=>{if(!b)return pre.remove();pre.textContent=new TextDecoder().decode(b)+(f.size>FB_SIDE_TEXT?'\\n…':'');})
+    .catch(()=>pre.remove());
+  return [box];}
 // What is known about the game a file or folder belongs to: the same details a console shows, kept once per game.
 const fbMetaKnown=new Map();
 const fbMetaDate=(v)=>{const t=String(v||'');return t.length===8?t.slice(0,4)+'-'+t.slice(4,6)+'-'+t.slice(6):t;};
@@ -180,7 +216,7 @@ function fbSideIcon(f){const w=el('span');w.innerHTML=f.type==='dir'?FB_ICON.dir
 // ── the folder tree ─────────────────────────────────────────────────
 const fbTree={root:null,open:new Set(),kids:new Map()};
 function fbTreeOn(){return $('fb').classList.contains('tree-on');}
-async function fbTreeKids(rel){const d=await api('/admin/api/files/list?'+fbServerQs(new URLSearchParams({root:fb.root,path:rel,only:'dirs',perPage:'500'})));
+async function fbTreeKids(rel){const d=await api('/admin/api/files/list?'+new URLSearchParams({root:fb.root,path:rel,only:'dirs',perPage:'500'}));
   const list=d.items.map((i)=>({rel:i.rel,name:i.title||i.name}));fbTree.kids.set(rel,list);fbTreeLeaves(list);return list;}
 // Which of these folders hold no folder, from the sizes cache, so their arrow is gone before anyone presses it.
 async function fbTreeLeaves(list){const root=fb.root;const ask=list.filter((k)=>!fbSizes.has(root+'|'+k.rel)).map((k)=>k.rel);if(!ask.length)return;
@@ -221,7 +257,7 @@ for(const name of ['tree','side']){const b=$('fb-t-'+name);
 
 // ── more rows as the list scrolls ───────────────────────────────────
 async function fbMore(){const d=fb.data;if(!d||fb.moreBusy||d.page>=d.pages)return;fb.moreBusy=true;const n=fb.seq;
-  const qs=fbServerQs(new URLSearchParams({root:fb.root,path:fb.path,page:String(d.page+1),perPage:String(FB_PER),sort:fb.sort,order:fb.order}));
+  const qs=new URLSearchParams({root:fb.root,path:fb.path,page:String(d.page+1),perPage:String(FB_PER),sort:fb.sort,order:fb.order});
   if(fb.q)qs.set('q',fb.q);if(fb.q&&fb.deep)qs.set('deep','1');
   let ok=false;
   try{const next=await api('/admin/api/files/list?'+qs);if(n!==fb.seq||fb.data!==d)return;ok=true;

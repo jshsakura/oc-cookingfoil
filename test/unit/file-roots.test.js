@@ -44,19 +44,17 @@ test("a folder lists its folders first, then files, without the server's dot fol
   assert.deepEqual(out.counts, { dirs: 1, files: 1 });
 });
 
-test("the retro folder opens on what a person put there; the server's own folders show only when asked, marked", async () => {
+test("the retro folder lists the server's own folders beside a person's, each marked with everything inside it", async () => {
   const { fr, retro } = setup();
-  for (const d of ["roms/snes", "thumbnails", "retroarch/cores", "art-map", "roms/thumbnails"]) fs.mkdirSync(path.join(retro.dir, d), { recursive: true });
+  for (const d of ["roms/snes", "thumbnails/snes", "retroarch/cores", "art-map", "roms/thumbnails"]) fs.mkdirSync(path.join(retro.dir, d), { recursive: true });
   fs.writeFileSync(path.join(retro.dir, "ratings.json"), "{}");
   fs.writeFileSync(path.join(retro.dir, "notes.txt"), "mine");
-  const plain = await fr.list("retro", "");
-  assert.deepEqual(plain.items.map((e) => e.name).sort(), ["notes.txt", "roms"]);
-  assert.equal(plain.serverFiles, 4, "the list says how many it left out");
-  const all = await fr.list("retro", "", { server: true });
-  assert.deepEqual(all.items.filter((e) => e.server).map((e) => e.name).sort(), ["art-map", "ratings.json", "retroarch", "thumbnails"]);
-  assert.equal(all.items.find((e) => e.name === "roms").server, undefined);
-  assert.deepEqual((await fr.list("retro", "roms")).items.map((e) => e.name).sort(), ["snes", "thumbnails"], "only the top of the root is the server's");
-  assert.ok((await fr.list("retro", "retroarch")).items.some((e) => e.name === "cores"), "a hidden folder still opens by its path");
+  const top = await fr.list("retro", "");
+  assert.deepEqual(top.items.map((e) => e.name).sort(), ["art-map", "notes.txt", "ratings.json", "retroarch", "roms", "thumbnails"]);
+  assert.deepEqual(top.items.filter((e) => e.server).map((e) => e.name).sort(), ["art-map", "ratings.json", "retroarch", "thumbnails"]);
+  assert.equal(top.items.find((e) => e.name === "roms").server, undefined);
+  assert.equal((await fr.list("retro", "thumbnails")).items.find((e) => e.name === "snes").server, true, "inside a server folder is the server's too");
+  assert.ok((await fr.list("retro", "roms")).items.every((e) => !e.server), "a folder of the same name below roms is a person's");
 });
 
 test("a sub folder lists with its parent, and pages and sorts on the server", async () => {

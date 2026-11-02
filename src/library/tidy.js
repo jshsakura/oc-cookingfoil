@@ -45,6 +45,33 @@ export function keptFolders(items, restRels) {
   return out;
 }
 
+/**
+ * The previewed moves inside one folder, each journaled for undo; a move whose place was taken meanwhile is skipped.
+ * A folder a move leaves empty is removed, up to the top, except where keep(rel) says it stays.
+ */
+export async function carryOut({ root: r, moves, journal, by = null, keep = () => false }) {
+  const moved = [];
+  const skipped = [];
+  for (const m of moves) {
+    const from = path.join(r.dir, ...m.from.split("/"));
+    const to = path.join(r.dir, ...m.to.split("/"));
+    const placed = await withLocks([r.dir], async () => {
+      await fsp.mkdir(path.dirname(to), { recursive: true });
+      return moveAcross(from, to);
+    }).catch(() => false);
+    if (!placed) {
+      skipped.push({ from: m.from, code: "exists" });
+      continue;
+    }
+    const line = await journal({ action: "move", by, fromRoot: r, from: m.from, toRoot: r, to: m.to });
+    moved.push({ from: m.from, to: m.to, undo: line?.id ?? null });
+    for (let d = path.posix.dirname(m.from); d && d !== "." && !keep(d); d = path.posix.dirname(d)) {
+      if (!(await fsp.rmdir(path.join(r.dir, ...d.split("/"))).then(() => true, () => false))) break;
+    }
+  }
+  return { moved, skipped };
+}
+
 export function createTidy({ root, collect, identify, romsRels, adminName, titledbName, journal, rescan = () => {} }) {
   async function picks(rels) {
     const { dir } = root();
@@ -76,29 +103,9 @@ export function createTidy({ root, collect, identify, romsRels, adminName, title
 
   async function apply(rels, accepted, { by = null } = {}) {
     const ok = new Set((accepted ?? []).map((m) => `${m.from}\0${m.to}`));
-    const r = root();
-    const moved = [];
-    const skipped = [];
-    for (const m of (await plan(rels)).moves) {
-      if (!ok.has(`${m.from}\0${m.to}`)) continue;
-      const from = path.join(r.dir, ...m.from.split("/"));
-      const to = path.join(r.dir, ...m.to.split("/"));
-      const placed = await withLocks([r.dir], async () => {
-        await fsp.mkdir(path.dirname(to), { recursive: true });
-        return moveAcross(from, to);
-      }).catch(() => false);
-      if (!placed) {
-        skipped.push({ from: m.from, code: "exists" });
-        continue;
-      }
-      const line = await journal({ action: "move", by, fromRoot: r, from: m.from, toRoot: r, to: m.to });
-      moved.push({ from: m.from, to: m.to, undo: line?.id ?? null });
-      for (let d = path.posix.dirname(m.from); d && d !== "."; d = path.posix.dirname(d)) {
-        if (!(await fsp.rmdir(path.join(r.dir, ...d.split("/"))).then(() => true, () => false))) break;
-      }
-    }
-    if (moved.length) rescan();
-    return { moved, skipped };
+    const out = await carryOut({ root: root(), moves: (await plan(rels)).moves.filter((m) => ok.has(`${m.from}\0${m.to}`)), journal, by });
+    if (out.moved.length) rescan();
+    return out;
   }
 
   return { plan, apply };
