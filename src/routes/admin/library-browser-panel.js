@@ -80,14 +80,17 @@ export const LIB_BROWSER_CSS = /* css */ `
 #lib-files .lb-pager .lb-pg[aria-current="page"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 #lib-files .lb-pager .lb-gap{color:var(--faint);padding:0 2px}
 @media (max-width:640px){
+  /* On a phone the search and the kinds take one line each; the kinds that do not fit scroll sideways. */
   #lib-files .lb-filter{flex-direction:column;align-items:stretch;gap:4px}
-  #lib-files .lb-kinds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible}
-  #lib-files .lb-kinds button{flex-direction:row;justify-content:center;gap:4px;padding:7px 2px;font-size:var(--fs-xs);min-width:0}
+  #lib-files .lb-kinds{display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain}
+  #lib-files .lb-kinds button{flex:0 0 auto;flex-direction:row;gap:4px;padding:7px 10px;font-size:var(--fs-xs)}
   #lib-files .lb-kinds button>svg{display:none}
   #lib-files .lb-n{min-width:0;padding:1px 5px}
-  #lib-files .lb-kinds button>span:not(.lb-n){overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  #lib-files .lb-bar select,#lib-files .lb-bar button{flex:1 1 0;min-width:0}
-  #lib-files .lb-q{flex:1 1 100%}
+  #lib-files .lb-bar{flex-wrap:nowrap;gap:6px}
+  #lib-files .lb-q{flex:1 1 auto;min-width:0}
+  #lib-files .lb-bar select{flex:0 1 auto;min-width:0;max-width:8em}
+  #lib-files #lb-go{flex:0 0 auto;padding-inline:12px}
+  #lib-files #lb-go>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   #lib-files .lb-pager .lb-pg.lb-far{display:none}
 }
 @media (prefers-reduced-motion:reduce){
@@ -158,7 +161,10 @@ const lbDate=(s)=>s?new Date(s*1000).toLocaleString(loc(),{dateStyle:'medium',ti
 // A language switch re-renders the open list so dates and counts follow the new locale.
 function lbRelabel(){if($('lib-files')&&$('lib-files').offsetParent!==null&&!lb.pending)lbLoad();}
 function lbIndicator(){const t=$('lb-tab-'+lb.kind),ind=$('lb-ind');if(!t||!t.offsetWidth)return;
-  ind.style.width=t.offsetWidth+'px';ind.style.height=t.offsetHeight+'px';ind.style.transform='translate('+t.offsetLeft+'px,'+t.offsetTop+'px)';}
+  ind.style.width=t.offsetWidth+'px';ind.style.height=t.offsetHeight+'px';ind.style.transform='translate('+t.offsetLeft+'px,'+t.offsetTop+'px)';
+  // On a phone the kinds scroll sideways; the picked one is brought into view without moving the page.
+  const box=$('lb-kinds'),l=t.offsetLeft,r=l+t.offsetWidth;
+  if(l<box.scrollLeft)box.scrollLeft=l-8;else if(r>box.scrollLeft+box.clientWidth)box.scrollLeft=r-box.clientWidth+8;}
 function lbSkeleton(){const m=$('lb-list');m.replaceChildren();const t=el('table');
   for(let i=0;i<6;i++){const tr=el('tr',null,'lb-skel');const a=td();a.append(el('span'),el('span',null,'w2'));tr.append(a);
     for(let j=0;j<3;j++){const c=td();c.append(el('span'));tr.append(c);}t.append(tr);}m.append(t);}
