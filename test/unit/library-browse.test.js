@@ -181,6 +181,16 @@ test("the stray file scan skips game files, hidden files, symlinks and nested fo
   assert.ok((await rels()).includes("later.log"));
 });
 
+test("the stray file scan leaves out the pictures the server writes into a game folder's metadata folder", async () => {
+  const g = path.join(root, "scan-art");
+  fs.mkdirSync(path.join(g, "Titan Quest", "metadata"), { recursive: true });
+  for (const f of ["icon.webp", "banner.webp", "screenshot-01.webp", "notes.txt", "cover.png"]) fs.writeFileSync(path.join(g, "Titan Quest", "metadata", f), "x");
+  fs.writeFileSync(path.join(g, "icon.webp"), "x");
+  const scanner = lb.createOtherScanner({ root: g });
+  const rels = (await scanner.list()).map((f) => f.rel).sort();
+  assert.deepEqual(rels, ["Titan Quest/metadata/cover.png", "Titan Quest/metadata/notes.txt", "icon.webp"], "only the server's own slot pictures are left out");
+});
+
 test("peek answers at once: nothing during the first walk, then the last scan even when it is stale", async () => {
   const g = path.join(root, "peek-games");
   fs.mkdirSync(g, { recursive: true });
