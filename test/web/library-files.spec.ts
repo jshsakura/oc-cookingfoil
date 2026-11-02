@@ -47,8 +47,8 @@ test('the 전체 목록 page lists files by kind with counts, pages and a search
   await expect(page.locator('#lb-list .grid-chips-label', { hasText: '버전' })).toHaveCount(0);
   await expect(page.locator('#lb-n-patch')).not.toHaveText('0');
   await expect(page.locator('#lb-n-other')).not.toHaveText('0');
-  // Every button in the browser carries an icon.
-  for (const b of await page.locator('#lib-files button').all()) await expect(b.locator('svg')).toHaveCount(1);
+  // Every command button in the browser carries an icon; a row's name (it opens the item) has its picture beside it.
+  for (const b of await page.locator('#lib-files button:not(.lb-open)').all()) await expect(b.locator('svg')).toHaveCount(1);
 
   fs.mkdirSync('out/web', { recursive: true });
   await page.locator('#lb-tab-patch').click();
@@ -124,4 +124,42 @@ test('a flagged file says which it is: modified is plain, a hash mismatch is a w
   await page.locator('#lb-list [role="row"]', { hasText: 'Maybe' }).locator('.lv-tip').click();
   await expect(page.locator('#lv-pop')).toContainText('손상 의심 도움말');
   await expect(page.locator('#lv-pop p')).toHaveCount(2);
+});
+
+test('a row opens its item in a window: the file, the check spelled out, the game\'s other files, and its name edited in place', async ({ page }) => {
+  await signIn(page);
+  const base = { name: 'Detail Game', kind: 'base', rel: 'Detail/Detail Game [0100000000AA0000][v0].nsp', ext: '.nsp', size: 2048, mtime: 1, titleId: '0100000000AA0000', version: 0, integrity: 'damaged',
+    why: { reason: 'hash-mismatch', certain: false, label: '손상 의심', help: { title: '내용이 원본과 다를 수 있습니다', body: '첫 문단\n\n둘째 문단' } } };
+  const update = { name: 'Detail Game', kind: 'update', rel: 'Detail/Detail Game [0100000000AA0800][v65536].nsp', ext: '.nsp', size: 512, mtime: 1, titleId: '0100000000AA0800', version: 65536, integrity: 'ok' };
+  const patch = { name: '한글패치', kind: 'patch', rel: '0100000000AA0000/한글패치', size: 10, mtime: 1, titleId: '0100000000AA0000', game: 'Detail Game', id: 'p1' };
+  let games: string | null = null;
+  await page.route(/\/admin\/api\/library\/browse\?/, async (route) => {
+    const q = new URL(route.request().url()).searchParams;
+    const real = await (await route.fetch()).json();
+    games = q.get('game') ?? games;
+    await route.fulfill({ json: { ...real, items: q.get('game') ? [base, update, patch] : [base], total: q.get('game') ? 3 : 1, page: 1, pages: 1 } });
+  });
+  let saved: unknown = null;
+  await page.route('**/admin/api/descriptions/0100000000AA0000', async (route) => {
+    if (route.request().method() === 'POST') { saved = route.request().postDataJSON(); return route.fulfill({ json: { titleId: '0100000000AA0000', own: saved } }); }
+    return route.fulfill({ json: { titleId: '0100000000AA0000', own: {}, original: null, originalName: 'Detail Game' } });
+  });
+  await page.goto('/admin/games#library/files');
+  await page.locator('#lb-list [role="row"]', { hasText: 'Detail Game' }).locator('.lb-open').click();
+  const dlg = page.locator('#lb-dlg');
+  await expect(dlg).toBeVisible();
+  await expect(page.locator('#lb-d-name')).toHaveText('Detail Game');
+  await expect(dlg).toContainText('내용이 원본과 다를 수 있습니다');
+  await expect(dlg.locator('.lbd-same button')).toHaveCount(3);
+  expect(games).toBe('0100000000AA0000');
+  await expect(dlg.getByRole('link', { name: '폴더에서 보기' })).toHaveAttribute('href', '/admin/games?tab=folder&path=Detail');
+  await shot(page, { path: 'out/web/library-item-detail.png' });
+  await dlg.locator('form input').first().fill('디테일 게임');
+  await page.locator('#lb-d-close').click();
+  await expect(page.locator('#ask-dialog')).toContainText('저장하지 않은 내용이 있습니다.');
+  await page.locator('#ask-no').click();
+  await expect(dlg).toBeVisible();
+  await dlg.getByRole('button', { name: '저장' }).click();
+  await expect(dlg).toBeHidden();
+  expect(saved).toMatchObject({ name: { ko: '디테일 게임' } });
 });

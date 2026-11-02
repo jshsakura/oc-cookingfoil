@@ -1,7 +1,7 @@
 /**
  * The library tab's file browser, also meant for automation tokens:
  *
- *   GET /admin/api/library/browse?kind=&q=&ext=&minSize=&maxSize=&modifiedSince=&integrity=
+ *   GET /admin/api/library/browse?kind=&game=&q=&ext=&minSize=&maxSize=&modifiedSince=&integrity=
  *                                &sort=&order=&page=&perPage=&fields=&counts_only=
  *     { items: [{ name, kind, rel, size, mtime, ext, titleId, game, version, integrity, id, source, repo, icon }],
  *       total, page, perPage, pages, sort, order, counts: { base, update, dlc, patch, save, homebrew, other } }

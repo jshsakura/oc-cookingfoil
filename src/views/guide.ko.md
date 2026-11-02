@@ -117,6 +117,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 매개변수 | 값 |
 |---|---|
 | `kind` | `base` `update` `dlc` `patch` `save` `homebrew` `other` 중 하나 이상, 쉼표로 나눕니다 (기본 `base`). `other` 는 게임 폴더에 있지만 게임 파일이 아닌 것입니다 |
+| `game` | 타이틀 ID 하나. 그 게임의 본편, 업데이트, DLC, 패치, 세이브만 남깁니다. 업데이트나 DLC 의 ID 를 줘도 본편 기준으로 찾습니다 |
 | `q` | 이름, 경로, 타이틀 ID 에서 찾을 글자 (200자까지) |
 | `ext` | 확장자, 쉼표로 나눕니다 (예: `nsp,xci`) |
 | `minSize` `maxSize` | 바이트 |

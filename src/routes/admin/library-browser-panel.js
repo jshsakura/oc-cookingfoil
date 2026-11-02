@@ -7,6 +7,7 @@
  */
 
 import { TOP_WORDS, top, topPh, topLabel } from "./top-i18n.js";
+import { LIB_ITEM_CSS, LIB_ITEM_HTML, LIB_ITEM_SCRIPT } from "./library-item-dialog.js";
 
 // Line icons in the same 24px stroke style as views/icons.js, kept here so
 // this panel does not touch the shared icon list.
@@ -94,7 +95,7 @@ export const LIB_BROWSER_CSS = /* css */ `
   #lib-files .lb-list.lb-in,#lib-files .lb-skel td span{animation:none}
   #lib-files button:not(:disabled):active{transform:none}
 }
-`;
+${LIB_ITEM_CSS}`;
 
 /**
  * The list over the given kinds: every kind on the 전체 목록 page, the game files on the 게임 page.
@@ -116,7 +117,7 @@ export const libBrowserHtml = (kinds) => `<div id="lib-files" data-kinds="${kind
     <div class="lb-list" id="lb-list" data-skel aria-live="polite"></div>
     <nav class="lb-pager" id="lb-pager" ${topLabel("lb.pagerLabel")} hidden></nav>
     <p class="muted lb-note">${top("lb.note")}</p>
-  </div>`;
+  </div>${LIB_ITEM_HTML}`;
 export const LIB_BROWSER_HTML = libBrowserHtml(KINDS.slice(1).map(([k]) => k));
 export const GAME_FILES_HTML = libBrowserHtml(["base", "update", "dlc"]);
 
@@ -170,12 +171,6 @@ function lbCols(kind){
   if(kind==='homebrew')return [topText('lo.colFile'),topText('rv.colVer'),topText('rv.colSize'),topText('lb.colMtime'),''];
   return [topText('lo.colFile'),topText('rv.colSize'),topText('lb.colMtime'),''];}
 // A game's name, summary and extra notes are edited on the game-info page: the row leads there with the game already open.
-function lbGameInfo(f){const tid=/^[0-9A-F]{16}$/i.test(f.titleId||'')?f.titleId.toUpperCase():'';if(!tid)return;
-  const id=f.kind==='update'?tid.slice(0,13)+'000':tid;
-  // The 전체 목록 page has no game-info form: the 게임 page opens with the game in it.
-  if(!$('gd-game')){location.href='/admin/games?view=info&game='+id;return;}
-  if(location.hash!=='#library/info')location.hash='#library/info';
-  setTimeout(()=>{$('gd-game').value=id;openDesc(true);},0);}
 // A patch or save opens the same edit dialog the patches page uses; the list loads again when it closes.
 async function lbEditContent(f,kind){
   try{await loadPatches();}catch(err){toast(err.message);return;}
@@ -183,7 +178,7 @@ async function lbEditContent(f,kind){
   if(!x){toast(topText('lb.editMiss'));lbLoad();return;}
   ctOpen(kind,x,lbLoad);}
 function lbEditButton(f,k){
-  if(lbIsGame(k)&&/^[0-9A-F]{16}$/i.test(f.titleId||'')){const b=tbtn('info','hb.descBtn',()=>lbGameInfo(f));const t=topFill('lb.gameInfoTitle',{name:f.name||f.rel||topText('lo.colFile')});b.title=t;b.setAttribute('aria-label',t);return b;}
+  if(lbIsGame(k)&&/^[0-9A-F]{16}$/i.test(f.titleId||'')){const b=tbtn('info','hb.descBtn',()=>lbDetail({...f,kind:k},{edit:true}));const t=topFill('lb.gameInfoTitle',{name:f.name||f.rel||topText('lo.colFile')});b.title=t;b.setAttribute('aria-label',t);return b;}
   if((k==='patch'||k==='save')&&f.id){const b=tbtn('edit','hb.editBtn',()=>lbEditContent(f,k));b.setAttribute('aria-label',topFill('hb.editAria',{name:f.name||topText('lb.item')}));return b;}
   return null;}
 // Every row leads with a picture: the game's icon, or a tile with the kind's icon when there is none, so names line up.
@@ -199,7 +194,11 @@ function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kin
   const row=el('div',null,'lb-for');const t=el('div');
   if(k==='patch'||k==='save')t.append(el('b',f.game||topText('lb.unknownGame')),el('div',(f.name||'-')+(f.rel?' · '+f.rel:''),'muted'));
   else{t.append(el('b',f.name||'-'));if(f.rel)t.append(el('div',f.rel,'muted'));}
-  row.append(lbPic(f,k),t);n.append(row);
+  // The name opens the item's window, and so does a press anywhere on the row outside its buttons.
+  const open=el('button',null,'lb-open');open.type='button';open.append(t);open.setAttribute('aria-label',topFill('lb.d.open',{name:f.name||f.rel||topText('lb.item')}));
+  open.addEventListener('click',()=>lbDetail({...f,kind:k}));tr.dataset.open='';
+  tr.addEventListener('click',(e)=>{if(!e.target.closest('button,a,input,select,label'))lbDetail({...f,kind:k});});
+  row.append(lbPic(f,k),open);n.append(row);
   tr.append(n);
   const game=lbIsGame(k);
   if(kind==='all')tr.append(td(LB_KIND[k]?topText(LB_KIND[k]):k),td(f.titleId||'-','mono lb-num'));
@@ -224,8 +223,8 @@ async function lbRemove(f,kind){
   const name=f.name||f.rel||topText('lb.thisFile');
   // A GitHub app's download is the server's own copy; everything else goes to the trash of its folder.
   const gone=Boolean(f.repo);
-  if(!await ask(topFill(gone?'t.askUnfollow':'t.askMove',{name}),{danger:true}))return;
-  try{await lbRemoveCall(f,kind);toast(gone?topText('pp.deleted'):topText('t.movedToast'));lbLoad();}catch(err){toast(err.message);}}
+  if(!await ask(topFill(gone?'t.askUnfollow':'t.askMove',{name}),{danger:true}))return false;
+  try{await lbRemoveCall(f,kind);toast(gone?topText('pp.deleted'):topText('t.movedToast'));lbLoad();return true;}catch(err){toast(err.message);return false;}}
 function lbPageButton(label,page,{icon,current,far}={}){const b=el('button',null,'lb-pg'+(far?' lb-far':''));b.type='button';
   if(icon){b.innerHTML=icon;b.append(el('span',label));b.setAttribute('aria-label',topFill('lb.pageAria',{label}));}else{b.textContent=String(page);b.setAttribute('aria-label',topFill('lb.pageAria',{label:String(page)}));}
   if(current)b.setAttribute('aria-current','page');
@@ -261,4 +260,5 @@ $('lb-bar').addEventListener('submit',(e)=>{e.preventDefault();clearTimeout(lb.t
 $('lb-q').addEventListener('input',()=>{clearTimeout(lb.timer);lb.timer=setTimeout(()=>{const q=$('lb-q').value.trim();if(q===lb.q)return;lb.q=q;lb.page=1;lbLoad();},300);});
 $('lb-sort').addEventListener('change',()=>{lb.sort=$('lb-sort').value;lb.order=lb.sort==='name'?'asc':'desc';lb.page=1;lbLoad();});
 window.addEventListener('resize',()=>lbIndicator());
+${LIB_ITEM_SCRIPT}
 `;
