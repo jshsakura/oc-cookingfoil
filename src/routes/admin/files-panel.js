@@ -359,7 +359,7 @@ function fbPick(rel,{add=false,range=false}={}){const rels=fbRels();
   fb.focus=rel;fbPaint();}
 function fbFocusRow(){for(const r of document.querySelectorAll('#fb-rows tr'))if(r.dataset.rel===fb.focus){r.focus();r.scrollIntoView({block:'nearest'});return;}}
 function fbCmds(){const n=fb.sel.size;for(const id of ['fb-cut-btn','fb-copy-btn','fb-move-btn','fb-zip-btn','fb-trash-btn'])$(id).disabled=!n;
-  const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=one?.type!=='file';$('fb-tidy-btn').hidden=fb.root!=='games';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
+  const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=one?.type!=='file';$('fb-tidy-btn').hidden=fb.root==='incoming';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
 function fbFoot(){fbCmds();const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   if(n)foot.dataset.sel='';else delete foot.dataset.sel;
   $('fb-info').textContent=n?topFill('fb.selected',{n:num(n)}):d?topFill('fb.counts',{dirs:num(d.counts.dirs),files:num(d.counts.files)}):'';
@@ -495,18 +495,18 @@ async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');fbMoveOk
 async function fbMoveNewFolder(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{const out=await api('/admin/api/files/mkdir',{method:'POST',body:{root:fbm.root,path:fbm.path,name:name.trim()}});
     fbUndoPush({trash:{root:out.root,paths:[out.rel]}});fbm.path=out.rel;fbMoveLoad();}catch(err){toast(err.message);}}
-// 정리: the games folder's drop-box rules on the pick (or the open folder), shown first and carried out on a click
-// (library/tidy.js). The whole run comes back with one undo.
-async function fbTidy(){if(fb.root!=='games')return;const rels=fb.sel.size?[...fb.sel]:[fb.path];const dlg=$('fb-tidy');const list=$('fb-t-list');const ok=$('fb-t-ok');
+// 정리: the folder's own layout on the pick (or the open folder), shown first and carried out on a click
+// (library/tidy.js for games, library/tidy-places.js for the rest). The whole run comes back with one undo.
+async function fbTidy(){if(fb.root==='incoming')return;const root=fb.root;const rels=fb.sel.size?[...fb.sel]:[fb.path];const dlg=$('fb-tidy');const list=$('fb-t-list');const ok=$('fb-t-ok');
   $('fb-t-sum').textContent=topText('fb.tidyBusy');list.replaceChildren();ok.disabled=true;ok.textContent=topText('fb.tidy');ok.onclick=null;dlg.showModal();
-  let p;try{p=await api('/admin/api/files/tidy/plan',{method:'POST',body:{paths:rels}});}catch(err){$('fb-t-sum').textContent=err.message;return;}
-  if(!dlg.open)return;$('fb-t-sum').textContent=topText(p.moves.length?'fb.tidyHint':'fb.tidyNone');
+  let p;try{p=await api('/admin/api/files/tidy/plan',{method:'POST',body:{root,paths:rels}});}catch(err){$('fb-t-sum').textContent=err.message;return;}
+  if(!dlg.open)return;$('fb-t-sum').textContent=topText(p.moves.length?(root==='games'?'fb.tidyHint':'fb.tidyHint.'+root):'fb.tidyNone');
   const rows=p.moves.map((m)=>{const li=el('li',null,'fb-t-move');li.append(el('span',m.from,'fb-t-from'),el('span',m.to,'fb-t-to'));return li;});
   if(p.held.length){rows.push(el('li',topFill('fb.tidyHeld',{n:num(p.held.length)}),'fb-t-head'));
     for(const h of p.held){const li=el('li',null,'fb-t-held');li.append(el('span',h.rel,'fb-t-to'),el('span',h.reason,'fb-t-from'));rows.push(li);}}
   list.replaceChildren(...rows);ok.textContent=topFill('fb.tidyRun',{n:num(p.moves.length)});ok.disabled=!p.moves.length;
   ok.onclick=async()=>{ok.disabled=true;
-    try{const out=await api('/admin/api/files/tidy/apply',{method:'POST',body:{paths:rels,moves:p.moves}});dlg.close();fb.sel.clear();
+    try{const out=await api('/admin/api/files/tidy/apply',{method:'POST',body:{root,paths:rels,moves:p.moves}});dlg.close();fb.sel.clear();
       fbUndoPush({journal:out.moved.map((m)=>m.undo)});const msg=topFill('fb.tidyDone',{n:num(out.moved.length)});
       if(out.moved.length)fbToastUndo(msg);else toast(msg);fbLoad();}
     catch(err){toast(err.message);ok.disabled=false;}};}

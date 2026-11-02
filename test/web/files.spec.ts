@@ -375,12 +375,6 @@ test('정리 shows what it will move, does it in one go, and the notice takes it
   await page.locator('#fb-addr').fill('게임/fb-test/dump');
   await page.keyboard.press('Enter');
   await expect(row(page, 'what.nsp')).toBeVisible();
-  // 정리 follows the games folder's naming rules, so no other folder offers it.
-  await page.goto('/admin/retro');
-  await expect(page.locator('#fb-rows tr').first()).toBeVisible();
-  await expect(page.locator('#fb-tidy-btn')).toBeHidden();
-  await page.goBack();
-  await expect(row(page, 'what.nsp')).toBeVisible();
   await page.locator('#fb-tidy-btn').click();
   const dlg = page.locator('#fb-tidy');
   await expect(dlg.locator('.fb-t-move')).toHaveCount(2);
@@ -393,6 +387,31 @@ test('정리 shows what it will move, does it in one go, and the notice takes it
   await expect.poll(() => has('dump/alpha [0100ABCD00010000][v0].nsp')).toBe(false);
   await page.locator('#toast .toast-act').click();
   await expect.poll(() => has('dump/alpha [0100ABCD00010000][v0].nsp') && has('dump/alpha up [0100ABCD00010800][v65536].nsp')).toBe(true);
+});
+
+test('정리 in the retro folder moves a ROM into its console\'s folder, leaves a disc set with why, and undoes', async ({ page }) => {
+  const retro = process.env.COOK_RETRO_DIR!;
+  fs.mkdirSync(path.join(retro, 'roms', 'snes'), { recursive: true });
+  fs.writeFileSync(path.join(retro, 'Loose Game.sfc'), 'rom');
+  fs.writeFileSync(path.join(retro, 'Disc Game.cue'), 'FILE "Disc Game.bin" BINARY');
+  await signIn(page);
+  await page.goto('/admin/retro');
+  await row(page, 'Loose Game.sfc').locator('input[type=checkbox]').check();
+  await row(page, 'Disc Game.cue').locator('input[type=checkbox]').check();
+  await page.locator('#fb-tidy-btn').click();
+  const dlg = page.locator('#fb-tidy');
+  await expect(dlg.locator('.fb-t-sum')).toContainText('기기 폴더(roms/기기)로 옮깁니다');
+  await expect(dlg.locator('.fb-t-move')).toHaveCount(1);
+  await expect(dlg.locator('.fb-t-move .fb-t-to')).toHaveText('roms/snes/Loose Game.sfc');
+  await expect(dlg.locator('.fb-t-held')).toContainText('디스크 묶음 파일은 서로를 가리키므로');
+  await page.locator('#fb-t-ok').click();
+  await expect(page.locator('#toast')).toContainText('1개를 정리했습니다');
+  await expect.poll(() => fs.existsSync(path.join(retro, 'roms', 'snes', 'Loose Game.sfc'))).toBe(true);
+  expect(fs.existsSync(path.join(retro, 'Disc Game.cue'))).toBe(true);
+  await page.locator('#toast .toast-act').click();
+  await expect.poll(() => fs.existsSync(path.join(retro, 'Loose Game.sfc'))).toBe(true);
+  fs.rmSync(path.join(retro, 'Loose Game.sfc'));
+  fs.rmSync(path.join(retro, 'Disc Game.cue'));
 });
 
 test('the move dialog makes the folder it needs and moves into it', async ({ page }) => {
