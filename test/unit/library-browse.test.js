@@ -65,6 +65,13 @@ test("search looks at name, path and title id, and the counts follow the search"
   assert.equal(lb.browse(sample(), lb.parseQuery({ q: "한글", kind: "patch" })).total, 1);
 });
 
+test("game keeps one game's base, updates, DLC, patches and saves; an update's id finds the same game", () => {
+  const r = lb.browse(sample(), lb.parseQuery({ kind: "base,update,dlc,patch,save", game: "0100000000010800" }));
+  assert.deepEqual(r.items.map((i) => i.kind).sort(), ["base", "patch", "save", "update"]);
+  assert.equal(lb.baseIdOf("0100000000021001"), "0100000000020000");
+  assert.throws(() => lb.parseQuery({ game: "Alpha" }), (e) => e.param === "game");
+});
+
 test("a patch or save names its game, and searching by the game finds it", () => {
   const r = lb.browse(sample(), lb.parseQuery({ q: "alpha", kind: "patch" }));
   assert.deepEqual(r.items.map((i) => [i.name, i.game]), [["한글패치", "Alpha"]]);

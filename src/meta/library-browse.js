@@ -18,6 +18,9 @@
  * epoch seconds. `integrity` (ok | modified | damaged | unchecked) is only set
  * for game files.
  *
+ * `game` in the query (a title id) keeps only what belongs to that game: its base, updates, DLC, patches
+ * and saves, an update's or DLC's id folding to its base.
+ *
  * parseQuery() checks the query and throws a BadParam naming the parameter;
  * browse() is pure over the items it is given.
  */
@@ -27,6 +30,9 @@ import { GAME_FILE_RE } from "../helpers/file-send.js";
 import { isReadme } from "../helpers/readme-name.js";
 import { metaText } from "./meta-messages.js";
 import { META_DIR, isOurMetadata } from "./art-sidecar.js";
+import { dlcBaseTitleId } from "./filename-parser.js";
+
+const TITLE_ID_RE = /^[0-9A-Fa-f]{16}$/;
 
 export const KINDS = ["base", "update", "dlc", "patch", "save", "homebrew", "other"];
 export const FIELDS = ["name", "kind", "rel", "size", "mtime", "ext", "titleId", "game", "version", "integrity", "id", "source", "repo", "icon"];
@@ -89,10 +95,14 @@ export function parseQuery(query = {}) {
     return v === undefined || v === null || String(v).trim() === "" ? undefined : v;
   };
   const out = {
-    kinds: ["base"], q: "", exts: null, minSize: null, maxSize: null, modifiedSince: null, integrity: null,
+    kinds: ["base"], game: null, q: "", exts: null, minSize: null, maxSize: null, modifiedSince: null, integrity: null,
     sort: "name", order: "asc", page: 1, perPage: PER_PAGE_DEFAULT, fields: null, countsOnly: false,
   };
   if (get("kind") !== undefined) out.kinds = oneOf("kind", get("kind"), KINDS);
+  if (get("game") !== undefined) {
+    if (!TITLE_ID_RE.test(String(get("game")))) throw new BadParam("game", "browse.game");
+    out.game = baseIdOf(String(get("game")));
+  }
   if (get("q") !== undefined) {
     out.q = String(get("q")).trim();
     if (out.q.length > Q_MAX) throw new BadParam("q", "browse.qTooLong", { max: Q_MAX });
@@ -152,7 +162,16 @@ export function item(kind, { name, rel, size, mtime, titleId = null, game = null
   };
 }
 
+/** The base game a title id belongs to: an update's and a DLC's fold to it. Pure. */
+export function baseIdOf(titleId) {
+  const id = String(titleId).toUpperCase();
+  if (id.endsWith("000")) return id;
+  if (id.endsWith("800")) return `${id.slice(0, -3)}000`;
+  return dlcBaseTitleId(id);
+}
+
 function matches(it, f) {
+  if (f.game && !(it.titleId && TITLE_ID_RE.test(it.titleId) && baseIdOf(it.titleId) === f.game)) return false;
   if (f.q) {
     const q = f.q.toLowerCase();
     if (![it.name, it.rel, it.titleId, it.game].some((s) => (s ?? "").toLowerCase().includes(q))) return false;

@@ -117,6 +117,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | Parameter | Value |
 |---|---|
 | `kind` | One or more of `base` `update` `dlc` `patch` `save` `homebrew` `other`, separated by commas (`base` by default). `other` is what sits in the games folder but is not a game file |
+| `game` | One title ID. Keeps only that game's base, updates, DLC, patches and saves. An update's or DLC's ID finds the same game |
 | `q` | The text to look for in the name, path and title ID (up to 200 characters) |
 | `ext` | Extensions, separated by commas (for example `nsp,xci`) |
 | `minSize` `maxSize` | Bytes |
