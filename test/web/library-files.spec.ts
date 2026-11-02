@@ -43,6 +43,8 @@ test('the 전체 목록 page lists files by kind with counts, pages and a search
   const checks = page.locator('#lb-list .pill');
   await expect(checks.first()).toBeVisible();
   for (const t of await checks.allInnerTexts()) expect(t).not.toMatch(/^lb\./);
+  // The version is an internal number; a chip row for it would only pick among this page's rows.
+  await expect(page.locator('#lb-list .grid-chips-label', { hasText: '버전' })).toHaveCount(0);
   await expect(page.locator('#lb-n-patch')).not.toHaveText('0');
   await expect(page.locator('#lb-n-other')).not.toHaveText('0');
   // Every button in the browser carries an icon.

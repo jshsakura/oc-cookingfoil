@@ -25,6 +25,7 @@ export const FILES_CSS = /* css */ `
 /* What can be done is always on the screen: an action that does not apply yet is dimmed, never hidden. */
 #fb .fb-cmds{container-type:inline-size;display:flex;align-items:center;gap:2px;flex-wrap:wrap;min-height:38px}
 #fb .fb-cmd{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 7px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-weight:var(--fw-bold);white-space:nowrap}
+#fb .fb-cmd[hidden]{display:none}
 #fb .fb-cmd .ico{width:16px;height:16px;flex:none}
 #fb .fb-cmd:hover:not(:disabled){background:var(--sunk)}
 #fb .fb-cmd:disabled{opacity:.35;cursor:default}
