@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const { createPlaceTidy, planHomebrew, planRetro, planTitled } = await import("../../src/library/tidy-places.js");
+const { createPlaceTidy, moveArtKey, planHomebrew, planRetro, planTitled, retroFollowers } = await import("../../src/library/tidy-places.js");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tidy-places-"));
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
@@ -33,7 +33,7 @@ test("retro: a ROM out of place goes to the one console that plays it; one that 
   ), SYSTEMS);
   assert.deepEqual(out.moves, [
     { from: "Loose.sfc", to: "roms/snes/Loose.sfc" },
-    { from: "roms/gba/Wrong.sfc", to: "roms/snes/Wrong.sfc" },
+    { from: "roms/gba/Wrong.sfc", to: "roms/snes/Wrong.sfc", follow: { from: { id: "gba", folder: "gba" }, to: { id: "snes", folder: "snes" }, name: "Wrong" } },
     { from: "roms/snes/a/b/Deep.sfc", to: "roms/snes/Deep.sfc" },
     { from: "new/Game.gba", to: "roms/gba/Game.gba" },
   ]);
@@ -99,7 +99,8 @@ function setup(key) {
   let rescans = 0;
   const tidy = createPlaceTidy({
     root: () => ({ key, dir }), collect, journal, rescan: () => rescans++,
-    planner: (entries) => planRetro(entries, SYSTEMS), keep: (d) => d === "roms" || /^roms\/[^/]+$/.test(d),
+    planner: (entries) => planRetro(entries, SYSTEMS), followers: retroFollowers(dir),
+    keep: (d) => d === "roms" || /^roms\/[^/]+$/.test(d) || ["thumbnails", "bezels", "art-map"].includes(d.split("/")[0]),
   });
   return { dir, put, tidy, lines, rescans: () => rescans };
 }
@@ -133,4 +134,74 @@ test("a folder a tidy empties goes, unless it is a console's folder", async () =
   await tidy.apply(["new"], plan.moves);
   assert.ok(!fs.existsSync(path.join(dir, "new")));
   assert.ok(fs.existsSync(path.join(dir, "roms/snes/One.sfc")));
+});
+
+const readJson = (dir, rel) => JSON.parse(fs.readFileSync(path.join(dir, rel), "utf8"));
+
+test("a ROM that changes console takes its box art, bezel files and art-map key, each move journaled", async () => {
+  const { dir, put, tidy, lines } = setup("retro");
+  put("roms/gba/Wrong.sfc");
+  put("thumbnails/gba/Named_Boxarts/Wrong.png");
+  put("bezels/gba/Wrong.png");
+  put("bezels/gba/Wrong_override.cfg");
+  put("thumbnails/gba/Named_Boxarts/Other.png");
+  fs.mkdirSync(path.join(dir, "art-map"));
+  fs.writeFileSync(path.join(dir, "art-map/gba.json"), JSON.stringify({ Wrong: "Wrong (USA)", Other: "Other (USA)" }));
+
+  const plan = await tidy.plan(["roms"]);
+  assert.equal(plan.moves.length, 1);
+  assert.deepEqual(plan.moves[0].art.map((a) => a.to), ["thumbnails/snes/Named_Boxarts/Wrong.png", "bezels/snes/Wrong.png", "bezels/snes/Wrong_override.cfg"]);
+  assert.deepEqual(plan.moves[0].key, { from: "art-map/gba.json", to: "art-map/snes.json", name: "Wrong" });
+
+  const out = await tidy.apply(["roms"], plan.moves);
+  assert.deepEqual(out.moved.map((m) => [m.to, Boolean(m.art)]), [
+    ["roms/snes/Wrong.sfc", false],
+    ["thumbnails/snes/Named_Boxarts/Wrong.png", true],
+    ["bezels/snes/Wrong.png", true],
+    ["bezels/snes/Wrong_override.cfg", true],
+  ]);
+  for (const rel of ["roms/snes/Wrong.sfc", "thumbnails/snes/Named_Boxarts/Wrong.png", "bezels/snes/Wrong_override.cfg", "thumbnails/gba/Named_Boxarts/Other.png"]) {
+    assert.ok(fs.existsSync(path.join(dir, rel)), rel);
+  }
+  assert.ok(!fs.existsSync(path.join(dir, "bezels/gba/Wrong.png")));
+  assert.ok(fs.existsSync(path.join(dir, "bezels/gba")), "the old console's art folder stays");
+  assert.deepEqual(readJson(dir, "art-map/gba.json"), { Other: "Other (USA)" });
+  assert.deepEqual(readJson(dir, "art-map/snes.json"), { Wrong: "Wrong (USA)" });
+  assert.equal(lines.length, 4);
+  assert.deepEqual(lines[0].extra, { rewrite: { type: "art-key", from: "art-map/gba.json", to: "art-map/snes.json", name: "Wrong" } });
+});
+
+test("a ROM whose art would land on a taken name stays, with its art", async () => {
+  const { dir, put, tidy } = setup("retro");
+  put("roms/gba/Wrong.sfc");
+  put("thumbnails/gba/Named_Boxarts/Wrong.png");
+  put("thumbnails/snes/Named_Boxarts/Wrong.png");
+  const plan = await tidy.plan(["roms"], "ko");
+  assert.deepEqual(plan.moves, []);
+  assert.deepEqual(plan.held.map((h) => h.code), ["tidy.exists"]);
+  assert.match(plan.held[0].reason, /thumbnails\/snes\/Named_Boxarts\/Wrong\.png/);
+  assert.ok(fs.existsSync(path.join(dir, "roms/gba/Wrong.sfc")));
+});
+
+test("a ROM that only moves up inside its console's folder leaves its art where it is", async () => {
+  const { put, tidy } = setup("retro");
+  put("roms/snes/a/b/Deep.sfc");
+  put("thumbnails/snes/Named_Boxarts/Deep.png");
+  const plan = await tidy.plan(["roms"]);
+  assert.deepEqual(plan.moves, [{ from: "roms/snes/a/b/Deep.sfc", to: "roms/snes/Deep.sfc" }]);
+});
+
+test("an art-map key moves only when the other map has none, and moves back the same way", async () => {
+  const dir = path.join(tmp, String(n++));
+  fs.mkdirSync(path.join(dir, "art-map"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "art-map/gba.json"), JSON.stringify({ A: "a" }));
+  fs.writeFileSync(path.join(dir, "art-map/snes.json"), JSON.stringify({ B: "b" }));
+  assert.equal(await moveArtKey(dir, { from: "art-map/gba.json", to: "art-map/snes.json", name: "A" }), true);
+  assert.deepEqual(readJson(dir, "art-map/snes.json"), { B: "b", A: "a" });
+  assert.equal(await moveArtKey(dir, { from: "art-map/gba.json", to: "art-map/snes.json", name: "A" }), false);
+  fs.writeFileSync(path.join(dir, "art-map/gba.json"), JSON.stringify({ B: "keep" }));
+  assert.equal(await moveArtKey(dir, { from: "art-map/snes.json", to: "art-map/gba.json", name: "B" }), false, "a key the other map has is never overwritten");
+  assert.equal(await moveArtKey(dir, { from: "art-map/snes.json", to: "art-map/gba.json", name: "A" }), true);
+  assert.deepEqual(readJson(dir, "art-map/gba.json"), { B: "keep", A: "a" });
+  assert.deepEqual(readJson(dir, "art-map/snes.json"), { B: "b" });
 });

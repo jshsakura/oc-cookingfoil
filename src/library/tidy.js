@@ -63,7 +63,7 @@ export async function carryOut({ root: r, moves, journal, by = null, keep = () =
       skipped.push({ from: m.from, code: "exists" });
       continue;
     }
-    const line = await journal({ action: "move", by, fromRoot: r, from: m.from, toRoot: r, to: m.to });
+    const line = await journal({ action: "move", by, fromRoot: r, from: m.from, toRoot: r, to: m.to, ...(m.extra ? { extra: m.extra } : {}) });
     moved.push({ from: m.from, to: m.to, undo: line?.id ?? null });
     for (let d = path.posix.dirname(m.from); d && d !== "." && !keep(d); d = path.posix.dirname(d)) {
       if (!(await fsp.rmdir(path.join(r.dir, ...d.split("/"))).then(() => true, () => false))) break;
