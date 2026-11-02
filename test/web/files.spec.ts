@@ -742,3 +742,26 @@ test('the status bar sits under the list and never covers its last row, narrow o
     expect(footBottom).toBeLessThanOrEqual(640);
   }
 });
+
+test('the retro folder opens on its ROMs; the server files show behind a switch and ask before they go', async ({ page }) => {
+  const retro = process.env.COOK_RETRO_DIR!;
+  fs.mkdirSync(path.join(retro, 'thumbnails'), { recursive: true });
+  fs.mkdirSync(path.join(retro, 'roms'), { recursive: true });
+  await page.addInitScript(() => { try { localStorage.removeItem('cookingfoil:fb-server'); } catch {} });
+  await signIn(page);
+  await page.goto('/admin/retro');
+  await expect(row(page, 'roms')).toBeVisible();
+  await expect(row(page, 'thumbnails')).toHaveCount(0);
+  const sw = page.locator('#fb-server-btn');
+  await expect(sw).toHaveText('서버 파일 보기');
+  await sw.click();
+  await expect(sw).toHaveAttribute('aria-pressed', 'true');
+  await expect(row(page, 'thumbnails')).toHaveClass(/fb-server/);
+  await row(page, 'thumbnails').locator('input[type=checkbox]').check();
+  await page.locator('#fb-trash-btn').click();
+  await expect(page.locator('#ask-dialog')).toContainText('서버가 만들고 관리하는 파일입니다.');
+  await page.locator('#ask-no').click();
+  expect(fs.existsSync(path.join(retro, 'thumbnails'))).toBe(true);
+  await sw.click();
+  await expect(row(page, 'thumbnails')).toHaveCount(0);
+});

@@ -28,6 +28,14 @@ const svg = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">$
 const KINDS = [["all", "lb.kAll"], ["base", "lb.kBase"], ["update", "lb.kUpdate"], ["dlc", "lb.kDlc"], ["patch", "lb.kPatch"], ["save", "lb.kSave"], ["homebrew", "lb.kHomebrew"], ["other", "lb.kOther"]];
 
 export const LIB_BROWSER_CSS = /* css */ `
+.lv-tip{flex:none;display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:help}
+.lv-tip:hover,.lv-tip:focus-visible{background:var(--sunk);color:var(--text)}
+.lv-tip svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.lv-pop{position:fixed;z-index:60;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);color:var(--text);box-shadow:0 10px 30px var(--shadow);font-size:var(--fs-sm);line-height:1.55;pointer-events:none}
+.lv-pop b{display:block;margin-bottom:6px;font-size:var(--fs-sm)}
+.lv-pop p{margin:0 0 6px;color:var(--muted)}
+.lv-pop p:last-child{margin-bottom:0}
+#lb-list .lb-check{display:inline-flex;align-items:center;gap:2px}
 #lib-files{display:grid;gap:12px;margin-bottom:8px}
 #lib-files .lb-kinds{position:relative;display:flex;gap:4px;padding:5px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-2xl);overflow-x:auto}
 #lib-files .lb-ind{position:absolute;left:0;top:0;width:0;height:0;border-radius:var(--r-lg);background:var(--panel);box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--line2);transition:transform .28s cubic-bezier(.3,.7,.2,1),width .28s cubic-bezier(.3,.7,.2,1),height .28s;pointer-events:none}
@@ -113,11 +121,36 @@ export const LIB_BROWSER_HTML = libBrowserHtml(KINDS.slice(1).map(([k]) => k));
 export const GAME_FILES_HTML = libBrowserHtml(["base", "update", "dlc"]);
 
 export const LIB_BROWSER_SCRIPT = /* js */ `
+// A file check's help, in the admin's language as the server wrote it, opens beside its mark on hover, focus or tap (the list and the check page).
+const LV_INFO='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
+let lvTip=null;
+function lvTipShow(owner,help){
+  if(!lvTip){lvTip=el('div',null,'lv-pop');lvTip.setAttribute('role','tooltip');lvTip.id='lv-pop';document.body.append(lvTip);
+    document.addEventListener('click',(e)=>{if(!lvTip.contains(e.target))lvTipHide();});
+    document.addEventListener('keydown',(e)=>{if(e.key==='Escape')lvTipHide();});
+    window.addEventListener('scroll',lvTipHide,true);}
+  lvTip.replaceChildren(el('b',help.title));for(const para of help.body.split('\\n\\n'))lvTip.append(el('p',para));
+  lvTip.owner=owner;owner.setAttribute('aria-describedby','lv-pop');lvTip.hidden=false;
+  const r=owner.getBoundingClientRect(),gap=8,vw=document.documentElement.clientWidth,vh=window.innerHeight;
+  const w=Math.min(380,vw-24);lvTip.style.width=w+'px';
+  const h=lvTip.offsetHeight;const below=r.bottom+gap+h<=vh-12;
+  lvTip.style.top=Math.max(12,below?r.bottom+gap:r.top-gap-h)+'px';
+  lvTip.style.left=Math.min(Math.max(12,r.left+r.width/2-w/2),vw-w-12)+'px';}
+function lvTipHide(){if(!lvTip||lvTip.hidden)return;lvTip.hidden=true;lvTip.owner&&lvTip.owner.removeAttribute('aria-describedby');}
+
 const LB_ICON=${JSON.stringify({ prev: svg("prev"), next: svg("next") })};
 const LB_KIND=${JSON.stringify(Object.fromEntries(KINDS))};
 const LB_PER=25;
 const LB_ALL=$('lib-files').dataset.kinds.split(',');
-const LB_CHECK={ok:['lb.ok','on'],modified:['lb.modified','warn'],damaged:['lb.damaged','off'],unchecked:['lb.unchecked','']};
+// A modified file is not damage, and a hash mismatch may still install: each says which with its own label and tone.
+const LB_CHECK={ok:['lb.ok','on'],modified:['lb.modified',''],damaged:['lb.damaged','off'],unchecked:['lb.unchecked','']};
+function lbCheck(f){const c=td();const v=LB_CHECK[f.integrity]||LB_CHECK.unchecked;const w=f.why;
+  const tone=f.integrity==='damaged'&&w&&!w.certain?'warn':v[1];const box=el('span',null,'lb-check');box.append(pill(w?.label||topText(v[0]),tone));
+  if(w?.help){const b=el('button',null,'lv-tip');b.type='button';b.innerHTML=LV_INFO;b.setAttribute('aria-label',w.help.title);
+    b.addEventListener('mouseenter',()=>lvTipShow(b,w.help));b.addEventListener('mouseleave',lvTipHide);
+    b.addEventListener('focus',()=>lvTipShow(b,w.help));b.addEventListener('blur',lvTipHide);
+    b.addEventListener('click',(e)=>{e.stopPropagation();lvTip&&lvTip.owner===b&&!lvTip.hidden?lvTipHide():lvTipShow(b,w.help);});box.append(b);}
+  c.append(box);return c;}
 const lb={kind:'all',page:1,sort:'mtime',order:'desc',q:'',seq:0,timer:null,pending:false};
 const lbSize=(n)=>{if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const lbDate=(s)=>s?new Date(s*1000).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'-';
@@ -173,7 +206,7 @@ function lbRow(f,kind){const tr=el('tr');const n=td();const k=kind==='all'?f.kin
   else{if(game||k==='patch'||k==='save')tr.append(td(f.titleId||'-','mono lb-num'));
     if(game||k==='homebrew')tr.append(td(f.version!=null?(game?'v'+f.version:String(f.version)):'-','lb-num'));}
   tr.append(td(lbSize(f.size),'lb-num'),td(lbDate(f.mtime),'lb-num'));
-  if(game||kind==='all'){const c=td();if(game){const v=LB_CHECK[f.integrity]||LB_CHECK.unchecked;c.append(pill(topText(v[0]),v[1]));}tr.append(c);}
+  if(game||kind==='all')tr.append(game?lbCheck(f):td());
   const act=td();const box=el('div',null,'lb-act');const edit=lbEditButton(f,k);if(edit)box.append(edit);
   const del=tbtn('delete','pp.delete',()=>lbRemove(f,k),'danger');del.setAttribute('aria-label',topFill('lb.delAria',{name:f.name||f.rel||topText('lo.colFile')}));box.append(del);act.append(box);tr.append(act);
   return tr;}

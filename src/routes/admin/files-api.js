@@ -4,7 +4,9 @@
  *   GET  /admin/api/files/roots                          [{ key, name }]: the folders there are
  *   GET  /admin/api/files/list?root=&path=&q=&deep=&sort=&order=&page=&perPage=&only=dirs
  *        { root, path, parent, items: [{ name, rel, type, size, mtime, ext }], total, page, perPage, pages, counts, deep, cut }
- *        deep=1 finds q in every folder under path (cut: the walk stopped early).
+ *        deep=1 finds q in every folder under path (cut: the walk stopped early). At the top of a root, what the
+ *        server makes there (file-roots.js SERVER_FILES) is left out; server=1 lists it too, each marked server: true.
+ *        serverFiles counts those entries either way.
  *   GET  /admin/api/files/download?root=&path=           the file itself
  *   POST /admin/api/files/mkdir   { root, path, name }   → { root, rel }
  *   POST /admin/api/files/rename  { root, path, name }   → { root, rel, undo }
@@ -99,7 +101,8 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     const label = titleLabel(lang);
     const root = str(req.query.root);
     const dirsOnly = str(req.query.only) === "dirs";
-    const out = await files.list(root, str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label, dirsOnly });
+    const server = str(req.query.server) === "1";
+    const out = await files.list(root, str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label, dirsOnly, server });
     res.json({ ...out, items: facts(root, out.items, lang) });
   }));
 

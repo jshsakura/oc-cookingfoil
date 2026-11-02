@@ -22,14 +22,13 @@ test('every earlier admin hash still opens its section', async ({ page }) => {
   }
 });
 
-test('library sub-pages open the panel their hash names, and the old folder one opens the 파일 page', async ({ page }) => {
+test('library sub-pages open the panel their hash names, the folder first', async ({ page }) => {
   await signIn(page);
-  for (const sub of ['files', 'verify', 'info']) {
+  for (const sub of ['folder', 'files', 'verify', 'info']) {
     await page.goto(`/admin#library/${sub}`);
     await expect(page.locator(`[data-lib-panel="${sub}"]`), sub).toBeVisible();
   }
-  await page.goto('/admin#library/folder');
-  await expect(page).toHaveURL(/\/admin\/files/);
+  await page.goto('/admin/games');
   await expect(page.locator('#fb-rows')).toBeVisible();
 });
 

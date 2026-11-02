@@ -5,6 +5,7 @@ export const LIBRARY_FILES_WORDS = {
   ko: {
     "lv.v.modified": "수정됨",
     "lv.v.damaged": "손상됨",
+    "lv.v.suspect": "손상 의심",
     "lv.v.misnamed": "이름 다름",
     "lv.r.signature-fail": "NCA 서명이 맞지 않습니다",
     "lv.r.hash-mismatch": "내용 해시가 맞지 않습니다",
@@ -35,6 +36,7 @@ export const LIBRARY_FILES_WORDS = {
   en: {
     "lv.v.modified": "Modified",
     "lv.v.damaged": "Damaged",
+    "lv.v.suspect": "Possibly damaged",
     "lv.v.misnamed": "Name differs",
     "lv.r.signature-fail": "The NCA signature does not match",
     "lv.r.hash-mismatch": "The content hash does not match",
@@ -65,6 +67,7 @@ export const LIBRARY_FILES_WORDS = {
   ja: {
     "lv.v.modified": "変更あり",
     "lv.v.damaged": "破損",
+    "lv.v.suspect": "破損の可能性",
     "lv.v.misnamed": "名前が違う",
     "lv.r.signature-fail": "NCA の署名が一致しません",
     "lv.r.hash-mismatch": "内容のハッシュが一致しません",
@@ -95,6 +98,7 @@ export const LIBRARY_FILES_WORDS = {
   zh: {
     "lv.v.modified": "已修改",
     "lv.v.damaged": "已损坏",
+    "lv.v.suspect": "可能损坏",
     "lv.v.misnamed": "名称不符",
     "lv.r.signature-fail": "NCA 签名不匹配",
     "lv.r.hash-mismatch": "内容哈希不匹配",
