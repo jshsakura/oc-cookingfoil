@@ -4,9 +4,9 @@
  *   GET  /admin/api/files/roots                          [{ key, name }]: the folders there are
  *   GET  /admin/api/files/list?root=&path=&q=&deep=&sort=&order=&page=&perPage=&only=dirs
  *        { root, path, parent, items: [{ name, rel, type, size, mtime, ext }], total, page, perPage, pages, counts, deep, cut }
- *        deep=1 finds q in every folder under path (cut: the walk stopped early). At the top of a root, what the
- *        server makes there (file-roots.js SERVER_FILES) is left out; server=1 lists it too, each marked server: true.
- *        serverFiles counts those entries either way.
+ *        deep=1 finds q in every folder under path (cut: the walk stopped early). What the server makes at the top of
+ *        a root (file-roots.js SERVER_FILES), and everything in it, is marked server: true. In the retro folder a
+ *        console's folder under roms/ carries its console's name as title, and everything below it that name as system.
  *   GET  /admin/api/files/download?root=&path=           the file itself
  *   POST /admin/api/files/mkdir   { root, path, name }   → { root, rel }
  *   POST /admin/api/files/rename  { root, path, name }   → { root, rel, undo }
@@ -49,6 +49,7 @@ import { publicBaseUrl } from "../../helpers/envs.js";
 import { resolveOrigin } from "../../helpers/origin.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
+import { loadSystems, systemOfFolder } from "../../retro/systems.js";
 import * as chunks from "../../meta/upload-chunks.js";
 
 const MAX_PATHS = 1000;
@@ -68,6 +69,21 @@ async function sizeOf(p) {
   let n = 0;
   for (const name of names) n += await sizeOf(path.join(p, name));
   return n;
+}
+
+/** Retro entries under roms/<console>/ with that console's name: the folder as its title, the rest as system. */
+function withConsoles(items, retroDir, lang) {
+  if (!retroDir || !items.some((e) => e.rel.startsWith("roms/"))) return items;
+  const systems = loadSystems(retroDir);
+  const short = String(lang).split("-")[0];
+  return items.map((e) => {
+    const [top, folder, ...below] = e.rel.split("/");
+    const id = top === "roms" && folder ? systemOfFolder(folder, systems) : null;
+    if (!id) return e;
+    const names = systems[id].names;
+    const name = names[lang] ?? names[short] ?? names.en ?? id;
+    return below.length || e.type !== "dir" ? { ...e, system: name } : { ...e, title: e.title ?? name };
+  });
 }
 
 export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir, facts = createFileFacts(), warmSizes = true, shares = fileShares() } = {}) {
@@ -101,9 +117,9 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     const label = titleLabel(lang);
     const root = str(req.query.root);
     const dirsOnly = str(req.query.only) === "dirs";
-    const server = str(req.query.server) === "1";
-    const out = await files.list(root, str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label, dirsOnly, server });
-    res.json({ ...out, items: facts(root, out.items, lang) });
+    const out = await files.list(root, str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label, dirsOnly });
+    const items = facts(root, out.items, lang);
+    res.json({ ...out, items: root === "retro" ? withConsoles(items, files.roots().find((r) => r.key === "retro")?.dir, lang) : items });
   }));
 
   router.get("/api/files/download", handle(async (req, res) => {

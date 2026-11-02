@@ -743,25 +743,34 @@ test('the status bar sits under the list and never covers its last row, narrow o
   }
 });
 
-test('the retro folder opens on its ROMs; the server files show behind a switch and ask before they go', async ({ page }) => {
+test('the retro folder says what each folder is for, marks the server\'s own, and previews a picture beside the list', async ({ page }) => {
   const retro = process.env.COOK_RETRO_DIR!;
-  fs.mkdirSync(path.join(retro, 'thumbnails'), { recursive: true });
-  fs.mkdirSync(path.join(retro, 'roms'), { recursive: true });
-  await page.addInitScript(() => { try { localStorage.removeItem('cookingfoil:fb-server'); } catch {} });
+  fs.mkdirSync(path.join(retro, 'thumbnails', 'snes'), { recursive: true });
+  fs.mkdirSync(path.join(retro, 'roms', 'snes'), { recursive: true });
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
+  fs.writeFileSync(path.join(retro, 'thumbnails', 'snes', 'cover.png'), Buffer.from(png, 'base64'));
+  await page.setViewportSize({ width: 1600, height: 900 });
   await signIn(page);
   await page.goto('/admin/retro');
-  await expect(row(page, 'roms')).toBeVisible();
-  await expect(row(page, 'thumbnails')).toHaveCount(0);
-  const sw = page.locator('#fb-server-btn');
-  await expect(sw).toHaveText('서버 파일 보기');
-  await sw.click();
-  await expect(sw).toHaveAttribute('aria-pressed', 'true');
-  await expect(row(page, 'thumbnails')).toHaveClass(/fb-server/);
+  await expect(row(page, 'roms')).toContainText('기기별 롬 폴더가 모여 있습니다.');
+  await expect(row(page, 'thumbnails')).toContainText('서버용');
+  await expect(row(page, 'thumbnails')).toContainText('목록에 나오는 표지 그림과 화면 사진입니다.');
   await row(page, 'thumbnails').locator('input[type=checkbox]').check();
   await page.locator('#fb-trash-btn').click();
   await expect(page.locator('#ask-dialog')).toContainText('서버가 만들고 관리하는 파일입니다.');
   await page.locator('#ask-no').click();
   expect(fs.existsSync(path.join(retro, 'thumbnails'))).toBe(true);
-  await sw.click();
-  await expect(row(page, 'thumbnails')).toHaveCount(0);
+  if (process.env.FB_SHOTS) await page.screenshot({ path: path.join(process.env.FB_SHOTS, 'files-retro-top.png') });
+
+  await page.goto('/admin/retro?tab=folder&path=roms');
+  await expect(row(page, '슈퍼 패미컴 (SNES)')).toContainText('슈퍼 패미컴 (SNES) 롬을 넣는 폴더입니다.');
+
+  await page.goto('/admin/retro?tab=folder&path=thumbnails/snes');
+  if ((await page.locator('#fb-t-side').getAttribute('aria-pressed')) !== 'true') await page.locator('#fb-t-side').click();
+  await row(page, 'cover.png').click();
+  const side = page.locator('#fb-side');
+  await expect(side.locator('.fb-s-prev img')).toHaveAttribute('src', /^blob:/);
+  if (process.env.FB_SHOTS) await page.screenshot({ path: path.join(process.env.FB_SHOTS, 'files-retro-preview.png') });
+  await side.getByRole('button', { name: '미리 보기' }).click();
+  await expect(page.locator('#fb-view')).toBeVisible();
 });
