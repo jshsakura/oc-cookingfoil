@@ -32,7 +32,7 @@ export const DEFAULT_TIERS = Object.freeze(Object.fromEntries([
   ...approve(
     "game_art_set", "game_art_crop", "retro_art_sync", "retro_art_match", "retro_cover_set", "retro_ko_name_decide", "retro_ko_index",
     "retro_cores_fetch_missing", "retro_cores_update", "retro_core_fetch", "retro_config_set", "retro_config_undo", "trash_restore", "trash_undo",
-    "settings_set", "integration_set", "account_set", "device_set", "sends_set", "alerts_set", "server_restart", "server_task",
+    "settings_set", "integration_set", "account_set", "device_set", "sends_set", "alerts_set", "server_restart", "server_task", "library_rescan",
     "retro_core_enabled", "retro_core_source", "retro_core_repo", "agent_order", "agent_clear",
   ),
   ...blocked("library_files_remove", "patches_remove", "game_art_remove", "trash_release", "job_cancel"),
