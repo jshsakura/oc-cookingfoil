@@ -7,6 +7,8 @@
  *   GET  /admin/api/library/verify          the file check: { status, counts, pending, hashPending, flagged, … }
  *   POST /admin/api/library/verify/hash-all every file gets the whole-file hash it has not had   { queued }
  *   POST /admin/api/library/verify/recheck  { rel }  check one file again, hash included
+ *   GET  /admin/api/library/suggestions     제안 (library/suggestions.js): { items: [{ id, code, root, files, vars, drops }], kept }
+ *   POST /admin/api/library/suggestions/keep { id }  그대로 두기: hidden until its files change
  *
  * Only a file the library listed can be removed, and only from inside the games folder.
  * Removing moves it to <games>/.cookingfoil-trash (library/trash.js); it stays
@@ -27,6 +29,7 @@ import * as trashService from "../../library/trash-service.js";
 import { trashGameFiles } from "../../library/game-files.js";
 import { apiWord } from "./api-words.js";
 import { requestLang } from "../../meta/langs.js";
+import * as suggestions from "../../library/suggestion-service.js";
 
 const LIMIT = 100;
 
@@ -86,6 +89,13 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
     const lang = requestLang(req);
     const flagged = (view.flagged ?? []).map((f) => (f.verdict === "modified" || f.verdict === "damaged" ? { ...f, ...explainIntegrity(f, lang) } : f));
     res.json({ ...view, flagged });
+  }));
+
+  router.get("/api/library/suggestions", handle(async (req, res) => res.json(await suggestions.current())));
+
+  router.post("/api/library/suggestions/keep", handle(async (req, res) => {
+    if (!(await suggestions.keep(String(req.body?.id ?? "")))) return res.status(404).json({ error: apiWord(req, "failed") });
+    res.json({ ok: true });
   }));
 
   router.post("/api/library/verify/hash-all", handle((req, res) => res.json({ ok: true, queued: verify.hashAll() })));

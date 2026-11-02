@@ -16,7 +16,7 @@ export const STANDALONE = new Set(["help"]);
 
 /** What each area tool covers. Every area with a served capability needs a line. */
 export const AREA_TEXT = {
-  games: "Switch games in the library: search, details, art, patches and the wishlist.",
+  games: "Switch games: search, details, art, patches, wishlist.",
   library: "Library folders and files, and the trash.",
   retro: "Retro (RetroArch) games, cores, Korean names, ROM patches and box art.",
   jobs: "Background jobs and their progress.",

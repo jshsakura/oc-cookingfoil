@@ -49,6 +49,7 @@ export const OPT_OUT = {
   "POST /admin/api/chat/send": "token-blocked",
   // The same chat for people signed in on the web page (routes/chat.js); a web sign-in only, never a token.
   "GET /api/chat": "browser-only",
+  "POST /admin/api/library/suggestions/keep": "browser-only",
   "POST /api/chat": "browser-only",
   "POST /api/chat/compact": "browser-only",
   "POST /api/chat/decision": "browser-only",

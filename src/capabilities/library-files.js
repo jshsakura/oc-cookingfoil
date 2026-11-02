@@ -4,8 +4,9 @@
  * tab's remove route does the same move (library/game-files.js) one file at a time.
  */
 import { defineCapability } from "./define.js";
-import { arr, int, nullable, obj, str, titleId } from "./shape.js";
+import { arr, bool, int, nullable, obj, str, titleId } from "./shape.js";
 import { listedFiles, pathOf, trashGameFiles } from "../library/game-files.js";
+import * as suggestions from "../library/suggestion-service.js";
 
 export const MAX_FILES = 20;
 
@@ -36,7 +37,27 @@ const FILE = obj({
   kind: nullable(str("base, update or dlc")), titleId: nullable(titleId()), version: nullable(int()),
 });
 
+const SUGGESTION = obj({
+  id: str(),
+  code: str("twin, oldUpdate, discMissing, discLone or noCover"),
+  root: str("games or retro: the folder files[].rel is in"),
+  files: arr(obj({ rel: str(), size: nullable(int("bytes")) })),
+  vars: { type: "object", description: "what the finding names: the game, versions, files, console" },
+  drops: arr(obj({ ext: str(), rels: arr(str()), recommended: bool() }), "files a person may send to the trash, by kind; files_trash moves them"),
+});
+
 export const libraryFilesCapabilities = [
+  defineCapability({
+    id: "library_suggestions",
+    area: "library",
+    title: "Suggestions",
+    description: "Library findings: one game as nsp and nsz, an old update, a disc list missing a file, a lone disc track, games without box art. Kept findings are left out.",
+    input: { type: "object", properties: {} },
+    output: obj({ items: arr(SUGGESTION), kept: int("findings kept as is, left out of items") }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/library/suggestions" },
+    handler: () => suggestions.current(),
+  }),
   defineCapability({
     id: "library_files_remove",
     area: "library",
