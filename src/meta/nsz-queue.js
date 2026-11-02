@@ -695,13 +695,36 @@ export function createNszQueue({
     pump();
   }
 
+  const waitAgain = (i) => i.state !== "waiting" && Object.assign(i, { state: "waiting", reason: null, reasonCode: undefined, reasonVars: undefined, retryAt: null, finishedAt: null });
+
   /** 선택한 것만 변환: runs these rows (waiting, busy, or failed/skipped ones, which wait again) and nothing else. Returns how many. */
   function runSelected(ids) {
     const want = new Set(ids);
     const picked = state.items.filter((i) => want.has(i.id) && RUNNABLE.has(i.state));
     if (!picked.length) return 0;
-    for (const i of picked) if (i.state !== "waiting") Object.assign(i, { state: "waiting", reason: null, reasonCode: undefined, reasonVars: undefined, retryAt: null, finishedAt: null });
+    picked.forEach(waitAgain);
     Object.assign(state, { only: picked.map((i) => i.id), running: true, held: false, pausedReason: null });
+    fails = 0;
+    save();
+    pump();
+    return picked.length;
+  }
+
+  /**
+   * The file browser's 파일 압축: these files and the eligible ones under these folders (paths in the games
+   * folder) are queued if they are not, go to the front and run now. A run of the whole queue goes on with
+   * them first; otherwise only they run, with the rows of a selected run already under way. Returns how many.
+   */
+  async function runFiles(rels) {
+    const under = (rel) => rels.some((r) => rel === r || rel.startsWith(`${r}/`));
+    addFiles((await scanFolder()).filter((f) => under(f.rel)), { undismiss: true });
+    const picked = state.items.filter((i) => under(i.rel) && RUNNABLE.has(i.state) && eligibleKind(i.rel));
+    if (!picked.length) return 0;
+    picked.forEach(waitAgain);
+    state.items = [...picked, ...state.items.filter((i) => !picked.includes(i))];
+    const ids = picked.map((i) => i.id);
+    const only = state.running && !state.only ? null : [...new Set([...(state.running ? state.only : []), ...ids])];
+    Object.assign(state, { only, running: true, held: false, pausedReason: null });
     fails = 0;
     save();
     pump();
@@ -853,7 +876,7 @@ export function createNszQueue({
   }
 
   return {
-    init, start, runSelected, runFilter, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
+    init, start, runSelected, runFiles, runFilter, pause, scan, preview, addFiles, onLibraryUpdate, settingsChanged,
     moveTop, retry, remove, clearFinished, purgeKept, purgeDue, shutdown, killNow, view, totals,
     logPage: (q) => log.page(q), workDir, keepDir, find, pump,
     /** Test-only: resolves once nothing runs or starts. */

@@ -6,7 +6,7 @@
  *   POST /admin/api/library/other/remove    { rel }  move one stray file (not a game file) of the games folder to its trash
  *   GET  /admin/api/library/verify          the file check: { status, counts, pending, hashPending, flagged, … }
  *   POST /admin/api/library/verify/hash-all every file gets the whole-file hash it has not had   { queued }
- *   POST /admin/api/library/verify/recheck  { rel }  check one file again, hash included
+ *   POST /admin/api/library/verify/recheck  { rel } or { rels }  check these files, and the files under these folders, again, hash included
  *   GET  /admin/api/library/suggestions     제안 (library/suggestions.js): { items: [{ id, code, root, files, vars, drops }], kept }
  *   POST /admin/api/library/suggestions/keep { id }  그대로 두기: hidden until its files change
  *
@@ -30,6 +30,7 @@ import { trashGameFiles } from "../../library/game-files.js";
 import { apiWord } from "./api-words.js";
 import { requestLang } from "../../meta/langs.js";
 import * as suggestions from "../../library/suggestion-service.js";
+import { relList } from "./nsz-api.js";
 
 const LIMIT = 100;
 
@@ -101,8 +102,10 @@ export function mountLibraryFilesApi(router, requireSession, verify = verifyQueu
   router.post("/api/library/verify/hash-all", handle((req, res) => res.json({ ok: true, queued: verify.hashAll() })));
 
   router.post("/api/library/verify/recheck", handle((req, res) => {
-    const rel = String(req.body?.rel ?? "");
-    if (!rel || !verify.recheck(rel)) return res.status(404).json({ error: apiWord(req, "libraryFiles.noCheck") });
-    res.json({ ok: true });
+    const rels = req.body?.rels !== undefined ? req.body.rels : [String(req.body?.rel ?? "")];
+    if (!relList(rels)) return res.status(404).json({ error: apiWord(req, "libraryFiles.noCheck") });
+    const n = rels.filter((rel) => verify.recheck(rel)).length;
+    if (!n) return res.status(404).json({ error: apiWord(req, "libraryFiles.noCheck") });
+    res.json({ ok: true, count: n });
   }));
 }

@@ -7,6 +7,8 @@
  *   POST   /admin/api/nsz/start                    start or resume       409 while the queue is off
  *   POST   /admin/api/nsz/run-selected { ids }     run only these rows (waiting, or failed which wait again), then stop
  *                                                  409 while the queue is off, 400 when none of them waits
+ *                                   or { rels }    the file browser's 파일 압축: these games-folder files and the ones under
+ *                                                  these folders, queued if they are not, first and now   { count }
  *   POST   /admin/api/nsz/run-filter { filter }    every row of one filter as it is now (waiting, or failed which wait again), then stop
  *                                                  409 while the queue is off, 400 for another filter or none in it
  *   POST   /admin/api/nsz/pause                    stop the running files; they wait again
@@ -31,6 +33,9 @@ import { requestLang } from "../../meta/langs.js";
 const ID_RE = /^[0-9a-f]{12}$/;
 const off = (req) => ({ error: "off", message: apiWord(req, "nsz.off") });
 const MAX_SELECTED = 1000;
+/** Paths inside the games folder, as the file browser names them. */
+export const relList = (rels) => Array.isArray(rels) && rels.length > 0 && rels.length <= MAX_SELECTED
+  && rels.every((r) => typeof r === "string" && r && !r.startsWith("/") && !r.includes("\\") && !r.split("/").some((p) => !p || p === "." || p === ".."));
 /** Rows with their reasons in `lang` (nsz-queue.js keeps them in English with a code). */
 const sayAll = (lang) => (rows) => (Array.isArray(rows) ? rows.map(inLang(lang)) : rows);
 
@@ -72,7 +77,15 @@ export function mountNszApi(router, requireSession, queue = nszQueue) {
     queue.start();
     res.json({ ok: true });
   }));
-  router.post("/api/nsz/run-selected", handle((req, res) => {
+  router.post("/api/nsz/run-selected", handle(async (req, res) => {
+    const rels = req.body?.rels;
+    if (rels !== undefined) {
+      if (!relList(rels)) return res.status(400).json({ error: apiWord(req, "nsz.pickFiles") });
+      if (!queue.view({ limit: 1 }).enabled) return res.status(409).json(off(req));
+      const n = await queue.runFiles(rels);
+      if (!n) return res.status(400).json({ error: apiWord(req, "nsz.nothingPicked") });
+      return res.json({ ok: true, count: n });
+    }
     const ids = req.body?.ids;
     if (!Array.isArray(ids) || !ids.length || ids.length > MAX_SELECTED || !ids.every((id) => typeof id === "string" && ID_RE.test(id))) {
       return res.status(400).json({ error: apiWord(req, "nsz.pickFiles") });
