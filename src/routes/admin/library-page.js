@@ -1,7 +1,7 @@
 /** Game library tasks and game details, independent of the other admin pages. */
 import { icon } from "../../views/icons.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
-import { LIBRARY_VERIFY_HTML } from "./library-files-panel.js";
+import { LIBRARY_SUGGEST_HTML, LIBRARY_VERIFY_HTML } from "./library-files-panel.js";
 import { GAME_FILES_HTML } from "./library-browser-panel.js";
 import { FOLDER_MARK } from "./files-panel.js";
 import { GAME_PATCHES_HTML } from "./patches-panel.js";
@@ -13,6 +13,7 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
     <button type="button" role="tab" data-lsub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
     <button type="button" role="tab" data-lsub="files" aria-selected="false">${icon("grid")}${top("m.gameList")}</button>
     <button type="button" role="tab" data-lsub="verify" aria-selected="false">${icon("check")}${top("lb.colCheck")}</button>
+    <button type="button" role="tab" data-lsub="suggest" aria-selected="false">${icon("sparkles")}${top("sg.tab")}</button>
     <button type="button" role="tab" data-lsub="info" aria-selected="false">${icon("book")}${top("m.titles")}</button>
   </div>
   <div data-lib-panel="folder">${FOLDER_MARK}</div>
@@ -22,6 +23,7 @@ export const LIBRARY_HTML = /* html */ `<section id="tab-library" hidden>
     <div class="cards" id="lib-cards"></div>
   </section></div>
   <div data-lib-panel="verify" hidden>${LIBRARY_VERIFY_HTML}</div>
+  <div data-lib-panel="suggest" hidden>${LIBRARY_SUGGEST_HTML}</div>
   <div data-lib-panel="info" hidden>
   <h2 class="first">${top("m.titles")}</h2>
   <p class="muted">${top("lp.notesLead")}</p>
@@ -73,9 +75,9 @@ $('gd-form').addEventListener('submit',async(e)=>{e.preventDefault();if(!gdId)re
 $('gd-reset').addEventListener('click',async()=>{if(!gdId||!await ask(topText('lp.resetAsk'),{danger:true}))return;
   try{await api('/admin/api/descriptions/'+gdId+'/reset',{method:'POST',body:{field:'description'}});toast(topText('lp.resetDone'));openDesc(true);}catch(err){toast(err.message);}});
 // The library tab shows one area at a time and loads only that one: #library/patches opens a given area.
-const LIB_SUBS=['folder','files','verify','info'];let libSub='folder';
+const LIB_SUBS=['folder','files','verify','suggest','info'];let libSub='folder';
 function libLoadSub(){
-  if(libSub==='folder')fbOpen('games');else if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='info')loadPatches();}
+  if(libSub==='folder')fbOpen('games');else if(libSub==='files')lbLoad();else if(libSub==='verify')lvLoad();else if(libSub==='suggest')sgLoad();else if(libSub==='info')loadPatches();}
 function libShowSub(sub,quiet){if(!LIB_SUBS.includes(sub))return;libSub=sub;
   for(const b of document.querySelectorAll('#lib-subtabs [data-lsub]'))b.setAttribute('aria-selected',String(b.dataset.lsub===sub));
   for(const p of document.querySelectorAll('#tab-library [data-lib-panel]'))p.hidden=p.dataset.libPanel!==sub;

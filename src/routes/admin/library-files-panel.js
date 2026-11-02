@@ -13,7 +13,18 @@ export const LIBRARY_VERIFY_HTML = `  <div class="hd"><h2 class="first">${top("l
   <div class="cards" id="lv-cards"></div>
   <div class="scroll" id="lv-list" data-skel></div>`;
 
+// 제안 (/admin/api/library/suggestions): what was found, why, what is recommended, and the files a person may drop.
+export const LIBRARY_SUGGEST_HTML = `  <h2 class="first">${top("sg.tab")}</h2>
+  <p class="muted">${top("sg.lead")}</p>
+  <p class="muted" id="sg-state"></p>
+  <div id="sg-list" data-skel></div>`;
+
 export const LIBRARY_FILES_CSS = /* css */ `
+#sg-list .sg-item{border:1px solid var(--line);border-radius:var(--r-lg);padding:12px 14px;margin:0 0 10px}
+#sg-list .sg-item h3{margin:0 0 4px;font-size:var(--fs-sm)}
+#sg-list .sg-item p{margin:2px 0;font-size:var(--fs-sm);overflow-wrap:anywhere}
+#sg-list .sg-files{margin:6px 0 0;padding:0;list-style:none;font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
+#sg-list .sg-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 #lv-list .lv-why{display:inline-flex;align-items:center;gap:6px;max-width:100%}
 #lv-list .lv-why-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #lv-cards button.card{font:inherit;color:inherit;text-align:left;cursor:pointer}
@@ -49,6 +60,27 @@ function lvReason(f){const c=td();const text=(f.help&&f.help.title)||((f.reason&
     w.append(b);}
   c.append(w);return c;}
 async function lvRecheck(f){try{await api('/admin/api/library/verify/recheck',{method:'POST',body:{rel:f.path}});toast(topText('lv.rechecking'));lvLoad();}catch(err){toast(err.message);}}
+const SG_FILES_SHOWN=5;
+async function sgLoad(){let d;try{d=await api('/admin/api/library/suggestions');}catch(err){toast(err.message);return;}
+  const list=$('sg-list');list.removeAttribute('data-skel');
+  $('sg-state').textContent=d.kept?topFill('sg.keptN',{n:num(d.kept)}):'';
+  if(!d.items.length){list.replaceChildren(el('p',topText('sg.none'),'muted'));return;}
+  list.replaceChildren(...d.items.map(sgItem));}
+function sgItem(f){const box=el('section',null,'sg-item');const k='sg.c.'+f.code;
+  box.append(el('h3',topFill(k+'.t',f.vars)),el('p',topFill(k+'.why',f.vars)),el('p',topFill('sg.rec',{text:topFill(k+'.rec',f.vars)}),'muted'));
+  const files=el('ul',null,'sg-files');for(const x of f.files.slice(0,SG_FILES_SHOWN))files.append(el('li',x.rel));
+  if(f.files.length>SG_FILES_SHOWN)files.append(el('li',topFill('sg.more',{n:num(f.files.length-SG_FILES_SHOWN)})));box.append(files);
+  const acts=el('div',null,'sg-acts');
+  for(const d of f.drops){const b=btn(topFill('sg.drop',{ext:d.ext}),()=>sgDrop(f,d));if(d.recommended)b.classList.add('primary');acts.append(b);}
+  acts.append(btn(topText('sg.keep'),()=>sgKeep(f)));box.append(acts);return box;}
+// A drop goes through the file browser's trash, after the files are shown; the notice takes it back.
+async function sgDrop(f,d){if(!await ask(topFill('sg.askDrop',{files:d.rels.join('\\n')}),{danger:true}))return;
+  try{const out=await api('/admin/api/files/trash',{method:'POST',body:{root:f.root,paths:d.rels}});
+    toast(topFill('fb.trashed',{n:num(out.files.length)}));const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
+    b.addEventListener('click',async()=>{t.classList.remove('show');try{await api('/admin/api/trash/restore',{method:'POST',body:{ids:out.restore}});toast(topText('fb.undone'));sgLoad();}catch(err){toast(err.message);}});
+    t.append(b);clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),7000);sgLoad();}
+  catch(err){toast(err.message);}}
+async function sgKeep(f){try{await api('/admin/api/library/suggestions/keep',{method:'POST',body:{id:f.id}});toast(topText('sg.kept'));sgLoad();}catch(err){toast(err.message);}}
 $('lv-hash-all').addEventListener('click',async()=>{
   if(!await ask(topText('lv.hashAsk')))return;
   try{const r=await api('/admin/api/library/verify/hash-all',{method:'POST',body:{}});toast(topFill('lv.queued',{n:num(r.queued)}));lvLoad();}catch(err){toast(err.message);}});
