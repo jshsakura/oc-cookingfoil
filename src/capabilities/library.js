@@ -2,6 +2,7 @@
  * Library capabilities: what goes in each folder the server uses (helpers/storage-guide.js).
  */
 import { defineCapability } from "./define.js";
+import debug from "../debug.js";
 import * as envs from "../helpers/envs.js";
 import * as storageGuide from "../helpers/storage-guide.js";
 import * as folderSync from "../meta/folder-sync.js";
@@ -99,11 +100,11 @@ export const libraryCapabilities = [
       const scope = scopeOf(input);
       if (scope === "all") {
         const already = folderSync.status().running;
-        folderSync.syncNow("mcp").catch(() => {});
+        folderSync.syncNow("mcp").catch((err) => debug.error("mcp: library read failed: %s", err.message));
         return { started: scope, already };
       }
       if (scope === "homebrew") {
-        refreshManual().catch(() => {});
+        refreshManual().catch((err) => debug.error("mcp: homebrew read failed: %s", err.message));
         return { started: scope, already: false };
       }
       const already = libraryCache.stats().scan.fullPending;

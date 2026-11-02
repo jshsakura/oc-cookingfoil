@@ -32,3 +32,24 @@ test("the guide tools return what the admin API serves", async () => {
   assert.equal(unknown.error, "unknown");
   assert.ok(unknown.known.includes(all.folders[0].path));
 });
+
+test("library_rescan stands for both rescan routes and waits for the user's approval", async () => {
+  const { tierOf } = await import("../../src/chat/policy.js");
+  for (const key of ["POST /admin/api/library/rescan", "POST /admin/api/homebrew/rescan"]) {
+    assert.equal(registry.byRoute(key)?.id, "library_rescan", key);
+    assert.ok(!LEGACY_UNREGISTERED.includes(key), `${key} is not also listed as unregistered`);
+  }
+  const cap = registry.byId("library_rescan");
+  assert.equal(cap.safety, "write");
+  assert.equal(tierOf("library_rescan"), "approve");
+});
+
+test("library_rescan previews the scope it reads and refuses an unknown one", async () => {
+  const cap = registry.byId("library_rescan");
+  assert.equal((await cap.preview({}, {})).scope, "all");
+  const games = await cap.preview({}, { scope: "games" });
+  assert.equal(games.scope, "games");
+  assert.match(games.changes, /games list/);
+  await assert.rejects(cap.preview({}, { scope: "roms" }), (e) => e.status === 400);
+  await assert.rejects(cap.handler({}, { scope: "roms" }), (e) => e.status === 400);
+});
