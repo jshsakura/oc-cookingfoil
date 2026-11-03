@@ -87,6 +87,11 @@ export function issuePasswordSession(req, res, name) {
   res.append("Set-Cookie", cookieLine(req, SESSION_COOKIE, seal({ user: name, s: users.sessionStamp(name) }, SESSION_MS), { maxAgeMs: SESSION_MS }));
 }
 
+/** Signed in with a passkey that an ID account added: it outlives ID and password sign-in being switched off. */
+export function issuePasskeySession(req, res, name) {
+  res.append("Set-Cookie", cookieLine(req, SESSION_COOKIE, seal({ user: name, s: users.sessionStamp(name), pk: 1 }, SESSION_MS), { maxAgeMs: SESSION_MS }));
+}
+
 export function clearUserSession(req, res) {
   res.append("Set-Cookie", cookieLine(req, SESSION_COOKIE, "", { maxAgeMs: 0 }));
 }
@@ -105,8 +110,8 @@ export function sessionAccount(req) {
 export function webUser(req) {
   const v = unseal(cookies(req)[SESSION_COOKIE]);
   if (v?.user) {
-    // A password session ends when ID and password sign-in is switched off.
-    if (!accountPasswordsOk(req)) return null;
+    // A password session ends when ID and password sign-in is switched off; a passkey one does not.
+    if (!v.pk && !accountPasswordsOk(req)) return null;
     const stamp = users.sessionStamp(v.user);
     return stamp && stamp === v.s ? { kind: "password", name: v.user, approver: v.user } : null;
   }

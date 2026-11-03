@@ -1,6 +1,7 @@
 /** Independent login and administrator-security panels, shared with the legacy shell. */
 import { box } from "./boxes.js";
 import { top, topPh, topLabel } from "./top-i18n.js";
+import { PASSKEY_CLIENT_JS } from "../../views/passkey-client.js";
 
 export const GOOGLE_SETTINGS_HTML = /* html */ `  ${box("sec-google", top("gs.title"), `
   <p class="muted">${top("gs.lede")}</p>
@@ -47,9 +48,35 @@ export const ADMIN_SECURITY_HTML = /* html */ `  ${box("sec-tfa", top("as.tfaTit
     <div class="row"><button class="primary" type="submit">${top("as.setPw")}</button><button type="button" class="danger" id="ap-clear">${top("as.clearPw")}</button></div>
   </form>
   `, { open: true, meta: top("as.pwMeta") })}
+  ${box("sec-passkey", top("pk.title"), `
+  <ul class="pk-list" id="pk-list"></ul>
+  <p class="muted" id="pk-status" data-top="loading">${top("loading")}</p>
+  <div class="row"><button class="primary" type="button" id="pk-add">${top("pk.add")}</button></div>
+  `, { open: true })}
 `;
 
+/** The passkey list on the 관리자 보안 page (security/passkeys.js, scope "admin"). */
+export const ADMIN_PASSKEY_CSS = `.pk-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px}.pk-list:empty{display:none}
+.pk-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-md)}
+.pk-list li div{display:grid;gap:2px;min-width:0}.pk-list li span{color:var(--muted);font-size:var(--fs-sm)}`;
+
 export const ADMIN_SECURITY_SCRIPT = /* js */ `
+${PASSKEY_CLIENT_JS}
+let pkMax=0;
+async function loadPasskeys(){let d;try{d=await api('/admin/api/passkeys');}catch(e){$('pk-status').textContent=e.message;return;}
+  pkMax=d.max;const list=$('pk-list');list.replaceChildren();
+  for(const k of d.passkeys){const li=document.createElement('li'),info=document.createElement('div'),when=document.createElement('b'),used=document.createElement('span');
+    when.textContent=fmt(k.createdAt);used.textContent=k.lastUsedAt?topFill('pk.lastUsed',{date:fmt(k.lastUsedAt)}):'';info.append(when,used);
+    const del=document.createElement('button');del.type='button';del.className='danger';del.textContent=topText('pp.delete');
+    del.addEventListener('click',async()=>{if(!await ask(topText('pk.removeAsk'),{danger:true}))return;
+      try{await api('/admin/api/passkeys/remove',{method:'POST',body:{id:k.id}});toast(topText('pk.removed'));loadPasskeys();}catch(e){toast(e.message);}});
+    li.append(info,del);list.append(li);}
+  const why=d.available?pkReady():'pk.insecure';
+  $('pk-status').textContent=why?topText(why):d.passkeys.length?'':topText('pk.none');$('pk-add').disabled=Boolean(why);}
+$('pk-add').addEventListener('click',async()=>{const b=$('pk-add');b.disabled=true;
+  try{const options=await api('/admin/api/passkeys/options',{method:'POST',body:{}});
+    await api('/admin/api/passkeys/add',{method:'POST',body:{response:await pkCreate(options)}});toast(topText('pk.added'));}
+  catch(e){const why=pkFail(e);if(why!=='pk.cancelled')toast(e.code==='limit'?topFill('pk.limit',{n:pkMax}):topText(why));}finally{loadPasskeys();}});
 const grouped=(s)=>String(s).replace(/(.{4})/g,'$1 ').trim();
 async function loadTfa(){
   let s;try{s=await api('/admin/api/2fa');}catch(e){$('tfa-status').textContent=topFill('as.loadFail',{msg:e.message});return;}

@@ -59,6 +59,8 @@ import { adminActor, adminApprover, mayAdminister } from "../security/admin-acto
 import { forbiddenPage } from "./admin/forbidden-page.js";
 import { mountUploadApi } from "./admin/upload-api.js";
 import { mountTwoFactorApi } from "./admin/two-factor-api.js";
+import { mountPasskeysApi } from "./admin/passkeys-api.js";
+import * as passkeys from "../security/passkeys.js";
 import { mountIntegrationsApi } from "./admin/integrations-api.js";
 import { mountAlertsApi } from "./admin/alerts-api.js";
 import { mountRetroArtApi, startArtSync } from "./admin/retro-art-api.js";
@@ -168,11 +170,11 @@ function clientBuildWarnings() {
 // the trash, the one delete nothing brings back. Restoring from the trash and undoing a move
 // stay open. Routes match
 // case-insensitively and Express decodes params, so this tests the decoded path case-insensitively.
-export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|chat|2fa|admin-password|server|devices|pair|clients|alerts|integrations\/(?:telegram|chat)|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|files\/(?:mkdir|rename|move|copy|info|sizes|shares?|trash|upload|zip)|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty|plugins\/(?:rescan|restore|recommended\/install|install(?:\/confirm)?|[^/]+\/(?:enabled|trash|cache\/clear)))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
+export const TOKEN_BLOCKED_RE = /^\/api\/(?:(?:users|accounts|google|tokens|chat|2fa|passkeys|admin-password|server|devices|pair|clients|alerts|integrations\/(?:telegram|chat)|client-release|keys|upload\/(?:client|homebrew|patch)|patches\/(?:required|[^/]+\/info)|content\/patch\/(?:move|remove)|library\/(?:files|other)\/remove|files\/(?:mkdir|rename|move|copy|info|sizes|shares?|trash|upload|zip)|retro-art\/games\/remove|retro-cores\/(?:official|user-version)|retro-patch\/[^/]+\/(?:apply|restore)|nsz\/purge-kept|trash\/empty|plugins\/(?:rescan|restore|recommended\/install|install(?:\/confirm)?|[^/]+\/(?:enabled|trash|cache\/clear)))(?:\/|$)|homebrew(?:\/asset)?\/?$)/i;
 
 // Reads a token may not make either: the token list (tokens never handle tokens), the chat
 // (a person's tool), the admin login's second step, and where consoles and accounts connected from.
-export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:(?:tokens|chat|2fa|access-history|counts)(?:\/|$)|plugins\/[^/]+\/download\/?$|files\/(?:download\/?$|zip(?:\/|$)|copy\/|shares\/?$))/i;
+export const TOKEN_BLOCKED_READ_RE = /^\/api\/(?:(?:tokens|chat|2fa|passkeys|access-history|counts)(?:\/|$)|plugins\/[^/]+\/download\/?$|files\/(?:download\/?$|zip(?:\/|$)|copy\/|shares\/?$))/i;
 
 /**
  * Whether an automation token is refused `method path`, with the path decoded and as this router
@@ -338,7 +340,7 @@ export default function adminPageRouter() {
       res.type("html").send(enrollPage({ secret: adminSecret(), uri, owner: adminOwner() }));
       return;
     }
-    res.type("html").send(gatePage({ owner: adminOwner(), mode: loginMode() }));
+    res.type("html").send(gatePage({ owner: adminOwner(), mode: loginMode(), passkey: passkeys.usableHere(req, "admin") }));
   }
 
   router.get("/", async (req, res) => {
@@ -631,6 +633,7 @@ export default function adminPageRouter() {
   mountDescriptionsApi(router, requireSession);
   mountUploadApi(router, requireSession);
   mountTwoFactorApi(router, { requireSession });
+  mountPasskeysApi(router, { requireSession });
   mountIntegrationsApi(router, requireSession);
   mountAlertsApi(router, requireSession);
   mountRetroArtApi(router, requireSession);

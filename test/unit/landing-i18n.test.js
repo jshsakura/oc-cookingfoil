@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { PASSKEY_WORDS } from "../../src/routes/admin/passkey-words.js";
 
 // The landing page carries one string bundle per language the server labels
 // genres and reviews in. A key missing from one bundle silently falls back to
@@ -27,7 +28,8 @@ test("every language bundle has exactly the English keys", () => {
 });
 
 test("every key the page asks for exists in English", () => {
-  const en = bundleKeys("en");
+  // The passkey words are merged in when the page is served (routes/landing.js).
+  const en = new Set([...bundleKeys("en"), ...Object.keys(PASSKEY_WORDS.en)]);
   const used = new Set([
     ...[...html.matchAll(/\bt\("([a-z_]+\.[a-z_.]+)"/g)].map((m) => m[1]),
     ...[...html.matchAll(/data-i18n(?:-html)?="([^"]+)"/g)].map((m) => m[1]),

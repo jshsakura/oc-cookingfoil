@@ -4,11 +4,13 @@
  *   "code"      the authenticator's 6-digit code (no COOK_ADMIN_PASSWORD)
  *   "password"  the admin password (no authenticator registered yet)
  *   "either"    one of the two, the admin's choice (both are set up)
+ * A passkey added on the admin page (security/passkeys.js) passes it too: `passkey` shows its button.
  */
 import { ADMIN_CSS, ADMIN_HEAD } from "./styles.js";
 import { BRAND_MOTION_CSS } from "../../views/brand-motion.js";
 import { escapeHtml } from "./escape.js";
 import { TOP_WORDS, topScript, TOP_LANG_HTML, TOP_LANG_CSS, top, topLabel } from "./top-i18n.js";
+import { PASSKEY_CLIENT_JS } from "../../views/passkey-client.js";
 
 const LEAD = {
   code: "gt.leadCode",
@@ -16,7 +18,7 @@ const LEAD = {
   either: "gt.leadEither",
 };
 
-export function gatePage({ owner, mode = "code" } = {}) {
+export function gatePage({ owner, mode = "code", passkey = false } = {}) {
   const either = mode === "either";
   const code = mode !== "password";
   const password = mode !== "code";
@@ -38,7 +40,7 @@ label{display:block;text-align:left;font-size:var(--fs-sm);font-weight:var(--fw-
 label[hidden],input[hidden]{display:none}
 input{width:100%;padding:12px;font-size:var(--fs-lg)}
 #code{font-size:var(--fs-2xl);letter-spacing:8px;text-align:center}
-#go{margin-top:14px;width:100%;padding:14px;font-size:var(--fs-md);border-radius:var(--r-xl)}
+#go,#pk{margin-top:14px;width:100%;padding:14px;font-size:var(--fs-md);border-radius:var(--r-xl)}#pk{margin-top:8px}
 .err{color:var(--bad);font-size:var(--fs-sm);min-height:18px;margin-top:10px}
 .back{display:inline-block;margin-top:14px;color:var(--muted);font-size:var(--fs-sm)}</style></head><body>
 <div id="gate">${TOP_LANG_HTML}<div class="box"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="56" height="56">
@@ -47,10 +49,11 @@ input{width:100%;padding:12px;font-size:var(--fs-lg)}
 ${either ? `<div class="seg" role="group" ${topLabel("gt.method")}><button type="button" data-use="code" aria-pressed="true">${top("gt.code")}</button><button type="button" data-use="pw" aria-pressed="false">${top("gt.pw")}</button></div>` : ""}
 ${code ? `<label for="code">${top("gt.code")}</label><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" autofocus>` : ""}
 ${password ? `<label for="pw"${either ? " hidden" : ""}>${top("gt.pw")}</label><input id="pw" type="password" autocomplete="current-password"${either ? " hidden" : " autofocus"}>` : ""}
-<button id="go" class="primary" type="button">${top("gt.go")}</button><div class="err" id="err" role="alert"></div>
+<button id="go" class="primary" type="button">${top("gt.go")}</button>${passkey ? `<button id="pk" type="button">${top("pk.signIn")}</button>` : ""}<div class="err" id="err" role="alert"></div>
 <a class="back" href="/">${top("gt.back")}</a></div></div>
 <script>
-${topScript(["gt.", "as.codeDigits"])}
+${topScript(["gt.", "as.codeDigits", "pk."])}
+${PASSKEY_CLIENT_JS}
 const MODE=${JSON.stringify(mode)};
 const pw=document.getElementById('pw'),code=document.getElementById('code'),go=document.getElementById('go'),err=document.getElementById('err');
 let use=MODE==='password'?'pw':'code';
@@ -69,5 +72,11 @@ async function submit(){err.textContent='';const body={};
   catch{err.textContent=topText('gt.noConn');}finally{go.disabled=false;}}
 go.addEventListener('click',submit);
 for(const el of [pw,code])if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+const pkBtn=document.getElementById('pk');
+async function pkPost(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||'failed'),{code:r.status===429?'locked':j.error,message:j.message});return j;}
+if(pkBtn)pkBtn.addEventListener('click',async()=>{err.textContent='';const why=pkReady();if(why){err.textContent=topText(why);return;}
+  pkBtn.disabled=true;try{const options=await pkPost('/admin/passkey/options');await pkPost('/admin/passkey/login',{response:await pkGet(options)});location.reload();}
+  catch(e){err.textContent=e.code==='locked'?(e.message&&e.message!=='locked'?e.message:topText('gt.locked')):topText(pkFail(e));}finally{pkBtn.disabled=false;}});
 </script></body></html>`;
 }

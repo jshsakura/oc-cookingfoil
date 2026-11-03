@@ -26,6 +26,8 @@ import { resolveOrigin } from "../helpers/origin.js";
 import debug from "../debug.js";
 import { ROW_ICON_NAMES } from "../retro/menu.js";
 import { CHUNK_CLIENT } from "./chunk-client.js";
+import { PASSKEY_CLIENT_JS } from "../views/passkey-client.js";
+import { PASSKEY_WORDS } from "./admin/passkey-words.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // The names the page's buttons may use (landing.html, BTN_ICON_FOR and data-icon), and the retro preview's row icons.
@@ -83,6 +85,8 @@ export function fillTemplate(raw) {
     .replace("__THEME_PICKER__", () => themePickerHtml((key) => `<span data-i18n="${key}"></span>`))
     .replace("__THEME_WORDS__", () => JSON.stringify(Object.fromEntries(SITE_LANGS.map((code) => [code, THEME_WORDS[code]]))))
     .replace("__THEME_PICKER_SCRIPT__", () => THEME_PICKER_SCRIPT)
+    .replace("__PASSKEY_SCRIPT__", () => PASSKEY_CLIENT_JS)
+    .replace("__PASSKEY_WORDS__", () => JSON.stringify(Object.fromEntries(SITE_LANGS.map((code) => [code, PASSKEY_WORDS[code]]))))
     .replace("__ACTIVITY_CSS__", () => ACTIVITY_CSS + THEME_PICKER_CSS + WEB_CHAT_CSS)
     .replace("__CHAT_WORDS__", () => JSON.stringify(WEB_CHAT_WORDS))
     .replace("__CHAT_WIDGET_HTML__", () => WEB_CHAT_WIDGET_HTML)

@@ -3,7 +3,8 @@
  * (/device, and /pair/<token> when a console's QR is scanned).
  *
  *   loginPage   the ID and password form; a Google button under it when Google
- *               sign-in is on, and a note when a Google account is waiting or turned off
+ *               sign-in is on, a passkey button when a passkey was added on this host,
+ *               and a note when a Google account is waiting or turned off
  *   devicePage  code     type the 8-character code a console shows
  *               confirm  one console (its QR was scanned): a single button; `repair`
  *                        ("repairSame" | "repairOther") notes it is already registered
@@ -14,6 +15,8 @@ import { BRAND_LOGO as LOGO, BRAND_MOTION_CSS } from "../views/brand-motion.js";
 import { escapeHtml } from "./admin/escape.js";
 import { ICON_CSS, icon } from "../views/icons.js";
 import { shareTags } from "../views/share-meta.js";
+import { PASSKEY_CLIENT_JS } from "../views/passkey-client.js";
+import { PASSKEY_WORDS } from "./admin/passkey-words.js";
 
 const TEXT = {
   ko: {
@@ -199,6 +202,7 @@ input{font:inherit;font-size:16px;width:100%;min-height:48px;border:1px solid va
 button,.button{display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;text-decoration:none;font:inherit;font-weight:700;font-size:16px;width:100%;min-height:48px;border:0;border-radius:12px;padding:12px 16px;background:var(--accent);color:#16161A;margin:8px 0 0;cursor:pointer;transition:filter .15s}
 button:hover,.button:hover{filter:brightness(.95)}button:active,.button:active{filter:brightness(.9)}
 .button.google{background:#fff;color:#1F1F1F;border:1px solid #DADCE0;margin:0}.button.google svg{flex:none}
+#passkey{background:var(--soft);color:var(--ink);margin:0}
 button:disabled{opacity:.6;cursor:wait;filter:none}
 input:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid #0AB4E8;outline-offset:2px}
 .who{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted);border-top:1px solid var(--line);margin:24px 0 0;padding:16px 0 0;text-align:left}
@@ -226,7 +230,22 @@ function whoBar(t, user, csrf) {
   return `<div class="who"><span>${fill(t.signedInAs, user)}</span><button type="button" id="signout" data-csrf="${escapeHtml(csrf)}">${icon("logout")}<span>${escapeHtml(t.signOut)}</span></button></div>`;
 }
 
-export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null, passwords = true, origin = null } = {}) {
+/** The passkey button and its script: the words are the admin page's (passkey-words.js), in this page's language. */
+function passkeyBlock(lang, t, { next, csrf }) {
+  const words = PASSKEY_WORDS[lang] ?? PASSKEY_WORDS.en;
+  const button = `<button type="button" id="passkey" data-csrf="${escapeHtml(csrf)}" data-next="${escapeHtml(next)}">${icon("key")}<span>${escapeHtml(words["pk.signIn"])}</span></button><p id="pk-error" class="hint" role="alert"></p>`;
+  const script = `${PASSKEY_CLIENT_JS}
+const PK_WORDS=${JSON.stringify({ ...words, locked: t.errLocked })};
+const pkBtn=document.getElementById('passkey'),pkErr=document.getElementById('pk-error');
+async function pkPost(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':pkBtn.dataset.csrf},body:JSON.stringify(body||{})});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error('passkey'),{code:r.status===429?'locked':j.error});return j;}
+pkBtn.addEventListener('click',async()=>{pkErr.textContent='';const why=pkReady();if(why){pkErr.textContent=PK_WORDS[why];return;}
+  pkBtn.disabled=true;try{const options=await pkPost('/auth/passkey/options');const j=await pkPost('/auth/passkey/login',{response:await pkGet(options),next:pkBtn.dataset.next});location.href=j.next||'/';}
+  catch(e){pkErr.textContent=e.code==='locked'?PK_WORDS.locked:PK_WORDS[pkFail(e)];}finally{pkBtn.disabled=false;}});`;
+  return { button, script };
+}
+
+export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null, passwords = true, origin = null, passkey = false } = {}) {
   const t = textFor(lang);
   // A shared server address lands here, so the link preview card does too.
   const head = shareTags(origin, lang);
@@ -236,15 +255,19 @@ export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, 
   const note = noteText ? `<p class="note">${icon("info")}<span>${fill(noteText, googleEmail)}</span></p>` : "";
   const errRow = errText ? `<p id="error" role="alert">${escapeHtml(errText)}</p>` : "";
   const googleButton = `<a class="button google" href="${escapeHtml(`/auth/google/start?next=${encodeURIComponent(next)}`)}">${GOOGLE_G}<span>${escapeHtml(t.google)}</span></a><p class="hint">${escapeHtml(t.googleHint)}</p>`;
-  // ID and password sign-in switched off: the Google button alone.
-  if (!passwords) return shell(lang, t.signinTitle, `${note}${errRow}${google ? googleButton : ""}`, "", { hideTitle: true, head });
-  const googleBlock = google ? `<div class="divider">${escapeHtml(t.or)}</div>${googleButton}` : "";
+  const pk = passkey ? passkeyBlock(lang, t, { next, csrf }) : { button: "", script: "" };
+  // ID and password sign-in switched off: the Google button alone, and the passkey one.
+  if (!passwords) {
+    const both = google && passkey ? `${googleButton}<div class="divider">${escapeHtml(t.or)}</div>${pk.button}` : `${google ? googleButton : ""}${pk.button}`;
+    return shell(lang, t.signinTitle, `${note}${errRow}${both}`, pk.script, { hideTitle: true, head });
+  }
+  const googleBlock = google || passkey ? `<div class="divider">${escapeHtml(t.or)}</div>${google ? googleButton : ""}${pk.button}` : "";
   return shell(lang, t.signinTitle, `${note}
 <form method="post" action="/login" novalidate>
 <input type="hidden" name="csrf" value="${escapeHtml(csrf)}"><input type="hidden" name="next" value="${escapeHtml(next)}">
 <div class="field"><label for="username">${escapeHtml(t.username)}</label><input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required autofocus></div>
 <div class="field"><label for="password">${escapeHtml(t.password)}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required></div>
-${errRow}<button type="submit">${icon("login")}<span>${escapeHtml(t.submit)}</span></button></form>${googleBlock}`, "", { hideTitle: true, head });
+${errRow}<button type="submit">${icon("login")}<span>${escapeHtml(t.submit)}</span></button></form>${googleBlock}`, pk.script, { hideTitle: true, head });
 }
 
 function approveScript(t, csrf) {

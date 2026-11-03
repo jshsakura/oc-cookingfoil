@@ -23,6 +23,7 @@ import debug from "../../debug.js";
 import { isSelf } from "../../security/admin-actor.js";
 import { revokeOwnedBy } from "../../security/account-access.js";
 import * as store from "../../security/store.js";
+import * as passkeys from "../../security/passkeys.js";
 import { withoutIps } from "./access-history-api.js";
 import { securityError } from "../../security/security-messages.js";
 
@@ -68,6 +69,7 @@ export function mountAccountsApi(router, requireSession) {
     const sub = String(req.body?.sub ?? "");
     if (!accounts.remove(sub)) return res.status(404).json({ error: "no such account" });
     store.forgetLogins(accounts.ownerOf(sub));
+    passkeys.forget("web", { kind: "google", sub });
     revokeOwnedBy(accounts.ownerOf(sub));
     res.json({ ok: true });
   });

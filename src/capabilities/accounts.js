@@ -9,6 +9,7 @@ import { arr, bool, int, nullable, obj, oneOf, str } from "./shape.js";
 import { leanAccounts } from "./lean.js";
 import * as users from "../security/users.js";
 import * as google from "../security/google-accounts.js";
+import * as passkeys from "../security/passkeys.js";
 import * as store from "../security/store.js";
 import * as enrollTokens from "../security/enroll-tokens.js";
 import { revokeOwnedBy } from "../security/account-access.js";
@@ -135,7 +136,10 @@ export const accountsCapabilities = [
           else if (input.op === "role") users.setRole(acct.id, input.role);
           else users.remove(acct.id);
           if (input.op === "disable" || input.op === "remove") {
-            if (input.op === "remove") store.forgetLogins(acct.id);
+            if (input.op === "remove") {
+              store.forgetLogins(acct.id);
+              passkeys.forget("web", { kind: "password", name: acct.id });
+            }
             end();
           }
         } else {
@@ -146,6 +150,7 @@ export const accountsCapabilities = [
           else {
             google.remove(sub);
             store.forgetLogins(acct.id);
+            passkeys.forget("web", { kind: "google", sub });
           }
           if (input.op === "disable" || input.op === "remove") end();
         }
