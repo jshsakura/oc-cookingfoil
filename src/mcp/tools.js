@@ -54,11 +54,10 @@ export function areaInput({ caps }) {
 }
 
 export function areaDescription({ name, caps }) {
-  const writes = caps.filter(gated).map((c) => c.id);
-  // The action names are already in the input's enum.
+  // The action names are already in the input's enum, and help marks the writes with [confirm].
   return [
     AREA_TEXT[name] ?? "",
-    writes.length ? `Writes (${writes.join(", ")}): preview first, then confirm='approve' after the user agrees.` : "",
+    caps.some(gated) ? "Writes: preview first, then confirm='approve' after the user agrees." : "",
   ].filter(Boolean).join(" ");
 }
 

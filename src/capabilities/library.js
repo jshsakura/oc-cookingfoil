@@ -2,8 +2,12 @@
  * Library capabilities: what goes in each folder the server uses (helpers/storage-guide.js).
  */
 import { defineCapability } from "./define.js";
+import debug from "../debug.js";
 import * as envs from "../helpers/envs.js";
 import * as storageGuide from "../helpers/storage-guide.js";
+import * as folderSync from "../meta/folder-sync.js";
+import * as libraryCache from "../meta/library-cache.js";
+import { refreshManual } from "../routes/homebrew.js";
 import { leanStorageGuide } from "./lean.js";
 import { arr, bool, int, nullable, obj, oneOf, str } from "./shape.js";
 
@@ -72,4 +76,47 @@ export const libraryCapabilities = [
     http: { method: "GET", path: "/admin/api/storage-guide/folder" },
     handler: async (ctx, input) => storageGuide.folder(input?.path, where()),
   }),
+  defineCapability({
+    id: "library_rescan",
+    area: "library",
+    title: "Read the library again",
+    description: "Reads folders again after files were copied in by hand: all, only the games list, or only the homebrew apps. It runs in the background; follow it with jobs_list.",
+    input: {
+      type: "object",
+      properties: {
+        scope: { type: "string", enum: ["all", "games", "homebrew"], description: "all reads every folder, games the game list, homebrew the hand-placed apps; the default is all" },
+      },
+    },
+    output: obj({ started: oneOf(["all", "games", "homebrew"]), already: bool("that read was already running or waiting, so nothing new started") }),
+    preview: async (_ctx, input) => {
+      const scope = scopeOf(input);
+      return { scope, changes: `Will read ${SCOPES[scope]} again. It changes no file and runs in the background; follow it with jobs_list.` };
+    },
+    previewOutput: obj({ scope: oneOf(["all", "games", "homebrew"]), changes: str() }),
+    safety: "write",
+    http: { method: "POST", path: "/admin/api/library/rescan" },
+    also: ["POST /admin/api/homebrew/rescan"],
+    handler: async (_ctx, input) => {
+      const scope = scopeOf(input);
+      if (scope === "all") {
+        const already = folderSync.status().running;
+        folderSync.syncNow("mcp").catch((err) => debug.error("mcp: library read failed: %s", err.message));
+        return { started: scope, already };
+      }
+      if (scope === "homebrew") {
+        refreshManual().catch((err) => debug.error("mcp: homebrew read failed: %s", err.message));
+        return { started: scope, already: false };
+      }
+      const already = libraryCache.stats().scan.fullPending;
+      if (!already) libraryCache.invalidate({ rescan: true });
+      return { started: scope, already };
+    },
+  }),
 ];
+
+const SCOPES = { all: "every library folder", games: "the games list", homebrew: "the hand-placed homebrew apps" };
+const scopeOf = (input) => {
+  const scope = input?.scope ?? "all";
+  if (!Object.hasOwn(SCOPES, scope)) throw Object.assign(new Error(`scope is one of ${Object.keys(SCOPES).join(", ")}`), { status: 400 });
+  return scope;
+};
