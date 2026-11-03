@@ -48,3 +48,15 @@ test("script paths that are not served content still count as probes", () => {
   }
   assert.ok(store.getFailure(ip)?.count >= 4);
 });
+
+test("well-known lookups from link checks and MCP clients get a quiet 404 and never lock the address", () => {
+  const ip = "203.0.113.23";
+  for (let i = 0; i < 8; i++) {
+    for (const p of ["/.well-known/assetlinks.json", "/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-authorization-server", "/.well-known/openid-configuration"]) {
+      assert.deepEqual(hit(ip, p), { passed: false, status: 404 }, p);
+    }
+  }
+  assert.equal(store.getFailure(ip), null, "nothing counted");
+  assert.equal(store.isLocked(ip), false);
+  assert.equal(hit(ip, "/.well-known/acme-challenge/token").passed, true, "a certificate check goes on");
+});

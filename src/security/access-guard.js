@@ -36,7 +36,6 @@ const BAD_PATH_RE = [
   /^\/xmlrpc\.php$/i,
   /^\/server-status$/i,
   /^\/vendor\//i,
-  /^\/\.well-known\/(?!acme-challenge)/i,
   /^\/cgi-bin\//i,
   /^\/(boaform|console|manager|jmx-console)\//i,
 ];
@@ -132,6 +131,10 @@ export default function accessGuard() {
       flag(req, "path-traversal");
       return res.status(404).end();
     }
+
+    // Android link checks and MCP clients' OAuth discovery ask here on their own. Nothing is published
+    // there, so it is a plain 404 that neither alerts nor counts toward the lockout.
+    if (/^\/\.well-known\/(?!acme-challenge\/)/i.test(req.path)) return res.status(404).end();
 
     for (const re of BAD_PATH_RE) {
       if (re.test(req.path)) {
