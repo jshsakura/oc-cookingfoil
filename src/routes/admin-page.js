@@ -349,14 +349,13 @@ export default function adminPageRouter() {
     const extra = new URLSearchParams(query).toString();
     res.redirect(302, extra ? `${to}${to.includes("?") ? "&" : "?"}${extra}` : to);
   };
-  // /admin/files is the file browser over the games folder; an old link that names another folder
-  // opens that folder on its own page.
-  const FILES_TAB = { retro: "/admin/retro", homebrew: "/admin/homebrew", patches: "/admin/patches", saves: "/admin/saves" };
-  router.get("/files", (req, res, next) => {
-    const { root, ...rest } = req.query;
+  // /admin/files was a page of its own over the games folder, the same view as the games page's 파일 tab.
+  // Its old links open each folder's 파일 tab on that folder's page.
+  const FILES_TAB = { games: "/admin/games", retro: "/admin/retro", homebrew: "/admin/homebrew", patches: "/admin/patches", saves: "/admin/saves" };
+  router.get("/files", (req, res) => {
+    const { root, tab: _tab, ...rest } = req.query;
     if (root === "incoming") return redirectKeeping(res, "/admin/incoming/temp", rest);
-    if (FILES_TAB[root]) return redirectKeeping(res, `${FILES_TAB[root]}?tab=folder`, rest);
-    next();
+    redirectKeeping(res, `${FILES_TAB[root] ?? FILES_TAB.games}?tab=folder`, rest);
   });
   // The router is mounted at /admin, so each page registers by its path with
   // the mount prefix taken off ("/users", not "/admin/users"); the sidebar and

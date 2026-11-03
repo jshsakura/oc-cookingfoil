@@ -48,12 +48,12 @@ test('the upload entry in the header is on every group and leads to the one uplo
 
 test('where the file explorer shows, the header upload asks for files for the open folder and stays there', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/files');
+  await page.goto('/admin/games?tab=folder');
   await expect(page.locator('#fb-refresh')).toBeVisible();
   const chooser = page.waitForEvent('filechooser');
   await page.locator('#up-entry').click();
   await chooser;
-  await expect(page).toHaveURL(/\/admin\/files/);
+  await expect(page).toHaveURL(/\/admin\/games\?tab=folder/);
 });
 
 test('the menus are named for what they hold, in every language', async ({ page }) => {
