@@ -485,15 +485,17 @@ export function createVerifyQueue({
     return n;
   }
 
-  /** Checks one file again from the start, hash included. False when it is not in the library. */
+  /** Checks one file, or every file under a folder, again from the start, hash included. False when none is in the library. */
   function recheck(rel) {
     load();
-    const row = rows.get(rel);
-    if (!row) return false;
-    const { verdict: _v, reason: _r, checks: _c, detail: _d, at: _a, ncaHashes: _n, stale: _s, ...rest } = row;
-    put({ ...rest, wantHash: true, hashDone: false });
-    later.delete(rel);
-    urgent.add(rel);
+    const hit = [...rows.keys()].filter((r) => r === rel || r.startsWith(`${rel}/`));
+    for (const r of hit) {
+      const { verdict: _v, reason: _r, checks: _c, detail: _d, at: _a, ncaHashes: _n, stale: _s, ...rest } = rows.get(r);
+      put({ ...rest, wantHash: true, hashDone: false });
+      later.delete(r);
+      urgent.add(r);
+    }
+    if (!hit.length) return false;
     resume();
     pump();
     return true;

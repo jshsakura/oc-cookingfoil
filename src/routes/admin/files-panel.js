@@ -298,7 +298,7 @@ export const FOLDER_HTML = `<div id="fb">
 </dialog>`;
 
 export const FILES_SCRIPT = /* js */ `
-const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), share: icon("send"), rename: icon("pencil"), move: icon("foldermove"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("scissors"), copy: icon("copy"), paste: icon("clipboard"), undo: icon("undo"), props: icon("info"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
+const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), share: icon("send"), rename: icon("pencil"), move: icon("foldermove"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("scissors"), copy: icon("copy"), paste: icon("clipboard"), undo: icon("undo"), props: icon("info"), nsz: icon("shrink"), verify: icon("check"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
 const FB_PER=100;
 const FB_SKEL_MS=120;
 const FB_MAX_PAGES=5;
@@ -403,6 +403,9 @@ async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await
   if(f.type==='file'&&fbExt(name.trim())!==fbExt(f.name)&&!await ask(topText('fb.extAsk')))return;
   try{const out=await api('/admin/api/files/rename',{method:'POST',body:{root:fb.root,path:f.rel,name:name.trim()}});fb.sel.delete(f.rel);
     fbUndoPush({journal:[out.undo]});fbToastUndo(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
+// 파일 압축 and 파일 검사 hand the picked files, or every game file under the picked folders, to the queues the 파일 압축 and 파일 검사 tabs show.
+async function fbNsz(rels){try{const out=await api('/admin/api/nsz/run-selected',{method:'POST',body:{rels}});toast(topFill('nz.runSelGo',{n:num(out.count)}));}catch(err){toast(err.message);}}
+async function fbVerify(rels){try{await api('/admin/api/library/verify/recheck',{method:'POST',body:{rels}});toast(topText('lv.rechecking'));}catch(err){toast(err.message);}}
 async function fbTrash(rels){if(!rels.length||!await fbServerOk(rels))return;
   if(!await ask(topFill('fb.askTrash',{n:num(rels.length)}),{danger:true}))return;
   try{const out=await api('/admin/api/files/trash',{method:'POST',body:{root:fb.root,paths:rels}});for(const r of rels)fb.sel.delete(r);
@@ -636,6 +639,8 @@ function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const one=rels.
     if(one?.type==='file')add('fb.download','download',()=>fbDownload(one));
     else add('fb.zip','zip',()=>fbZip(rels));
     if(one?.type==='file')add('fb.share','share',()=>fbShare(one));
+    if(fb.root==='games'){const picked=rels.map(fbItem).filter(Boolean);const has=(re)=>picked.some((f)=>f.type==='dir'||re.test(f.name));
+      if(has(/[.](nsp|xci)$/i))add('fb.nsz','nsz',()=>fbNsz(rels));if(has(/[.](nsp|nsz|xci|xcz)$/i))add('fb.verify','verify',()=>fbVerify(rels));}
     add('fb.cut','cut',()=>fbClip('cut'));add('fb.copy','copy',()=>fbClip('copy'));
     if(one)add('fb.rename','rename',()=>fbRename(one));
     if(fb.clip)add('fb.paste','paste',fbPaste);

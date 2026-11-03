@@ -323,6 +323,20 @@ test("the full hash pass queues every file that has not had its hash; a recheck 
   assert.equal(q.recheck("nope.nsp"), false);
 });
 
+test("a recheck of a folder starts every file under it over, and nothing beside it", async () => {
+  addFile("G/a.nsp");
+  addFile("G/b.nsp");
+  addFile("Gx.nsp");
+  const q = makeQueue(memoryStore());
+  await settle(q);
+  calls = [];
+  assert.equal(q.recheck("G"), true);
+  await q.idle();
+  assert.deepEqual(calls.map((c) => c.rel).sort(), ["G/a.nsp", "G/b.nsp"]);
+  assert.equal(q.recheck("H"), false);
+  q.shutdown();
+});
+
 test("after five failures in a row the queue stops until the admin asks again", async () => {
   for (let i = 0; i < 6; i++) { addFile(`f${i}.nsp`, { ageMs: HOUR + i }); verdicts[`f${i}.nsp`] = "throw"; }
   const q = makeQueue(memoryStore());

@@ -17,7 +17,7 @@ const calls = [];
 const fake = {
   view: () => ({ status: "idle", counts: { ok: 1, modified: 1, damaged: 0, unchecked: 0 }, flagged: [{ path: "a/Game.nsp", verdict: "modified", reason: "signature-fail" }] }),
   hashAll: () => { calls.push("hashAll"); return 3; },
-  recheck: (rel) => { calls.push(`recheck ${rel}`); return rel === "a/Game.nsp"; },
+  recheck: (rel) => { calls.push(`recheck ${rel}`); return rel === "a/Game.nsp" || rel === "a"; },
 };
 const app = express();
 app.use(express.json());
@@ -47,4 +47,13 @@ test("the full hash pass says how many files it queued; a recheck needs a known 
   assert.equal((await call("/recheck", { rel: "a/Game.nsp" })).status, 200);
   assert.equal((await call("/recheck", { rel: "nope.nsp" })).status, 404);
   assert.equal((await call("/recheck", {})).status, 404);
+});
+
+test("파일 검사 from the file browser takes several paths, files or folders, inside the games folder", async () => {
+  const r = await call("/recheck", { rels: ["a", "nope.nsp"] });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).count, 1);
+  assert.equal((await call("/recheck", { rels: ["nope.nsp"] })).status, 404);
+  assert.equal((await call("/recheck", { rels: ["../a"] })).status, 404);
+  assert.equal((await call("/recheck", { rels: [] })).status, 404);
 });

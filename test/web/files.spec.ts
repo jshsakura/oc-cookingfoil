@@ -147,13 +147,13 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await page.goto('/admin/files?tab=folder&path=fb-test');
   const menu = page.locator('#fb-menu');
   await row(page, 'loose.nsp').locator('td.c-mtime').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['내려받기', '공유 링크', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['내려받기', '공유 링크', '파일 압축', '파일 검사', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
   await expect(menu.getByRole('menuitem').first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
 
   await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '파일 압축', '파일 검사', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
   await menu.getByRole('menuitem', { name: '이름 바꾸기' }).click();
   await page.locator('#ask-input').fill('Alef');
   await page.locator('#ask-ok').click();
@@ -164,7 +164,7 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
   await row(page, 'Beta').locator('td.c-mtime').click({ button: 'right' });
   await expect(menu).toContainText('2개를 골랐습니다');
-  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '잘라내기', '복사', '이동', '휴지통으로', '속성']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '파일 압축', '파일 검사', '잘라내기', '복사', '이동', '휴지통으로', '속성']);
   await page.locator('#fb-info').click();
   await expect(menu).toBeHidden();
 
@@ -172,6 +172,28 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await page.locator('#fb-empty').click({ button: 'right' });
   await expect(menu.getByRole('menuitem')).toHaveText(['새 폴더', '올리기', '폴더 올리기', '되돌리기', '속성']);
   await expect(page.locator('#fb-info')).toHaveText('폴더 2개 · 파일 1개');
+});
+
+test('in the games folder the menu sends the pick to 파일 압축 and 파일 검사, and a file that is not a game has neither', async ({ page }) => {
+  await signIn(page);
+  const sent: Record<string, unknown> = {};
+  await page.route('**/admin/api/nsz/run-selected', (r) => { sent.nsz = r.request().postDataJSON(); return r.fulfill({ json: { ok: true, count: 2 } }); });
+  await page.route('**/admin/api/library/verify/recheck', (r) => { sent.verify = r.request().postDataJSON(); return r.fulfill({ json: { ok: true, count: 1 } }); });
+  await page.goto('/admin/files?tab=folder&path=fb-test');
+  const menu = page.locator('#fb-menu');
+  await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
+  await menu.getByRole('menuitem', { name: '파일 압축' }).click();
+  await expect(page.locator('#toast')).toContainText('선택한 2개를 변환합니다.');
+  expect(sent.nsz).toEqual({ rels: ['fb-test/Alpha'] });
+  await row(page, 'loose.nsp').locator('td.c-mtime').click({ button: 'right' });
+  await menu.getByRole('menuitem', { name: '파일 검사' }).click();
+  await expect(page.locator('#toast')).toContainText('다시 검사합니다.');
+  expect(sent.verify).toEqual({ rels: ['fb-test/loose.nsp'] });
+
+  await row(page, 'Beta').locator('td.c-name').dblclick();
+  await row(page, 'keep.txt').locator('td.c-mtime').click({ button: 'right' });
+  await expect(menu.getByRole('menuitem', { name: '파일 압축' })).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: '파일 검사' })).toHaveCount(0);
 });
 
 test('on a desktop the browser is one window to the bottom of the screen, and only the list scrolls in it', async ({ page }) => {

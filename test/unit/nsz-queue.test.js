@@ -452,6 +452,38 @@ test("a selected run converts only the chosen rows and then stops; the rest keep
   assert.equal(q.runSelected(["0123456789ab"]), 0, "nothing waiting among them");
 });
 
+test("파일 압축 from the file browser queues a folder's files, puts them first and runs only them", async () => {
+  put("G/A.nsp");
+  put("G/B.nsp");
+  put("C.nsp");
+  put("G/notes.txt");
+  const q = make();
+  await q.init();
+  await q.scan();
+  put("G/D.nsp");
+  assert.equal(await q.runFiles(["G"]), 3, "the new file under the folder is queued too");
+  assert.deepEqual(q.view({ limit: 100 }).items.slice(0, 3).map((i) => i.rel).sort(), ["G/A.nsp", "G/B.nsp", "G/D.nsp"]);
+  await q.pump();
+  await q.idle();
+  assert.deepEqual(["G/A.nsp", "G/B.nsp", "G/D.nsp", "C.nsp"].map((r) => item(q, r).state), ["done", "done", "done", "waiting"]);
+  assert.equal(q.view().running, false);
+  assert.equal(await q.runFiles(["G/notes.txt", "nowhere"]), 0);
+});
+
+test("파일 압축 during a run of the whole queue moves the files to the front and the run goes on", async () => {
+  for (const n of ["A", "B"]) put(`${n}.nsp`);
+  const q = make();
+  await q.init();
+  await q.scan();
+  q.start();
+  put("Z.nsp", MIB * 1.5);
+  assert.equal(await q.runFiles(["Z.nsp"]), 1);
+  assert.equal(q.view({ limit: 1 }).items[0].rel, "Z.nsp");
+  await q.pump();
+  await q.idle();
+  assert.deepEqual(["Z.nsp", "A.nsp", "B.nsp"].map((r) => item(q, r).state), ["done", "done", "done"]);
+});
+
 test("이 상태만 변환 runs the rows waiting now; one queued while they run keeps waiting", async () => {
   for (const n of ["A", "B"]) put(`${n}.nsp`);
   const q = make();

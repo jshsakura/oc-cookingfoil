@@ -59,6 +59,11 @@ test("선택한 것만 변환 needs a list of rows and the queue on; restore is 
   assert.deepEqual((await (await call("/log?q=x")).json()).items, []);
 });
 
+test("파일 압축 takes paths inside the games folder only, and the queue on", async () => {
+  for (const rels of [[], ["../A.nsp"], ["/A.nsp"], ["a//b"], ["a\\b"], [3]]) assert.equal((await call("/run-selected", "POST", { rels })).status, 400, JSON.stringify(rels));
+  assert.equal((await call("/run-selected", "POST", { rels: ["A.nsp"] })).status, 409, "off first");
+});
+
 test("start and 전체 변환 are refused while the queue is off; a scan still queues", async () => {
   assert.equal((await call("/start", "POST")).status, 409);
   assert.equal((await call("/convert-all", "POST")).status, 409);
