@@ -13,7 +13,7 @@ const SPLIT: [string, string, string[], RegExp][] = [
   ['/admin', '#ov-status', ['#users', '#up-form', '#cr-form', '#f-list', '#cards'], /^\/admin\/api\/(overview|counts)/],
   ['/admin/upload', '#up-drop', ['#users', '#f-list', '#warnings', '#lib-files'], /^\/admin\/api\/(upload\/targets|games\/search|counts)/],
   ['/admin/settings/login', '#google-form', ['#tfa', '#ap-form', '#users', '#warnings'], /^\/admin\/api\/(google|counts)/],
-  ['/admin/settings/admin', '#tfa', ['#google-form', '#users', '#warnings'], /^\/admin\/api\/(2fa|counts)/],
+  ['/admin/settings/admin', '#tfa', ['#google-form', '#users', '#warnings'], /^\/admin\/api\/(2fa|passkeys|counts)/],
   ['/admin/featured', '#f-list', ['#users', '#lib-files', '#up-form', '#warnings'], /^\/admin\/api\/(featured|games\/search|counts)/],
   ['/admin/settings/server', '#ss-list', ['#cr-form', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(server-settings|server\/status|library|counts)/],
   ['/admin/settings/integrations', '#intg-h', ['#ss-list', '#users', '#nz-list', '#warnings'], /^\/admin\/api\/(integrations|counts)/],

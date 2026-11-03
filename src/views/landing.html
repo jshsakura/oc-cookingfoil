@@ -1190,6 +1190,11 @@
       .share-bar { height: 8px; border-radius: 8px; background: var(--sunk); overflow: hidden; margin-bottom: 8px; }
       .share-bar i { display: block; height: 100%; width: 0; background: var(--butter); transition: width 0.2s; }
       .share-msg { min-height: 1.5em; font-size: 14px; margin-bottom: 12px; color: var(--secondary); }
+      .pk-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+      .pk-list:empty { display: none; }
+      .pk-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; }
+      .pk-list li div { display: grid; gap: 2px; min-width: 0; }
+      .pk-list li span { color: var(--secondary); font-size: 13px; }
       .share-msg.ok { color: var(--good); font-weight: 600; }
       .share-msg.bad { color: var(--bad); font-weight: 600; }
       /* The client download: one clean card on top of all games. */
@@ -1346,6 +1351,7 @@
             <div class="account-links" role="menu">
             <a role="menuitem" id="pair-link" href="/pair" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg><span data-i18n="tab.pair"></span></a>
             <a role="menuitem" id="inbox-link" href="#share" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span data-i18n="share.open"></span></a>
+            <a role="menuitem" id="passkey-link" href="#passkeys" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5"/></svg><span data-i18n="pk.title"></span></a>
             <a role="menuitem" id="admin-link" href="/admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg><span data-i18n="action.admin"></span></a>
             <div class="menu-sep" role="separator"></div>
             __THEME_PICKER__
@@ -1579,6 +1585,18 @@
             <div class="edit-danger" hidden></div>
             <button class="btn ghost" id="xm-close" type="button" data-i18n="action.close"></button>
           </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="modal-backdrop" id="pk-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pk-title">
+      <div class="modal share-modal" tabindex="-1" onclick="event.stopPropagation()"><div class="modal-scroll">
+        <div class="modal-x-bar"><button class="modal-x" id="pk-x" type="button" data-i18n-label="action.close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="body">
+          <h3 id="pk-title" data-i18n="pk.title"></h3>
+          <ul class="pk-list" id="pk-list"></ul>
+          <p class="share-msg" id="pk-msg" role="status"></p>
+          <button class="btn" type="button" id="pk-add" data-i18n="pk.add"></button>
         </div>
       </div></div>
     </div>
@@ -3068,6 +3086,7 @@
       };
 
       for (const [code, words] of Object.entries(__THEME_WORDS__)) Object.assign(I18N[code], words);
+      for (const [code, words] of Object.entries(__PASSKEY_WORDS__)) Object.assign(I18N[code], words);
       for (const [code, words] of Object.entries(__CHAT_WORDS__)) Object.assign(I18N[code], words);
 
       const LANG_KEY = "cookingfoil:lang";
@@ -3595,6 +3614,7 @@
           acctAvatar(d?.avatar);
           // Only admin accounts can open the admin page; don't offer it to the others.
           if (d && !d.admin) $("admin-link").hidden = true;
+          $("passkey-link").hidden = !d;
           if (d) { share.check(); checks.repaint(); wish.load(); }
         })
         .catch(() => {});
@@ -6942,6 +6962,62 @@
       // The picker in the account menu (src/views/themes.js), shared with the admin pages. Covers
       // already showing the no-image card take the one drawn for the theme in use.
       __THEME_PICKER_SCRIPT__
+      // 패스키: the signed-in account's passkeys, added and removed from the account menu (security/passkeys.js).
+      __PASSKEY_SCRIPT__
+      (() => {
+        const say = (text) => { $("pk-msg").textContent = text; };
+        const post = async (url, body) => {
+          const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": session?.csrf ?? "" }, body: JSON.stringify(body || {}) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) throw Object.assign(new Error("passkey"), { code: j.error });
+          return j;
+        };
+        let max = 0;
+        async function load() {
+          const r = await fetch("/auth/passkeys", { headers: { Accept: "application/json" } });
+          const d = r.ok ? await r.json() : { passkeys: [], available: false };
+          max = d.max || 0;
+          const list = $("pk-list");
+          list.replaceChildren();
+          for (const k of d.passkeys) {
+            const li = document.createElement("li"), info = document.createElement("div"), when = document.createElement("b"), used = document.createElement("span");
+            when.textContent = new Date(k.createdAt).toLocaleString(lang);
+            used.textContent = k.lastUsedAt ? t("pk.lastUsed").replace("{date}", new Date(k.lastUsedAt).toLocaleString(lang)) : "";
+            info.append(when, used);
+            const del = document.createElement("button");
+            del.type = "button"; del.className = "btn ghost"; del.textContent = t("edit.delete");
+            del.addEventListener("click", async () => {
+              if (!await confirmAsk({ text: t("pk.removeAsk") })) return;
+              try { await post("/auth/passkeys/remove", { id: k.id }); say(t("pk.removed")); } catch { say(t("pk.failed")); }
+              load();
+            });
+            li.append(info, del);
+            list.append(li);
+          }
+          const why = d.available ? pkReady() : "pk.insecure";
+          $("pk-add").disabled = Boolean(why);
+          if (why) say(t(why)); else if (!d.passkeys.length) say(t("pk.none"));
+        }
+        function close() { $("pk-modal").classList.remove("open"); $("pk-modal").setAttribute("aria-hidden", "true"); }
+        $("passkey-link").addEventListener("click", (e) => { e.preventDefault(); setAcctMenu(false); say(""); openSheet("pk-modal"); load(); });
+        $("pk-x").addEventListener("click", close);
+        $("pk-modal").addEventListener("click", (e) => { if (e.target === $("pk-modal")) close(); });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("pk-modal").classList.contains("open")) close(); });
+        $("pk-add").addEventListener("click", async () => {
+          const b = $("pk-add");
+          b.disabled = true; say("");
+          try {
+            const options = await post("/auth/passkeys/options");
+            await post("/auth/passkeys/add", { response: await pkCreate(options) });
+            say(t("pk.added"));
+          } catch (err) {
+            // Closing the browser's own prompt is no failure: nothing to say.
+            const why = pkFail(err);
+            say(err.code === "limit" ? t("pk.limit").replace("{n}", max) : why === "pk.cancelled" ? "" : t(why));
+          }
+          load();
+        });
+      })();
       document.addEventListener("cookingfoil:theme", () => {
         for (const img of document.querySelectorAll("img")) {
           if (img.src === COVER_PLACEHOLDER_LIGHT || img.src === COVER_PLACEHOLDER_DARK) img.src = coverPlaceholder();

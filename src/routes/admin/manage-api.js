@@ -10,6 +10,7 @@
  */
 import * as users from "../../security/users.js";
 import * as store from "../../security/store.js";
+import * as passkeys from "../../security/passkeys.js";
 import { revokeOwnedBy } from "../../security/account-access.js";
 import * as libraryCache from "../../meta/library-cache.js";
 import * as titledbStore from "../../meta/titledb-store.js";
@@ -115,6 +116,7 @@ export function mountManageApi(router, guard) {
     notSelf(req, req.params.name, { emptying: req.query.allowEmpty === "1" && users.list().length === 1 });
     users.remove(req.params.name, { allowEmpty: req.query.allowEmpty === "1" });
     store.forgetLogins(req.params.name);
+    passkeys.forget("web", { kind: "password", name: req.params.name });
     revokeOwnedBy(req.params.name);
     debug.log("admin: removed user %s", req.params.name);
     res.json({ ok: true });

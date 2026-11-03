@@ -12,6 +12,12 @@
  *   GET  /pair/<token>              what a console's QR opens: one button to approve it
  *   GET  /admin/pair/<token>        the same (`?admin=1` keeps the admin's own page)
  *   POST /auth/device/approve       { token | code, label? } + X-CSRF-Token → { ok: true }
+ *   POST /auth/passkey/options      X-CSRF-Token → WebAuthn sign-in options (security/passkeys.js)
+ *   POST /auth/passkey/login        { response, next } + X-CSRF-Token → { ok, next }
+ *   GET  /auth/passkeys             the signed-in account's passkeys
+ *   POST /auth/passkeys/options     X-CSRF-Token → options to add one for the signed-in account
+ *   POST /auth/passkeys/add         { response } + X-CSRF-Token → { ok, id }
+ *   POST /auth/passkeys/remove      { id } + X-CSRF-Token → { ok }
  *
  * Wrong passwords count toward the same per-IP lockout as pairing sign-ins.
  * Consoles never sign in here: they use their device key and access key.
@@ -25,8 +31,9 @@ import { lockoutRetryAfter, retryAfter } from "../security/retry-after.js";
 import * as googleConfig from "../security/google-config.js";
 import {
   OAUTH_COOKIE, OAUTH_MS, clearUserSession, cookieLine, cookies, csrfOk, csrfToken,
-  issuePasswordSession, issueUserSession, seal, sessionAccount, unseal, webUser,
+  issuePasskeySession, issuePasswordSession, issueUserSession, seal, sessionAccount, unseal, webUser,
 } from "../security/user-session.js";
+import * as passkeys from "../security/passkeys.js";
 import { CALLBACK_PATH, authUrl, checkClaims, exchangeCode, newAttempt, safeNext } from "../security/google-oauth.js";
 import { clientIp, recordFailure } from "../security/auth-guard.js";
 import { trustedHere } from "../security/net.js";
@@ -87,6 +94,7 @@ function renderLogin(req, res, { status = 200, next, error = null }) {
     passwords: accountPasswordsOk(req),
     error,
     origin: resolveOrigin(req, publicBaseUrl),
+    passkey: passkeys.usableHere(req, "web"),
   }));
 }
 
@@ -234,10 +242,114 @@ function mountDevice(router) {
   });
 }
 
+/** A refused passkey ceremony: its code, the spent challenge dropped. */
+function passkeyRefusal(req, res, err) {
+  if (!(err instanceof passkeys.PasskeyError)) throw err;
+  res.append("Set-Cookie", passkeys.clearChallenge(req));
+  res.status(err.code === "unknown" ? 401 : 400).json({ error: err.code });
+}
+
+/** The account a web passkey's owner key names, signed in; false when it can no longer sign in. */
+function signInOwner(req, res, key) {
+  const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+  if (kind === "password" && users.sessionStamp(id)) {
+    issuePasskeySession(req, res, id);
+    return id;
+  }
+  if (kind === "google" && accounts.isApproved(id)) {
+    issueUserSession(req, res, id);
+    return `google:${id}`;
+  }
+  return false;
+}
+
+function mountPasskeys(router) {
+  const json = express.json({ limit: "16kb" });
+  const ownerOf = (who) => ({ kind: who.kind, name: who.name, sub: who.sub });
+
+  router.post("/auth/passkey/options", json, async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!sameSite(req, res)) return;
+    const ip = clientIp(req);
+    if (!trustedHere(req) && store.isLocked(ip)) return retryAfter(res, lockoutRetryAfter(ip)).status(429).json({ error: "locked" });
+    try {
+      const { options, cookie } = await passkeys.startSignIn(req, "web");
+      res.append("Set-Cookie", cookie).json(options);
+    } catch (err) {
+      passkeyRefusal(req, res, err);
+    }
+  });
+
+  router.post("/auth/passkey/login", json, async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!sameSite(req, res)) return;
+    const ip = clientIp(req);
+    const trusted = trustedHere(req);
+    if (!trusted && store.isLocked(ip)) return retryAfter(res, lockoutRetryAfter(ip)).status(429).json({ error: "locked" });
+    try {
+      const key = await passkeys.finishSignIn(req, "web", req.body?.response);
+      const who = signInOwner(req, res, key);
+      if (!who) throw new passkeys.PasskeyError("unknown");
+      res.append("Set-Cookie", passkeys.clearChallenge(req));
+      store.clearFailure(ip);
+      store.recordAccess(who, ip);
+      store.recordLogin(who, "passkey", ip);
+      res.json({ ok: true, next: safeNext(req.body?.next) });
+    } catch (err) {
+      if (err instanceof passkeys.PasskeyError && !trusted) recordFailure(ip, req);
+      passkeyRefusal(req, res, err);
+    }
+  });
+
+  router.get("/auth/passkeys", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const who = webUser(req);
+    if (!who) return res.status(401).json({ error: "not signed in" });
+    res.json({ passkeys: passkeys.list("web", ownerOf(who)), available: Boolean(passkeys.relyingParty(req)), max: passkeys.MAX_PER_OWNER });
+  });
+
+  router.post("/auth/passkeys/options", json, async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const who = webUser(req);
+    if (!who) return res.status(401).json({ error: "not signed in" });
+    if (!sameSite(req, res)) return;
+    try {
+      const { options, cookie } = await passkeys.startAdd(req, "web", ownerOf(who), who.name ?? who.email);
+      res.append("Set-Cookie", cookie).json(options);
+    } catch (err) {
+      passkeyRefusal(req, res, err);
+    }
+  });
+
+  router.post("/auth/passkeys/add", json, async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const who = webUser(req);
+    if (!who) return res.status(401).json({ error: "not signed in" });
+    if (!sameSite(req, res)) return;
+    try {
+      const added = await passkeys.finishAdd(req, "web", ownerOf(who), req.body?.response);
+      res.append("Set-Cookie", passkeys.clearChallenge(req)).json({ ok: true, id: added.id });
+    } catch (err) {
+      passkeyRefusal(req, res, err);
+    }
+  });
+
+  router.post("/auth/passkeys/remove", json, (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const who = webUser(req);
+    if (!who) return res.status(401).json({ error: "not signed in" });
+    if (!sameSite(req, res)) return;
+    const id = typeof req.body?.id === "string" ? req.body.id : "";
+    if (!passkeys.remove("web", ownerOf(who), id)) return res.status(404).json({ error: "unknown" });
+    res.json({ ok: true });
+  });
+}
+
 export default function webLoginRouter() {
   const router = express.Router();
   mountPasswordLogin(router);
   mountGoogle(router);
   mountDevice(router);
+  mountPasskeys(router);
   return router;
 }
