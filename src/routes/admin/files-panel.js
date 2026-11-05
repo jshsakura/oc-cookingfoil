@@ -106,8 +106,10 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-info{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 #fb .fb-foot[data-sel] .fb-info{color:var(--text);font-weight:700}
 #fb .fb-sel-act{display:flex;gap:6px}#fb .fb-foot:not([data-sel]) .fb-sel-act{display:none}
+#fb #fb-pick-all{display:none}
 #fb .fb-pick-acts{display:none}
 #fb .fb-note{display:none}
+#fb .fb-name>button.fb-at{height:auto;padding:2px 0;border:0;background:none;color:var(--accent);font-size:var(--fs-xs);font-weight:400;text-align:left;text-decoration:underline;overflow:hidden;text-overflow:ellipsis}
 /* 하위 폴더까지 widens a search, so it shows while there is something to search for. */
 #fb .fb-bar:has(#fb-q:placeholder-shown) .fb-deep{display:none}
 /* Files dragged over the list: the list is the target, outlined, with what dropping does said on it. */
@@ -183,22 +185,38 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
   #fb .fb-nav #fb-back,#fb .fb-nav #fb-fwd{display:none}
   #fb .fb-crumb{flex:1 1 calc(100% - 96px)}
   #fb .fb-q{flex:1 1 60%;order:1}
-  #fb .fb-cmd.fb-onpick,#fb .fb-cmd:disabled,#fb .fb-sep{display:none}
+  /* What the row of commands held is in the bar at the bottom edge, where the thumb is. */
+  #fb .fb-cmds{display:none}
   /* The name takes the row and whatever the row says about it goes under; the icon holds the left edge. */
   #fb:not(.grid) .fb-name{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;justify-items:start}
   #fb:not(.grid) .fb-name>:first-child{grid-row:1/span 6}
   #fb:not(.grid) .fb-name>*:not(:first-child){grid-column:2;max-width:100%}
   #fb:not(.grid) .fb-name>button,#fb:not(.grid) .fb-name>span:nth-child(2){white-space:normal;overflow-wrap:anywhere}
   /* A tap on a row decides what happens to it, so the name inside is not a second, different target. */
-  #fb .fb-name>button{pointer-events:none}
+  #fb .fb-name>button:not(.fb-at){pointer-events:none}
+  #fb .fb-name>button.fb-at{min-height:32px}
   #fb tbody tr{-webkit-touch-callout:none;user-select:none}
   #fb .fb-foot[data-sel] .fb-info{margin-right:auto}
   #fb .fb-foot[data-sel] .fb-pick-acts{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;flex:1 1 100%}
+  #fb .fb-foot:not([data-sel]) .fb-pick-acts{display:flex;gap:4px;margin-left:auto}
+  #fb .fb-foot:not([data-sel]) .fb-info{flex:1 1 0;min-width:0;font-size:var(--fs-xs)}
+  #fb .fb-foot:not([data-sel]) .fb-pick-acts button{flex-direction:row;gap:6px;min-height:44px;padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
+  #fb #fb-pick-all{display:inline-flex}
   #fb .fb-pick-acts button{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;height:auto;min-height:52px;padding:6px 2px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-size:var(--fs-xs);font-weight:var(--fw-bold);line-height:1.2;white-space:normal;overflow-wrap:anywhere}
   #fb .fb-pick-acts .ico{width:20px;height:20px;flex:none}
   #fb .fb-pick-acts button[data-danger]{color:var(--bad)}
   /* The bar has the screen's bottom edge to itself while a pick is held. */
   body:has(#fb-foot[data-sel]) .ch-launch{display:none}
+  /* The chat button and a notice stand above the bar. */
+  body:has(#fb-foot) .ch-launch{bottom:76px}
+  body:has(#fb-foot) .toast{bottom:76px}
+  /* The bar stays on the screen's bottom edge however short the list is, with room kept under the last row. */
+  #fb .fb-foot{position:fixed;left:0;right:0;bottom:0;z-index:20;padding-bottom:calc(8px + env(safe-area-inset-bottom));background:var(--bg)}
+  #fb{padding-bottom:72px}#fb:has(#fb-foot[data-sel]){padding-bottom:136px}
+  /* The header already names the page, so the list starts sooner; 다시 스캔 moves to 파일 메뉴. */
+  #tab-library:has(>[data-lib-panel="folder"]:not([hidden]))>.hd{display:none}
+  /* While searching, 하위 폴더까지 takes the place of the view buttons instead of adding a line. */
+  #fb .fb-bar:has(#fb-q:not(:placeholder-shown)) .fb-views{display:none}
   body:has(#fb-foot[data-sel]) .toast{bottom:136px}
   /* The menu is a sheet from the bottom edge, whatever the place it was opened from. */
   #fb-menu{left:0!important;right:0;top:auto!important;bottom:0;max-width:none;max-height:70dvh;overflow:auto;border-width:1px 0 0;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
@@ -286,6 +304,7 @@ export const FOLDER_HTML = `<div id="fb">
       <ol class="fb-u-list" id="fb-u-list"></ol>
     </section>
     <div class="fb-sel-act">
+      <button type="button" id="fb-pick-all">${top("fb.pickAll")}</button>
       <button type="button" id="fb-clear">${icon("x")}${top("fb.clear")}</button>
     </div>
     <span class="fb-job" id="fb-job" hidden><progress max="100" value="0"></progress><span aria-live="polite"></span></span>
@@ -305,7 +324,9 @@ export const FOLDER_HTML = `<div id="fb">
 </dialog>
 <dialog id="fb-props" aria-labelledby="fb-p-title">
   <h3 id="fb-p-title"></h3>
+  <div class="fb-p-box" id="fb-p-top"></div>
   <dl class="fb-p-list" id="fb-p-list"></dl>
+  <div class="fb-p-box" id="fb-p-low"></div>
   <div class="dialog-actions"><button type="button" class="primary" id="fb-p-ok">${top("fb.close")}</button></div>
 </dialog>
 <div class="fb-lasso" id="fb-lasso" hidden></div>
@@ -324,18 +345,20 @@ export const FOLDER_HTML = `<div id="fb">
 </dialog>`;
 
 export const FILES_SCRIPT = /* js */ `
-const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), share: icon("send"), rename: icon("pencil"), move: icon("foldermove"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("scissors"), copy: icon("copy"), paste: icon("clipboard"), undo: icon("undo"), props: icon("info"), more: icon("more"), nsz: icon("shrink"), verify: icon("check"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
+const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), share: icon("send"), rename: icon("pencil"), move: icon("foldermove"), trash: icon("trash"), mkdir: icon("plus"), tidy: icon("sparkles"), refresh: icon("refresh"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("scissors"), copy: icon("copy"), paste: icon("clipboard"), undo: icon("undo"), props: icon("info"), more: icon("more"), nsz: icon("shrink"), verify: icon("check"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
 const FB_PER=100;
 const FB_SKEL_MS=120;
 const FB_MAX_PAGES=5;
-const fb={roots:[],root:'',path:'',sort:'mtime',order:'desc',q:'',sel:new Set(),anchor:null,focus:null,drag:null,hi:0,hmax:0,deep:false,clip:null,undos:[],seq:0,data:null,timer:null};
+const fb={roots:[],root:'',path:'',sort:'mtime',order:'desc',q:'',sel:new Set(),anchor:null,focus:null,drag:null,hi:0,hmax:0,deep:null,clip:null,undos:[],seq:0,data:null,timer:null};
 const fbSize=(n)=>{if(n==null)return '';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const fbDate=(ms)=>ms?new Date(ms).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'';
 const fbRootName=(k)=>topText('fb.root.'+k);
 const fbPhone=()=>matchMedia('(max-width:760px)').matches;
+// fb.deep is null until someone decides: a search that finds nothing here then looks further down by itself.
+function fbDeepReset(){fb.deep=null;$('fb-deep').checked=false;}
 function fbUrl(){const u=new URL(location.href);u.searchParams.delete('root');u.searchParams.delete('view');u.searchParams.set('tab','folder');
   if(fb.path)u.searchParams.set('path',fb.path);else u.searchParams.delete('path');return u.pathname+u.search+u.hash;}
-function fbGo(root,path,{push=true}={}){fb.root=root;fb.path=path||'';fb.q='';$('fb-q').value='';fb.sel.clear();fb.anchor=fb.focus=null;
+function fbGo(root,path,{push=true}={}){fb.root=root;fb.path=path||'';fb.q='';$('fb-q').value='';fbDeepReset();fb.sel.clear();fb.anchor=fb.focus=null;
   if(push&&location.pathname+location.search+location.hash!==fbUrl()){fb.hi++;fb.hmax=fb.hi;history.pushState({fbi:fb.hi},'',fbUrl());}fbPaint();fbLoad();}
 function fbRootButtons(mount,current,pick){mount.replaceChildren();for(const r of fb.roots){const b=el('button');b.type='button';
   b.innerHTML=FB_ICON[r.key]||'';b.append(el('span',fbRootName(r.key)));b.setAttribute('aria-pressed',String(r.key===current));
@@ -363,7 +386,7 @@ function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-s
   if(f.type==='dir'){const b=el('button',f.title||f.name);b.type='button';b.title=f.title?f.title+' ('+f.name+')':f.name;b.addEventListener('click',()=>fbGo(fb.root,f.rel));n.append(b);if(f.title)n.append(el('span',f.name,'fb-id'));}
   else{const s=el('span',f.name);s.title=f.name;n.append(s);if(f.title)n.append(el('span',f.title,'fb-where'));}
   // A search through folders below names where each find is.
-  const at=f.rel.split('/').slice(0,-1).join('/');if(fb.data?.deep&&at!==fb.path){const w=el('span',at,'fb-where');w.title=at;n.append(w);}
+  const at=f.rel.split('/').slice(0,-1).join('/');if(fb.data?.deep&&at!==fb.path){const w=el('button',at,'fb-where fb-at');w.type='button';w.title=at;w.addEventListener('click',()=>{fb.reveal=f.rel;fbGo(fb.root,at);});n.append(w);}
   fbDecorate(n,f);cn.append(n);if(fbClipped(f.rel))tr.classList.add('fb-cut');
   const ca=td(null,'c-act');const act=el('div',null,'fb-act');
   act.append(tbtn('rename','fb.rename',()=>fbRename(f)));
@@ -421,11 +444,14 @@ async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
     // A folder that is gone (moved elsewhere, a stale link) leads back to the top of its storage.
     if(err.code==='not-found'&&fb.path){toast(err.message);fbGo(fb.root,'',{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());return;}
     fb.data=null;$('fb-rows').replaceChildren();const e=$('fb-empty');e.hidden=false;e.textContent=topFill('fb.loadFail',{msg:err.message});fbFoot();return;}
-  clearTimeout(skel);if(n!==fb.seq)return;d.page=pages;d.pages=Math.max(1,Math.ceil(d.total/FB_PER));fb.data=d;fb.view=view;
+  clearTimeout(skel);if(n!==fb.seq)return;
+  if(fb.q&&fb.deep===null&&!d.total){fb.deep=true;$('fb-deep').checked=true;await fbLoad();if(fb.data?.items.length)toast(topText('fb.widened'));return;}
+  d.page=pages;d.pages=Math.max(1,Math.ceil(d.total/FB_PER));fb.data=d;fb.view=view;
   const live=new Set(d.items.map((f)=>f.rel));for(const r of [...fb.sel])if(!live.has(r))fb.sel.delete(r);
   if(!live.has(fb.focus))fb.focus=d.items[0]?.rel??null;if(!live.has(fb.anchor))fb.anchor=null;
+  const found=fb.reveal&&live.has(fb.reveal)?fb.reveal:null;fb.reveal=null;if(found){fb.sel.add(found);fb.anchor=fb.focus=found;}
   $('fb-rows').replaceChildren(...d.items.map(fbRow));
-  const e=$('fb-empty');e.hidden=d.items.length>0;e.textContent=fb.q?topText('fb.noMatch'):topText('fb.empty');fbFoot();
+  const e=$('fb-empty');e.hidden=d.items.length>0;e.textContent=fb.q?topText(d.deep?'fb.noMatchDeep':'fb.noMatch'):topText('fb.empty');fbFoot();if(found)fbFocusRow();
   if(d.cut)toast(topText('fb.deepCut'));fbThumbs();fbTreeSync();fbSizeRows(d.items);}
 const fbExt=(name)=>(/\\.[^./]+$/.exec(name)?.[0]||'').toLowerCase();
 async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await askText(topText('fb.renameAsk'),f.name);if(name==null||!name.trim()||name.trim()===f.name)return;
@@ -625,7 +651,7 @@ function fbAll(on){for(const rel of fbRels()){if(on)fb.sel.add(rel);else fb.sel.
 $('fb-all').addEventListener('change',(e)=>fbAll(e.target.checked));
 for(const b of document.querySelectorAll('#fb thead [data-sort]'))b.addEventListener('click',()=>{const s=b.dataset.sort;
   if(fb.sort===s)fb.order=fb.order==='asc'?'desc':'asc';else{fb.sort=s;fb.order=s==='name'?'asc':'desc';}fbLoad();});
-$('fb-q').addEventListener('input',()=>{clearTimeout(fb.timer);fb.timer=setTimeout(()=>{const q=$('fb-q').value.trim();if(q===fb.q)return;fb.q=q;fbLoad();},250);});
+$('fb-q').addEventListener('input',()=>{clearTimeout(fb.timer);fb.timer=setTimeout(()=>{const q=$('fb-q').value.trim();if(q===fb.q)return;fb.q=q;if(!q)fbDeepReset();fbLoad();},250);});
 $('fb-mkdir').addEventListener('click',fbMkdir);
 $('fb-move-btn').addEventListener('click',fbMove);
 $('fb-zip-btn').addEventListener('click',()=>{const rels=[...fb.sel];const one=rels.length===1?fbItem(rels[0]):null;if(one?.type==='file')fbDownload(one);else fbZip(rels);});
@@ -635,6 +661,7 @@ $('fb-share-btn').addEventListener('click',()=>{const one=fb.sel.size===1?fbItem
 $('fb-undo-btn').addEventListener('click',fbUndo);$('fb-tidy-btn').addEventListener('click',fbTidy);$('fb-refresh').addEventListener('click',()=>fbLoad());
 $('fb-trash-btn').addEventListener('click',()=>fbTrash([...fb.sel]));
 $('fb-clear').addEventListener('click',()=>{fb.sel.clear();fb.anchor=null;fbPaint();});
+$('fb-pick-all').addEventListener('click',()=>fbAll(!$('fb-all').checked));
 window.addEventListener('popstate',(e)=>{const p=new URLSearchParams(location.search);fb.hi=e.state?.fbi??0;
   if(fb.root&&p.get('tab')==='folder')fbGo(fb.root,p.get('path')||'',{push:false});});
 // On a focused row: the arrows, Home and End walk the list (Shift stretches the pick, Ctrl or Cmd only moves),
@@ -674,21 +701,25 @@ function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rel
     if(one)add('fb.rename','rename',()=>fbRename(one));
     if(fb.clip)add('fb.paste','paste',fbPaste);
     add('fb.move','move',fbMove);add('fb.trash','trash',()=>fbTrash(rels),true);add('fb.props','props',fbProps);
-    if(fbPhone())add('fb.selectAll','verify',()=>fbAll(true));}
+}
   else{add('fb.newFolder','mkdir',fbMkdir);add('fb.upload','upload',()=>$('fb-file').click());add('fb.uploadDir','open',()=>$('fb-dir').click());
+    if(fbPhone()&&fb.root!=='incoming')add('fb.tidy','tidy',fbTidy);
+    if(fbPhone()&&fb.root==='games'&&$('rescan'))items.push({label:$('rescan').textContent.trim(),ic:'refresh',fn:()=>$('rescan').click()});
     if(fb.clip)add('fb.paste','paste',fbPaste);if(fb.undos.length)add('fb.undo','undo',fbUndo);add('fb.props','props',fbProps);}
   return items;}
 // A phone's bottom bar: the likeliest three of what the pick allows, the trash, and the whole list behind 파일 메뉴.
 const FB_BAR=['fb.view','fb.download','fb.zip','fb.rename','fb.move'];
-function fbPickBar(){const bar=$('fb-pick-acts');if(!fbPhone()||!fb.sel.size){bar.replaceChildren();return;}
-  const all=fbActions();const top=FB_BAR.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,3);
-  bar.replaceChildren(...[...top,all.find((a)=>a.key==='fb.trash'),{key:'fb.menu',ic:'more',fn:()=>fbMenu(0,0)}].map((it)=>{
+// With nothing picked it offers the one thing a phone does next there, and the same 파일 메뉴 holds the rest.
+const FB_IDLE=['fb.paste','fb.upload'];
+function fbPickBar(){const bar=$('fb-pick-acts');if(!fbPhone()){bar.replaceChildren();return;}
+  const all=fbActions();const top=fb.sel.size?[...FB_BAR.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,3),all.find((a)=>a.key==='fb.trash')]:FB_IDLE.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,1);
+  bar.replaceChildren(...[...top,{key:'fb.menu',ic:'more',fn:()=>fbMenu(0,0)}].map((it)=>{
     const b=el('button');b.type='button';b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',topText(it.key)));if(it.danger)b.dataset.danger='';b.addEventListener('click',it.fn);return b;}));}
 matchMedia('(max-width:760px)').addEventListener('change',()=>{fbPickBar();for(const r of document.querySelectorAll('#fb-rows tr'))r.draggable=!fbPhone();});
 function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const items=fbActions();
   const back=document.activeElement;
   m.replaceChildren(...items.map((it,i)=>{const b=el('button');b.type='button';b.setAttribute('role','menuitem');b.tabIndex=i?-1:0;
-    b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',topText(it.key)));if(it.danger)b.dataset.danger='';
+    b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',it.label||topText(it.key)));if(it.danger)b.dataset.danger='';
     b.addEventListener('click',()=>{fbMenuClose(false);it.fn();});return b;}));
   if(rels.length>1)m.prepend(el('p',topFill('fb.selected',{n:num(rels.length)}),'muted fb-m-head'));
   // clientWidth and clientHeight leave out the scrollbars, which innerWidth and innerHeight would let the menu sit under.

@@ -25,7 +25,8 @@ export const EXPLORE_CSS = /* css */ `
 .fb-lasso[hidden]{display:none}
 #fb-props{width:min(480px,calc(100vw - 32px))}
 #fb-props h3{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fb-props .fb-p-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 16px;margin:12px 0}
+#fb-props .fb-p-box{display:grid;gap:12px}#fb-props .fb-p-box:empty{display:none}
+#fb-props .fb-p-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 16px;margin:16px 0}
 #fb-props dt{color:var(--muted)}#fb-props dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 /* The icon view: the same rows laid out as tiles, the name under a large icon or the image itself. */
 #fb.grid thead{display:none}
@@ -110,9 +111,11 @@ async function fbUndo(){const step=fb.undos.pop();if(!step){toast(topText('fb.un
 async function fbProps(){const rels=fb.sel.size?[...fb.sel]:null;const one=rels?.length===1?fbItem(rels[0]):null;
   const dlg=$('fb-props');const list=$('fb-p-list');const lead=rels?rels[0]:fb.path;
   const at=lead.split('/').slice(0,-1);const folderOnly=!rels||one?.type==='dir';
-  $('fb-p-title').textContent=one?one.name:rels?topFill('fb.p.many',{n:num(rels.length)}):(fb.path.split('/').pop()||fbRootName(fb.root));
+  $('fb-p-title').textContent=one?topText('fb.props'):rels?topFill('fb.p.many',{n:num(rels.length)}):(fb.path.split('/').pop()||fbRootName(fb.root));
   const base=[];if(one)base.push(['fb.p.kind',one.type==='dir'?topText('fb.p.dir'):(one.ext?one.ext.toUpperCase()+' ':'')+topText('fb.p.file')]);
-  base.push(['fb.p.where',[fbRootName(fb.root),...at].join(' / ')]);
+  base.push(['fb.p.where',[fbRootName(fb.root),...at].join(' / ')]);if(one)base.push(...fbFacts(one));
+  // One item says what it is as the details pane does, which a phone has no room for.
+  const low=$('fb-p-low');if(one){const {head,top}=fbSideTop(one);$('fb-p-top').replaceChildren(...top);low.replaceChildren(...fbWhy(one));fbSideMeta(low,one,head);}else{$('fb-p-top').replaceChildren();low.replaceChildren();}
   const put=(pairs)=>list.replaceChildren(...pairs.flatMap(([k,v])=>[el('dt',topText(k)),el('dd',v)]));
   put([...base,['fb.p.size',topText('fb.p.counting')]]);if(!dlg.open)dlg.showModal();
   try{const r=await api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:rels||[fb.path]}});if(!dlg.open)return;

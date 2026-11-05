@@ -23,37 +23,37 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-tn button:hover{background:var(--sunk)}
 #fb .fb-tn[aria-current="page"] .fb-tl{background:rgba(var(--accent-rgb),.12);color:var(--text);font-weight:var(--fw-bold)}
 #fb .fb-gicon{width:28px;height:28px;flex:0 0 28px;border-radius:var(--r-sm);object-fit:cover;background:var(--sunk)}
-#fb .fb-badge{flex:0 0 auto;padding:1px 7px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:var(--fw-bold);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
-#fb .fb-badge[data-tone="warn"]{color:var(--warn);border-color:currentColor}
-#fb .fb-badge[data-tone="bad"]{color:var(--bad);border-color:currentColor}
-#fb .fb-side .fb-s-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
-#fb .fb-side .fb-s-art{width:96px;height:96px;border-radius:var(--r-lg);object-fit:cover;background:var(--sunk)}
-#fb .fb-side .fb-s-art.ico{padding:24px;color:var(--muted)}
-#fb .fb-side .fb-s-meta{display:grid;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-#fb .fb-side .fb-s-about{margin:0;font-size:var(--fs-xs);line-height:1.6;color:var(--muted);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:8;overflow:hidden}
-#fb .fb-side .fb-s-shots{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-#fb .fb-side .fb-s-shots img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-sm);background:var(--sunk)}
-#fb .fb-side h4{margin:0;font-size:var(--fs-md);overflow-wrap:anywhere}
-#fb .fb-side .fb-s-sub{font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
-#fb .fb-side .fb-s-why{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.55;color:var(--muted)}
+:is(#fb,#fb-props) .fb-badge{flex:0 0 auto;padding:1px 7px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:var(--fw-bold);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+:is(#fb,#fb-props) .fb-badge[data-tone="warn"]{color:var(--warn);border-color:currentColor}
+:is(#fb,#fb-props) .fb-badge[data-tone="bad"]{color:var(--bad);border-color:currentColor}
+:is(#fb .fb-side,#fb-props) .fb-s-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+:is(#fb .fb-side,#fb-props) .fb-s-art{width:96px;height:96px;border-radius:var(--r-lg);object-fit:cover;background:var(--sunk)}
+:is(#fb .fb-side,#fb-props) .fb-s-art.ico{padding:24px;color:var(--muted)}
+:is(#fb .fb-side,#fb-props) .fb-s-meta{display:grid;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+:is(#fb .fb-side,#fb-props) .fb-s-about{margin:0;font-size:var(--fs-xs);line-height:1.6;color:var(--muted);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:8;overflow:hidden}
+:is(#fb .fb-side,#fb-props) .fb-s-shots{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+:is(#fb .fb-side,#fb-props) .fb-s-shots img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-sm);background:var(--sunk)}
+:is(#fb .fb-side,#fb-props) h4{margin:0;font-size:var(--fs-md);overflow-wrap:anywhere}
+:is(#fb .fb-side,#fb-props) .fb-s-sub{font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
+:is(#fb .fb-side,#fb-props) .fb-s-why{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.55;color:var(--muted)}
 #fb .fb-about{flex:0 1000 auto;min-width:0;color:var(--faint);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fb .fb-side .fb-s-what{margin:0;font-size:var(--fs-sm);line-height:1.55;color:var(--muted)}
-#fb .fb-side .fb-s-prev{display:grid;gap:6px}
-#fb .fb-side .fb-s-prev img{display:block;max-width:100%;max-height:220px;margin:0 auto;border-radius:var(--r-md);background:var(--sunk);cursor:zoom-in}
-#fb .fb-side .fb-s-prev pre{margin:0;max-height:180px;overflow:auto;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
-#fb .fb-side .fb-s-why strong{display:block;margin-bottom:4px;font-size:var(--fs-sm);color:var(--text)}
-#fb .fb-side .fb-s-why p{margin:0 0 6px}
-#fb .fb-side .fb-s-why[data-tone="bad"] strong{color:var(--bad)}
-#fb .fb-side .fb-s-why[data-tone="warn"] strong{color:var(--warn)}
-#fb .fb-side .fb-s-badges{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
-#fb .fb-side dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;margin:0;font-size:var(--fs-sm)}
-#fb .fb-side dt{color:var(--muted)}#fb .fb-side dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-#fb .fb-side .fb-s-links:empty{display:none}
-#fb .fb-side .fb-s-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 4px 10px;border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-sm)}
-#fb .fb-side .fb-s-link+.fb-s-link{margin-top:4px}
-#fb .fb-side .fb-s-link .ib{width:28px;height:28px;padding:0;display:inline-grid;place-items:center}
-#fb .fb-side .fb-s-link .ib .ico{width:14px;height:14px}
-#fb .fb-side .fb-s-none{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:24px 0}
+:is(#fb .fb-side,#fb-props) .fb-s-what{margin:0;font-size:var(--fs-sm);line-height:1.55;color:var(--muted)}
+:is(#fb .fb-side,#fb-props) .fb-s-prev{display:grid;gap:6px}
+:is(#fb .fb-side,#fb-props) .fb-s-prev img{display:block;max-width:100%;max-height:220px;margin:0 auto;border-radius:var(--r-md);background:var(--sunk);cursor:zoom-in}
+:is(#fb .fb-side,#fb-props) .fb-s-prev pre{margin:0;max-height:180px;overflow:auto;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+:is(#fb .fb-side,#fb-props) .fb-s-why strong{display:block;margin-bottom:4px;font-size:var(--fs-sm);color:var(--text)}
+:is(#fb .fb-side,#fb-props) .fb-s-why p{margin:0 0 6px}
+:is(#fb .fb-side,#fb-props) .fb-s-why[data-tone="bad"] strong{color:var(--bad)}
+:is(#fb .fb-side,#fb-props) .fb-s-why[data-tone="warn"] strong{color:var(--warn)}
+:is(#fb .fb-side,#fb-props) .fb-s-badges{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
+:is(#fb .fb-side,#fb-props) dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;margin:0;font-size:var(--fs-sm)}
+:is(#fb .fb-side,#fb-props) dt{color:var(--muted)}#fb .fb-side dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+:is(#fb .fb-side,#fb-props) .fb-s-links:empty{display:none}
+:is(#fb .fb-side,#fb-props) .fb-s-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 4px 10px;border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-sm)}
+:is(#fb .fb-side,#fb-props) .fb-s-link+.fb-s-link{margin-top:4px}
+:is(#fb .fb-side,#fb-props) .fb-s-link .ib{width:28px;height:28px;padding:0;display:inline-grid;place-items:center}
+:is(#fb .fb-side,#fb-props) .fb-s-link .ib .ico{width:14px;height:14px}
+:is(#fb .fb-side,#fb-props) .fb-s-none{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:24px 0}
 #fb .fb-more{height:1px}
 /* With the details pane open its buttons stand in for the row's, which leaves the names their room. */
 @media (min-width:900px){#fb.side-on .c-act{display:none}}
@@ -143,14 +143,20 @@ function fbSide(){if(!fbSideOn())return;const s=$('fb-side');const items=[...fb.
   if(items.length>1){const files=items.filter((f)=>f.type==='file');
     s.replaceChildren(el('h4',topFill('fb.selected',{n:num(items.length)})),el('p',topFill('fb.side.files',{n:num(files.length),size:fbSize(files.reduce((a,f)=>a+(f.size||0),0))}),'fb-s-sub'));return;}
   s.replaceChildren(el('p',topText('fb.side.none'),'fb-s-none'));}
-function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
+// What the details pane and the properties window both open with: the picture, the name, the badges and what the item is.
+function fbSideTop(f){const head=el('div',null,'fb-s-head');
   if(f.titleId){const img=fbGameIcon(f,'md','fb-s-art');img.addEventListener('error',()=>img.replaceWith(fbSideIcon(f)),{once:true});head.append(img);}else head.append(fbSideIcon(f));
   head.append(el('h4',f.title||f.name));if(f.title)head.append(el('div',f.name,'fb-s-sub'));
   const badges=fbBadges(f);if(badges.length){const b=el('div',null,'fb-s-badges');b.append(...badges);head.append(b);}
-  const rows=[];
+  const links=el('div',null,'fb-s-links');if(f.type==='file')fbShareList(f,links);
+  const about=fbAbout(f);const what=about?[el('p',about,'fb-s-what')]:[];
+  return {head,top:[head,...what,...fbSidePreview(f),links]};}
+function fbFacts(f){const rows=[];
   if(f.titleId)rows.push(['fb.p.titleId',f.titleId]);
   if(f.version!=null)rows.push(['fb.p.version','v'+f.version]);
   if(f.check)rows.push(['fb.p.check',f.why?.label||topText('fb.c.'+f.check)]);
+  return rows;}
+function fbSideOne(s,f){const {head,top}=fbSideTop(f);const rows=fbFacts(f);
   if(f.type==='file')rows.push(['fb.p.size',topFill('fb.p.bytes',{size:fbSize(f.size),bytes:num(f.size)})]);
   rows.push(['fb.p.mtime',fbDate(f.mtime)]);
   const dl=el('dl');dl.append(...rows.flatMap(([k,v])=>[el('dt',topText(k)),el('dd',v)]));
@@ -161,9 +167,7 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
       try{const r=await api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:[f.rel]}});
         dd.textContent=topFill('fb.p.bytes',{size:fbSize(r.bytes),bytes:num(r.bytes)})+' · '+topFill('fb.p.holdsVal',{files:num(r.files),dirs:num(Math.max(0,r.dirs-1))});}
       catch(err){dd.textContent=err.message;}});dd.append(b);dl.append(el('dt',topText('fb.p.size')),dd);}
-  const links=el('div',null,'fb-s-links');if(f.type==='file')fbShareList(f,links);
-  const about=fbAbout(f);const what=about?[el('p',about,'fb-s-what')]:[];
-  s.replaceChildren(head,...what,...fbSidePreview(f),links,dl,...fbWhy(f));fbSideMeta(s,f,head);}
+  s.replaceChildren(...top,dl,...fbWhy(f));fbSideMeta(s,f,head);}
 // A picture shows itself and a text file its first lines, right in the pane; a click opens the full viewer.
 const FB_SIDE_TEXT=2048;
 function fbSidePreview(f){const kind=fbKind(f);if(!kind||(kind==='image'&&f.size>FB_THUMB_MAX))return [];
