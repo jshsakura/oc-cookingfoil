@@ -56,7 +56,7 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-side .fb-s-none{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:24px 0}
 #fb .fb-more{height:1px}
 /* With the details pane open its buttons stand in for the row's, which leaves the names their room. */
-#fb.side-on .c-act{display:none}
+@media (min-width:900px){#fb.side-on .c-act{display:none}}
 #fb .fb-job{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
 #fb .fb-job[hidden]{display:none}
 #fb .fb-job progress{width:160px}

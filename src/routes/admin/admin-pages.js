@@ -162,7 +162,8 @@ body.adm-shell{padding:0}
 .adm-crumb-sep{flex:none;width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:899px){
 .adm-crumb{flex:1;font-size:var(--fs-md)}
-.adm-crumb-g,.adm-crumb-sep{display:none}
+.adm-crumb-far{display:none}
+.adm-crumb-i{flex:none;max-width:70%}
 .adm-side{padding:8px 16px;border-bottom:1px solid var(--line)}
 .adm-side>.adm-side-in{display:none}
 #adm-menu{display:inline-flex;order:-1}
@@ -269,8 +270,9 @@ function mark(){const p=activePath();
     else a.removeAttribute('aria-current');}
   crumb();}
 // The header names the page by its menu path, from the sidebar's current item: "group > item" in a group,
-// "row > tab" on a page that holds its jobs as tabs, and the open in-page tab as the last crumb. The label
-// spans are copies, so the language switch relabels them with the rest.
+// "row > tab" on a page that holds its jobs as tabs, and the open in-page tab as the last crumb. A phone keeps
+// the last two, because 파일 alone does not say whose files. The label spans are copies, so the language switch
+// relabels them with the rest.
 function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySelector('.adm-side .adm-item[aria-current="page"]');
   if(!c)return;c.replaceChildren();if(!a)return;
   const label=(n)=>{const s=n&&n.querySelector(':scope>[data-top]');return s?s.cloneNode(true):null;};
@@ -284,8 +286,9 @@ function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySe
   if(sec)parts.push(plain(sec));
   const shown=parts.filter(Boolean);
   shown.forEach((p,k)=>{const last=k===shown.length-1;
-    if(!last){p.classList.add('adm-crumb-g');c.append(p);
-      c.insertAdjacentHTML('beforeend','<svg class="adm-crumb-sep" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');}
+    const far=k<shown.length-2?' adm-crumb-far':'';
+    if(!last){p.classList.add('adm-crumb-g');if(far)p.classList.add('adm-crumb-far');c.append(p);
+      c.insertAdjacentHTML('beforeend','<svg class="adm-crumb-sep'+far+'" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');}
     else{p.classList.add('adm-crumb-i');c.append(p);}});}
 window.__admMark=mark;
 function sums(){

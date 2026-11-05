@@ -219,7 +219,8 @@ test('the header names every page by its menu path', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/admin/retro?view=ratings');
   await expect(page.locator('#adm-crumb .adm-crumb-i')).toBeVisible();
-  for (const g of await page.locator('#adm-crumb .adm-crumb-g').all()) await expect(g).toBeHidden();
+  await expect(page.locator('#adm-crumb').filter({ hasText: '레트로 게임' })).toBeVisible();
+  await expect(page.locator('#adm-crumb .adm-crumb-far').first()).toBeHidden();
 });
 
 test('dictionary text keeps its links and never shows a raw key or source', async ({ page }) => {
