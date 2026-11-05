@@ -24,6 +24,7 @@ import * as kinds from "../../meta/homebrew-kinds.js";
 import * as trashService from "../../library/trash-service.js";
 import { moveNoClobber } from "../../library/safe-move.js";
 import { apiText } from "./api-words.js";
+import { TOP_WORDS } from "./top-i18n.js";
 
 /**
  * Copies the server's pictures out of the folder an upload replaces, into `into` (in the work folder),
@@ -71,7 +72,7 @@ export async function placeHomebrew(items, work, { port = false, by = null } = {
   if (layout.reason === "console-path") {
     throw uploadError("homebrew.badNames", { list: (lang) => describeProblems(layout.problems, 20, lang) });
   }
-  if (!layout.nro || !layout.appDir) throw uploadError("homebrew.cannotInstall", { why: layout.reason });
+  if (!layout.nro || !layout.appDir) throw uploadError("homebrew.cannotInstall", { why: (lang) => (TOP_WORDS[lang] ?? TOP_WORDS.en)[`hb.reason.${layout.reason}`] ?? layout.reason });
   const stage = path.join(work, "out");
   const take = layout.mode === "folder" ? layout.files : [{ entry: layout.nro.entry, path: layout.nro.path }];
   if (zip) {

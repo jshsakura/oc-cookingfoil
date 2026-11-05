@@ -29,23 +29,29 @@ ${error ? `<p class="err" role="alert">${error}</p>` : ""}<label for="password">
 <input id="password" name="password" type="password" autocomplete="off" maxlength="200" required autofocus>
 <button type="submit">${w["sh.go"]}</button></form>`);
 
+const gone = (req, res, key) => {
+  const lang = requestLang(req);
+  const w = words(lang);
+  res.status(404).type("html").send(plainPage(lang, w["sh.link"], `<p>${w[key]}</p>`));
+};
+
 export default function fileShareRouter({ shares = fileShares(), files = createFileRoots() } = {}) {
   const router = express.Router();
   const found = (req, res) => {
     res.set({ "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex", "X-Frame-Options": "DENY" });
     const token = String(req.params.token);
     const share = TOKEN_RE.test(token) ? shares.find(token) : null;
-    if (!share) res.status(404).type("text/plain").send("This link has ended or does not exist.\n");
+    if (!share) gone(req, res, "sh.ended");
     return share;
   };
-  const send = async (res, share) => {
+  const send = async (req, res, share) => {
     let f, entries;
     try {
       if (share.dir) entries = await files.collect(share.root, [share.rel]);
       else f = await files.open(share.root, share.rel);
     } catch (err) {
       if (!(err instanceof FileError) && err.code !== "ENOENT") throw err;
-      return res.status(404).type("text/plain").send("The shared file is no longer there.\n");
+      return gone(req, res, "sh.gone");
     }
     debug.log("share: %s:%s sent by a link from %s", share.root, share.rel, share.by ?? "admin");
     if (share.dir) return sendZip(res, entries, `${share.name}.zip`);
@@ -55,7 +61,7 @@ export default function fileShareRouter({ shares = fileShares(), files = createF
   router.get("/share/:token", async (req, res) => {
     const share = found(req, res);
     if (!share) return;
-    if (!share.hash) return send(res, share);
+    if (!share.hash) return send(req, res, share);
     const lang = requestLang(req);
     res.type("html").send(asks(lang, words(lang)));
   });
@@ -65,12 +71,12 @@ export default function fileShareRouter({ shares = fileShares(), files = createF
   router.post("/share/:token", form, async (req, res) => {
     const share = found(req, res);
     if (!share) return;
-    if (!share.hash) return send(res, share);
+    if (!share.hash) return send(req, res, share);
     const lang = requestLang(req);
     const w = words(lang);
     const ip = clientIp(req);
     if (store.isLocked(ip)) return retryAfter(res, lockoutRetryAfter(ip)).status(429).type("html").send(asks(lang, w, lockNotice(lang, ip)));
-    if (await matchesAsync(share.hash, String(req.body?.password ?? "").slice(0, PASSWORD_MAX))) return send(res, share);
+    if (await matchesAsync(share.hash, String(req.body?.password ?? "").slice(0, PASSWORD_MAX))) return send(req, res, share);
     recordFailure(ip, req);
     res.status(401).type("html").send(asks(lang, w, store.isLocked(ip) ? lockNotice(lang, ip) : w["sh.wrong"]));
   });

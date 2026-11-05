@@ -164,7 +164,7 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
   await row(page, 'Beta').locator('td.c-mtime').click({ button: 'right' });
   await expect(menu).toContainText('2개를 골랐습니다');
-  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '파일 압축', '파일 검사', '잘라내기', '복사', '이동', '휴지통으로', '속성']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '파일 압축', '파일 검사', '잘라내기', '복사', '이동', '휴지통으로', '되돌리기', '속성']);
   await page.locator('#fb-info').click();
   await expect(menu).toBeHidden();
 

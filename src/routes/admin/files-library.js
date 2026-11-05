@@ -319,9 +319,10 @@ async function fbSizeRows(items){const dirs=items.filter((f)=>f.type==='dir');if
 
 // ── a copy's progress ───────────────────────────────────────────────
 const FB_JOB_MS=700;
-async function fbCopyRun(body){const start=await api('/admin/api/files/copy',{method:'POST',body:{...body,background:true}});
-  const box=$('fb-job');const bar=box.querySelector('progress');const txt=box.querySelector('span');box.hidden=false;
-  try{for(;;){const j=await api('/admin/api/files/copy/'+start.job);
+async function fbCopyRun(body){const box=$('fb-job');const bar=box.querySelector('progress');const txt=box.querySelector('span');
+  bar.removeAttribute('value');txt.textContent=topText('fb.copyStart');box.hidden=false;
+  try{const start=await api('/admin/api/files/copy',{method:'POST',body:{...body,background:true}});
+    for(;;){const j=await api('/admin/api/files/copy/'+start.job);
       const p=j.total?Math.floor(j.done*100/j.total):100;bar.max=100;bar.value=p;
       txt.textContent=topFill('fb.copyProg',{done:fbSize(j.done),total:fbSize(j.total),p:num(p)});
       if(j.state==='done')return j;if(j.state==='failed')throw new Error(j.error);

@@ -403,3 +403,17 @@ test('a check box pick takes the shortcuts, and a paste into another storage ask
   await page.locator('#ask-no').click();
   await page.keyboard.press('Escape');
 });
+
+test('a stopped upload goes on from its own row', async ({ page }) => {
+  let slow = true;
+  await page.route('**/admin/api/files/upload/chunks**', async (route) => { if (slow) await new Promise((r) => setTimeout(r, 1500)); await route.continue(); });
+  await page.locator('#fb-file').setInputFiles([{ name: 'resume-me.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(3 * 1024 * 1024, 7) }]);
+  const item = page.locator('#fb-u-list li').filter({ hasText: 'resume-me.bin' });
+  await item.getByRole('button', { name: /resume-me.bin/ }).first().click();
+  await expect(item).toHaveAttribute('data-state', 'stop');
+  slow = false;
+  await item.getByRole('button', { name: 'resume-me.bin 이어서 올리기' }).click();
+  await expect(item).toHaveAttribute('data-state', 'done');
+  await expect(row(page, 'resume-me.bin')).toBeVisible();
+  await page.evaluate(() => (window as any).api('/admin/api/files/trash', { method: 'POST', body: { root: 'games', paths: ['fb-taken/resume-me.bin'] } }));
+});

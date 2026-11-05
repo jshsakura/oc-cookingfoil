@@ -32,6 +32,7 @@ const KEYS = [
   "fb.noView", "fb.addrEdit", "fb.shareDate", "fb.shareDateAsk",
   "fb.sharePwPh", "fb.shareLocked",
   "fb.pasteCopyAsk", "fb.pasteMoveAsk",
+  "fb.upResume", "fb.copyStart",
 ];
 
 const ROWS = {
@@ -67,6 +68,7 @@ const ROWS = {
     "미리 볼 수 없는 파일이라 고르기만 했습니다. 내려받기와 속성은 파일 메뉴에 있습니다", "경로 직접 입력", "날짜 지정", "링크를 언제까지 열어 둘까요? 30일 안에서 고릅니다. 고른 날이 끝날 때 닫힙니다.",
     "비밀번호 (넣지 않아도 됩니다)", "비밀번호 걸림",
     "{from}에서 복사한 {n}개를 {to}에 붙여 넣습니다.", "{from}에서 잘라 낸 {n}개를 {to}(으)로 옮깁니다. {from}에서는 빠집니다.",
+    "{name} 이어서 올리기", "복사를 시작합니다",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -100,6 +102,7 @@ const ROWS = {
     "This file has no preview, so it was only picked. Download and properties are in the file menu", "Type a path", "Pick a date", "Keep the link open until when? Pick a day within 30 days; it closes when that day ends.",
     "Password (optional)", "password set",
     "Paste {n} items copied from {from} into {to}.", "Move {n} items cut from {from} into {to}. They leave {from}.",
+    "Resume {name}", "Starting the copy",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -133,6 +136,7 @@ const ROWS = {
     "プレビューできないファイルなので選択だけしました。ダウンロードとプロパティはファイルメニューにあります", "パスを入力", "日付を指定", "リンクをいつまで開いておきますか？ 30日以内で選びます。選んだ日の終わりに閉じます。",
     "パスワード (なくても構いません)", "パスワードあり",
     "{from} でコピーした {n} 件を {to} に貼り付けます。", "{from} で切り取った {n} 件を {to} に移動します。{from} からはなくなります。",
+    "{name} の続きをアップロード", "コピーを始めます",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -166,6 +170,7 @@ const ROWS = {
     "此文件无法预览，因此只是选中了。下载和属性在文件菜单里", "输入路径", "指定日期", "链接开放到哪天？可选 30 天以内，当天结束时关闭。",
     "密码（可不填）", "已设密码",
     "将从{from}复制的 {n} 项粘贴到{to}。", "将从{from}剪切的 {n} 项移到{to}，它们会从{from}移除。",
+    "继续上传 {name}", "正在开始复制",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -199,6 +204,7 @@ const ROWS = {
     "此檔案無法預覽，所以只選取了。下載和內容在檔案選單裡", "輸入路徑", "指定日期", "連結開放到哪天？可選 30 天以內，當天結束時關閉。",
     "密碼（可不填）", "已設密碼",
     "將從{from}複製的 {n} 項貼到{to}。", "將從{from}剪下的 {n} 項移到{to}，它們會從{from}移除。",
+    "繼續上傳 {name}", "正在開始複製",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -232,6 +238,7 @@ const ROWS = {
     "Este archivo no tiene vista previa, así que solo se ha elegido. Descargar y propiedades están en el menú", "Escribir ruta", "Elegir fecha", "¿Hasta cuándo dejar el enlace abierto? Elige un día dentro de 30 días; se cierra al acabar ese día.",
     "Contraseña (opcional)", "con contraseña",
     "Pegar en {to} {n} elementos copiados de {from}.", "Mover a {to} {n} elementos cortados de {from}. Saldrán de {from}.",
+    "Reanudar {name}", "Empezando a copiar",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -265,6 +272,7 @@ const ROWS = {
     "Ce fichier n'a pas d'aperçu : il est seulement sélectionné. Télécharger et propriétés sont dans le menu", "Saisir un chemin", "Choisir une date", "Jusqu'à quand garder le lien ouvert ? Choisissez un jour dans les 30 jours ; il se ferme à la fin de ce jour.",
     "Mot de passe (facultatif)", "avec mot de passe",
     "Coller dans {to} {n} éléments copiés depuis {from}.", "Déplacer vers {to} {n} éléments coupés dans {from}. Ils quittent {from}.",
+    "Reprendre {name}", "Début de la copie",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -298,6 +306,7 @@ const ROWS = {
     "Keine Vorschau möglich, die Datei wurde nur ausgewählt. Herunterladen und Eigenschaften stehen im Menü", "Pfad eingeben", "Datum wählen", "Wie lange bleibt der Link offen? Wähle einen Tag innerhalb von 30 Tagen; er schließt am Ende dieses Tages.",
     "Passwort (optional)", "mit Passwort",
     "{n} aus {from} kopierte Einträge in {to} einfügen.", "{n} aus {from} ausgeschnittene Einträge nach {to} verschieben. Sie verlassen {from}.",
+    "{name} fortsetzen", "Kopieren startet",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -331,6 +340,7 @@ const ROWS = {
     "Nessuna anteprima: il file è solo selezionato. Scarica e proprietà sono nel menu", "Digita percorso", "Scegli una data", "Fino a quando tenere aperto il link? Scegli un giorno entro 30 giorni; si chiude alla fine di quel giorno.",
     "Password (facoltativa)", "con password",
     "Incolla in {to} {n} elementi copiati da {from}.", "Sposta in {to} {n} elementi tagliati da {from}. Lasciano {from}.",
+    "Riprendi {name}", "Avvio della copia",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -364,6 +374,7 @@ const ROWS = {
     "Este arquivo não tem prévia, por isso foi apenas selecionado. Baixar e propriedades estão no menu", "Digitar caminho", "Escolher data", "Até quando manter o link aberto? Escolha um dia dentro de 30 dias; ele fecha no fim desse dia.",
     "Senha (opcional)", "com senha",
     "Colar em {to} {n} itens copiados de {from}.", "Mover para {to} {n} itens recortados de {from}. Eles saem de {from}.",
+    "Retomar {name}", "Iniciando a cópia",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -397,6 +408,7 @@ const ROWS = {
     "Geen voorbeeld mogelijk, het bestand is alleen geselecteerd. Downloaden en eigenschappen staan in het menu", "Pad typen", "Datum kiezen", "Tot wanneer blijft de link open? Kies een dag binnen 30 dagen; hij sluit aan het eind van die dag.",
     "Wachtwoord (optioneel)", "met wachtwoord",
     "{n} items gekopieerd uit {from} plakken in {to}.", "{n} items geknipt uit {from} verplaatsen naar {to}. Ze verdwijnen uit {from}.",
+    "{name} hervatten", "Kopiëren begint",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -430,6 +442,7 @@ const ROWS = {
     "Предпросмотр недоступен, файл только выбран. Скачивание и свойства находятся в меню файла", "Ввести путь", "Выбрать дату", "До какого дня оставить ссылку открытой? Выберите день в пределах 30 дней; она закроется в конце этого дня.",
     "Пароль (необязательно)", "с паролем",
     "Вставить в «{to}» {n} элементов, скопированных из «{from}».", "Переместить в «{to}» {n} элементов, вырезанных из «{from}». Из «{from}» они уйдут.",
+    "Продолжить загрузку {name}", "Начинаем копирование",
   ],
 };
 

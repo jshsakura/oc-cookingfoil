@@ -531,10 +531,12 @@ function fbUpItem(it){const li=el('li');li.dataset.state=it.state;
   const name=el('span',it.rel,'fb-u-name');name.title=it.rel;const bar=el('progress');bar.max=1;bar.value=0;
   const st=el('span','','fb-u-st');const stop=el('button');stop.type='button';stop.className='ib';stop.innerHTML=FB_ICON.stop;
   stop.setAttribute('aria-label',topFill('fb.upStop',{name:it.rel}));stop.addEventListener('click',()=>fbUpStop(it));
-  li.append(name,bar,st,stop);it.li=li;it.bar=bar;it.st=st;fbUpPaint(it);return li;}
+  const again=el('button',null,'ib fb-u-again');again.type='button';again.innerHTML=FB_ICON.upload;
+  again.setAttribute('aria-label',topFill('fb.upResume',{name:it.rel}));again.addEventListener('click',()=>fbUpResume(it));
+  li.append(name,bar,st,stop,again);it.li=li;it.bar=bar;it.st=st;it.stop=stop;it.again=again;fbUpPaint(it);return li;}
 function fbUpPaint(it){const li=it.li;if(!li)return;li.dataset.state=it.state;it.bar.value=it.file.size?it.sent/it.file.size:it.state==='done'?1:0;
   it.st.textContent=it.state==='up'?Math.floor(it.bar.value*100)+'%':it.state==='fail'?it.msg:topText('fb.st.'+it.state);
-  it.st.title=it.st.textContent;li.querySelector('button').hidden=!FB_UP_LIVE.has(it.state);}
+  it.st.title=it.st.textContent;it.stop.hidden=!FB_UP_LIVE.has(it.state);it.again.hidden=!FB_UP_AGAIN.has(it.state);}
 // The panel's head line: how far the whole batch is, and the buttons that fit (stop all while busy, close after).
 function fbUpShow(){const box=$('fb-upl');const all=fbu.items;box.hidden=!all.length;if(!all.length)return;
   const bytes=all.reduce((a,it)=>a+it.file.size,0)||1,sent=all.reduce((a,it)=>a+(it.state==='done'?it.file.size:it.sent),0);
@@ -547,6 +549,9 @@ function fbUpload(items,path=fb.path){if(!items.length||!fb.root)return;const at
   for(const x of items){const it={...x,...at,state:'wait',sent:0,ctl:new AbortController()};fbu.items.push(it);list.append(fbUpItem(it));}
   fbUpShow();if(!fbu.busy)fbUpRun();}
 function fbUpStop(it){if(!FB_UP_LIVE.has(it.state))return;it.state='stop';it.ctl.abort();fbUpPaint(it);fbUpShow();}
+// The server kept the pieces that landed, so sending the same file again starts after them.
+const FB_UP_AGAIN=new Set(['stop','fail']);
+function fbUpResume(it){if(!FB_UP_AGAIN.has(it.state))return;it.state='wait';it.msg='';it.ctl=new AbortController();fbUpPaint(it);fbUpShow();if(!fbu.busy)fbUpRun();}
 // What to do with a name the folder already has; "the rest too" answers once for the whole batch.
 async function fbUpTaken(it){if(fbu.taken)return fbu.taken;const more=fbu.items.some((x)=>x!==it&&x.state==='wait');
   const how=(v,k)=>({value:v,label:topText(k)});
@@ -776,7 +781,8 @@ function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rel
     add('fb.cut','cut',()=>fbClip('cut'));add('fb.copy','copy',()=>fbClip('copy'));
     if(one)add('fb.rename','rename',()=>fbRename(one));
     if(fb.clip){add('fb.paste','paste',fbPaste);add('fb.clipDrop','stop',fbClipDrop);}
-    add('fb.move','move',fbMove);add('fb.trash','trash',()=>fbTrash(rels),true);add('fb.props','props',fbProps);
+    add('fb.move','move',fbMove);add('fb.trash','trash',()=>fbTrash(rels),true);
+    if(fb.undos.length)add('fb.undo','undo',fbUndo);if(fb.redos.length)add('fb.redo','refresh',fbRedo);add('fb.props','props',fbProps);
 }
   else{add('fb.newFolder','mkdir',fbMkdir);add('fb.upload','upload',()=>$('fb-file').click());add('fb.uploadDir','open',()=>$('fb-dir').click());
     if(fbPhone()&&fb.root!=='incoming')add('fb.tidy','tidy',fbTidy);

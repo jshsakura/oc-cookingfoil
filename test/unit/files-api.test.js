@@ -395,6 +395,9 @@ test("a folder's link sends one zip, and a password keeps the bytes behind the r
   assert.equal(live.shares[0].locked, true);
   assert.ok(!JSON.stringify(live).includes("hash"), "the hash stays on the server");
   fs.rmSync(path.join(games.dir, "Pack"), { recursive: true, force: true });
+  const ended = await fetch(url(`/share/${"x".repeat(32)}`), { headers: { "Accept-Language": "ko" } });
+  assert.equal(ended.status, 404);
+  assert.match(await ended.text(), /이 링크는 끝났거나 없는 링크입니다/, "a dead link says so in the visitor's language");
 });
 
 test("a share link sends one file to anyone until it runs out or is ended, and only its hash is kept", async () => {
