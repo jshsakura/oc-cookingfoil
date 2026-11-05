@@ -11,9 +11,9 @@
  *
  * Brute force: a wrong password at pairing, the web form or an automation
  * token counts toward a per-address lockout (recordFailure). At the threshold
- * (default 5) the address gets a hard 429. Lockouts persist
- * (COOK_LOCKOUT_TTL_HOURS=0, default) until an admin unlocks via POST
- * /api/admin/unlock, OR auto-expire if the env sets a TTL.
+ * (default 5) the address gets a hard 429. Lockouts end after
+ * COOK_LOCKOUT_TTL_HOURS (default 1), or sooner when an admin unlocks via POST
+ * /api/admin/unlock; 0 keeps them until the unlock.
  */
 import { GAME_FILE_RE } from "../helpers/file-send.js";
 import crypto from "crypto";
@@ -27,8 +27,7 @@ import { lockoutRetryAfter, tooManyRequests } from "./retry-after.js";
 import { denyResponse, DENY } from "./deny.js";
 import { noteProxyCollapse } from "./proxy-check.js";
 import { trustedHere } from "./net.js";
-import { maxAuthFailures as MAX_FAILURES } from "./limits.js";
-import { envNumber } from "../helpers/env-read.js";
+import { lockoutTtlMs, maxAuthFailures as MAX_FAILURES } from "./limits.js";
 import { alert } from "../helpers/alerts.js";
 import { noteFailure } from "./security-watch.js";
 import { webUser } from "./user-session.js";
@@ -39,7 +38,6 @@ import { noteRefusal } from "./auth-log.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
 import { vouch } from "./server-id.js";
 
-const LOCKOUT_TTL_MS = envNumber("COOK_LOCKOUT_TTL_HOURS", 0, { min: 0 }) * 60 * 60 * 1000;
 
 export function clientIp(req) {
   // Prefers req.ip when `trust proxy` is on and an X-Forwarded-For arrived;
@@ -269,13 +267,13 @@ export function recordFailure(ip, req) {
   );
   noteFailure(ip, next.count, req.path, MAX_FAILURES);
   if (next.count >= MAX_FAILURES) {
-    store.lock(ip, { reason: "too many failed auth attempts", ttlMs: LOCKOUT_TTL_MS });
+    store.lock(ip, { reason: "too many failed auth attempts", ttlMs: lockoutTtlMs });
     alert("lockout", (t) => t("lockout"), { subject: ip });
     debug.error(
       "security: %s LOCKED OUT after %d failures (ttl=%s)",
       ip,
       next.count,
-      LOCKOUT_TTL_MS > 0 ? `${LOCKOUT_TTL_MS}ms` : "forever (admin unlock)"
+      lockoutTtlMs > 0 ? `${lockoutTtlMs}ms` : "forever (admin unlock)"
     );
   }
 }

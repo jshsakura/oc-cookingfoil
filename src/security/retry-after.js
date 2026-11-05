@@ -3,12 +3,12 @@
  * requests, from client 0.3.15) for exactly that long, so a 429 without one
  * leaves it guessing and retrying too soon.
  *
- * A lockout says how much of it is left. Lockouts have no end by default
- * (COOK_LOCKOUT_TTL_HOURS=0, until an admin unlocks the address); those get an
- * hour, long enough that a locked console stops knocking, short enough that an
- * unlocked one comes back on its own.
+ * A lockout says how much of it is left. One with no end (COOK_LOCKOUT_TTL_HOURS=0,
+ * until an admin unlocks the address) gets an hour, long enough that a locked console
+ * stops knocking, short enough that an unlocked one comes back on its own.
  */
 import * as store from "./store.js";
+import { securityText } from "./security-messages.js";
 
 export const LOCKOUT_RETRY_AFTER_SEC = 3600;
 
@@ -28,4 +28,10 @@ export function tooManyRequests(res, seconds) {
 export function lockoutRetryAfter(ip) {
   const ms = store.lockRemainingMs(ip);
   return ms === null ? LOCKOUT_RETRY_AFTER_SEC : ms / 1000;
+}
+
+/** What a person at a locked address is told: when it opens, and who can open it sooner. */
+export function lockNotice(lang, ip) {
+  const ms = store.lockRemainingMs(ip);
+  return ms === null ? securityText(lang, "lock.noEnd") : securityText(lang, "lock.timed", { minutes: Math.ceil(ms / 60000) });
 }

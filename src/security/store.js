@@ -339,7 +339,9 @@ export function isLocked(ip) {
   const entry = state.lockouts.get(ip);
   if (!entry) return false;
   if (entry.until !== null && entry.until !== undefined && Date.now() >= entry.until) {
+    // A finished lock starts the count over, or the next typo would lock the address again.
     state.lockouts.delete(ip);
+    state.failures.delete(ip);
     scheduleFlush();
     return false;
   }

@@ -36,8 +36,7 @@ import path from "path";
 import * as patchInfo from "../../meta/patch-info.js";
 import multer from "multer";
 import debug from "../../debug.js";
-import { dataDir, homebrewDir, patchesDir, publicBaseUrl, retroDir, romsDirPath, savesDir } from "../../helpers/envs.js";
-import { resolveOrigin } from "../../helpers/origin.js";
+import { dataDir, homebrewDir, patchesDir, retroDir, romsDirPath, savesDir } from "../../helpers/envs.js";
 import { libraryGames } from "../../meta/library-games.js";
 import { savesCatalog } from "../saves.js";
 import * as retroCatalog from "../../retro/catalog.js";
@@ -63,6 +62,7 @@ import {
 import * as chunks from "../../meta/upload-chunks.js";
 import { FILE_ROOT_KEYS } from "../../library/file-roots.js";
 import { placeFolderKind, refuse } from "../../meta/folder-place.js";
+import { sameOrigin } from "../../security/same-origin.js";
 
 const KINDS = ["game", "retro", "patch", "save", "homebrew", "client", "core"];
 
@@ -210,8 +210,7 @@ export function mountUploadApi(router, guard) {
 
   router.post("/api/upload/:kind", async (req, res) => {
     if (!guard(req, res)) return;
-    const origin = req.get("Origin");
-    if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
+    if (!sameOrigin(req)) return res.status(403).json({ error: "origin mismatch" });
     const kind = req.params.kind;
     if (!(await ready(req, res, kind))) return;
     // No size cap: a body the disk cannot hold is the only refusal, so its length must be known first.

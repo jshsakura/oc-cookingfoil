@@ -16,11 +16,13 @@ import path from "path";
 import debug from "../debug.js";
 import { romsDirPath } from "../helpers/envs.js";
 import * as store from "./store.js";
-import { lockoutRetryAfter } from "./retry-after.js";
+import { lockNotice, lockoutRetryAfter } from "./retry-after.js";
+import { lockedPage } from "./locked-page.js";
+import { requestLang } from "../meta/langs.js";
 import { recordDeny, denyResponse, DENY } from "./deny.js";
 import { hasValidSession } from "./admin-session.js";
 import { trustedHere } from "./net.js";
-import { maxAuthFailures } from "./limits.js";
+import { lockoutTtlMs, maxAuthFailures } from "./limits.js";
 import { alert } from "../helpers/alerts.js";
 
 const MAX_URI_LENGTH = 4096;
@@ -79,7 +81,7 @@ function flag(req, reason) {
   store.setFailure(ip, next);
   const MAX = maxAuthFailures;
   if (next.count >= MAX) {
-    store.lock(ip, { reason: `probe: ${reason}`, ttlMs: 0 });
+    store.lock(ip, { reason: `probe: ${reason}`, ttlMs: lockoutTtlMs });
     debug.error("security: %s LOCKED OUT after %d probe(s)", ip, next.count);
   }
 }
@@ -111,6 +113,10 @@ export default function accessGuard() {
         status: 429,
         retryAfter: lockoutRetryAfter(ip),
         body: "Locked out — contact administrator.\n",
+        browser: {
+          html: () => lockedPage(requestLang(req), lockNotice(requestLang(req), ip), lockoutRetryAfter(ip)),
+          json: () => ({ ok: false, error: "locked", message: lockNotice(requestLang(req), ip) }),
+        },
       });
       return;
     }

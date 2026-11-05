@@ -13,6 +13,9 @@ export const maxAuthFailures = envNumber("COOK_AUTH_MAX_FAILURES", 5, {
   integer: true,
 });
 
+/** How long a lockout lasts; 0 keeps it until an admin unlocks the address. */
+export const lockoutTtlMs = envNumber("COOK_LOCKOUT_TTL_HOURS", 1, { min: 0 }) * 60 * 60 * 1000;
+
 /**
  * Loopback callers (you, your dev box, the docker host on bridge mode) skip
  * lockout/probe tracking — they already have local shell access. Set

@@ -42,7 +42,6 @@ import fsp from "fs/promises";
 import * as inbox from "../meta/inbox.js";
 import * as envs from "../helpers/envs.js";
 import { alert } from "../helpers/alerts.js";
-import { resolveOrigin } from "../helpers/origin.js";
 import { csrfOk, webUser } from "../security/user-session.js";
 import { createKeyRate } from "../security/key-rate.js";
 import debug from "../debug.js";
@@ -51,6 +50,7 @@ import { requestLang } from "../meta/langs.js";
 import * as chunks from "../meta/upload-chunks.js";
 import { moveFile } from "../meta/library-upload.js";
 import { chunkErrorBody, mountWebChunks } from "./web-chunks.js";
+import { sameOrigin } from "../security/same-origin.js";
 
 export const RATE_MAX = 5;
 const RATE_WINDOW_MS = 60_000;
@@ -141,8 +141,7 @@ const tellAdmin = (text, id) => alert("inbox", text, { subject: id });
 
 /** A write from this site's page carrying its CSRF token; otherwise the refusal is answered and false returned. */
 function writeOk(req, res, csrf = csrfOk) {
-  const origin = req.get("Origin");
-  if (origin && origin !== resolveOrigin(req, envs.publicBaseUrl)) return void fail(req, res, 403, "origin", "origin mismatch");
+  if (!sameOrigin(req)) return void fail(req, res, 403, "origin", "origin mismatch");
   if (!csrf(req)) return void fail(req, res, 403, "csrf", "csrf token missing or wrong");
   return true;
 }

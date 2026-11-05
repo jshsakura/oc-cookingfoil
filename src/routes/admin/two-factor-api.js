@@ -21,10 +21,9 @@ import {
 } from "../../security/admin-secret.js";
 import * as totpGuard from "../../security/totp-guard.js";
 import { clientIp } from "../../security/deny.js";
-import { resolveOrigin } from "../../helpers/origin.js";
-import { publicBaseUrl } from "../../helpers/envs.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
+import { sameOrigin as ownSite } from "../../security/same-origin.js";
 
 // Sign-in codes are counted against one admin account, as on the sign-in page (routes/admin-page.js).
 const TOTP_ACCOUNT = "admin";
@@ -38,8 +37,7 @@ function status() {
 
 export function mountTwoFactorApi(router, { requireSession }) {
   const sameOrigin = (req, res) => {
-    const origin = req.get("Origin");
-    if (!origin || origin === resolveOrigin(req, publicBaseUrl)) return true;
+    if (ownSite(req)) return true;
     res.status(403).json({ error: "origin mismatch" });
     return false;
   };

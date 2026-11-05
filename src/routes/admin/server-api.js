@@ -15,12 +15,11 @@
  * open while the server drains (security/drain.js), so the page can watch it.
  */
 import defaultDrainer from "../../security/drain.js";
-import { resolveOrigin } from "../../helpers/origin.js";
-import { publicBaseUrl } from "../../helpers/envs.js";
 import * as defaultActivity from "../../tasks/activity.js";
 import debug from "../../debug.js";
 import { hasValidSession } from "../../security/admin-session.js";
 import { apiWord } from "./api-words.js";
+import { sameOrigin } from "../../security/same-origin.js";
 
 export function mountServerApi(router, requireSession, { drainer = defaultDrainer, activity = defaultActivity } = {}) {
   // The router already checks the admin account. Probe the second step without a denial log.
@@ -48,8 +47,7 @@ export function mountServerApi(router, requireSession, { drainer = defaultDraine
   router.post("/api/server/restart", (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
-    const origin = req.get("Origin");
-    if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
+    if (!sameOrigin(req)) return res.status(403).json({ error: "origin mismatch" });
     if (!drainer.hasRestartHandler()) return res.status(503).json({ error: apiWord(req, "server.noRestart") });
     // The answer goes out before the drain starts, so this request is never the one waited for.
     res.once("finish", () => setImmediate(() => {

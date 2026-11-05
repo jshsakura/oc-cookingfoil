@@ -30,6 +30,7 @@ async function login(page: Page, who: { name: string; password: string }) {
 async function adminAccount(page: Page) {
   await signIn(page);
   expect((await page.request.post('/admin/api/users', { data: { ...ADMIN, role: 'admin' } })).status()).toBe(201);
+  await page.context().clearCookies({ name: 'cf_user' });
   await login(page, ADMIN);
 }
 

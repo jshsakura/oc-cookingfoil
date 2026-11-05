@@ -87,6 +87,11 @@ export function issuePasswordSession(req, res, name) {
   res.append("Set-Cookie", cookieLine(req, SESSION_COOKIE, seal({ user: name, s: users.sessionStamp(name) }, SESSION_MS), { maxAgeMs: SESSION_MS }));
 }
 
+/** A fresh session after `name`'s password changed, of the same kind as the one this browser holds. */
+export function renewPasswordSession(req, res, name) {
+  (unseal(cookies(req)[SESSION_COOKIE])?.pk ? issuePasskeySession : issuePasswordSession)(req, res, name);
+}
+
 /** Signed in with a passkey that an ID account added: it outlives ID and password sign-in being switched off. */
 export function issuePasskeySession(req, res, name) {
   res.append("Set-Cookie", cookieLine(req, SESSION_COOKIE, seal({ user: name, s: users.sessionStamp(name), pk: 1 }, SESSION_MS), { maxAgeMs: SESSION_MS }));

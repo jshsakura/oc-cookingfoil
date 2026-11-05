@@ -32,8 +32,7 @@ import fs from "fs";
 import { rawOrChunk } from "../../meta/upload-chunks.js";
 import path from "path";
 import debug from "../../debug.js";
-import { dataDir, publicBaseUrl, ratingSync, retroDir } from "../../helpers/envs.js";
-import { resolveOrigin } from "../../helpers/origin.js";
+import { dataDir, ratingSync, retroDir } from "../../helpers/envs.js";
 import { refreshRatings } from "../../retro/art/ratings.js";
 import * as retroCatalog from "../../retro/catalog.js";
 import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
@@ -54,6 +53,7 @@ import { trashFiles, TrashError } from "../../retro/trash.js";
 import { actorOf } from "../../library/trash-service.js";
 import { requestLang } from "../../meta/langs.js";
 import { ACTIVITY_LANG, RetroError, retroError, retroText, retroWord } from "../../retro/retro-messages.js";
+import { sameOrigin } from "../../security/same-origin.js";
 
 let job = null; // { system, startedAt, progress, finishedAt?, summary?, error? }
 
@@ -248,8 +248,7 @@ export function mountRetroArtApi(router, requireSession) {
   const imageBody = rawOrChunk({ type: "image/*", limit: art.MAX_COVER_BYTES });
   // The session is checked before the body is read, so only an admin can send megabytes.
   router.post("/api/retro-art/cover/upload", guarded(async (req, res) => {
-    const origin = req.get("Origin");
-    if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
+    if (!sameOrigin(req)) return res.status(403).json({ error: "origin mismatch" });
     const bad = await new Promise((resolve) => imageBody(req, res, resolve));
     if (bad) return res.status(bad.type === "entity.too.large" ? 413 : 400).json(retroError(req, RetroError.of(bad.type === "entity.too.large" ? "art.tooBig" : "art.uploadFailed")));
     if (!Buffer.isBuffer(req.body)) return res.status(415).json(retroError(req, RetroError.of("art.needImage", {}, 415)));

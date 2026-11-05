@@ -56,12 +56,15 @@ export function recordDeny(req, { reason, status, deviceKey = null, user = null,
  * Record the refusal AND write the standard response: the reason header plus a
  * plain-text body. Keeps every guard's deny path down to one line.
  */
-export function denyResponse(req, res, { reason, status = 403, body, retryAfter: wait, ...rest }) {
+export function denyResponse(req, res, { reason, status = 403, body, retryAfter: wait, browser, ...rest }) {
   const entry = recordDeny(req, { reason, status, ...rest });
   res.set("Cache-Control", "no-store");
   // A 429 always says when to come back; a lockout with no end gets the fallback.
   if (status === 429) retryAfter(res, wait ?? LOCKOUT_RETRY_AFTER_SEC);
   res.set("X-CookingFoil-Deny", reason);
+  // A person gets words: a page when one was opened, the message when a page's own fetch asked. A console reads the plain line.
+  if (browser && (req.headers.accept ?? "").includes("text/html")) return res.status(status).type("html").send(browser.html()), entry;
+  if (browser && req.headers["sec-fetch-mode"]) return res.status(status).json(browser.json()), entry;
   res.status(status).type("text/plain").send(body ?? defaultBody(reason));
   return entry;
 }

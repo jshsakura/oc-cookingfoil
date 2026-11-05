@@ -33,7 +33,7 @@ import * as enrollTokens from "../security/enroll-tokens.js";
 import express from "express";
 
 import * as store from "../security/store.js";
-import { lockoutRetryAfter, tooManyRequests } from "../security/retry-after.js";
+import { lockNotice, lockoutRetryAfter, tooManyRequests } from "../security/retry-after.js";
 import {
   verifyTotp,
   verifyPassword,
@@ -120,10 +120,8 @@ import { deviceLimitRefusal } from "../security/device-limit.js";
 import { apiWord } from "./admin/api-words.js";
 import { pairPage } from "./admin/pair-page.js";
 import { guidePage } from "./admin/guide-page.js";
-import { resolveOrigin } from "../helpers/origin.js";
-import { publicBaseUrl } from "../helpers/envs.js";
 import * as envs from "../helpers/envs.js";
-import { sameOriginWrites } from "../security/same-origin.js";
+import { sameOrigin, sameOriginWrites } from "../security/same-origin.js";
 import { sendVendor } from "./admin/grid.js";
 import { securityText } from "../security/security-messages.js";
 import { parseLang, requestLang } from "../meta/langs.js";
@@ -289,8 +287,7 @@ export default function adminPageRouter() {
     res.set("Cache-Control", "no-store");
     if (!devicePairing) return res.status(404).send("not found");
     if (!requireSession(req, res)) return;
-    const origin = req.get("Origin");
-    if (origin && origin !== resolveOrigin(req, publicBaseUrl))
+    if (!sameOrigin(req))
       return res.status(403).json({ error: "origin mismatch" });
     const result = approvePairLink(req.params.token, { label: req.body?.label, addedBy: adminApprover(req) });
     if (result === "expired") return res.status(410).json({ error: "pair link expired" });
@@ -395,7 +392,7 @@ export default function adminPageRouter() {
     const mode = loginMode();
     const ip = clientIp(req);
     const trusted = trustedHere(req);
-    if (!trusted && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ ok: false });
+    if (!trusted && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ ok: false, message: lockNotice(requestLang(req), ip) });
     const byPassword = mode !== "code" && typeof req.body?.password === "string" && (await verifyPassword(req.body.password));
     const triesCode = !byPassword && mode !== "password" && req.body?.code !== undefined;
     // Wrong codes are counted with no loopback or sign-in exemption (security/totp-guard.js).

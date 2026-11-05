@@ -27,13 +27,12 @@ import { rawOrChunk } from "../../meta/upload-chunks.js";
 import path from "path";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
-import { patchesDir, savesDir, homebrewDir, publicBaseUrl } from "../../helpers/envs.js";
+import { patchesDir, savesDir, homebrewDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
 import { defaultService, manualApps, refreshManual } from "../homebrew.js";
 import { forgetZipCopies, heldManual, installPathFor } from "../../meta/homebrew.js";
 import * as media from "../../meta/homebrew-media.js";
 import * as integrations from "../../security/integrations.js";
-import { resolveOrigin } from "../../helpers/origin.js";
 import { forgetExtras } from "../../meta/homebrew-forget.js";
 import * as itemVerified from "../../meta/item-verified.js";
 import debug from "../../debug.js";
@@ -42,6 +41,7 @@ import { forgetMarks, marksOf } from "../../library/trash-marks.js";
 import { apiWord } from "./api-words.js";
 import { metaErrorText } from "../../meta/meta-messages.js";
 import { requestLang } from "../../meta/langs.js";
+import { sameOrigin } from "../../security/same-origin.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
@@ -154,8 +154,7 @@ export function mountHomebrewAppsApi(router, requireSession) {
   const imageBody = rawOrChunk({ type: "image/*", limit: MAX_IMAGE_BYTES });
   /** The app and the image body of an upload, or null once an answer has gone out. The session is checked first. */
   const readUpload = async (req, res) => {
-    const origin = req.get("Origin");
-    if (origin && origin !== resolveOrigin(req, publicBaseUrl)) return void res.status(403).json({ error: "origin mismatch" });
+    if (!sameOrigin(req)) return void res.status(403).json({ error: "origin mismatch" });
     const app = await appOf(req.query.id);
     if (!app) return void res.status(404).json({ error: apiWord(req, "homebrew.noApp") });
     const bad = await new Promise((resolve) => imageBody(req, res, resolve));

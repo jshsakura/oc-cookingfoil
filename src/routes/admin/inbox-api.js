@@ -13,10 +13,10 @@
 import path from "path";
 import * as inbox from "../../meta/inbox.js";
 import * as envs from "../../helpers/envs.js";
-import { resolveOrigin } from "../../helpers/origin.js";
 import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
 import { actorOf } from "../../library/trash-service.js";
+import { sameOrigin } from "../../security/same-origin.js";
 
 const SHOW = { open: false, done: true, all: undefined };
 
@@ -25,8 +25,7 @@ export function mountInboxApi(router, requireSession) {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");
     if (req.method !== "GET") {
-      const origin = req.get("Origin");
-      if (origin && origin !== resolveOrigin(req, envs.publicBaseUrl)) return res.status(403).json({ error: "origin mismatch" });
+      if (!sameOrigin(req)) return res.status(403).json({ error: "origin mismatch" });
     }
     try {
       await fn(req, res);

@@ -20,7 +20,9 @@ import { renderSVG } from "uqr";
 import * as setup from "../security/setup.js";
 import * as users from "../security/users.js";
 import * as store from "../security/store.js";
-import { lockoutRetryAfter, tooManyRequests } from "../security/retry-after.js";
+import { lockNotice, lockoutRetryAfter, tooManyRequests } from "../security/retry-after.js";
+import { trustedHere } from "../security/net.js";
+import { requestLang } from "../meta/langs.js";
 import { cookieLine, cookies, issuePasswordSession } from "../security/user-session.js";
 import { codeMatches as totpMatches, issueSession, provisioningUri } from "../security/admin-session.js";
 import { startEnrollment, pendingSecret, commitEnrollment } from "../security/admin-secret.js";
@@ -34,6 +36,7 @@ import { RECOMMENDED, installChosen } from "../plugins/recommended.js";
 import { pluginInstaller, pluginRegistry } from "../plugins/instance.js";
 
 import debug from "../debug.js";
+import { sameOrigin } from "../security/same-origin.js";
 
 const COOKIE = "cf_setup";
 const TOKEN_MS = 30 * 60 * 1000;
@@ -53,7 +56,7 @@ function guard(req, res, { unlocked = true } = {}) {
   if (!setup.setupOpen()) return res.status(410).json({ error: "setup-closed" }), false;
   const origin = req.get("Origin");
   const expected = resolveOrigin(req, publicBaseUrl);
-  if (origin && origin !== expected) {
+  if (!sameOrigin(req)) {
     debug.log("setup: refused a request from %s, the server sees itself as %s; behind a proxy or tunnel, set COOK_TRUST_PROXY to its hops", origin, expected);
     return res.status(403).json({ error: "origin" }), false;
   }
@@ -92,9 +95,11 @@ export default function setupRouter() {
   router.post("/setup/api/unlock", (req, res) => {
     if (!guard(req, res, { unlocked: false })) return;
     const ip = clientIp(req);
-    if (store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked-out" });
+    // The operator's own machine reads the log and is never locked out of its own setup.
+    const trusted = trustedHere(req);
+    if (!trusted && store.isLocked(ip)) return tooManyRequests(res, lockoutRetryAfter(ip)).json({ error: "locked-out", message: lockNotice(requestLang(req), ip) });
     if (!setup.codeMatches(req.body?.code)) {
-      recordFailure(ip, req);
+      if (!trusted) recordFailure(ip, req);
       return res.status(401).json({ error: "bad-code" });
     }
     store.clearFailure(ip);

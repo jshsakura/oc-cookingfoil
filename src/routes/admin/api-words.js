@@ -158,6 +158,7 @@ export const API_WORDS = {
     "upload.badName": "파일 이름이 올바르지 않습니다",
     "upload.noSpace": "디스크 여유 공간이 모자랍니다 (필요 {need}, 남은 {free})",
     "token.needAccount": "관리자 계정으로 로그인한 뒤에 만들 수 있습니다",
+    "account.last": "마지막 계정은 지울 수 없습니다. 지우면 관리자가 들어올 길이 없어집니다.",
     "account.lastPassword": "Google 로 로그인하는 동안에는 마지막 비밀번호 계정을 지울 수 없습니다. 지우면 서버가 비밀번호 없이 열립니다.",
   },
   en: {
@@ -310,6 +311,7 @@ export const API_WORDS = {
     "upload.badName": "That file name is not valid",
     "upload.noSpace": "Not enough free disk space (need {need}, free {free})",
     "token.needAccount": "Sign in with an admin account to make one",
+    "account.last": "The last account cannot be deleted. Without it no admin could get back in.",
     "account.lastPassword": "While signed in with Google, the last password account cannot be deleted. Deleting it would leave the server open without a password.",
   },
   ja: {
@@ -462,6 +464,7 @@ export const API_WORDS = {
     "upload.badName": "ファイル名が正しくありません",
     "upload.noSpace": "ディスクの空き容量が足りません (必要 {need}、空き {free})",
     "token.needAccount": "管理者アカウントでログインしてから作れます",
+    "account.last": "最後のアカウントは削除できません。削除すると管理者が入れなくなります。",
     "account.lastPassword": "Google でログインしている間は、最後のパスワードアカウントを削除できません。削除するとサーバーがパスワードなしで開かれます。",
   },
   zh: {
@@ -614,6 +617,7 @@ export const API_WORDS = {
     "upload.badName": "文件名无效",
     "upload.noSpace": "磁盘可用空间不足 (需要 {need}，剩余 {free})",
     "token.needAccount": "请先用管理员账号登录再创建",
+    "account.last": "不能删除最后一个账号。删除后管理员将无法进入。",
     "account.lastPassword": "使用 Google 登录期间，不能删除最后一个密码账号。删除后服务器将无需密码即可访问。",
   },
   "zh-Hant": {
@@ -766,6 +770,7 @@ export const API_WORDS = {
     "upload.badName": "檔案名稱無效",
     "upload.noSpace": "磁碟可用空間不足 (需要 {need}，剩餘 {free})",
     "token.needAccount": "請先用管理員帳戶登入再建立",
+    "account.last": "無法刪除最後一個帳戶。刪除後管理員將無法進入。",
     "account.lastPassword": "以 Google 登入期間，無法刪除最後一個密碼帳戶。刪除會讓伺服器變成無密碼開放。",
   },
   "es": {
@@ -918,6 +923,7 @@ export const API_WORDS = {
     "upload.badName": "El nombre del archivo no es válido",
     "upload.noSpace": "No hay suficiente espacio libre en el disco (necesario {need}, libre {free})",
     "token.needAccount": "Inicia sesión con una cuenta de administrador para hacer uno",
+    "account.last": "La última cuenta no se puede borrar. Sin ella ningún administrador podría volver a entrar.",
     "account.lastPassword": "Mientras se entra con Google, no se puede borrar la última cuenta con contraseña. Borrarla dejaría el servidor abierto sin contraseña.",
   },
   "fr": {
@@ -1070,6 +1076,7 @@ export const API_WORDS = {
     "upload.badName": "Ce nom de fichier n’est pas valide",
     "upload.noSpace": "Espace disque libre insuffisant (nécessaire {need}, libre {free})",
     "token.needAccount": "Connectez-vous avec un compte admin pour en créer un",
+    "account.last": "Le dernier compte ne peut pas être supprimé. Sans lui, aucun administrateur ne pourrait revenir.",
     "account.lastPassword": "Pendant la connexion par Google, le dernier compte à mot de passe ne peut pas être supprimé. Le supprimer laisserait le serveur ouvert sans mot de passe.",
   },
   "de": {
@@ -1222,6 +1229,7 @@ export const API_WORDS = {
     "upload.badName": "Dieser Dateiname ist ungültig",
     "upload.noSpace": "Nicht genug freier Speicherplatz (benötigt {need}, frei {free})",
     "token.needAccount": "Melde dich mit einem Admin-Konto an, um eines zu erstellen",
+    "account.last": "Das letzte Konto lässt sich nicht löschen. Ohne es käme kein Admin mehr hinein.",
     "account.lastPassword": "Solange du mit Google angemeldet bist, lässt sich das letzte Passwort-Konto nicht löschen. Ohne es stünde der Server ohne Passwort offen.",
   },
   "it": {
@@ -1374,6 +1382,7 @@ export const API_WORDS = {
     "upload.badName": "Il nome del file non è valido",
     "upload.noSpace": "Spazio libero su disco insufficiente (necessario {need}, libero {free})",
     "token.needAccount": "Accedi con un account amministratore per crearne uno",
+    "account.last": "L'ultimo account non si può eliminare. Senza di esso nessun amministratore potrebbe rientrare.",
     "account.lastPassword": "Mentre si accede con Google, l'ultimo account con password non si può eliminare. Eliminarlo lascerebbe il server aperto senza password.",
   },
   "pt": {
@@ -1526,6 +1535,7 @@ export const API_WORDS = {
     "upload.badName": "O nome do arquivo não é válido",
     "upload.noSpace": "Espaço livre em disco insuficiente (necessário {need}, livre {free})",
     "token.needAccount": "Entre com uma conta de administrador para criar um",
+    "account.last": "A última conta não pode ser excluída. Sem ela nenhum administrador conseguiria voltar.",
     "account.lastPassword": "Enquanto estiver logado com Google, a última conta com senha não pode ser excluída. Excluí-la deixaria o servidor aberto sem senha.",
   },
   "nl": {
@@ -1678,6 +1688,7 @@ export const API_WORDS = {
     "upload.badName": "Die bestandsnaam is ongeldig",
     "upload.noSpace": "Te weinig vrije schijfruimte (nodig {need}, vrij {free})",
     "token.needAccount": "Log in met een beheerdersaccount om er een te maken",
+    "account.last": "Het laatste account kan niet verwijderd worden. Zonder dat kan geen beheerder meer binnenkomen.",
     "account.lastPassword": "Zolang je met Google bent ingelogd, kan het laatste wachtwoord-account niet verwijderd worden. Verwijderen zou de server zonder wachtwoord openlaten.",
   },
   "ru": {
@@ -1830,6 +1841,7 @@ export const API_WORDS = {
     "upload.badName": "Недопустимое имя файла",
     "upload.noSpace": "Недостаточно свободного места на диске (нужно {need}, свободно {free})",
     "token.needAccount": "Войдите с аккаунтом администратора, чтобы создать его",
+    "account.last": "Последний аккаунт удалить нельзя. Без него ни один администратор не сможет войти.",
     "account.lastPassword": "Пока выполнен вход через Google, последний аккаунт с паролем удалить нельзя. Удаление оставило бы сервер открытым без пароля.",
   },
 };

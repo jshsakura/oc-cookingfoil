@@ -39,8 +39,14 @@ test('an account created in the admin page signs in at /login, a password alone 
     expect(r.headers()['www-authenticate']).toBeUndefined();
   }
 
-  // With an account the web needs a session: the page is sent to /login (no
+  // Whoever made the first account stays in: closing its password window locks nobody out.
+  await expect(page.locator('#users')).toContainText(NAME);
+  expect(page.url()).not.toContain('/login');
+
+  // With an account the web needs a session: without one the page is sent to /login (no
   // password popup) and comes back to the admin page after signing in.
+  await page.context().clearCookies({ name: 'cf_user' });
+  await page.goto('/admin/users');
   await page.waitForURL(/\/login\?next=/);
   expect((await request.get('/', { headers: { Accept: 'text/html', 'Sec-Fetch-Mode': 'navigate' }, maxRedirects: 0 })).headers()['www-authenticate']).toBeUndefined();
   await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
@@ -687,6 +693,7 @@ test('a console no account holds is linked to an account from its row, keeping i
   const pending = await (await request.get('/api/pair/status', { headers: { 'X-Device-Key': KEY } })).json();
   expect((await page.request.post('/admin/api/devices/approve', { data: { code: pending.pairCode, label: '거실 콘솔' }, headers: origin })).status()).toBe(200);
   expect((await page.request.post('/admin/api/users', { data: { name: NAME, password: PASSWORD, role: 'admin' }, headers: origin })).status()).toBe(201);
+  await page.context().clearCookies({ name: 'cf_user' });
   await page.goto('/login');
   await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
   await page.getByLabel(/^(비밀번호|Password)$/).fill(PASSWORD);
