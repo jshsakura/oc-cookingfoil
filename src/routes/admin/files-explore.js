@@ -43,7 +43,8 @@ export const EXPLORE_CSS = /* css */ `
 #fb.grid .fb-gicon{width:120px;height:120px;flex:0 0 120px;border-radius:var(--r-lg)}
 #fb.grid .fb-thumb{width:100%;height:120px;object-fit:contain;background:var(--sunk);border-radius:var(--r-md)}
 #fb.grid .fb-name button,#fb.grid .fb-name span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%;overflow-wrap:anywhere;text-align:center}
-@media (max-width:760px){#fb .fb-views,#fb .fb-deep{order:1}#fb.grid tbody{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}#fb.grid .fb-gicon{width:88px;height:88px;flex-basis:88px}}
+@media (max-width:760px),(hover:none){#fb.grid td.c-sel{opacity:1}}
+@media (max-width:760px){#fb .fb-views,#fb .fb-deep{order:1}#fb.grid td.c-sel{top:0;left:0;padding:8px}#fb.grid tbody{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}#fb.grid .fb-gicon{width:88px;height:88px;flex-basis:88px}}
 `;
 
 export const EXPLORE_SCRIPT = /* js */ `
@@ -74,6 +75,8 @@ $('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.
 const fbClipped=(rel)=>fb.clip?.mode==='cut'&&fb.clip.root===fb.root&&fb.clip.rels.includes(rel);
 function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fb.clip={mode,root:fb.root,rels};fbCmds();
   for(const r of document.querySelectorAll('#fb-rows tr'))r.classList.toggle('fb-cut',fbClipped(r.dataset.rel));
+  // On a phone a held pick turns taps into picks, and the next tap has to walk to where this goes.
+  if(fbPhone()){fb.sel.clear();fb.anchor=null;fbPaint();}
   toast(topFill(mode==='cut'?'fb.clipCut':'fb.clipCopy',{n:num(rels.length)}));}
 async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,path:fb.path};
   if(c.mode==='cut'){fb.clip=null;await fbMoveTo(c.rels,to.root,to.path,c.root);return;}

@@ -5,7 +5,8 @@
  * and the pager. The folder lives in the address (?tab=folder&path=), so back, reload and links land on it.
  * The move dialog still has a root picker, so a move can cross folders. Rows pick like a desktop file
  * manager: a click picks one, Ctrl or Cmd adds, Shift takes a range, a double click or Enter opens, the
- * arrows walk the list, and a right click (or the menu key) opens a menu of what the pick allows. Rows dragged
+ * arrows walk the list, and a right click (or the menu key) opens a menu of what the pick allows. On a phone a
+ * tap opens, a check box or a tap during a pick picks, and the pick's actions wait in the bottom bar. Rows dragged
  * onto a folder or the path move there; a pick or a folder comes down as one zip; images and text open in a preview.
  * Everything is scoped under #fb so it never restyles the rest of the page.
  */
@@ -22,7 +23,8 @@ export const FILES_CSS = /* css */ `
 #fb .fb-roots button{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 14px;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--panel);color:var(--muted);font-weight:700}
 #fb .fb-roots button[aria-pressed="true"]{background:rgba(var(--accent-rgb),.16);border-color:rgba(var(--accent-rgb),.55);color:var(--text)}
 #fb .fb-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-/* What can be done is always on the screen: an action that does not apply yet is dimmed, never hidden. */
+/* What can be done is always on the screen: an action that does not apply yet is dimmed, never hidden. A phone has no
+   room for that: its bar holds what works now, in words, and a pick's actions move to the bottom bar. */
 #fb .fb-cmds{container-type:inline-size;display:flex;align-items:center;gap:2px;flex-wrap:wrap;min-height:38px}
 #fb .fb-cmd{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 7px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-weight:var(--fw-bold);white-space:nowrap}
 #fb .fb-cmd[hidden]{display:none}
@@ -33,7 +35,7 @@ export const FILES_CSS = /* css */ `
 #fb .fb-sep{width:1px;height:20px;margin:0 3px;background:var(--line)}
 #fb .fb-nav .ib:disabled{opacity:.35;cursor:default}
 /* A narrow window keeps the icons; the names stay as tooltips. */
-@container (max-width:900px){#fb .fb-cmd:not(#fb-mkdir) span{display:none}#fb .fb-cmd:not(#fb-mkdir){padding:0 9px}}
+@media (min-width:761px){@container (max-width:900px){#fb .fb-cmd:not(#fb-mkdir) span{display:none}#fb .fb-cmd:not(#fb-mkdir){padding:0 9px}}}
 #fb thead [data-sort] span:last-child:not([data-top]){font-size:.7em;color:var(--muted);margin-left:4px}
 #fb .fb-crumb{flex:1 1 320px;display:flex;align-items:center;gap:2px;flex-wrap:wrap;min-width:0;margin:0;padding:0;list-style:none}
 #fb .fb-crumb li{display:flex;align-items:center;gap:2px;min-width:0}
@@ -104,6 +106,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-info{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 #fb .fb-foot[data-sel] .fb-info{color:var(--text);font-weight:700}
 #fb .fb-sel-act{display:flex;gap:6px}#fb .fb-foot:not([data-sel]) .fb-sel-act{display:none}
+#fb .fb-pick-acts{display:none}
 #fb .fb-note{display:none}
 /* 하위 폴더까지 widens a search, so it shows while there is something to search for. */
 #fb .fb-bar:has(#fb-q:placeholder-shown) .fb-deep{display:none}
@@ -173,11 +176,33 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
 #fb-move .fb-m-list .ico{color:var(--accent)}
 #fb-move .fb-m-list p{margin:12px;color:var(--muted)}
 /* A phone's top bar has no fixed height, so the header row scrolls with the table there. */
-@media (max-width:899px){#fb thead th{position:static}}
+@media (max-width:899px){#fb thead th{position:static}#fb .fb-seg:has(#fb-t-tree){display:none}}
 @media (max-width:760px){
-  #fb .c-mtime{display:none}#fb .c-size{width:84px}#fb .c-act{width:88px}
-  #fb .fb-act .fb-dl{display:none}
-  #fb .fb-q{flex:1 1 100%}
+  #fb .c-mtime,#fb .c-act{display:none}#fb .c-size{width:72px}
+  /* The browser has its own back and forward. The path takes the rest of the first line, the search and the view the second. */
+  #fb .fb-nav #fb-back,#fb .fb-nav #fb-fwd{display:none}
+  #fb .fb-crumb{flex:1 1 calc(100% - 96px)}
+  #fb .fb-q{flex:1 1 60%;order:1}
+  #fb .fb-cmd.fb-onpick,#fb .fb-cmd:disabled,#fb .fb-sep{display:none}
+  /* The name takes the row and whatever the row says about it goes under; the icon holds the left edge. */
+  #fb:not(.grid) .fb-name{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;justify-items:start}
+  #fb:not(.grid) .fb-name>:first-child{grid-row:1/span 6}
+  #fb:not(.grid) .fb-name>*:not(:first-child){grid-column:2;max-width:100%}
+  #fb:not(.grid) .fb-name>button,#fb:not(.grid) .fb-name>span:nth-child(2){white-space:normal;overflow-wrap:anywhere}
+  /* A tap on a row decides what happens to it, so the name inside is not a second, different target. */
+  #fb .fb-name>button{pointer-events:none}
+  #fb tbody tr{-webkit-touch-callout:none;user-select:none}
+  #fb .fb-foot[data-sel] .fb-info{margin-right:auto}
+  #fb .fb-foot[data-sel] .fb-pick-acts{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;flex:1 1 100%}
+  #fb .fb-pick-acts button{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;height:auto;min-height:52px;padding:6px 2px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-size:var(--fs-xs);font-weight:var(--fw-bold);line-height:1.2;white-space:normal;overflow-wrap:anywhere}
+  #fb .fb-pick-acts .ico{width:20px;height:20px;flex:none}
+  #fb .fb-pick-acts button[data-danger]{color:var(--bad)}
+  /* The bar has the screen's bottom edge to itself while a pick is held. */
+  body:has(#fb-foot[data-sel]) .ch-launch{display:none}
+  body:has(#fb-foot[data-sel]) .toast{bottom:136px}
+  /* The menu is a sheet from the bottom edge, whatever the place it was opened from. */
+  #fb-menu{left:0!important;right:0;top:auto!important;bottom:0;max-width:none;max-height:70dvh;overflow:auto;border-width:1px 0 0;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+  #fb-menu button{padding:13px 12px}
   #fb .fb-u-list li{grid-template-columns:minmax(0,1fr) 64px 30px}#fb .fb-u-list progress{display:none}
 }
 @media (prefers-reduced-motion:reduce){#fb *{transition:none!important}}
@@ -216,15 +241,15 @@ export const FOLDER_HTML = `<div id="fb">
     <i class="fb-sep"></i>
     <button type="button" class="fb-cmd fb-tidy" id="fb-tidy-btn" hidden>${icon("sparkles")}<span>${top("fb.tidy")}</span></button>
     <i class="fb-sep"></i>
-    <button type="button" class="fb-cmd" id="fb-cut-btn">${icon("scissors")}<span>${top("fb.cut")}</span></button>
-    <button type="button" class="fb-cmd" id="fb-copy-btn">${icon("copy")}<span>${top("fb.copy")}</span></button>
+    <button type="button" class="fb-cmd fb-onpick" id="fb-cut-btn">${icon("scissors")}<span>${top("fb.cut")}</span></button>
+    <button type="button" class="fb-cmd fb-onpick" id="fb-copy-btn">${icon("copy")}<span>${top("fb.copy")}</span></button>
     <button type="button" class="fb-cmd" id="fb-paste-btn">${icon("clipboard")}<span>${top("fb.paste")}</span></button>
     <i class="fb-sep"></i>
-    <button type="button" class="fb-cmd" id="fb-rename-btn">${icon("pencil")}<span>${top("fb.rename")}</span></button>
-    <button type="button" class="fb-cmd" id="fb-move-btn">${icon("foldermove")}<span>${top("fb.move")}</span></button>
-    <button type="button" class="fb-cmd" id="fb-zip-btn">${icon("download")}<span>${top("fb.download")}</span></button>
-    <button type="button" class="fb-cmd" id="fb-share-btn">${icon("send")}<span>${top("fb.share")}</span></button>
-    <button type="button" class="fb-cmd danger" id="fb-trash-btn">${icon("trash")}<span>${top("fb.trash")}</span></button>
+    <button type="button" class="fb-cmd fb-onpick" id="fb-rename-btn">${icon("pencil")}<span>${top("fb.rename")}</span></button>
+    <button type="button" class="fb-cmd fb-onpick" id="fb-move-btn">${icon("foldermove")}<span>${top("fb.move")}</span></button>
+    <button type="button" class="fb-cmd fb-onpick" id="fb-zip-btn">${icon("download")}<span>${top("fb.download")}</span></button>
+    <button type="button" class="fb-cmd fb-onpick" id="fb-share-btn">${icon("send")}<span>${top("fb.share")}</span></button>
+    <button type="button" class="fb-cmd fb-onpick danger" id="fb-trash-btn">${icon("trash")}<span>${top("fb.trash")}</span></button>
     <i class="fb-sep"></i>
     <button type="button" class="fb-cmd" id="fb-undo-btn">${icon("undo")}<span>${top("fb.undo")}</span></button>
     <input type="file" id="fb-file" multiple tabindex="-1" aria-hidden="true">
@@ -264,6 +289,7 @@ export const FOLDER_HTML = `<div id="fb">
       <button type="button" id="fb-clear">${icon("x")}${top("fb.clear")}</button>
     </div>
     <span class="fb-job" id="fb-job" hidden><progress max="100" value="0"></progress><span aria-live="polite"></span></span>
+    <div class="fb-pick-acts" id="fb-pick-acts"></div>
   </div>
 </div>
 <dialog id="fb-view" aria-labelledby="fb-v-title">
@@ -298,7 +324,7 @@ export const FOLDER_HTML = `<div id="fb">
 </dialog>`;
 
 export const FILES_SCRIPT = /* js */ `
-const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), share: icon("send"), rename: icon("pencil"), move: icon("foldermove"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("scissors"), copy: icon("copy"), paste: icon("clipboard"), undo: icon("undo"), props: icon("info"), nsz: icon("shrink"), verify: icon("check"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
+const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), share: icon("send"), rename: icon("pencil"), move: icon("foldermove"), trash: icon("trash"), mkdir: icon("plus"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("scissors"), copy: icon("copy"), paste: icon("clipboard"), undo: icon("undo"), props: icon("info"), more: icon("more"), nsz: icon("shrink"), verify: icon("check"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
 const FB_PER=100;
 const FB_SKEL_MS=120;
 const FB_MAX_PAGES=5;
@@ -306,10 +332,11 @@ const fb={roots:[],root:'',path:'',sort:'mtime',order:'desc',q:'',sel:new Set(),
 const fbSize=(n)=>{if(n==null)return '';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const fbDate=(ms)=>ms?new Date(ms).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'';
 const fbRootName=(k)=>topText('fb.root.'+k);
+const fbPhone=()=>matchMedia('(max-width:760px)').matches;
 function fbUrl(){const u=new URL(location.href);u.searchParams.delete('root');u.searchParams.delete('view');u.searchParams.set('tab','folder');
   if(fb.path)u.searchParams.set('path',fb.path);else u.searchParams.delete('path');return u.pathname+u.search+u.hash;}
 function fbGo(root,path,{push=true}={}){fb.root=root;fb.path=path||'';fb.q='';$('fb-q').value='';fb.sel.clear();fb.anchor=fb.focus=null;
-  if(push&&location.pathname+location.search+location.hash!==fbUrl()){fb.hi++;fb.hmax=fb.hi;history.pushState({fbi:fb.hi},'',fbUrl());}fbLoad();}
+  if(push&&location.pathname+location.search+location.hash!==fbUrl()){fb.hi++;fb.hmax=fb.hi;history.pushState({fbi:fb.hi},'',fbUrl());}fbPaint();fbLoad();}
 function fbRootButtons(mount,current,pick){mount.replaceChildren();for(const r of fb.roots){const b=el('button');b.type='button';
   b.innerHTML=FB_ICON[r.key]||'';b.append(el('span',fbRootName(r.key)));b.setAttribute('aria-pressed',String(r.key===current));
   b.addEventListener('click',()=>pick(r.key));mount.append(b);}}
@@ -326,10 +353,10 @@ function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-s
   const onControl=(e)=>e.target.closest('button,input,a');
   // Shift and double clicks pick rows; without this they would also select the text under the pointer.
   tr.addEventListener('mousedown',(e)=>{if(!onControl(e)&&(e.shiftKey||e.detail>1))e.preventDefault();});
-  tr.addEventListener('click',(e)=>{if(!onControl(e))fbPick(f.rel,{add:e.ctrlKey||e.metaKey,range:e.shiftKey});});
-  tr.addEventListener('dblclick',(e)=>{if(!onControl(e))fbActivate(f);});
+  tr.addEventListener('click',(e)=>{if(onControl(e))return;if(fbPhone())fbTap(f,e);else fbPick(f.rel,{add:e.ctrlKey||e.metaKey,range:e.shiftKey});});
+  tr.addEventListener('dblclick',(e)=>{if(!onControl(e)&&!fbPhone())fbActivate(f);});
   tr.addEventListener('contextmenu',(e)=>{e.preventDefault();if(!fb.sel.has(f.rel))fbPick(f.rel);fbMenu(e.clientX,e.clientY);});
-  tr.draggable=true;tr.addEventListener('dragstart',(e)=>fbDragStart(e,f.rel));
+  tr.draggable=!fbPhone();tr.addEventListener('dragstart',(e)=>fbDragStart(e,f.rel));
   if(f.type==='dir')fbDropTarget(tr,()=>!fb.drag?.includes(f.rel)&&f.rel);
   const cn=td(null,'c-name');const n=el('div',null,'fb-name');const ic=el('span');ic.innerHTML=f.type==='dir'?FB_ICON.dir:FB_ICON.file;n.append(ic.firstChild);
   // A title id folder reads as its game, the id beside it; a file keeps its own name first.
@@ -347,6 +374,8 @@ const fbRels=()=>fb.data?fb.data.items.map((f)=>f.rel):[];
 const fbItem=(rel)=>fb.data?.items.find((f)=>f.rel===rel);
 function fbDownload(f){location.href='/admin/api/files/download?'+new URLSearchParams({root:fb.root,path:f.rel});}
 function fbActivate(f){if(f.type==='dir')fbGo(fb.root,f.rel);else if(fbKind(f))fbView(f);else fbDownload(f);}
+// A tap opens a folder or a preview. Anything else only gets picked, because a game file opened by a slip would start a download of many gigabytes.
+function fbTap(f,e){if(e.target.closest('.c-sel')||fb.sel.size||!(f.type==='dir'||fbKind(f)))fbPick(f.rel,{add:true});else fbActivate(f);}
 function fbParent(){if(fb.path)fbGo(fb.root,fb.path.split('/').slice(0,-1).join('/'));}
 // The rows show fb.sel and the one focusable row (fb.focus); every pick goes through here.
 function fbPaint(){for(const r of document.querySelectorAll('#fb-rows tr')){const on=fb.sel.has(r.dataset.rel);
@@ -367,7 +396,7 @@ function fbFoot(){fbCmds();const d=fb.data;const foot=$('fb-foot');const n=fb.se
   const rows=[...document.querySelectorAll('#fb-rows tr')];const all=$('fb-all');
   all.checked=rows.length>0&&rows.every((r)=>fb.sel.has(r.dataset.rel));all.indeterminate=!all.checked&&rows.some((r)=>fb.sel.has(r.dataset.rel));
   if(!n&&d&&d.items.length<d.total)$('fb-info').textContent+=' · '+topFill('fb.shown',{shown:num(d.items.length)});
-  fbSide();}
+  fbPickBar();fbSide();}
 // Placeholder rows while another folder, page or search loads; a refresh of the same view keeps its rows.
 const FB_SKEL_W=[62,44,71,38,55,67,48,59,41,64];
 function fbSkel(){$('fb-empty').hidden=true;const sk=(cls,w)=>{const i=el('i',null,'sk '+cls);if(w)i.style.width=w+'%';return i;};
@@ -631,7 +660,7 @@ document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.cl
 // and an upload. It closes on a pick, Esc, a click elsewhere, a scroll or a resize, and gives focus back.
 // It lives on the body: a page panel that is a containing block (a transform, a filter) would offset a fixed menu by its own place.
 document.body.append($('fb-menu'));
-function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const one=rels.length===1?fbItem(rels[0]):null;
+function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rels[0]):null;
   const items=[];const add=(key,ic,fn,danger)=>items.push({key,ic,fn,danger});
   if(rels.length){
     if(one?.type==='dir')add('fb.open','open',()=>fbActivate(one));
@@ -644,9 +673,19 @@ function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const one=rels.
     add('fb.cut','cut',()=>fbClip('cut'));add('fb.copy','copy',()=>fbClip('copy'));
     if(one)add('fb.rename','rename',()=>fbRename(one));
     if(fb.clip)add('fb.paste','paste',fbPaste);
-    add('fb.move','move',fbMove);add('fb.trash','trash',()=>fbTrash(rels),true);add('fb.props','props',fbProps);}
+    add('fb.move','move',fbMove);add('fb.trash','trash',()=>fbTrash(rels),true);add('fb.props','props',fbProps);
+    if(fbPhone())add('fb.selectAll','verify',()=>fbAll(true));}
   else{add('fb.newFolder','mkdir',fbMkdir);add('fb.upload','upload',()=>$('fb-file').click());add('fb.uploadDir','open',()=>$('fb-dir').click());
     if(fb.clip)add('fb.paste','paste',fbPaste);if(fb.undos.length)add('fb.undo','undo',fbUndo);add('fb.props','props',fbProps);}
+  return items;}
+// A phone's bottom bar: the likeliest three of what the pick allows, the trash, and the whole list behind 파일 메뉴.
+const FB_BAR=['fb.view','fb.download','fb.zip','fb.rename','fb.move'];
+function fbPickBar(){const bar=$('fb-pick-acts');if(!fbPhone()||!fb.sel.size){bar.replaceChildren();return;}
+  const all=fbActions();const top=FB_BAR.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,3);
+  bar.replaceChildren(...[...top,all.find((a)=>a.key==='fb.trash'),{key:'fb.menu',ic:'more',fn:()=>fbMenu(0,0)}].map((it)=>{
+    const b=el('button');b.type='button';b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',topText(it.key)));if(it.danger)b.dataset.danger='';b.addEventListener('click',it.fn);return b;}));}
+matchMedia('(max-width:760px)').addEventListener('change',()=>{fbPickBar();for(const r of document.querySelectorAll('#fb-rows tr'))r.draggable=!fbPhone();});
+function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const items=fbActions();
   const back=document.activeElement;
   m.replaceChildren(...items.map((it,i)=>{const b=el('button');b.type='button';b.setAttribute('role','menuitem');b.tabIndex=i?-1:0;
     b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',topText(it.key)));if(it.danger)b.dataset.danger='';
