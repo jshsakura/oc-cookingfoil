@@ -43,6 +43,15 @@ export const GRID_CSS = /* css */ `
   animation:skel-sweep 1.2s ease-in-out infinite}
 @keyframes skel-sweep{from{background-position:-40% 0,0 0}to{background-position:140% 0,0 0}}
 @media (prefers-reduced-motion:reduce){[data-skel]:empty{animation:none}}
+/* A phone reads a table row as a card: the first text as its title, the rest labelled under it, its buttons last. */
+.gcard{display:grid;gap:4px;padding:10px 14px;box-sizing:border-box;line-height:1.4;white-space:normal}
+.gcard .gc,.gcard .gc>*{overflow:visible;white-space:normal;overflow-wrap:anywhere;text-overflow:clip;min-width:0}
+.gcard .gcard-t{font-weight:var(--fw-bold)}
+.gcard-r{display:grid;grid-template-columns:88px minmax(0,1fr);gap:8px;align-items:baseline;font-size:var(--fs-sm)}
+.gcard-r:has(>.gcard-l:empty){grid-template-columns:minmax(0,1fr)}.gcard-r>.gcard-l:empty{display:none}
+.gcard-l{color:var(--muted)}
+.gcard-a{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.gcard-a .row-actions{flex-wrap:wrap;justify-content:flex-start}
+.gcard button,.gcard select,.gcard a.btn{min-height:40px}
 .grid-tools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.grid-tools input{flex:1;min-width:0;max-width:360px}
 .grid-tools{flex-wrap:wrap}.grid-tools select.grid-sort{width:auto;max-width:220px}
 .grid-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
@@ -138,6 +147,17 @@ function gridControlsWidth(data,i){let w=0,k=0;for(const r of data){const n=r._n
 // rows: <tr> elements. A row whose only cell spans the table starts a group under that heading.
 // opts.noFilter lists column titles that get no chip filter (the page already filters by them); opts.search adds a box that filters the rows; opts.paging=false keeps every row on one page
 // (for a list the server already pages); opts.tall lets a row grow to hold lists inside its cells.
+const gridPhone=()=>matchMedia('(max-width:760px)').matches;
+function gridCard(d,cols){if(d._card)return d._card;const c=el('div',null,'gcard');let titled=false;const acts=[];
+  d._n.forEach((n,i)=>{if(!n)return;const ctl=n.querySelector('button,a.btn,select,input');
+    if(!n.textContent.trim()&&!ctl&&!n.querySelector('img,svg'))return;
+    if(ctl&&!cols[i]){acts.push(n);return;}
+    if(!titled&&!ctl){titled=true;n.classList.add('gcard-t');c.append(n);return;}
+    const row=el('div',null,'gcard-r');row.append(el('span',cols[i]||'','gcard-l'),n);c.append(row);});
+  if(acts.length){const a=el('div',null,'gcard-a');a.append(...acts);c.append(a);}
+  return d._card=c;}
+function gridCardHeight(d,cols,width){const c=gridCard(d,cols),keep=c.parentNode;
+  c.style.cssText='position:absolute;visibility:hidden;width:'+width+'px';document.body.append(c);const h=c.offsetHeight;c.remove();c.style.cssText='';if(keep)keep.append(c);return h+1;}
 function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   // A redraw (the 15-second refresh) keeps the box's height until the new grid is in, so the page does not
   // jump, and keeps what was typed in its search box, focus included.
@@ -170,6 +190,8 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   // The grid always fills its width: with no long-text column, the widest plain one takes the rest.
   if(!columnDefs.some((c)=>c.flex)){const pick=columnDefs.filter((c,i)=>!(cols[i]===''&&i===cols.length-1)&&!ctl[i])
     .sort((a,b)=>(b.width||0)-(a.width||0))[0];if(pick){pick.minWidth=pick.width;delete pick.width;pick.flex=1;}}
+  const cards=gridPhone();
+  if(cards)for(const c of columnDefs){delete c.width;delete c.autoHeight;delete c.wrapText;c.flex=1;c.minWidth=10;}
   const many=!groups&&opts.paging!==false&&items.length>GRID_PAGE;
   const tools=el('div',null,'grid-tools');
   if(opts.search&&items.length>10){const q=el('input');q.type='search';
@@ -212,7 +234,7 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
   const count=()=>{const n=tools.querySelector('.grid-count');if(!n||!m._grid)return;let shown=0;
     m._grid.forEachNodeAfterFilter((r)=>{if(!r.data?._head)shown++;});n.textContent=shown===items.length?topFill('t.count',{n:items.length}):topFill('gd.shownOf',{shown,n:items.length});};
   m._grid=agGrid.createGrid(box,{theme:GRID_THEME,rowData:data,columnDefs,domLayout:'autoHeight',
-    rowHeight:GRID_ROW,headerHeight:40,suppressCellFocus:true,suppressColumnVirtualisation:true,enableCellTextSelection:true,
+    rowHeight:GRID_ROW,headerHeight:cards?0:40,suppressCellFocus:true,suppressColumnVirtualisation:true,enableCellTextSelection:true,
     localeText:gridLocale(),overlayNoRowsTemplate:'<span>'+topText('gd.none')+'</span>',
     getRowId:(p)=>p.data._id||'k'+p.data._k,
     getRowClass:(p)=>p.data._cls||'',
@@ -222,7 +244,8 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
       m._sort=key;pick.value=[...pick.options].some((o)=>o.value===key)?key:'';flat();},
     onModelUpdated:()=>{count();requestAnimationFrame(fitControls);},
     onFirstDataRendered:fitControls,
-    isFullWidthRow:(p)=>!!p.rowNode.data?._head,fullWidthCellRenderer:(p)=>p.data._head,
+    isFullWidthRow:(p)=>cards||!!p.rowNode.data?._head,fullWidthCellRenderer:(p)=>p.data._head||gridCard(p.data,cols),
+    ...(cards?{getRowHeight:(p)=>p.data._head?GRID_ROW:gridCardHeight(p.data,cols,m.clientWidth||innerWidth-64)}:{}),
     ...(many?{pagination:true,paginationPageSize:GRID_PAGE,paginationPageSizeSelector:[20,50,100]}:{})});
   m._grid.addEventListener?.('paginationChanged',()=>requestAnimationFrame(fitControls));
   const apply=(key)=>{const [colId,sort]=key?key.split(':'):[];

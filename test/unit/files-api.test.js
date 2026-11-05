@@ -62,6 +62,17 @@ test("a file downloads with its name", async () => {
   assert.equal(await r.text(), "abc");
 });
 
+test("a move or copy that names no destination is refused, not sent to the top of the storage", async () => {
+  fs.mkdirSync(path.join(games.dir, "NoTarget"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "NoTarget", "keep.nsp"), "x");
+  for (const route of ["/api/files/move", "/api/files/copy"]) {
+    const res = await post(route, { root: "games", paths: ["NoTarget/keep.nsp"], to: { root: "games", path: "" } });
+    assert.equal(res.status, 400, route);
+  }
+  assert.ok(fs.existsSync(path.join(games.dir, "NoTarget", "keep.nsp")));
+  assert.ok(!fs.existsSync(path.join(games.dir, "keep.nsp")));
+});
+
 test("make, rename, move and trash run in turn, and a taken name is a 409", async () => {
   assert.deepEqual(await (await post("/api/files/mkdir", { root: "games", path: "", name: "New" })).json(), { root: "games", rel: "New" });
   assert.equal((await post("/api/files/mkdir", { root: "games", path: "", name: "New" })).status, 409);

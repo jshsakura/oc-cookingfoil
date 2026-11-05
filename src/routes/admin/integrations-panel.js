@@ -83,6 +83,8 @@ ${box("keyless", top("ig.keylessTitle"), `<p class="muted">${top("ig.keylessLede
 <div class="intg-frees">${KEYLESS.map(keyless).join("\n")}</div>`, { meta: top("ig.keylessMeta") })}`;
 
 export const INTEGRATIONS_CSS = `
+/* Deleting a service's keys is not the next step after saving them: it steps aside and reads as a word. */
+form [data-clear]{margin-left:auto;background:none;border-color:transparent}
 .intg{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:16px 18px;margin-bottom:12px}
 .intg-hd{display:flex;align-items:center;gap:10px;justify-content:space-between}.intg h3{margin:0;font-size:var(--fs-md)}
 .intg-state{font-size:var(--fs-xs);font-weight:700;padding:3px 10px;border-radius:var(--r-pill);background:var(--sunk);color:var(--muted)}

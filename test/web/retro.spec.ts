@@ -60,7 +60,7 @@ test('the web page shows one card per game and picks another version in its wind
   // A game with nothing collected says so, and points at the table instead.
   await page.keyboard.press('Escape');
   await cards.filter({ hasNotText: '슈퍼 시노비' }).click();
-  await expect(page.locator('#modal-desc .desc-empty')).toHaveText('소개 글이 아직 없습니다.아래 정보를 확인해 주세요.');
+  await expect(page.locator('#modal-desc .desc-empty')).toHaveText('소개 글이 아직 없습니다.아래 정보를 확인해 주십시오.');
   await expect(page.locator('#modal-meta .sk')).toHaveCount(0);
 });
 

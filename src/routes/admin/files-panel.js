@@ -180,10 +180,16 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
 /* A phone's top bar has no fixed height, so the header row scrolls with the table there. */
 @media (max-width:899px){#fb thead th{position:static}#fb .fb-seg:has(#fb-t-tree){display:none}}
 @media (max-width:760px){
+  /* The header band is 60px on a phone: the column heads stay under it while the list scrolls. */
+  #fb thead th{position:sticky;top:60px;z-index:2;background:var(--panel)}
+  #fb thead th button{min-height:44px}
+  /* A thumb's worth for what sits around the list. */
+  #fb .fb-bar .fb-seg .ib,#fb .fb-bar .fb-nav .ib{width:44px;height:44px}
+  #fb-view .fb-v-head button{min-width:44px;min-height:44px}
   #fb .c-mtime,#fb .c-act{display:none}#fb .c-size{width:72px}
   /* The browser has its own back and forward. The path takes the rest of the first line, the search and the view the second. */
   #fb .fb-nav #fb-back,#fb .fb-nav #fb-fwd{display:none}
-  #fb .fb-crumb{flex:1 1 calc(100% - 96px)}
+  #fb .fb-crumb{flex:1 1 calc(100% - 112px);min-width:0}
   #fb .fb-q{flex:1 1 60%;order:1}
   /* What the row of commands held is in the bar at the bottom edge, where the thumb is. */
   #fb .fb-cmds{display:none}
@@ -458,7 +464,7 @@ const fbExt=(name)=>(/\\.[^./]+$/.exec(name)?.[0]||'').toLowerCase();
 // What a rename usually retypes: a game's [id][version] and the extension stay out of the selection.
 function fbStem(f){const ext=f.name.length-(f.type==='file'?fbExt(f.name).length:0);const tag=f.name.search(/ ?[[]/);return tag>0?Math.min(tag,ext):ext;}
 async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await askText(topText('fb.renameAsk'),f.name,{selectTo:fbStem(f)});if(name==null||!name.trim()||name.trim()===f.name)return;
-  if(f.type==='file'&&fbExt(name.trim())!==fbExt(f.name)&&!await ask(topText('fb.extAsk')))return;
+  if(f.type==='file'&&!/^[.]|[/]/.test(name.trim())&&fbExt(name.trim())!==fbExt(f.name)&&!await ask(topText('fb.extAsk')))return;
   try{const out=await api('/admin/api/files/rename',{method:'POST',body:{root:fb.root,path:f.rel,name:name.trim()}});fb.sel.delete(f.rel);
     fbUndoPush({journal:[out.undo]});fbToastUndo(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
 // 파일 압축 and 파일 검사 hand the picked files, or every game file under the picked folders, to the queues the 파일 압축 and 파일 검사 tabs show.
@@ -740,12 +746,12 @@ document.addEventListener('pointerdown',(e)=>{if(!e.target.closest('#fb-menu'))f
 // A scroll closes the menu, but not the one the opening itself sets off (the bar changing height as the pick clears).
 const FB_MENU_SETTLE_MS=250;
 addEventListener('scroll',(e)=>{if(e.target.closest?.('#fb-menu')||performance.now()-($('fb-menu')._at||0)<FB_MENU_SETTLE_MS)return;fbMenuClose(false);},true);addEventListener('resize',()=>fbMenuClose(false));
-document.querySelector('#fb .fb-wrap').addEventListener('contextmenu',(e)=>{if(e.target.closest('#fb-rows tr,#fb-menu'))return;
+$('fb-main').addEventListener('contextmenu',(e)=>{if(e.target.closest('#fb-rows tr,#fb-menu'))return;
   e.preventDefault();fb.sel.clear();fb.anchor=null;fbPaint();fbMenu(e.clientX,e.clientY);});
 // The page's own folder is the only root here; the roots list is for the move dialog's picker.
 async function fbOpen(root){
-  if(!fb.root&&!fb.booting){fb.booting=true;
-    try{fb.roots=(await api('/admin/api/files/roots')).roots;}catch(err){fb.booting=false;toast(err.message);return;}
+  if(!fb.root&&!fb.booting){fb.booting=true;fbSkel();
+    try{fb.roots=(await api('/admin/api/files/roots')).roots;}catch(err){fb.booting=false;$('fb-rows').replaceChildren();toast(err.message);return;}
     const p=new URLSearchParams(location.search);fb.booting=false;fb.hi=fb.hmax=history.state?.fbi??0;
     fbGo(root,p.get('tab')==='folder'?p.get('path')||'':'',{push:false});}
   if(fb.root)history.replaceState({fbi:fb.hi},'',fbUrl());}

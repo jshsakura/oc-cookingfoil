@@ -201,7 +201,7 @@ async function api(url,opts={}){
   headers.set('Accept-Language',typeof adminLang==='string'?adminLang:'ko');
   const init={...opts,headers};
   if(opts.body!==undefined){init.headers.set('Content-Type','application/json');init.body=JSON.stringify(opts.body);}
-  const r=await fetch(url,init);
+  let r;try{r=await fetch(url,init);}catch(err){if(err.name==='AbortError')throw err;throw new Error(topText('cm.offline'));}
   // Signed out (or the first account just switched sign-in on): reload, which leads
   // to the sign-in page, but never while a new password is still on screen.
   if(r.status===401){const cred=$('cred-dialog');

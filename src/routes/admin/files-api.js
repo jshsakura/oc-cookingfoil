@@ -106,6 +106,11 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     return v;
   };
 
+  // A move or copy names where it goes: a body that says nothing must not land in the top of the storage.
+  const target = (b) => {
+    if (typeof b.toPath !== "string") throw new FileError("bad-path");
+  };
+
   router.get("/api/files/roots", handle(async (req, res) => {
     res.json({ roots: files.roots().map((r) => ({ key: r.key })) });
   }));
@@ -142,6 +147,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
 
   router.post("/api/files/move", handle(async (req, res) => {
     const b = req.body ?? {};
+    target(b);
     const out = await files.move(str(b.root), paths(b.paths), str(b.toRoot) || str(b.root), str(b.toPath), { by: actorOf(req) });
     debug.log("admin: files: moved %d into %s:%s (%d skipped)", out.moved.length, b.toRoot || b.root, b.toPath ?? "", out.skipped.length);
     res.json(out);
@@ -168,6 +174,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
   };
   router.post("/api/files/copy", handle(async (req, res) => {
     const b = req.body ?? {};
+    target(b);
     if (b.background === true) {
       const now = Date.now();
       for (const [k, j] of copies) if (j.until < now) copies.delete(k);

@@ -150,9 +150,11 @@ async function fbThumbLoad(tr){const f=fbItem(tr.dataset.rel);if(!f)return;const
 {let v=null;try{v=localStorage.getItem('fb.view');}catch{}if(v==='grid')fbSetView(true);}
 // A drag that starts on the list's empty space draws a box and picks the rows it touches (Ctrl or Shift adds to the
 // pick); a plain click there lets the pick go.
-{let start=null,base=null,drew=false;const box=$('fb-lasso');const wrap=document.querySelector('#fb .fb-wrap');
+{let start=null,base=null,drew=false;const box=$('fb-lasso');const wrap=$('fb-main');
   const off=(e)=>e.target.closest('#fb-rows tr,thead,button,input,a,#fb-menu');
-  wrap.addEventListener('pointerdown',(e)=>{if(e.button!==0||e.pointerType==='touch'||off(e))return;e.preventDefault();
+  wrap.addEventListener('pointerdown',(e)=>{if(e.button!==0||e.pointerType==='touch'||off(e))return;
+    // The list's own scrollbar is not empty space.
+    const r=wrap.getBoundingClientRect();if(e.clientX>=r.left+wrap.clientWidth||e.clientY>=r.top+wrap.clientHeight)return;e.preventDefault();
     start={x:e.clientX,y:e.clientY};base=e.ctrlKey||e.metaKey||e.shiftKey?new Set(fb.sel):new Set();drew=false;});
   addEventListener('pointermove',(e)=>{if(!start)return;const x=Math.min(start.x,e.clientX),y=Math.min(start.y,e.clientY),w=Math.abs(e.clientX-start.x),h=Math.abs(e.clientY-start.y);
     if(!drew&&w+h<6)return;drew=true;box.hidden=false;Object.assign(box.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px'});

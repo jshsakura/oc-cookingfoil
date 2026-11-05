@@ -137,11 +137,16 @@ function fbDecorate(n,f){if(f.titleId){const ic=n.querySelector('.ico');if(ic){c
 // What the file check found, in the words the console shows: a title and what it means for an install.
 function fbWhy(f){if(!f.why?.help)return [];const box=el('div',null,'fb-s-why');box.dataset.tone=f.check==='modified'?'':f.why.certain===false?'warn':'bad';
   box.append(el('strong',f.why.help.title),...f.why.help.body.split('\\n\\n').map((t)=>el('p',t)));return [box];}
+let fbSideHeld=null;
 function fbSideOn(){return $('fb').classList.contains('side-on');}
 function fbSide(){if(!fbSideOn())return;const s=$('fb-side');const items=[...fb.sel].map(fbItem).filter(Boolean);
   if(items.length===1)return fbSideOne(s,items[0]);
-  if(items.length>1){const files=items.filter((f)=>f.type==='file');
-    s.replaceChildren(el('h4',topFill('fb.selected',{n:num(items.length)})),el('p',topFill('fb.side.files',{n:num(files.length),size:fbSize(files.reduce((a,f)=>a+(f.size||0),0))}),'fb-s-sub'));return;}
+  if(items.length>1){const files=items.filter((f)=>f.type==='file');const line=el('p',topFill('fb.side.files',{n:num(files.length),size:fbSize(files.reduce((a,f)=>a+(f.size||0),0))}),'fb-s-sub');
+    s.replaceChildren(el('h4',topFill('fb.selected',{n:num(items.length)})),line);if(files.length===items.length)return;
+    // A folder counts by what it holds, as it does when picked alone. A repaint of the same pick reuses the answer.
+    const key=fb.root+'|'+items.map((f)=>f.rel).join('|');const show=(r)=>{line.textContent=topFill('fb.side.files',{n:num(r.files),size:fbSize(r.bytes)});};
+    if(fbSideHeld?.key===key){if(fbSideHeld.r)show(fbSideHeld.r);return;}const held=fbSideHeld={key,r:null};
+    api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:items.map((f)=>f.rel)}}).then((r)=>{held.r=r;if(line.isConnected)show(r);}).catch(()=>{});return;}
   s.replaceChildren(el('p',topText('fb.side.none'),'fb-s-none'));}
 // What the details pane and the properties window both open with: the picture, the name, the badges and what the item is.
 function fbSideTop(f){const head=el('div',null,'fb-s-head');

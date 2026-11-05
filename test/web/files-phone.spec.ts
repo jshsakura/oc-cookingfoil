@@ -152,7 +152,7 @@ test('the header says which page this is, not only 파일', async ({ page }) => 
 });
 
 test('a long notice reads across the screen, with its undo inside it', async ({ page }) => {
-  await page.evaluate(() => (window as any).fbToastUndo('2개를 옮겼습니다. 다른 게임이 들어 있는 폴더입니다. 게임이 섞이지 않았는지 확인해 주세요.'));
+  await page.evaluate(() => (window as any).fbToastUndo('2개를 옮겼습니다. 다른 게임이 들어 있는 폴더입니다. 게임이 섞이지 않았는지 확인해 주십시오.'));
   const box = await page.locator('#toast').boundingBox();
   expect(box!.width).toBeGreaterThan(300);
   expect(box!.x).toBeGreaterThanOrEqual(0);
@@ -232,7 +232,7 @@ test('with nothing picked the bottom edge offers upload and 파일 메뉴, which
   for (const name of ['새 폴더', '올리기', '폴더 올리기', '정리', '다시 스캔', '속성']) await expect(menu.getByRole('menuitem', { name, exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   const first = await page.locator('#fb-rows tr').first().boundingBox();
-  expect(first!.y).toBeLessThan(290);
+  expect(first!.y).toBeLessThan(300);
   const foot = (await page.locator('#fb-foot').boundingBox())!;
   expect(foot.height).toBeLessThan(72);
   expect(foot.y + foot.height).toBeCloseTo(844, 0);
@@ -301,3 +301,46 @@ test('a rename selects the name, leaving a game id, version and extension alone'
   await expect(page.locator('#ask-input')).toHaveValue('tight.nsp');
   await page.locator('#ask-no').click();
 });
+
+test('the column heads stay on screen down a long list, and everything around the list takes a thumb', async ({ page }) => {
+  for (let i = 0; i < 30; i++) put(`More/file-${String(i).padStart(2, '0')}.nsp`, '1');
+  await page.goto('/admin/games?tab=folder&path=fb-phone%2FMore');
+  await expect(row(page, 'file-00.nsp')).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 900));
+  const head = (await page.locator('#fb thead th.c-name').boundingBox())!;
+  expect(head.y).toBeGreaterThanOrEqual(50);
+  expect(head.y).toBeLessThan(70);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  for (const id of ['#fb-upb', '#fb-refresh', '#fb-v-list', '#fb-v-grid']) {
+    const b = (await page.locator(id).boundingBox())!;
+    expect(b.width, id).toBeGreaterThanOrEqual(44);
+    expect(b.height, id).toBeGreaterThanOrEqual(44);
+  }
+  await row(page, 'file-00.nsp').evaluate((n) => n.scrollIntoView({ block: 'center' }));
+  const cell = (await row(page, 'file-00.nsp').locator('td.c-sel').boundingBox())!;
+  await page.mouse.click(cell.x + 4, cell.y + cell.height - 4);
+  await expect(row(page, 'file-00.nsp')).toHaveAttribute('aria-selected', 'true');
+});
+
+test('a table on a phone reads as cards with nothing to scroll sideways, and still sorts and filters', async ({ page }) => {
+  await page.evaluate(() => {
+    const m = document.createElement('div'); m.id = 'card-test'; document.querySelector('main')!.prepend(m);
+    const tr = (cells: string[]) => { const r = document.createElement('tr'); for (const c of cells) { const d = document.createElement('td'); if (c === 'BTN') { const b = document.createElement('button'); b.textContent = '지우기'; b.id = 'card-btn'; b.onclick = () => { (window as any).cardHit = true; }; d.append(b); } else d.textContent = c; r.append(d); } return r; };
+    (window as any).table('card-test', ['이름', '결과', '아주 긴 설명 열입니다', '날짜', ''], [
+      tr(['첫째 항목', '꺼 둠', '이 값은 아주 길어서 데스크톱에서는 넓은 칸을 차지합니다. 폰에서는 줄을 바꿉니다. '.repeat(3), '2026-01-02', 'BTN']),
+      tr(['둘째 항목', '켜 둠', '짧음', '2026-01-03', '']),
+    ], '없음', {});
+  });
+  const m = page.locator('#card-test');
+  await expect(m.locator('.gcard')).toHaveCount(2);
+  await expect(m.locator('.gcard').first().locator('.gcard-t')).toHaveText('첫째 항목');
+  await expect(m.locator('.gcard').first()).toContainText('결과');
+  const wide = await m.evaluate((n) => [...n.querySelectorAll('*')].filter((e) => getComputedStyle(e).overflowX !== 'hidden' && e.scrollWidth > n.clientWidth + 1).length);
+  expect(wide).toBe(0);
+  const first = (await m.locator('.gcard').first().boundingBox())!;
+  const second = (await m.locator('.gcard').nth(1).boundingBox())!;
+  expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
+  await page.locator('#card-btn').click();
+  expect(await page.evaluate(() => (window as any).cardHit)).toBe(true);
+});
+

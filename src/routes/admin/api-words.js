@@ -21,7 +21,7 @@ export const API_WORDS = {
     "fileReplace.nspUnread": "NSP 의 타이틀 ID 를 읽지 못했습니다. 서버에 nstool 과 키가 있는지 확인합니다",
     "fileReplace.nspNotApp": "업데이트나 DLC NSP 로는 바꾸지 않습니다",
     "fileReplace.otherTitle": "다른 타이틀의 NSP 입니다 (올린 파일 {got}, 지금 앱 {want})",
-    "device.limit": "이 계정은 기기를 최대 {n}대까지 등록할 수 있습니다. 쓰지 않는 기기를 해제한 뒤 다시 승인해 주세요.",
+    "device.limit": "이 계정은 기기를 최대 {n}대까지 등록할 수 있습니다. 쓰지 않는 기기를 해제한 뒤 다시 승인해 주십시오.",
     "device.no-device": "승인된 기기가 아닙니다",
     "device.has-owner": "이 기기는 이미 계정에 연결되어 있습니다. 다른 계정으로 옮기려면 기기에서 QR 로 다시 페어링합니다",
     "device.admin-device": "관리자 기기는 계정에 연결하지 않습니다",

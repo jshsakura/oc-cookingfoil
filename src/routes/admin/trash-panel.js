@@ -42,7 +42,10 @@ export const TRASH_CSS = `
 .tr-main .err{color:var(--bad)}
 .tr-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:var(--fs-sm)}
 .tr-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-@media (max-width:640px){.tr-row{grid-template-columns:auto 1fr}.tr-act{grid-column:1/-1;justify-content:flex-start}}
+@media (max-width:640px){.tr-row{grid-template-columns:auto 1fr}.tr-act{grid-column:1/-1;justify-content:flex-start}
+  /* One line of folders that slides, so the list starts on the first screen. */
+  .tr-cards{display:flex;overflow-x:auto;gap:6px;margin:6px 0 10px;scrollbar-width:none}
+  .tr-cards .card{flex:none;display:flex;align-items:baseline;gap:6px;min-height:44px;padding:8px 12px;box-sizing:border-box;white-space:nowrap}.tr-cards .card .v{font-size:var(--fs-md)}}
 `;
 
 export const TRASH_SCRIPT = /* js */ `

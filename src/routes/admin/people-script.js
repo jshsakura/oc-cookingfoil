@@ -49,7 +49,11 @@ function showCredential(title,cred){lastCred=cred;$('cred-title').textContent=ti
     box.append(el('span',label,'muted'),el('span',value,'v'),tbtn('copy','pp.copyBtn',async()=>{
       try{await navigator.clipboard.writeText(value);toast(topFill('pp.copyOk',{label}));}catch{toast(topText('pp.copyFail'));}}));}
   $('cred-dialog').showModal();}
-if($('cred-close'))$('cred-close').addEventListener('click',()=>{$('cred-dialog').close();lastCred=null;});
+// The first account signs this very page out, and its password shows only here: closing asks once.
+let credSignsOut=false;
+const credCloseOk=async()=>{if(credSignsOut&&!await ask(topText('pp.firstClose')))return false;credSignsOut=false;return true;};
+if($('cred-close'))$('cred-close').addEventListener('click',async()=>{if(!await credCloseOk())return;$('cred-dialog').close();lastCred=null;});
+if($('cred-dialog'))$('cred-dialog').addEventListener('cancel',(e)=>{if(!credSignsOut)return;e.preventDefault();$('cred-close').click();});
 function clearCredential(){lastCred=null;$('cred')?.replaceChildren();if($('cred-title'))$('cred-title').textContent='';}
 if($('cred-dialog')){
   $('cred-dialog').addEventListener('close',clearCredential);
@@ -63,9 +67,9 @@ if($('cred-config'))$('cred-config').addEventListener('click',()=>{if(!lastCred)
 if($('add-user'))$('add-user').addEventListener('submit',async(e)=>{e.preventDefault();
   const name=$('new-name').value.trim(),password=$('new-pass').value;
   const first=!(await api('/admin/api/users')).users.length;
-  if(first&&!await ask(topText('pp.firstUser')))return;
+  if(first&&!await ask(topText('pp.firstUser')+' '+topText('pp.firstOut')))return;
   try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password,role:$('new-role').value}});
-    $('new-name').value='';$('new-pass').value='';showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
+    $('new-name').value='';$('new-pass').value='';credSignsOut=first;showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
   catch(err){toast(err.message);}});
 async function resetPassword(name){if(!await ask(isMe('password',name)?topText('pp.resetAskSelf'):topFill('pp.resetAsk',{name}),{danger:true}))return;
   try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});

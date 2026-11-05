@@ -323,7 +323,7 @@ test("a person has at most MAX_OPEN_REQUESTS waiting; past that the model is tol
   const waiting = await chat.requests("admin");
   assert.equal(waiting.length, MAX_OPEN_REQUESTS);
   assert.equal(told.length, MAX_OPEN_REQUESTS);
-  const refused = toolReplies(seen).filter((c) => c.includes("이미 관리자 승인을 기다리는 요청이 있습니다. 처리된 뒤에 다시 요청해 주세요."));
+  const refused = toolReplies(seen).filter((c) => c.includes("이미 관리자 승인을 기다리는 요청이 있습니다. 처리된 뒤에 다시 요청해 주십시오."));
   assert.equal(refused.length, 2, "the model gets words it can pass on");
   assert.ok(refused.every((c) => c.includes("Please ask again once they are handled.")));
 
