@@ -25,6 +25,7 @@ const KEYS = [
   "fb.tidyArt", "fb.nsz", "fb.verify",
   "fb.undoKept",
   "fb.widened", "fb.noMatchDeep", "fb.pickAll",
+  "fb.clipCutTap", "fb.clipCopyTap", "fb.clipDrop",
 ];
 
 const ROWS = {
@@ -53,6 +54,7 @@ const ROWS = {
     "서버용", "롬과 표지 그림을 짝지어 둔 목록입니다. 서버가 만들고 고칩니다.", "목록에 나오는 표지 그림과 화면 사진입니다. 서버가 받아 둡니다.", "게임 화면 둘레에 씌우는 테두리 그림입니다.", "게임 화면을 찍은 사진입니다.", "기기마다 보여 주는 아이콘입니다.", "콘솔에 보내는 레트로아크 묶음입니다. 코어, BIOS, 설정이 들어 있습니다.", "게임 연령 등급 목록입니다. 서버가 만듭니다.", "아케이드 게임의 다른 나라 이름 목록입니다.", "기기마다 어떤 코어와 확장자를 쓰는지 적은 설정입니다.", "기기별 롬 폴더가 모여 있습니다. 롬은 알맞은 기기 폴더에 넣습니다.", "{name} 롬을 넣는 폴더입니다.", "{name} 롬입니다.", "여기에 넣은 게임은 서버가 이름을 붙여 게임 폴더로 옮깁니다.", "이 게임의 업데이트 파일이 들어 있습니다.", "이 게임의 추가 콘텐츠(DLC)가 들어 있습니다.", "이 게임에 쓰는 패치가 들어 있습니다.", "이 게임의 세이브가 들어 있습니다.", "게임 설치 파일(NSP)입니다.", "압축한 게임 설치 파일(NSZ)입니다. 설치할 때 풀립니다.", "게임 카드를 그대로 옮긴 파일(XCI)입니다.", "압축한 게임 카드 파일(XCZ)입니다. 설치할 때 풀립니다.", "콘솔에서 바로 여는 홈브류 앱(NRO)입니다.", "그림 {n}개도 함께 옮깁니다.", "파일 압축", "파일 검사",
     "폴더 안의 파일이 달라져 되돌리지 않았습니다. 필요 없으면 직접 휴지통으로 보내 주세요.",
     "이 폴더에 없어서 하위 폴더까지 찾았습니다.", "찾는 이름이 이 폴더와 하위 폴더에 없습니다.", "전부",
+    "{n}개를 잘라냈습니다. 옮길 폴더로 가서 붙여넣기를 누릅니다", "{n}개를 복사해 뒀습니다. 붙여넣을 폴더로 가서 붙여넣기를 누릅니다", "붙여넣기 취소",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -79,6 +81,7 @@ const ROWS = {
     "Server", "Pairs each ROM with its cover art. The server makes and updates it.", "Cover art and screenshots shown in the lists. The server downloads them.", "Frames drawn around the game screen.", "Screenshots of the games.", "The icon shown for each console.", "The RetroArch pack sent to consoles, with its cores, BIOS and settings.", "Age ratings of the games. The server makes it.", "Arcade game names in other languages.", "Which core and file extensions each console uses.", "Holds one ROM folder per console. Put each ROM in its console's folder.", "The folder for {name} ROMs.", "A {name} ROM.", "Games put here are named by the server and moved into the games folder.", "Holds this game's updates.", "Holds this game's add-on content (DLC).", "Holds the patches for this game.", "Holds this game's saves.", "A game install file (NSP).", "A compressed game install file (NSZ). It is unpacked while installing.", "A copy of a game card (XCI).", "A compressed game card file (XCZ). It is unpacked while installing.", "A homebrew app the console opens directly (NRO).", "Its {n} art files move with it.", "File compression", "File check",
     "The files in this folder have changed, so nothing was undone. Move it to the trash yourself if you no longer need it.",
     "Not in this folder, so subfolders were searched too.", "That name is not in this folder or its subfolders.", "All",
+    "{n} cut. Go to the destination folder and tap Paste", "{n} copied. Go to the destination folder and tap Paste", "Cancel paste",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -105,6 +108,7 @@ const ROWS = {
     "サーバー用", "ROMとカバー画像の対応表です。サーバーが作成・更新します。", "一覧に出るカバー画像とスクリーンショットです。サーバーが取得します。", "ゲーム画面の周りに表示する枠の画像です。", "ゲーム画面のスクリーンショットです。", "機種ごとに表示するアイコンです。", "本体に送る RetroArch 一式です。コア、BIOS、設定が入っています。", "ゲームの年齢区分の一覧です。サーバーが作成します。", "アーケードゲームの各国語の名前の一覧です。", "機種ごとに使うコアと拡張子を書いた設定です。", "機種ごとの ROM フォルダーをまとめています。ROM は対応する機種のフォルダーに入れます。", "{name} の ROM を入れるフォルダーです。", "{name} の ROM です。", "ここに入れたゲームはサーバーが名前を付けてゲームフォルダーへ移します。", "このゲームのアップデートが入っています。", "このゲームの追加コンテンツ(DLC)が入っています。", "このゲームに使うパッチが入っています。", "このゲームのセーブが入っています。", "ゲームのインストールファイル(NSP)です。", "圧縮したゲームのインストールファイル(NSZ)です。インストール時に展開されます。", "ゲームカードをそのまま写したファイル(XCI)です。", "圧縮したゲームカードのファイル(XCZ)です。インストール時に展開されます。", "本体ですぐに開ける自作アプリ(NRO)です。", "画像 {n} 件も一緒に移動します。", "ファイル圧縮", "ファイル検査",
     "フォルダー内のファイルが変わったため、元に戻しませんでした。不要な場合はご自身でごみ箱に移してください。",
     "このフォルダーにないため、サブフォルダーまで検索しました。", "その名前はこのフォルダーにもサブフォルダーにもありません。", "すべて",
+    "{n} 件を切り取りました。移動先のフォルダーで貼り付けを押します", "{n} 件をコピーしました。貼り付け先のフォルダーで貼り付けを押します", "貼り付けを取り消す",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -131,6 +135,7 @@ const ROWS = {
     "服务器", "ROM 与封面图的对应表。由服务器生成和更新。", "列表中显示的封面图和截图。由服务器下载。", "套在游戏画面四周的边框图。", "游戏画面的截图。", "每个主机显示的图标。", "发送到主机的 RetroArch 套件,包含核心、BIOS 和设置。", "游戏年龄分级列表。由服务器生成。", "街机游戏的其他语言名称列表。", "记录每个主机使用的核心和扩展名的设置。", "每个主机一个 ROM 文件夹。ROM 请放进对应主机的文件夹。", "存放 {name} ROM 的文件夹。", "{name} 的 ROM。", "放在这里的游戏会由服务器命名并移到游戏文件夹。", "存放这个游戏的更新。", "存放这个游戏的追加内容(DLC)。", "存放这个游戏使用的补丁。", "存放这个游戏的存档。", "游戏安装文件(NSP)。", "压缩的游戏安装文件(NSZ),安装时会解压。", "游戏卡的完整副本(XCI)。", "压缩的游戏卡文件(XCZ),安装时会解压。", "主机可直接打开的自制应用(NRO)。", "同时移动 {n} 个图片文件。", "文件压缩", "文件检查",
     "文件夹中的文件已更改,因此未撤销。如不再需要,请自行移到回收站。",
     "此文件夹中没有，已同时搜索子文件夹。", "此文件夹及其子文件夹中都没有这个名称。", "全部",
+    "已剪切 {n} 项。前往目标文件夹并点按粘贴", "已复制 {n} 项。前往目标文件夹并点按粘贴", "取消粘贴",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -157,6 +162,7 @@ const ROWS = {
     "伺服器", "ROM 與封面圖的對應表。由伺服器產生和更新。", "清單中顯示的封面圖和截圖。由伺服器下載。", "套在遊戲畫面四周的邊框圖。", "遊戲畫面的截圖。", "每個主機顯示的圖示。", "傳送到主機的 RetroArch 套件,包含核心、BIOS 和設定。", "遊戲年齡分級清單。由伺服器產生。", "街機遊戲的其他語言名稱清單。", "記錄每個主機使用的核心和副檔名的設定。", "每個主機一個 ROM 資料夾。ROM 請放進對應主機的資料夾。", "存放 {name} ROM 的資料夾。", "{name} 的 ROM。", "放在這裡的遊戲會由伺服器命名並移到遊戲資料夾。", "存放這個遊戲的更新。", "存放這個遊戲的追加內容(DLC)。", "存放這個遊戲使用的修補檔。", "存放這個遊戲的存檔。", "遊戲安裝檔(NSP)。", "壓縮的遊戲安裝檔(NSZ),安裝時會解壓縮。", "遊戲卡的完整副本(XCI)。", "壓縮的遊戲卡檔案(XCZ),安裝時會解壓縮。", "主機可直接開啟的自製應用程式(NRO)。", "同時移動 {n} 個圖片檔案。", "檔案壓縮", "檔案檢查",
     "資料夾中的檔案已變更,因此未復原。如不再需要,請自行移到垃圾桶。",
     "此資料夾中沒有，已一併搜尋子資料夾。", "此資料夾及其子資料夾中都沒有這個名稱。", "全部",
+    "已剪下 {n} 項。前往目標資料夾並點選貼上", "已複製 {n} 項。前往目標資料夾並點選貼上", "取消貼上",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -183,6 +189,7 @@ const ROWS = {
     "Servidor", "Empareja cada ROM con su portada. El servidor lo crea y actualiza.", "Portadas y capturas que se ven en las listas. El servidor las descarga.", "Marcos que rodean la pantalla del juego.", "Capturas de los juegos.", "El icono de cada consola.", "El paquete de RetroArch que se envía a las consolas, con núcleos, BIOS y ajustes.", "Clasificaciones por edad de los juegos. Lo crea el servidor.", "Nombres de juegos arcade en otros idiomas.", "Qué núcleo y extensiones usa cada consola.", "Una carpeta de ROM por consola. Pon cada ROM en la carpeta de su consola.", "La carpeta de las ROM de {name}.", "Una ROM de {name}.", "Los juegos que pongas aquí los nombra el servidor y los mueve a la carpeta de juegos.", "Contiene las actualizaciones de este juego.", "Contiene el contenido adicional (DLC) de este juego.", "Contiene los parches de este juego.", "Contiene las partidas guardadas de este juego.", "Un archivo de instalación de juego (NSP).", "Un archivo de instalación comprimido (NSZ). Se descomprime al instalar.", "Una copia de una tarjeta de juego (XCI).", "Una tarjeta de juego comprimida (XCZ). Se descomprime al instalar.", "Una app homebrew que la consola abre directamente (NRO).", "También se mueven {n} archivos de imagen.", "Compresión de archivos", "Comprobación de archivos",
     "Los archivos de esta carpeta han cambiado, así que no se ha deshecho nada. Si ya no la necesitas, muévela tú a la papelera.",
     "No está en esta carpeta; se han buscado también las subcarpetas.", "Ese nombre no está en esta carpeta ni en sus subcarpetas.", "Todo",
+    "{n} cortados. Ve a la carpeta de destino y pulsa Pegar", "{n} copiados. Ve a la carpeta de destino y pulsa Pegar", "Cancelar pegado",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -209,6 +216,7 @@ const ROWS = {
     "Serveur", "Associe chaque ROM à sa jaquette. Le serveur le crée et le met à jour.", "Jaquettes et captures affichées dans les listes. Le serveur les télécharge.", "Cadres affichés autour de l'écran du jeu.", "Captures d'écran des jeux.", "L'icône de chaque console.", "Le pack RetroArch envoyé aux consoles, avec cœurs, BIOS et réglages.", "Classifications par âge des jeux. Le serveur le crée.", "Noms des jeux d'arcade dans d'autres langues.", "Le cœur et les extensions de chaque console.", "Un dossier de ROM par console. Mettez chaque ROM dans le dossier de sa console.", "Le dossier des ROM {name}.", "Une ROM {name}.", "Les jeux déposés ici sont nommés par le serveur et déplacés dans le dossier des jeux.", "Contient les mises à jour de ce jeu.", "Contient le contenu additionnel (DLC) de ce jeu.", "Contient les patchs de ce jeu.", "Contient les sauvegardes de ce jeu.", "Un fichier d'installation de jeu (NSP).", "Un fichier d'installation compressé (NSZ). Il est décompressé à l'installation.", "Une copie d'une carte de jeu (XCI).", "Une carte de jeu compressée (XCZ). Elle est décompressée à l'installation.", "Une app homebrew que la console ouvre directement (NRO).", "{n} fichiers d’image sont aussi déplacés.", "Compression des fichiers", "Vérification des fichiers",
     "Les fichiers de ce dossier ont changé, donc rien n'a été annulé. S'il ne sert plus, placez-le vous-même dans la corbeille.",
     "Absent de ce dossier : les sous-dossiers ont aussi été parcourus.", "Ce nom n'est ni dans ce dossier ni dans ses sous-dossiers.", "Tout",
+    "{n} coupés. Allez dans le dossier de destination et touchez Coller", "{n} copiés. Allez dans le dossier de destination et touchez Coller", "Annuler le collage",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -235,6 +243,7 @@ const ROWS = {
     "Server", "Ordnet jedem ROM sein Cover zu. Der Server erstellt und pflegt die Liste.", "Cover und Screenshots für die Listen. Der Server lädt sie herunter.", "Rahmen um das Spielbild.", "Screenshots der Spiele.", "Das Symbol jeder Konsole.", "Das RetroArch-Paket für die Konsolen, mit Cores, BIOS und Einstellungen.", "Altersfreigaben der Spiele. Der Server erstellt die Liste.", "Namen von Arcade-Spielen in anderen Sprachen.", "Welchen Core und welche Endungen jede Konsole nutzt.", "Ein ROM-Ordner je Konsole. Lege jedes ROM in den Ordner seiner Konsole.", "Der Ordner für {name}-ROMs.", "Ein {name}-ROM.", "Spiele, die hier landen, benennt der Server und verschiebt sie in den Spieleordner.", "Enthält die Updates dieses Spiels.", "Enthält die Zusatzinhalte (DLC) dieses Spiels.", "Enthält die Patches für dieses Spiel.", "Enthält die Spielstände dieses Spiels.", "Eine Spiel-Installationsdatei (NSP).", "Eine komprimierte Installationsdatei (NSZ). Sie wird beim Installieren entpackt.", "Eine Kopie einer Spielkarte (XCI).", "Eine komprimierte Spielkarte (XCZ). Sie wird beim Installieren entpackt.", "Eine Homebrew-App, die die Konsole direkt öffnet (NRO).", "{n} Bilddateien werden mitverschoben.", "Dateikomprimierung", "Dateiprüfung",
     "Die Dateien in diesem Ordner haben sich geändert, daher wurde nichts rückgängig gemacht. Wenn du ihn nicht mehr brauchst, verschiebe ihn selbst in den Papierkorb.",
     "Nicht in diesem Ordner, daher wurden auch Unterordner durchsucht.", "Dieser Name ist weder in diesem Ordner noch in seinen Unterordnern.", "Alle",
+    "{n} ausgeschnitten. Öffne den Zielordner und tippe auf Einfügen", "{n} kopiert. Öffne den Zielordner und tippe auf Einfügen", "Einfügen abbrechen",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -261,6 +270,7 @@ const ROWS = {
     "Server", "Abbina ogni ROM alla sua copertina. Il server lo crea e aggiorna.", "Copertine e screenshot mostrati negli elenchi. Il server li scarica.", "Cornici intorno allo schermo del gioco.", "Screenshot dei giochi.", "L'icona di ogni console.", "Il pacchetto RetroArch inviato alle console, con core, BIOS e impostazioni.", "Classificazioni per età dei giochi. Lo crea il server.", "Nomi dei giochi arcade in altre lingue.", "Quale core ed estensioni usa ogni console.", "Una cartella di ROM per console. Metti ogni ROM nella cartella della sua console.", "La cartella delle ROM {name}.", "Una ROM {name}.", "I giochi messi qui vengono rinominati dal server e spostati nella cartella dei giochi.", "Contiene gli aggiornamenti di questo gioco.", "Contiene i contenuti aggiuntivi (DLC) di questo gioco.", "Contiene le patch di questo gioco.", "Contiene i salvataggi di questo gioco.", "Un file di installazione del gioco (NSP).", "Un file di installazione compresso (NSZ). Viene decompresso durante l'installazione.", "Una copia di una scheda di gioco (XCI).", "Una scheda di gioco compressa (XCZ). Viene decompressa durante l'installazione.", "Un'app homebrew che la console apre direttamente (NRO).", "Si spostano anche {n} file di immagine.", "Compressione dei file", "Controllo file",
     "I file di questa cartella sono cambiati, quindi non è stato annullato nulla. Se non serve più, spostala tu nel cestino.",
     "Non è in questa cartella: la ricerca include anche le sottocartelle.", "Questo nome non è in questa cartella né nelle sottocartelle.", "Tutti",
+    "{n} tagliati. Vai alla cartella di destinazione e tocca Incolla", "{n} copiati. Vai alla cartella di destinazione e tocca Incolla", "Annulla incolla",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -287,6 +297,7 @@ const ROWS = {
     "Servidor", "Associa cada ROM à sua capa. O servidor cria e atualiza.", "Capas e capturas mostradas nas listas. O servidor as baixa.", "Molduras em volta da tela do jogo.", "Capturas de tela dos jogos.", "O ícone de cada console.", "O pacote do RetroArch enviado aos consoles, com núcleos, BIOS e ajustes.", "Classificações etárias dos jogos. O servidor cria.", "Nomes de jogos de arcade em outros idiomas.", "Qual núcleo e extensões cada console usa.", "Uma pasta de ROM por console. Coloque cada ROM na pasta do seu console.", "A pasta das ROMs de {name}.", "Uma ROM de {name}.", "Os jogos colocados aqui são nomeados pelo servidor e movidos para a pasta de jogos.", "Contém as atualizações deste jogo.", "Contém o conteúdo adicional (DLC) deste jogo.", "Contém os patches deste jogo.", "Contém os saves deste jogo.", "Um arquivo de instalação de jogo (NSP).", "Um arquivo de instalação compactado (NSZ). É descompactado ao instalar.", "Uma cópia de um cartão de jogo (XCI).", "Um cartão de jogo compactado (XCZ). É descompactado ao instalar.", "Um app homebrew que o console abre direto (NRO).", "{n} arquivos de imagem também são movidos.", "Compressão de arquivos", "Verificação de arquivos",
     "Os arquivos desta pasta mudaram, então nada foi desfeito. Se não precisar mais dela, mova-a você mesmo para a lixeira.",
     "Não está nesta pasta; as subpastas também foram pesquisadas.", "Esse nome não está nesta pasta nem nas subpastas.", "Tudo",
+    "{n} cortados. Vá à pasta de destino e toque em Colar", "{n} copiados. Vá à pasta de destino e toque em Colar", "Cancelar colagem",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -313,6 +324,7 @@ const ROWS = {
     "Server", "Koppelt elke ROM aan zijn hoes. De server maakt en werkt dit bij.", "Hoezen en schermafbeeldingen voor de lijsten. De server downloadt ze.", "Randen rond het spelbeeld.", "Schermafbeeldingen van de spellen.", "Het pictogram van elke console.", "Het RetroArch-pakket voor de consoles, met cores, BIOS en instellingen.", "Leeftijdsclassificaties van de spellen. De server maakt dit.", "Namen van arcadespellen in andere talen.", "Welke core en extensies elke console gebruikt.", "Eén ROM-map per console. Zet elke ROM in de map van zijn console.", "De map voor {name}-ROM's.", "Een {name}-ROM.", "Spellen die hier komen, krijgen een naam van de server en gaan naar de spellenmap.", "Bevat de updates van dit spel.", "Bevat de extra inhoud (DLC) van dit spel.", "Bevat de patches voor dit spel.", "Bevat de opgeslagen spellen van dit spel.", "Een installatiebestand van een spel (NSP).", "Een gecomprimeerd installatiebestand (NSZ). Het wordt bij installatie uitgepakt.", "Een kopie van een spelkaart (XCI).", "Een gecomprimeerde spelkaart (XCZ). Hij wordt bij installatie uitgepakt.", "Een homebrew-app die de console direct opent (NRO).", "{n} afbeeldingsbestanden gaan mee.", "Bestandscompressie", "Bestandscontrole",
     "De bestanden in deze map zijn gewijzigd, dus er is niets ongedaan gemaakt. Heb je de map niet meer nodig, verplaats hem dan zelf naar de prullenbak.",
     "Niet in deze map, daarom zijn ook de submappen doorzocht.", "Die naam staat niet in deze map of de submappen.", "Alles",
+    "{n} geknipt. Ga naar de doelmap en tik op Plakken", "{n} gekopieerd. Ga naar de doelmap en tik op Plakken", "Plakken annuleren",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -339,6 +351,7 @@ const ROWS = {
     "Сервер", "Сопоставляет каждый ROM с обложкой. Сервер создаёт и обновляет его.", "Обложки и скриншоты для списков. Сервер их скачивает.", "Рамки вокруг экрана игры.", "Скриншоты игр.", "Значок каждой консоли.", "Пакет RetroArch для консолей: ядра, BIOS и настройки.", "Возрастные рейтинги игр. Создаёт сервер.", "Названия аркадных игр на других языках.", "Какое ядро и расширения использует каждая консоль.", "По одной папке ROM на консоль. Кладите ROM в папку его консоли.", "Папка для ROM {name}.", "ROM для {name}.", "Игры, положенные сюда, сервер называет и переносит в папку игр.", "Здесь обновления этой игры.", "Здесь дополнительный контент (DLC) этой игры.", "Здесь патчи для этой игры.", "Здесь сохранения этой игры.", "Установочный файл игры (NSP).", "Сжатый установочный файл (NSZ). Распаковывается при установке.", "Копия игровой карты (XCI).", "Сжатая игровая карта (XCZ). Распаковывается при установке.", "Homebrew-приложение, которое консоль открывает напрямую (NRO).", "Вместе с ним переносится файлов изображений: {n}.", "Сжатие файлов", "Проверка файлов",
     "Файлы в этой папке изменились, поэтому ничего не отменено. Если папка больше не нужна, переместите её в корзину сами.",
     "В этой папке нет, поэтому поиск выполнен и в подпапках.", "Такого имени нет ни в этой папке, ни в подпапках.", "Все",
+    "Вырезано: {n}. Откройте папку назначения и нажмите «Вставить»", "Скопировано: {n}. Откройте папку назначения и нажмите «Вставить»", "Отменить вставку",
   ],
 };
 

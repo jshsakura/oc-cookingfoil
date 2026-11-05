@@ -252,3 +252,52 @@ test('전부 beside the count picks the whole list and lets it all go again', as
   await page.locator('#fb-pick-acts').getByRole('button', { name: '파일 메뉴' }).click();
   await expect(page.locator('#fb-menu').getByRole('menuitem', { name: '이 페이지를 전부 고릅니다' })).toHaveCount(0);
 });
+
+test('a cut speaks in taps, shows its count, survives leaving the page and can be called off', async ({ page }) => {
+  const bar = page.locator('#fb-pick-acts');
+  await row(page, 'loose.nsp').click({ position: { x: 120, y: 10 } });
+  await bar.getByRole('button', { name: '파일 메뉴' }).click();
+  await page.locator('#fb-menu').getByRole('menuitem', { name: '잘라내기' }).click();
+  await expect(page.locator('#toast')).toContainText('붙여넣기를 누릅니다');
+  await expect(page.locator('#toast')).not.toContainText('Ctrl');
+  await expect(bar.getByRole('button')).toHaveText(['붙여넣기 1', '파일 메뉴']);
+  await page.reload();
+  await expect(row(page, 'loose.nsp')).toHaveClass(/fb-cut/);
+  await expect(bar.getByRole('button')).toHaveText(['붙여넣기 1', '파일 메뉴']);
+  await bar.getByRole('button', { name: '파일 메뉴' }).click();
+  await page.locator('#fb-menu').getByRole('menuitem', { name: '붙여넣기 취소' }).click();
+  await expect(bar.getByRole('button')).toHaveText(['올리기', '파일 메뉴']);
+  await expect(row(page, 'loose.nsp')).not.toHaveClass(/fb-cut/);
+  await page.reload();
+  await expect(bar.getByRole('button')).toHaveText(['올리기', '파일 메뉴']);
+  expect(has('loose.nsp')).toBe(true);
+});
+
+test('the move window offers the way up from a folder with nothing below it', async ({ page }) => {
+  await row(page, 'Alpha').click({ position: { x: 120, y: 10 } });
+  await row(page, 'one.nsp').click({ position: { x: 120, y: 10 } });
+  await page.locator('#fb-pick-acts').getByRole('button', { name: '이동' }).click();
+  const up = page.locator('#fb-m-list').getByRole('button', { name: '상위 폴더' });
+  await up.click();
+  await expect(page.locator('#fb-m-list').getByRole('button', { name: 'Beta' })).toBeVisible();
+  await up.click();
+  await expect(page.locator('#fb-m-list').getByRole('button', { name: 'fb-phone' })).toBeVisible();
+  await expect(up).toHaveCount(0);
+});
+
+test('a rename selects the name, leaving a game id, version and extension alone', async ({ page }) => {
+  const name = 'Hollow Game [0100000000010002][v0].nsp';
+  put(name, '5');
+  await page.locator('#fb-refresh').click();
+  await row(page, name).click({ position: { x: 120, y: 10 } });
+  await page.locator('#fb-pick-acts').getByRole('button', { name: '이름 바꾸기' }).click();
+  await page.keyboard.type('Knight');
+  await expect(page.locator('#ask-input')).toHaveValue('Knight [0100000000010002][v0].nsp');
+  await page.locator('#ask-no').click();
+  await row(page, name).click({ position: { x: 120, y: 10 } });
+  await row(page, 'loose.nsp').click({ position: { x: 120, y: 10 } });
+  await page.locator('#fb-pick-acts').getByRole('button', { name: '이름 바꾸기' }).click();
+  await page.keyboard.type('tight');
+  await expect(page.locator('#ask-input')).toHaveValue('tight.nsp');
+  await page.locator('#ask-no').click();
+});

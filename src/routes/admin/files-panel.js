@@ -209,6 +209,7 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
   body:has(#fb-foot[data-sel]) .ch-launch{display:none}
   /* The chat button and a notice stand above the bar. */
   body:has(#fb-foot) .ch-launch{bottom:76px}
+  body:has(#fb-foot):has(.ch-launch:not([hidden])) .wrap{padding-bottom:132px}
   body:has(#fb-foot) .toast{bottom:76px}
   /* The bar stays on the screen's bottom edge however short the list is, with room kept under the last row. */
   #fb .fb-foot{position:fixed;left:0;right:0;bottom:0;z-index:20;padding-bottom:calc(8px + env(safe-area-inset-bottom));background:var(--bg)}
@@ -454,7 +455,9 @@ async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
   const e=$('fb-empty');e.hidden=d.items.length>0;e.textContent=fb.q?topText(d.deep?'fb.noMatchDeep':'fb.noMatch'):topText('fb.empty');fbFoot();if(found)fbFocusRow();
   if(d.cut)toast(topText('fb.deepCut'));fbThumbs();fbTreeSync();fbSizeRows(d.items);}
 const fbExt=(name)=>(/\\.[^./]+$/.exec(name)?.[0]||'').toLowerCase();
-async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await askText(topText('fb.renameAsk'),f.name);if(name==null||!name.trim()||name.trim()===f.name)return;
+// What a rename usually retypes: a game's [id][version] and the extension stay out of the selection.
+function fbStem(f){const ext=f.name.length-(f.type==='file'?fbExt(f.name).length:0);const tag=f.name.search(/ ?[[]/);return tag>0?Math.min(tag,ext):ext;}
+async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await askText(topText('fb.renameAsk'),f.name,{selectTo:fbStem(f)});if(name==null||!name.trim()||name.trim()===f.name)return;
   if(f.type==='file'&&fbExt(name.trim())!==fbExt(f.name)&&!await ask(topText('fb.extAsk')))return;
   try{const out=await api('/admin/api/files/rename',{method:'POST',body:{root:fb.root,path:f.rel,name:name.trim()}});fb.sel.delete(f.rel);
     fbUndoPush({journal:[out.undo]});fbToastUndo(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
@@ -549,7 +552,9 @@ async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');fbMoveOk
   add(fbRootName(fbm.root),'');parts.forEach((p,i)=>add(p,parts.slice(0,i+1).join('/')));
   let d;try{d=await api('/admin/api/files/list?'+new URLSearchParams({root:fbm.root,path:fbm.path,perPage:'500'}));}catch(err){if(n===fbm.seq)list.replaceChildren(el('p',err.message));return;}
   if(n!==fbm.seq)return;const dirs=d.items.filter((f)=>f.type==='dir'&&!(fbm.root===fb.root&&fb.sel.has(f.rel)));
-  list.replaceChildren(...dirs.map((f)=>{const b=el('button');b.type='button';b.innerHTML=FB_ICON.dir;b.append(el('span',f.name));b.addEventListener('click',()=>{fbm.path=f.rel;fbMoveLoad();});return b;}));
+  const go=(label,to,ic)=>{const b=el('button');b.type='button';b.innerHTML=ic;b.append(el('span',label));b.addEventListener('click',()=>{fbm.path=to;fbMoveLoad();});return b;};
+  const up=fbm.path?[go(topText('fb.up'),fbm.path.split('/').slice(0,-1).join('/'),FB_ICON.up)]:[];
+  list.replaceChildren(...up,...dirs.map((f)=>go(f.name,f.rel,FB_ICON.dir)));
   if(!dirs.length)list.append(el('p',topText('fb.empty')));}
 async function fbMoveNewFolder(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{const out=await api('/admin/api/files/mkdir',{method:'POST',body:{root:fbm.root,path:fbm.path,name:name.trim()}});
@@ -680,7 +685,7 @@ $('fb-rows').addEventListener('keydown',(e)=>{const tr=e.target;if(tr.tagName!==
 // Anywhere on the open file tab: Esc clears the pick, Delete trashes it, Ctrl or Cmd+A picks the page, Backspace or
 // Alt+Up goes to the parent folder. None fires while typing or in a dialog.
 document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.closest('input,textarea,select,dialog'))return;
-  if(e.key==='Escape'&&fb.sel.size)$('fb-clear').click();else if(e.key==='Delete'&&fb.sel.size)fbTrash([...fb.sel]);
+  if(e.key==='Escape'&&fb.sel.size)$('fb-clear').click();else if(e.key==='Escape'&&fb.clip)fbClipDrop();else if(e.key==='Delete'&&fb.sel.size)fbTrash([...fb.sel]);
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'&&fbRels().length){e.preventDefault();fbAll(true);}
   else if(e.key==='Backspace'||(e.altKey&&e.key==='ArrowUp')){if(fb.path){e.preventDefault();fbParent();}}});
 // The menu for a right click: on rows it holds what the pick allows, on the empty part of the list a new folder
@@ -699,22 +704,22 @@ function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rel
       if(has(/[.](nsp|xci)$/i))add('fb.nsz','nsz',()=>fbNsz(rels));if(has(/[.](nsp|nsz|xci|xcz)$/i))add('fb.verify','verify',()=>fbVerify(rels));}
     add('fb.cut','cut',()=>fbClip('cut'));add('fb.copy','copy',()=>fbClip('copy'));
     if(one)add('fb.rename','rename',()=>fbRename(one));
-    if(fb.clip)add('fb.paste','paste',fbPaste);
+    if(fb.clip){add('fb.paste','paste',fbPaste);add('fb.clipDrop','stop',fbClipDrop);}
     add('fb.move','move',fbMove);add('fb.trash','trash',()=>fbTrash(rels),true);add('fb.props','props',fbProps);
 }
   else{add('fb.newFolder','mkdir',fbMkdir);add('fb.upload','upload',()=>$('fb-file').click());add('fb.uploadDir','open',()=>$('fb-dir').click());
     if(fbPhone()&&fb.root!=='incoming')add('fb.tidy','tidy',fbTidy);
     if(fbPhone()&&fb.root==='games'&&$('rescan'))items.push({label:$('rescan').textContent.trim(),ic:'refresh',fn:()=>$('rescan').click()});
-    if(fb.clip)add('fb.paste','paste',fbPaste);if(fb.undos.length)add('fb.undo','undo',fbUndo);add('fb.props','props',fbProps);}
+    if(fb.clip){add('fb.paste','paste',fbPaste);add('fb.clipDrop','stop',fbClipDrop);}if(fb.undos.length)add('fb.undo','undo',fbUndo);add('fb.props','props',fbProps);}
   return items;}
 // A phone's bottom bar: the likeliest three of what the pick allows, the trash, and the whole list behind 파일 메뉴.
 const FB_BAR=['fb.view','fb.download','fb.zip','fb.rename','fb.move'];
 // With nothing picked it offers the one thing a phone does next there, and the same 파일 메뉴 holds the rest.
 const FB_IDLE=['fb.paste','fb.upload'];
 function fbPickBar(){const bar=$('fb-pick-acts');if(!fbPhone()){bar.replaceChildren();return;}
-  const all=fbActions();const top=fb.sel.size?[...FB_BAR.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,3),all.find((a)=>a.key==='fb.trash')]:FB_IDLE.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,1);
+  const all=fbActions();const top=fb.sel.size?[...FB_BAR.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,3),all.find((a)=>a.key==='fb.trash')]:FB_IDLE.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,1).map((a)=>a.key==='fb.paste'?{...a,label:topText(a.key)+' '+num(fb.clip.rels.length)}:a);
   bar.replaceChildren(...[...top,{key:'fb.menu',ic:'more',fn:()=>fbMenu(0,0)}].map((it)=>{
-    const b=el('button');b.type='button';b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',topText(it.key)));if(it.danger)b.dataset.danger='';b.addEventListener('click',it.fn);return b;}));}
+    const b=el('button');b.type='button';b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',it.label||topText(it.key)));if(it.danger)b.dataset.danger='';b.addEventListener('click',it.fn);return b;}));}
 matchMedia('(max-width:760px)').addEventListener('change',()=>{fbPickBar();for(const r of document.querySelectorAll('#fb-rows tr'))r.draggable=!fbPhone();});
 function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const items=fbActions();
   const back=document.activeElement;

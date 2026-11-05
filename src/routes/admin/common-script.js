@@ -122,7 +122,7 @@ function askDialog(msg,value,opts={}){const d=$('ask-dialog'),ok=$('ask-ok'),no=
     const yes=()=>done(choosing?sel.value:typing?inp.value:true),nope=()=>done(choosing||typing?null:false);
     ok.onclick=yes;no.onclick=nope;d.oncancel=(e)=>{e.preventDefault();nope();};
     inp.onkeydown=(e)=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();yes();}};
-    d.showModal();if(choosing)sel.focus();else if(typing){inp.focus();inp.select();}else(danger?no:ok).focus();});}
+    d.showModal();if(choosing)sel.focus();else if(typing){inp.focus();inp.select();if(opts.selectTo!=null)inp.setSelectionRange(0,opts.selectTo);}else(danger?no:ok).focus();});}
 const ask=(msg,opts)=>askDialog(msg,undefined,opts);
 const askText=(msg,value='',opts)=>askDialog(msg,value,opts);
 // One of [{value,label}], or null when cancelled.

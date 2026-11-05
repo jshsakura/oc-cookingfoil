@@ -74,13 +74,18 @@ $('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.
 // Cut, copy and paste. A cut is a move when it is pasted (the rows stay dimmed until then); a copy is made on the
 // server, checked against the original, and a name the folder has gets a number.
 const fbClipped=(rel)=>fb.clip?.mode==='cut'&&fb.clip.root===fb.root&&fb.clip.rels.includes(rel);
-function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fb.clip={mode,root:fb.root,rels};fbCmds();
-  for(const r of document.querySelectorAll('#fb-rows tr'))r.classList.toggle('fb-cut',fbClipped(r.dataset.rel));
+// What was cut or copied stays through a move to another page of this tab, or a phone could not carry it there.
+const FB_CLIP_KEY='fb.clip';
+function fbClipSet(c){fb.clip=c;try{if(c)sessionStorage.setItem(FB_CLIP_KEY,JSON.stringify(c));else sessionStorage.removeItem(FB_CLIP_KEY);}catch{}
+  fbCmds();for(const r of document.querySelectorAll('#fb-rows tr'))r.classList.toggle('fb-cut',fbClipped(r.dataset.rel));}
+try{const c=JSON.parse(sessionStorage.getItem(FB_CLIP_KEY));if(['cut','copy'].includes(c?.mode)&&typeof c.root==='string'&&Array.isArray(c.rels))fb.clip=c;}catch{}
+function fbClipDrop(){fbClipSet(null);fbPickBar();}
+function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fbClipSet({mode,root:fb.root,rels});
   // On a phone a held pick turns taps into picks, and the next tap has to walk to where this goes.
   if(fbPhone()){fb.sel.clear();fb.anchor=null;fbPaint();}
-  toast(topFill(mode==='cut'?'fb.clipCut':'fb.clipCopy',{n:num(rels.length)}));}
+  const phone=fbPhone();toast(topFill(mode==='cut'?(phone?'fb.clipCutTap':'fb.clipCut'):(phone?'fb.clipCopyTap':'fb.clipCopy'),{n:num(rels.length)}));}
 async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,path:fb.path};
-  if(c.mode==='cut'){fb.clip=null;await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
+  if(c.mode==='cut'){fbClipSet(null);await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
   try{const out=await fbCopyRun({root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path});
     if(out.copied.length){const paths=out.copied.map((x)=>x.to);fbUndoPush({trash:{root:to.root,paths},held:await fbHolds(to.root,paths).catch(()=>null)});}
     const why=fbRefusal(out.skipped);if(!out.copied.length&&why){toast(why);fbLoad();return;}
