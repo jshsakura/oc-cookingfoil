@@ -52,6 +52,8 @@ export function createFileShares({ store = recordStore("file-share"), now = Date
         .filter(([, s]) => s.root === root && s.rel === rel)
         .map(([id, s]) => ({ id, expiresAt: s.expiresAt, by: s.by }))
         .sort((a, b) => b.expiresAt - a.expiresAt),
+    /** Every file in storage `root` with a live link. */
+    relsIn: (root) => new Set([...live().values()].filter((s) => s.root === root).map((s) => s.rel)),
     /** Ends a link at once; false when there was none. */
     revoke(id) {
       const kept = live();

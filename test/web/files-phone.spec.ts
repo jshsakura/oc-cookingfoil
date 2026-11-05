@@ -372,3 +372,54 @@ test('a swipe across a preview steps to the next file', async ({ page }) => {
   await expect(title).not.toHaveText(before!);
 });
 
+
+test('a game list on a phone keeps every card inside the screen, without a tall gap under it', async ({ page }) => {
+  put('Listed/A Very Long Name Game That Goes On And On Forever And Ever [0100000000020000][v0].nsp', '1');
+  await page.goto('/admin/library');
+  const list = page.locator('#lb-list');
+  await expect(list.locator('.gcard').first()).toBeVisible();
+  const over = await list.evaluate((m) => {
+    const bad = [...m.querySelectorAll('.gcard *')].filter((e) => e.getBoundingClientRect().right > innerWidth + 1).length;
+    return { bad, sideways: [...m.querySelectorAll('*')].filter((e) => { const o = getComputedStyle(e).overflowX; return (o === 'auto' || o === 'scroll') && e.scrollWidth > e.clientWidth + 1; }).length };
+  });
+  expect(over.bad).toBe(0);
+  expect(over.sideways).toBe(0);
+  const gap = await list.locator('.gcard').first().evaluate((c) => {
+    const last = c.lastElementChild!.getBoundingClientRect();
+    return c.parentElement!.getBoundingClientRect().bottom - last.bottom;
+  });
+  expect(gap).toBeLessThan(24);
+});
+
+test('a preview fills the phone, and a lost server leaves the list and the pick on screen', async ({ page }) => {
+  put('Pic/a.txt', 'hello');
+  await page.goto('/admin/games?tab=folder&path=fb-phone%2FPic');
+  await row(page, 'a.txt').click({ position: { x: 120, y: 10 } });
+  await expect.poll(async () => (await page.locator('#fb-view').boundingBox())!.width).toBe(390);
+  expect((await page.locator('#fb-view').boundingBox())!.height).toBeGreaterThanOrEqual(800);
+  await page.keyboard.press('Escape');
+  await row(page, 'a.txt').locator('td.c-sel input').check();
+  await page.route('**/admin/api/files/list**', (r) => r.abort());
+  await page.evaluate(() => (window as any).fbLoad());
+  await expect(page.locator('#toast')).toContainText('서버에 연결할 수 없습니다');
+  await expect(row(page, 'a.txt')).toHaveAttribute('aria-selected', 'true');
+});
+
+test('the header names the page whole on a phone: no group cut to a syllable, no tab repeating the page', async ({ page }) => {
+  for (const url of ['/admin/client', '/admin/users', '/admin/settings/notifications']) {
+    await page.goto(url);
+    const crumb = page.locator('.adm-side .adm-crumb');
+    const parts = await crumb.evaluate((c) => [...c.children].filter((n) => n.tagName === 'SPAN' && getComputedStyle(n).display !== 'none').map((n) => ({ text: (n as HTMLElement).innerText.trim(), cut: n.scrollWidth > n.clientWidth + 1 })));
+    expect(parts.filter((x) => x.cut && x !== parts[parts.length - 1]), url).toEqual([]);
+    const words = parts.map((x) => x.text);
+    expect(new Set(words).size, url).toBe(words.length);
+  }
+});
+
+test('a session that ended says so on the sign-in page', async ({ page, context }) => {
+  await page.goto('/admin/games?tab=folder&path=fb-phone');
+  await expect(row(page, 'Alpha')).toBeVisible();
+  await context.clearCookies();
+  await page.evaluate(() => (window as any).fbLoad());
+  await expect(page.locator('#err')).toContainText('다시 로그인합니다');
+});

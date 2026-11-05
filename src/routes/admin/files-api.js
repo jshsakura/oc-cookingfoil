@@ -123,7 +123,8 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     const root = str(req.query.root);
     const dirsOnly = str(req.query.only) === "dirs";
     const out = await files.list(root, str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label, dirsOnly });
-    const items = facts(root, out.items, lang);
+    const shared = shares.relsIn(root);
+    const items = facts(root, out.items, lang).map((i) => (shared.has(i.rel) ? { ...i, shared: true } : i));
     res.json({ ...out, items: root === "retro" ? withConsoles(items, files.roots().find((r) => r.key === "retro")?.dir, lang) : items });
   }));
 
@@ -300,7 +301,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     const id = crypto.randomBytes(16).toString("hex");
     zips.set(id, { entries, name: `${rels.length === 1 ? entries[0].name : folder}.zip`, until: now + ZIP_TTL_MS });
     debug.log("admin: files: zip of %d entries from %s", entries.length, root);
-    res.json({ url: `/admin/api/files/zip/${id}` });
+    res.json({ url: `/admin/api/files/zip/${id}`, files: entries.filter((e) => !e.dir).length, bytes: entries.reduce((n, e) => n + (e.size ?? 0), 0) });
   }));
 
   router.get("/api/files/zip/:id", handle(async (req, res) => {

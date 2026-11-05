@@ -73,6 +73,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb-menu .fb-m-head{margin:4px 12px 2px;font-size:var(--fs-xs)}
 #fb .c-sel{width:44px;text-align:center}#fb .c-size{width:110px;text-align:right}#fb .c-mtime{width:180px}#fb .c-act{width:132px}
 #fb .c-size,#fb .c-mtime{font-variant-numeric:tabular-nums;color:var(--muted)}
+#fb .fb-shared{flex:none;display:inline-flex;color:var(--accent,var(--text))}#fb .fb-shared svg{width:15px;height:15px}
 #fb th.c-size button{margin-left:auto}
 #fb .fb-name{display:flex;align-items:center;gap:10px;min-width:0}
 #fb .fb-name .ico{color:var(--muted)}#fb .fb-name .is-dir{color:var(--accent)}
@@ -186,6 +187,11 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
   /* A thumb's worth for what sits around the list. */
   #fb .fb-bar .fb-seg .ib,#fb .fb-bar .fb-nav .ib{width:44px;height:44px}
   #fb-view .fb-v-head button{min-width:44px;min-height:44px}
+  #fb .fb-upl li{flex-wrap:wrap}#fb .fb-u-st{flex:1 1 100%;max-width:none;overflow:visible;white-space:normal;text-overflow:clip}
+  /* A preview takes the screen, and fingers zoom it as they do any picture. */
+  #fb-view{width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;inset:0;border:0;border-radius:0;box-sizing:border-box}
+  #fb-view .fb-v-body{flex:1;min-height:0;touch-action:pinch-zoom}
+  #fb-view .fb-v-body img{max-height:100%}#fb-view .fb-v-body pre{max-height:100%;align-self:stretch}
   #fb .c-mtime,#fb .c-act{display:none}#fb .c-size{width:72px}
   /* The browser has its own back and forward. The path takes the rest of the first line, the search and the view the second. */
   #fb .fb-nav #fb-back,#fb .fb-nav #fb-fwd{display:none}
@@ -356,7 +362,7 @@ const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("
 const FB_PER=100;
 const FB_SKEL_MS=120;
 const FB_MAX_PAGES=5;
-const fb={roots:[],root:'',path:'',sort:'mtime',order:'desc',q:'',sel:new Set(),anchor:null,focus:null,drag:null,hi:0,hmax:0,deep:null,clip:null,undos:[],seq:0,data:null,timer:null};
+const fb={roots:[],root:'',path:'',sort:'mtime',order:'desc',q:'',sel:new Set(),anchor:null,focus:null,drag:null,hi:0,hmax:0,deep:null,clip:null,undos:[],redos:[],seq:0,data:null,timer:null};
 const fbSize=(n)=>{if(n==null)return '';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
 const fbDate=(ms)=>ms?new Date(ms).toLocaleString(loc(),{dateStyle:'medium',timeStyle:'short'}):'';
 const fbRootName=(k)=>topText('fb.root.'+k);
@@ -394,7 +400,8 @@ function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-s
   else{const s=el('span',f.name);s.title=f.name;n.append(s);if(f.title)n.append(el('span',f.title,'fb-where'));}
   // A search through folders below names where each find is.
   const at=f.rel.split('/').slice(0,-1).join('/');if(fb.data?.deep&&at!==fb.path){const w=el('button',at,'fb-where fb-at');w.type='button';w.title=at;w.addEventListener('click',()=>{fb.reveal=f.rel;fbGo(fb.root,at);});n.append(w);}
-  fbDecorate(n,f);cn.append(n);if(fbClipped(f.rel))tr.classList.add('fb-cut');
+  fbDecorate(n,f);if(f.shared){const w=el('span',null,'fb-shared');w.innerHTML=FB_ICON.share;w.title=topText('fb.sharedRow');w.setAttribute('aria-label',topText('fb.sharedRow'));w.setAttribute('role','img');n.append(w);}
+  cn.append(n);if(fbClipped(f.rel))tr.classList.add('fb-cut');
   const ca=td(null,'c-act');const act=el('div',null,'fb-act');
   act.append(tbtn('rename','fb.rename',()=>fbRename(f)));
   if(f.type==='file'){const d=tbtn('download','fb.download',()=>fbDownload(f));d.classList.add('fb-dl');act.append(d);}
@@ -448,6 +455,8 @@ async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
   const view=fb.root+'|'+qs;const pages=view===fb.view&&fb.data?Math.min(FB_MAX_PAGES,Math.max(1,fb.data.page)):1;
   qs.set('page','1');qs.set('perPage',String(FB_PER*pages));const skel=view!==fb.view?setTimeout(()=>{if(n===fb.seq)fbSkel();},FB_SKEL_MS):null;
   let d;try{d=await api('/admin/api/files/list?'+qs);}catch(err){clearTimeout(skel);if(n!==fb.seq)return;
+    // The server out of reach says nothing about the folder: what is on screen and the pick stay.
+    if(err.offline&&view===fb.view&&fb.data){toast(err.message);return;}
     // A folder that is gone (moved elsewhere, a stale link) leads back to the top of its storage.
     if(err.code==='not-found'&&fb.path){toast(err.message);fbGo(fb.root,'',{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());return;}
     fb.data=null;$('fb-rows').replaceChildren();const e=$('fb-empty');e.hidden=false;e.textContent=topFill('fb.loadFail',{msg:err.message});fbFoot();return;}
@@ -465,18 +474,17 @@ const fbExt=(name)=>(/\\.[^./]+$/.exec(name)?.[0]||'').toLowerCase();
 function fbStem(f){const ext=f.name.length-(f.type==='file'?fbExt(f.name).length:0);const tag=f.name.search(/ ?[[]/);return tag>0?Math.min(tag,ext):ext;}
 async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await askText(topText('fb.renameAsk'),f.name,{selectTo:fbStem(f)});if(name==null||!name.trim()||name.trim()===f.name)return;
   if(f.type==='file'&&!/^[.]|[/]/.test(name.trim())&&fbExt(name.trim())!==fbExt(f.name)&&!await ask(topText('fb.extAsk')))return;
-  try{const out=await api('/admin/api/files/rename',{method:'POST',body:{root:fb.root,path:f.rel,name:name.trim()}});fb.sel.delete(f.rel);
-    fbUndoPush({journal:[out.undo]});fbToastUndo(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
+  try{await fbStep(fbPost('rename',{root:fb.root,path:f.rel,name:name.trim()}),(out)=>({journal:[out.undo]}));fb.sel.delete(f.rel);
+    fbToastUndo(topText('fb.renamed'));fbLoad();}catch(err){toast(err.message);}}
 // 파일 압축 and 파일 검사 hand the picked files, or every game file under the picked folders, to the queues the 파일 압축 and 파일 검사 tabs show.
 async function fbNsz(rels){try{const out=await api('/admin/api/nsz/run-selected',{method:'POST',body:{rels}});toast(topFill('nz.runSelGo',{n:num(out.count)}));}catch(err){toast(err.message);}}
 async function fbVerify(rels){try{await api('/admin/api/library/verify/recheck',{method:'POST',body:{rels}});toast(topText('lv.rechecking'));}catch(err){toast(err.message);}}
 async function fbTrash(rels){if(!rels.length||!await fbServerOk(rels))return;
   if(!await ask(topFill('fb.askTrash',{n:num(rels.length)}),{danger:true}))return;
-  try{const out=await api('/admin/api/files/trash',{method:'POST',body:{root:fb.root,paths:rels}});for(const r of rels)fb.sel.delete(r);
-    fbUndoPush({restore:out.restore});fbToastUndo(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
+  try{const out=await fbStep(fbPost('trash',{root:fb.root,paths:rels}),(o)=>({restore:o.restore}));for(const r of rels)fb.sel.delete(r);
+    fbToastUndo(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
 async function fbMkdir(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
-  try{const out=await api('/admin/api/files/mkdir',{method:'POST',body:{root:fb.root,path:fb.path,name:name.trim()}});
-    fbUndoPush({trash:{root:out.root,paths:[out.rel]},held:0});toast(topText('fb.made'));fbLoad();}catch(err){toast(err.message);}}
+  try{await fbStep(fbPost('mkdir',{root:fb.root,path:fb.path,name:name.trim()}),(o)=>({trash:{root:o.root,paths:[o.rel]},held:0}));toast(topText('fb.made'));fbLoad();}catch(err){toast(err.message);}}
 // Upload into the open folder: files dropped on the list (a dropped folder keeps its shape) or picked with the
 // buttons go up one at a time in pieces (chunkUpload, common-script.js) and land where the list was when they were
 // picked. A name the folder already has is skipped before a byte goes up; nothing is ever overwritten. The panel in
@@ -597,8 +605,8 @@ const FB_NOTE={'other-game':'fb.r.otherGame','retro-no-system':'fb.r.noSystem','
 const fbNotes=(notes)=>[...new Set((notes||[]).map((x)=>FB_NOTE[x.code]).filter(Boolean))].map(topText).join(' ');
 function fbRefusal(skipped){const s=skipped.find((x)=>FB_WHY[x.code]);return s?topText(FB_WHY[s.code]):'';}
 async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){if(!await fbServerOk(rels,fromRoot))return;
-  try{const out=await api('/admin/api/files/move',{method:'POST',body:{root:fromRoot,paths:rels,toRoot,toPath}});
-    for(const m of out.moved)fb.sel.delete(m.from);fbUndoPush({journal:out.moved.map((m)=>m.undo)});
+  try{const out=await fbStep(fbPost('move',{root:fromRoot,paths:rels,toRoot,toPath}),(o)=>({journal:o.moved.map((m)=>m.undo)}));
+    for(const m of out.moved)fb.sel.delete(m.from);
     const why=fbRefusal(out.skipped);if(!out.moved.length&&why){toast(why);fbLoad();return;}
     const msg=(out.skipped.length?topFill('fb.movedSome',{moved:num(out.moved.length),skipped:num(out.skipped.length)}):topFill('fb.moved',{n:num(out.moved.length)}))+(why?' '+why:'');
     const note=fbNotes(out.notes);
@@ -630,7 +638,7 @@ function fbDropTarget(node,dest){const ours=(e)=>fb.drag&&[...e.dataTransfer.typ
 document.addEventListener('dragend',()=>{fb.drag=null;fbTip(null);for(const n of document.querySelectorAll('#fb .fb-target'))n.classList.remove('fb-target');});
 // Several items, or a folder, come down as one zip: the server gets the list, the browser's own download takes the file.
 async function fbZip(rels){if(!rels.length)return;toast(topText('fb.zipping'));
-  try{const out=await api('/admin/api/files/zip',{method:'POST',body:{root:fb.root,paths:rels}});location.href=out.url;}catch(err){toast(err.message);}}
+  try{const out=await api('/admin/api/files/zip',{method:'POST',body:{root:fb.root,paths:rels}});toast(topFill('fb.zipStart',{n:num(out.files),size:fbSize(out.bytes)}));location.href=out.url;}catch(err){toast(err.message);}}
 // A look at an image or the start of a text file without leaving the list. The bytes come through the download
 // address into a blob, so nothing of the file is ever served as a page of this site; text is shown as text.
 const FB_VIEW={image:new Set(['png','jpg','jpeg','gif','webp','bmp','avif','svg','ico']),
@@ -658,7 +666,7 @@ $('fb-v-prev').addEventListener('click',()=>fbViewStep(-1));$('fb-v-next').addEv
 $('fb-v-dl').addEventListener('click',()=>{if(fbv.f)fbDownload(fbv.f);});$('fb-v-x').addEventListener('click',()=>$('fb-view').close());
 // A swipe across a preview steps as the arrows do; a text preview scrolls sideways on its own.
 {const FB_SWIPE=60;let from=null;const v=$('fb-view');
-  v.addEventListener('touchstart',(e)=>{from=e.touches.length===1&&!e.target.closest('pre')?e.touches[0]:null;},{passive:true});
+  v.addEventListener('touchstart',(e)=>{from=e.touches.length===1&&!e.target.closest('pre')&&(visualViewport?.scale??1)<=1.01?e.touches[0]:null;},{passive:true});
   v.addEventListener('touchend',(e)=>{if(!from)return;const t=e.changedTouches[0],dx=t.clientX-from.clientX,dy=t.clientY-from.clientY;from=null;
     if(Math.abs(dx)>=FB_SWIPE&&Math.abs(dx)>Math.abs(dy)*2)fbViewStep(dx<0?1:-1);});}
 $('fb-view').addEventListener('keydown',(e)=>{if(e.key==='ArrowLeft'){e.preventDefault();fbViewStep(-1);}else if(e.key==='ArrowRight'){e.preventDefault();fbViewStep(1);}});
@@ -721,7 +729,7 @@ function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rel
   else{add('fb.newFolder','mkdir',fbMkdir);add('fb.upload','upload',()=>$('fb-file').click());add('fb.uploadDir','open',()=>$('fb-dir').click());
     if(fbPhone()&&fb.root!=='incoming')add('fb.tidy','tidy',fbTidy);
     if(fbPhone()&&fb.root==='games'&&$('rescan'))items.push({label:$('rescan').textContent.trim(),ic:'refresh',fn:()=>$('rescan').click()});
-    if(fb.clip){add('fb.paste','paste',fbPaste);add('fb.clipDrop','stop',fbClipDrop);}if(fb.undos.length)add('fb.undo','undo',fbUndo);add('fb.props','props',fbProps);}
+    if(fb.clip){add('fb.paste','paste',fbPaste);add('fb.clipDrop','stop',fbClipDrop);}if(fb.undos.length)add('fb.undo','undo',fbUndo);if(fb.redos.length)add('fb.redo','refresh',fbRedo);add('fb.props','props',fbProps);}
   return items;}
 // A phone's bottom bar: the likeliest three of what the pick allows, the trash, and the whole list behind 파일 메뉴.
 const FB_BAR=['fb.view','fb.download','fb.zip','fb.rename','fb.move'];

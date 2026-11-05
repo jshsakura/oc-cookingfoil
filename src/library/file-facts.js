@@ -64,14 +64,14 @@ export function createFileFacts({ files = libraryCache.files, integrity = findin
         const finding = integrity(item.rel);
         const check = CHECKS.has(finding?.verdict) ? finding.verdict : null;
         return {
-          ...item, titleId: base, kind: f.kind ?? null, version: f.version ?? null,
+          ...item, titleId: base, ...(own ? { ownId: own } : {}), kind: f.kind ?? null, version: f.version ?? null,
           latest: newest != null && f.version != null ? f.version >= newest : null,
           check, ...(check ? { why: explain(finding, lang) } : {}),
         };
       }
       const named = titleIdIn(item.name);
       const base = item.type === "dir" && dirBase.get(item.rel) ? dirBase.get(item.rel) : named ? baseTitleIdOf(named) : null;
-      return base ? { ...item, titleId: base } : item;
+      return base ? { ...item, titleId: base, ...(item.type === "file" && named ? { ownId: named } : {}) } : item;
     });
   };
 }

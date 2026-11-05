@@ -201,11 +201,11 @@ async function api(url,opts={}){
   headers.set('Accept-Language',typeof adminLang==='string'?adminLang:'ko');
   const init={...opts,headers};
   if(opts.body!==undefined){init.headers.set('Content-Type','application/json');init.body=JSON.stringify(opts.body);}
-  let r;try{r=await fetch(url,init);}catch(err){if(err.name==='AbortError')throw err;throw new Error(topText('cm.offline'));}
+  let r;try{r=await fetch(url,init);}catch(err){if(err.name==='AbortError')throw err;const off=new Error(topText('cm.offline'));off.offline=true;throw off;}
   // Signed out (or the first account just switched sign-in on): reload, which leads
   // to the sign-in page, but never while a new password is still on screen.
   if(r.status===401){const cred=$('cred-dialog');
-    if(cred&&cred.open)cred.addEventListener('close',()=>location.reload(),{once:true});else location.reload();throw new Error('session');}
+    if(cred&&cred.open)cred.addEventListener('close',()=>location.reload(),{once:true});else{try{sessionStorage.setItem('adm-ended','1');}catch{}location.reload();}throw new Error('session');}
   const data=await r.json().catch(()=>({}));
   // A refusal the page acts on carries a stable code; older answers put theirs in error.
   if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.code||data.error;throw e;}

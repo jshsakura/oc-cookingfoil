@@ -32,7 +32,7 @@ export const LIB_ITEM_CSS = `
 #lb-dlg .lbd-same .lbd-s{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 #lb-dlg form{display:grid;gap:10px}
 #lb-dlg form h5{margin:6px 0 0;font-size:var(--fs-sm)}
-#lb-dlg form textarea{min-height:72px}
+#lb-dlg form textarea{display:block;width:100%;box-sizing:border-box;min-height:72px}
 #lb-dlg .lbd-foot{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px;background:var(--panel);border-top:1px solid var(--line)}
 #lb-dlg .lbd-foot .lbd-gap{flex:1}
 #lib-files .lb-open{display:block;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}

@@ -163,7 +163,9 @@ body.adm-shell{padding:0}
 @media (max-width:899px){
 .adm-crumb{flex:1;font-size:var(--fs-md)}
 .adm-crumb-far{display:none}
-.adm-crumb-i{flex:none;max-width:70%}
+.adm-crumb-g,.adm-crumb-sep{flex:none}
+.adm-crumb-i{flex:0 1 auto;min-width:0}
+.adm-crumb-tight>.adm-crumb-g,.adm-crumb-tight>.adm-crumb-sep{display:none}
 .adm-side{padding:8px 16px;border-bottom:1px solid var(--line)}
 .adm-side>.adm-side-in{display:none}
 #adm-menu{display:inline-flex;order:-1}
@@ -282,14 +284,18 @@ function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySe
   const rowTab=grp?null:document.querySelector('main .adm-rowtabs [aria-current="page"]');
   const sec=document.querySelector('main .subtabs:not(.adm-rowtabs):not([hidden]) :is([data-sub],[data-lsub])[aria-selected="true"]');
   const parts=[];
+  // A tab whose name is already in the page's says nothing more: 알림 설정 is not also 알림 설정 › 설정.
+  const said=(p)=>parts[parts.length-1]?.textContent.trim().toLowerCase().includes(p?.textContent.trim().toLowerCase());
   if(rowTab){parts.push(label(a),plain(rowTab));}else{parts.push(label(grp?.querySelector('summary')),label(a));}
-  if(sec)parts.push(plain(sec));
+  if(sec&&!said(plain(sec)))parts.push(plain(sec));
   const shown=parts.filter(Boolean);
   shown.forEach((p,k)=>{const last=k===shown.length-1;
     const far=k<shown.length-2?' adm-crumb-far':'';
     if(!last){p.classList.add('adm-crumb-g');if(far)p.classList.add('adm-crumb-far');c.append(p);
       c.insertAdjacentHTML('beforeend','<svg class="adm-crumb-sep'+far+'" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');}
-    else{p.classList.add('adm-crumb-i');c.append(p);}});}
+    else{p.classList.add('adm-crumb-i');c.append(p);}});
+  // Short of room the page's own name wins, whole, rather than a group cut to one syllable.
+  c.classList.remove('adm-crumb-tight');const i=c.querySelector('.adm-crumb-i');if(i&&i.scrollWidth>i.clientWidth)c.classList.add('adm-crumb-tight');}
 window.__admMark=mark;
 function sums(){
   // The group sums sit inside the observed tree, so every write is made only

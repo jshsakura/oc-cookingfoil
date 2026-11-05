@@ -26,6 +26,7 @@ const KEYS = [
   "fb.undoKept",
   "fb.widened", "fb.noMatchDeep", "fb.pickAll",
   "fb.clipCutTap", "fb.clipCopyTap", "fb.clipDrop",
+  "fb.redo", "fb.redone", "fb.redoNone", "fb.redoFail", "fb.sharedRow", "fb.shareMore", "fb.zipStart",
 ];
 
 const ROWS = {
@@ -55,6 +56,7 @@ const ROWS = {
     "폴더 안의 파일이 달라져 되돌리지 않았습니다. 필요 없으면 직접 휴지통으로 보내 주십시오.",
     "이 폴더에 없어서 하위 폴더까지 찾았습니다.", "찾는 이름이 이 폴더와 하위 폴더에 없습니다.", "전부",
     "{n}개를 잘라냈습니다. 옮길 폴더로 가서 붙여넣기를 누릅니다", "{n}개를 복사해 뒀습니다. 붙여넣을 폴더로 가서 붙여넣기를 누릅니다", "붙여넣기 취소",
+    "다시 실행", "다시 실행했습니다", "다시 실행할 작업이 없습니다", "다시 실행하지 못했습니다: {msg}", "공유 링크가 살아 있습니다", "이 파일에 살아 있는 링크가 {n}개 있습니다. 하나 더 만듭니까? 끊을 때는 링크마다 끊어야 합니다.", "파일 {n}개, {size}를 내려받습니다. 진행과 취소는 브라우저의 다운로드에 있습니다.",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -82,6 +84,7 @@ const ROWS = {
     "The files in this folder have changed, so nothing was undone. Move it to the trash yourself if you no longer need it.",
     "Not in this folder, so subfolders were searched too.", "That name is not in this folder or its subfolders.", "All",
     "{n} cut. Go to the destination folder and tap Paste", "{n} copied. Go to the destination folder and tap Paste", "Cancel paste",
+    "Redo", "Done again", "Nothing to redo", "Could not redo: {msg}", "A share link is live", "This file already has {n} live link(s). Make another? Each one has to be ended on its own.", "Downloading {n} files, {size}. Your browser's downloads show progress and can cancel.",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -109,6 +112,7 @@ const ROWS = {
     "フォルダー内のファイルが変わったため、元に戻しませんでした。不要な場合はご自身でごみ箱に移してください。",
     "このフォルダーにないため、サブフォルダーまで検索しました。", "その名前はこのフォルダーにもサブフォルダーにもありません。", "すべて",
     "{n} 件を切り取りました。移動先のフォルダーで貼り付けを押します", "{n} 件をコピーしました。貼り付け先のフォルダーで貼り付けを押します", "貼り付けを取り消す",
+    "やり直す", "やり直しました", "やり直す操作はありません", "やり直せませんでした: {msg}", "共有リンクが有効です", "このファイルには有効なリンクが {n} 個あります。もう 1 つ作りますか？ 無効にするときはリンクごとに行います。", "{n} 個のファイル ({size}) をダウンロードします。進行状況と取り消しはブラウザのダウンロードにあります。",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -136,6 +140,7 @@ const ROWS = {
     "文件夹中的文件已更改,因此未撤销。如不再需要,请自行移到回收站。",
     "此文件夹中没有，已同时搜索子文件夹。", "此文件夹及其子文件夹中都没有这个名称。", "全部",
     "已剪切 {n} 项。前往目标文件夹并点按粘贴", "已复制 {n} 项。前往目标文件夹并点按粘贴", "取消粘贴",
+    "重做", "已重做", "没有可重做的操作", "无法重做：{msg}", "共享链接有效", "此文件已有 {n} 个有效链接。要再创建一个吗？每个链接都要单独停用。", "正在下载 {n} 个文件（{size}）。进度和取消在浏览器的下载中。",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -163,6 +168,7 @@ const ROWS = {
     "資料夾中的檔案已變更,因此未復原。如不再需要,請自行移到垃圾桶。",
     "此資料夾中沒有，已一併搜尋子資料夾。", "此資料夾及其子資料夾中都沒有這個名稱。", "全部",
     "已剪下 {n} 項。前往目標資料夾並點選貼上", "已複製 {n} 項。前往目標資料夾並點選貼上", "取消貼上",
+    "重做", "已重做", "沒有可重做的操作", "無法重做：{msg}", "共用連結有效", "此檔案已有 {n} 個有效連結。要再建立一個嗎？每個連結都要個別停用。", "正在下載 {n} 個檔案（{size}）。進度和取消在瀏覽器的下載中。",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -190,6 +196,7 @@ const ROWS = {
     "Los archivos de esta carpeta han cambiado, así que no se ha deshecho nada. Si ya no la necesitas, muévela tú a la papelera.",
     "No está en esta carpeta; se han buscado también las subcarpetas.", "Ese nombre no está en esta carpeta ni en sus subcarpetas.", "Todo",
     "{n} cortados. Ve a la carpeta de destino y pulsa Pegar", "{n} copiados. Ve a la carpeta de destino y pulsa Pegar", "Cancelar pegado",
+    "Rehacer", "Rehecho", "No hay nada que rehacer", "No se pudo rehacer: {msg}", "Hay un enlace compartido activo", "Este archivo ya tiene {n} enlaces activos. ¿Crear otro? Cada uno se corta por separado.", "Descargando {n} archivos, {size}. El progreso y la cancelación están en las descargas del navegador.",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -217,6 +224,7 @@ const ROWS = {
     "Les fichiers de ce dossier ont changé, donc rien n'a été annulé. S'il ne sert plus, placez-le vous-même dans la corbeille.",
     "Absent de ce dossier : les sous-dossiers ont aussi été parcourus.", "Ce nom n'est ni dans ce dossier ni dans ses sous-dossiers.", "Tout",
     "{n} coupés. Allez dans le dossier de destination et touchez Coller", "{n} copiés. Allez dans le dossier de destination et touchez Coller", "Annuler le collage",
+    "Rétablir", "Rétabli", "Rien à rétablir", "Impossible de rétablir : {msg}", "Un lien de partage est actif", "Ce fichier a déjà {n} lien(s) actif(s). En créer un autre ? Chacun se coupe séparément.", "Téléchargement de {n} fichiers, {size}. La progression et l'annulation sont dans les téléchargements du navigateur.",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -244,6 +252,7 @@ const ROWS = {
     "Die Dateien in diesem Ordner haben sich geändert, daher wurde nichts rückgängig gemacht. Wenn du ihn nicht mehr brauchst, verschiebe ihn selbst in den Papierkorb.",
     "Nicht in diesem Ordner, daher wurden auch Unterordner durchsucht.", "Dieser Name ist weder in diesem Ordner noch in seinen Unterordnern.", "Alle",
     "{n} ausgeschnitten. Öffne den Zielordner und tippe auf Einfügen", "{n} kopiert. Öffne den Zielordner und tippe auf Einfügen", "Einfügen abbrechen",
+    "Wiederholen", "Wiederholt", "Nichts zu wiederholen", "Wiederholen nicht möglich: {msg}", "Ein Freigabelink ist aktiv", "Diese Datei hat bereits {n} aktive Links. Noch einen erstellen? Jeder wird einzeln beendet.", "{n} Dateien, {size}, werden geladen. Fortschritt und Abbruch findest du in den Downloads des Browsers.",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -271,6 +280,7 @@ const ROWS = {
     "I file di questa cartella sono cambiati, quindi non è stato annullato nulla. Se non serve più, spostala tu nel cestino.",
     "Non è in questa cartella: la ricerca include anche le sottocartelle.", "Questo nome non è in questa cartella né nelle sottocartelle.", "Tutti",
     "{n} tagliati. Vai alla cartella di destinazione e tocca Incolla", "{n} copiati. Vai alla cartella di destinazione e tocca Incolla", "Annulla incolla",
+    "Ripeti", "Ripetuto", "Niente da ripetere", "Impossibile ripetere: {msg}", "Un link di condivisione è attivo", "Questo file ha già {n} link attivi. Crearne un altro? Ognuno va interrotto a parte.", "Scaricamento di {n} file, {size}. Avanzamento e annullamento sono nei download del browser.",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -298,6 +308,7 @@ const ROWS = {
     "Os arquivos desta pasta mudaram, então nada foi desfeito. Se não precisar mais dela, mova-a você mesmo para a lixeira.",
     "Não está nesta pasta; as subpastas também foram pesquisadas.", "Esse nome não está nesta pasta nem nas subpastas.", "Tudo",
     "{n} cortados. Vá à pasta de destino e toque em Colar", "{n} copiados. Vá à pasta de destino e toque em Colar", "Cancelar colagem",
+    "Refazer", "Refeito", "Nada para refazer", "Não foi possível refazer: {msg}", "Há um link de compartilhamento ativo", "Este arquivo já tem {n} links ativos. Criar outro? Cada um é encerrado separadamente.", "Baixando {n} arquivos, {size}. O progresso e o cancelamento ficam nos downloads do navegador.",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -325,6 +336,7 @@ const ROWS = {
     "De bestanden in deze map zijn gewijzigd, dus er is niets ongedaan gemaakt. Heb je de map niet meer nodig, verplaats hem dan zelf naar de prullenbak.",
     "Niet in deze map, daarom zijn ook de submappen doorzocht.", "Die naam staat niet in deze map of de submappen.", "Alles",
     "{n} geknipt. Ga naar de doelmap en tik op Plakken", "{n} gekopieerd. Ga naar de doelmap en tik op Plakken", "Plakken annuleren",
+    "Opnieuw", "Opnieuw gedaan", "Niets om opnieuw te doen", "Opnieuw doen mislukt: {msg}", "Er is een actieve deellink", "Dit bestand heeft al {n} actieve links. Nog een maken? Elke link moet apart worden beëindigd.", "{n} bestanden, {size}, worden gedownload. Voortgang en annuleren vind je bij de downloads van de browser.",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -352,6 +364,7 @@ const ROWS = {
     "Файлы в этой папке изменились, поэтому ничего не отменено. Если папка больше не нужна, переместите её в корзину сами.",
     "В этой папке нет, поэтому поиск выполнен и в подпапках.", "Такого имени нет ни в этой папке, ни в подпапках.", "Все",
     "Вырезано: {n}. Откройте папку назначения и нажмите «Вставить»", "Скопировано: {n}. Откройте папку назначения и нажмите «Вставить»", "Отменить вставку",
+    "Повторить", "Повторено", "Нечего повторять", "Не удалось повторить: {msg}", "Действует ссылка для общего доступа", "У этого файла уже есть действующие ссылки: {n}. Создать ещё одну? Каждую нужно отключать отдельно.", "Скачивается файлов: {n}, {size}. Ход и отмена в загрузках браузера.",
   ],
 };
 

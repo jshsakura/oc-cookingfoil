@@ -74,6 +74,7 @@ import pairRouter from "./routes/pair.js";
 import fileShareRouter from "./routes/file-share.js";
 import webLoginRouter from "./routes/web-login.js";
 import setupRouter from "./routes/setup.js";
+import { notFound } from "./routes/not-found.js";
 import { needsSetup, setupCode } from "./security/setup.js";
 import devicePairRouter from "./routes/device-pair.js";
 import { consoleSendsRouter } from "./routes/device-sends.js";
@@ -405,6 +406,8 @@ expressApp.use(hiddenPaths());
 expressApp.use(trackTransfers({ match: (p) => !p.endsWith("/") }));
 expressApp.use(largeFiles(romsDirPath, GAME_FILE_RE));
 expressApp.use(express.static(romsDirPath, { dotfiles: "ignore" }));
+
+expressApp.use(notFound());
 
 // Errors any handler passed on: their status, a short reason, and the details in
 // the server log only. Express's own page shows the stack and this machine's

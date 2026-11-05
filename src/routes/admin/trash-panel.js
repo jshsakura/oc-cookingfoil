@@ -67,7 +67,7 @@ function trRow(e){const r=el('div',null,'tr-row'+(trData&&e.ageDays>=trData.noti
   const main=el('div',null,'tr-main');main.append(el('b',e.name||String(e.items[0]?.rel||'').split('/').pop()||e.entry));
   for(const it of e.items.slice(0,5))main.append(el('span',trT('from',{path:trRoot(e.root)+' / '+it.rel})));
   if(e.items.length>5)main.append(el('span','+'+(e.items.length-5)));
-  const meta=el('div',null,'tr-meta');meta.append(pill(trAction(e.action)),pill(trRoot(e.root)),el('span',trSize(e.size)),el('span',trT('age',{n:e.ageDays})),el('span',trT('at',{when:trWhen(e.trashedAt)})),el('span',trBy(e.by)));
+  const meta=el('div',null,'tr-meta');meta.append(pill(trAction(e.action)),pill(trRoot(e.root)),el('span',trSize(e.size)),el('span',trT('age',{n:e.ageDays+1})),el('span',trT('at',{when:trWhen(e.trashedAt)})),el('span',trBy(e.by)));
   main.append(meta);
   if(e.missing)main.append(el('span',trT('missing',{n:e.missing}),'err'));
   if(e.incomplete)main.append(el('span',trT('incomplete',{n:e.incomplete}),'err'));
@@ -108,7 +108,7 @@ async function trRestore(ids){if(!ids.length)return toast(trT('pickFirst'));
   catch(err){toast(err.message);}loadTrash();}
 async function trEmpty(ids){const all=ids==='all';const picked=all?trData.items:trData.items.filter((e)=>ids.includes(e.id));
   if(!picked.length)return toast(trT('pickFirst'));
-  const word=trT('word');const typed=await askText(trT('askEmpty',{n:num(picked.length),size:trSize(picked.reduce((n,e)=>n+e.size,0)),word}),'');
+  const word=trT('word');const typed=await askText(trT('askEmpty',{n:num(picked.length),size:trSize(picked.reduce((n,e)=>n+e.size,0)),word}),'',{danger:true});
   if(typed==null)return;if(typed.trim()!==word)return toast(trT('typedWrong'));
   // Everything means what this list showed: its version and time go along. Entries that came in after it are left; the server refuses only if what it showed changed.
   try{const d=await api('/admin/api/trash/empty',{method:'POST',body:all?{all:true,version:trData.version,listedAt:trData.listedAt,confirm:'empty'}:{ids,confirm:'empty'}});

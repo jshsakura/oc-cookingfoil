@@ -86,8 +86,8 @@ function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fbClipSet({m
   const phone=fbPhone();toast(topFill(mode==='cut'?(phone?'fb.clipCutTap':'fb.clipCut'):(phone?'fb.clipCopyTap':'fb.clipCopy'),{n:num(rels.length)}));}
 async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,path:fb.path};
   if(c.mode==='cut'){fbClipSet(null);await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
-  try{const out=await fbCopyRun({root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path});
-    if(out.copied.length){const paths=out.copied.map((x)=>x.to);fbUndoPush({trash:{root:to.root,paths},held:await fbHolds(to.root,paths).catch(()=>null)});}
+  try{const out=await fbStep(()=>fbCopyRun({root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path}),async(o)=>{const paths=o.copied.map((x)=>x.to);
+      return paths.length?{trash:{root:to.root,paths},held:await fbHolds(to.root,paths).catch(()=>null)}:null;});
     const why=fbRefusal(out.skipped);if(!out.copied.length&&why){toast(why);fbLoad();return;}
     const msg=(out.skipped.length?topFill('fb.copiedSome',{n:num(out.copied.length),s:num(out.skipped.length)}):topFill('fb.copied',{n:num(out.copied.length)}))+(why?' '+why:'');
     const note=fbNotes(out.notes);
@@ -96,9 +96,17 @@ async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,pat
 // Ctrl+Z takes back this tab's steps, newest first: a move or rename through the journal, a trash out of the
 // trash, a new folder or a copy into the trash. The trash page keeps every step, from any tab.
 const FB_UNDO_MAX=30;
-function fbUndoPush(step){const journal=(step.journal||[]).filter(Boolean);
-  if(step.journal&&!journal.length)return;if(step.restore&&!step.restore.length)return;
-  fb.undos.push({...step,journal});if(fb.undos.length>FB_UNDO_MAX)fb.undos.shift();fbCmds();}
+function fbUndoPush(step,{redoing=false}={}){const journal=(step.journal||[]).filter(Boolean);
+  if(step.journal&&!journal.length)return false;if(step.restore&&!step.restore.length)return false;
+  // Doing something new ends the line of what could be done again, as it does everywhere.
+  if(!redoing)fb.redos=[];
+  fb.undos.push({...step,journal});if(fb.undos.length>FB_UNDO_MAX)fb.undos.shift();fbCmds();return true;}
+const fbPost=(what,body)=>()=>api('/admin/api/files/'+what,{method:'POST',body});
+// One step: its call, and how the answer becomes something to undo. Keeping both is what lets Ctrl+Y make the same call again.
+async function fbStep(run,step){const out=await run();const s=await step(out);if(s)fbUndoPush({...s,again:{run,step}});return out;}
+async function fbRedo(){const again=fb.redos.pop();if(!again){toast(topText('fb.redoNone'));return;}
+  try{const s=await again.step(await again.run());toast(topText(s&&fbUndoPush({...s,again},{redoing:true})?'fb.redone':'fb.redoNone'));}
+  catch(err){toast(topFill('fb.redoFail',{msg:err.message}));}fbLoad();}
 const fbHolds=(root,paths)=>api('/admin/api/files/info',{method:'POST',body:{root,paths}}).then((r)=>r.files);
 // Every part of a step is tried even when one fails (a file changed since), and the first refusal is said.
 // A new folder or a copy goes to the trash only as it was made: uploads are not steps, so a file added since would go with it unasked.
@@ -108,6 +116,7 @@ async function fbUndo(){const step=fb.undos.pop();if(!step){toast(topText('fb.un
   const calls=[...[...step.journal].reverse().map((id)=>['/admin/api/trash/undo',{id}])];
   if(step.restore)calls.push(['/admin/api/trash/restore',{ids:step.restore}]);if(step.trash)calls.push(['/admin/api/files/trash',step.trash]);
   let fail=null;for(const [url,body] of calls){try{await api(url,{method:'POST',body});}catch(err){fail??=err;}}
+  if(!fail&&step.again)fb.redos.push(step.again);
   toast(fail?topFill('fb.undoFail',{msg:fail.message}):topText('fb.undone'));
   // Standing inside what just went: step out of it, or the list reports the folder missing over this notice.
   const gone=!fail&&step.trash?.root===fb.root&&step.trash.paths.find((p)=>fb.path===p||fb.path.startsWith(p+'/'));
@@ -169,6 +178,7 @@ document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.cl
   else if(mod&&k==='x'&&fb.sel.size&&!texty){e.preventDefault();fbClip('cut');}
   else if(mod&&k==='v'&&fb.clip){e.preventDefault();fbPaste();}
   else if(mod&&k==='z'&&!e.shiftKey){e.preventDefault();fbUndo();}
+  else if(mod&&(k==='y'||(k==='z'&&e.shiftKey))){e.preventDefault();fbRedo();}
   else if(mod&&k==='l'){e.preventDefault();fbAddrOpen();}
   else if(e.altKey&&e.key==='Enter'){e.preventDefault();fbProps();}});
 `;
