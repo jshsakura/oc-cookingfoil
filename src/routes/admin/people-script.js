@@ -94,7 +94,7 @@ const ACCOUNT_STATUS={pending:[topText('pp.devWait'),'warn'],approved:[topText('
 let accountsLoaded=false;
 async function loadAccounts(){
   const d=await api('/admin/api/accounts');accountsLoaded=true;const list=d.accounts||[];
-  $('accounthint').textContent=d.enabled?topText('pp.googleLead')
+  const hint=$('accounthint');if(hint)hint.textContent=d.enabled?topText('pp.googleLead')
     :topText('pp.googleOff');
   const waiting=list.filter((a)=>a.status==='pending').length;
   for(const id of ['account-count','account-sub-count']){$(id).hidden=!waiting;$(id).textContent=waiting;}
@@ -158,7 +158,7 @@ let devicesSeen='';
 async function loadDevices(force){
   const d=await api('/admin/api/devices');
   const seen=JSON.stringify(d);if(!force&&seen===devicesSeen)return;devicesSeen=seen;
-  $('devhint').textContent=d.pairingEnabled?topText('pp.pairingOnLead')
+  const hint=$('devhint');if(hint)hint.textContent=d.pairingEnabled?topText('pp.pairingOnLead')
     :topText('pp.pairingOffLead');
   const pending=d.pending||[];
   for(const id of ['pending-count','pending-sub-count']){$(id).hidden=!pending.length;$(id).textContent=pending.length;}

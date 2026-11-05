@@ -183,11 +183,11 @@ test('in the games folder the menu sends the pick to 파일 압축 and 파일 �
   const menu = page.locator('#fb-menu');
   await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
   await menu.getByRole('menuitem', { name: '파일 압축' }).click();
-  await expect(page.locator('#toast')).toContainText('선택한 2개를 변환합니다.');
+  await expect(page.locator('#toast')).toContainText('선택한 2개를 변환합니다');
   expect(sent.nsz).toEqual({ rels: ['fb-test/Alpha'] });
   await row(page, 'loose.nsp').locator('td.c-mtime').click({ button: 'right' });
   await menu.getByRole('menuitem', { name: '파일 검사' }).click();
-  await expect(page.locator('#toast')).toContainText('다시 검사합니다.');
+  await expect(page.locator('#toast')).toContainText('다시 검사합니다');
   expect(sent.verify).toEqual({ rels: ['fb-test/loose.nsp'] });
 
   await row(page, 'Beta').locator('td.c-name').dblclick();
@@ -978,7 +978,7 @@ test('a shared file is marked in the list, and a second link asks first', async 
   await page.goto('/admin/games?tab=folder&path=fb-test');
   const share = async () => {
     await row(page, 'shared-once.nsp').locator('td.c-size').click({ button: 'right' });
-    await page.locator('#fb-menu').getByRole('menuitem', { name: '공유 링크' }).click();
+    await page.locator('#fb-menu').getByRole('menuitem', { name: '공유 링크', exact: true }).click();
   };
   await share();
   await page.locator('#ask-ok').click();

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, devices } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -187,4 +187,110 @@ test('the chat being off makes no failed request, the alert log shows only the l
   await page.locator('#al-form input[name=botToken]').fill('not-a-token');
   await page.locator('#al-form button[type=submit]').click();
   await expect(page.locator('#al-msg')).toHaveText('봇 토큰 형식이 맞지 않습니다');
+});
+
+test('a long step says so and shuts its buttons, so the pick cannot go twice', async ({ page }) => {
+  let calls = 0;
+  await page.route('**/admin/api/files/trash', async (route) => { calls++; await new Promise((r) => setTimeout(r, 1500)); await route.continue(); });
+  await row(page, 'same.txt').locator('td.c-size').click();
+  await page.locator('#fb-trash-btn').click();
+  await page.locator('#ask-ok').click();
+  await expect(page.locator('#fb-job')).toContainText('1개를 휴지통으로 옮기는 중입니다');
+  await expect(page.locator('#fb-trash-btn')).toBeDisabled();
+  await page.keyboard.press('Delete');
+  await expect(page.locator('#toast')).toHaveText('아직 하던 일을 마치는 중입니다');
+  await expect.poll(() => has('same.txt')).toBe(false);
+  await expect(page.locator('#fb-job')).toBeHidden();
+  expect(calls).toBe(1);
+});
+
+test('Ctrl while dragging copies, and the tip says so', async ({ page }) => {
+  const from = (await row(page, 'same.txt').locator('td.c-size').boundingBox())!;
+  const to = (await row(page, 'Target').locator('td.c-size').boundingBox())!;
+  await page.mouse.move(from.x + 10, from.y + 10);
+  await page.mouse.down();
+  await page.keyboard.down('Control');
+  await page.mouse.move(to.x + 10, to.y + 8, { steps: 6 });
+  await page.mouse.move(to.x + 14, to.y + 10);
+  await expect(page.locator('#fb-dragtip')).toContainText('Target 폴더로 복사합니다');
+  await page.mouse.up();
+  await page.keyboard.up('Control');
+  await expect.poll(() => has('Target/same.txt')).toBe(true);
+  expect(has('same.txt')).toBe(true);
+});
+
+test('an upload taken back can be done again, also one that replaced a file', async ({ page }) => {
+  await pickFile(page, 'fresh.txt', 'body');
+  await expect(row(page, 'fresh.txt')).toBeVisible();
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => has('fresh.txt')).toBe(false);
+  await page.keyboard.press('Control+y');
+  await expect.poll(() => has('fresh.txt')).toBe(true);
+
+  await pickFile(page, 'same.txt', 'new');
+  await page.locator('#ask-select').selectOption('replace');
+  await page.locator('#ask-ok').click();
+  await expect.poll(() => has('same.txt') && read('same.txt')).toBe('new');
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => has('same.txt') && read('same.txt')).toBe('old');
+  await page.keyboard.press('Control+y');
+  await expect.poll(() => has('same.txt') && read('same.txt')).toBe('new');
+  await page.keyboard.press('Control+z');
+  await expect.poll(() => has('same.txt') && read('same.txt')).toBe('old');
+});
+
+test('ending a share in the properties window takes its row away, the menu ends them all, and a second end is no error', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const share = () => page.evaluate(() => (window as any).api('/admin/api/files/share', { method: 'POST', body: { root: 'games', path: 'fb-taken/same.txt', hours: 1 } }));
+  await share(); await share();
+  await page.reload();
+  await row(page, 'same.txt').locator('input[type=checkbox]').check();
+  await page.locator('#fb-pick-acts').getByRole('button', { name: '파일 메뉴' }).click();
+  await page.locator('#fb-menu').getByText('속성').click();
+  const links = page.locator('#fb-props .fb-s-link');
+  await expect(links).toHaveCount(2);
+  await links.first().locator('button').click();
+  await expect(links).toHaveCount(1);
+  await page.locator('#fb-p-ok').click();
+  await page.locator('#fb-pick-acts').getByRole('button', { name: '파일 메뉴' }).click();
+  await page.locator('#fb-menu').getByText('공유 링크 끊기').click();
+  await expect(page.locator('#ask-dialog')).toContainText('1개');
+  await page.locator('#ask-ok').click();
+  await expect(page.locator('#toast')).toHaveText('링크를 끊었습니다');
+  await expect(row(page, 'same.txt').locator('.fb-shared')).toHaveCount(0);
+  const again = await page.evaluate(() => (window as any).api('/admin/api/files/share/end', { method: 'POST', body: { id: 'gone' } }));
+  expect(again.ok).toBe(true);
+});
+
+test('on a real phone profile a held finger picks a file and a folder, without opening either', async ({ browser, baseURL }) => {
+  const { defaultBrowserType: _, ...phone } = devices['iPhone 13'];
+  const ctx = await browser.newContext({ ...phone, baseURL });
+  const page = await ctx.newPage();
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-taken');
+  const hold = async (name: string) => {
+    const r = row(page, name);
+    await expect(r).toBeVisible();
+    const b = (await r.locator('.fb-name').boundingBox())!;
+    const cdp = await ctx.newCDPSession(page);
+    const at = [{ x: b.x + 40, y: b.y + b.height / 2 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at });
+    await page.waitForTimeout(900);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(r).toHaveAttribute('aria-selected', 'true');
+  };
+  await hold('same.txt');
+  await hold('Target');
+  expect(new URL(page.url()).searchParams.get('path')).toBe('fb-taken');
+  await expect(page.locator('#fb-view')).toBeHidden();
+  await ctx.close();
+});
+
+test('on a phone the path steps are thumb sized', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const step = page.locator('#fb-crumb button').first();
+  await expect(step).toBeVisible();
+  expect((await step.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });

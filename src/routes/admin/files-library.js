@@ -219,7 +219,10 @@ async function fbShareList(f,links){const root=fb.root;let r;
   if(!links.isConnected)return;
   links.replaceChildren(...r.shares.map((sh)=>{const row=el('div',null,'fb-s-link');row.append(el('span',topFill('fb.shareUntil',{when:fbDate(sh.expiresAt)})));
     const end=fbSideBtn(FB_ICON.stop,'fb.shareEnd',async()=>{try{await api('/admin/api/files/share/end',{method:'POST',body:{id:sh.id}});toast(topText('fb.shareEnded'));}
-      catch(err){toast(err.message);}fbLoad();},'danger');row.append(end);return row;}));}
+      catch(err){toast(err.message);}fbShareList(f,links);fbLoad();},'danger');row.append(end);return row;}));}
+async function fbShareEndAll(f){let r;try{r=await api('/admin/api/files/shares?'+new URLSearchParams({root:fb.root,path:f.rel}));}catch(err){toast(err.message);return;}
+  if(!await ask(topFill('fb.shareEndAsk',{n:num(r.shares.length)}),{danger:true}))return;
+  try{for(const sh of r.shares)await api('/admin/api/files/share/end',{method:'POST',body:{id:sh.id}});toast(topText('fb.shareEnded'));}catch(err){toast(err.message);}fbLoad();}
 function fbSideBtn(svg,key,fn,cls){const b=el('button',null,'ib'+(cls?' '+cls:''));b.type='button';b.innerHTML=svg;
   const t=topText(key);b.title=t;b.setAttribute('aria-label',t);b.addEventListener('click',fn);return b;}
 function fbSideIcon(f){const w=el('span');w.innerHTML=f.type==='dir'?FB_ICON.dir:FB_ICON.file;const ic=w.firstChild;ic.classList.add('fb-s-art');return ic;}

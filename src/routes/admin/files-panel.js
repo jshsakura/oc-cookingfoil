@@ -189,6 +189,7 @@ body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32p
   #fb thead th button{min-height:44px}
   /* A thumb's worth for what sits around the list. */
   #fb .fb-bar .fb-seg .ib,#fb .fb-bar .fb-nav .ib{width:44px;height:44px}
+  #fb .fb-crumb button{min-height:44px}
   #fb-rows tr{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
   #fb-view .fb-v-head button{min-width:44px;min-height:44px}
   #fb .fb-upl li{flex-wrap:wrap}#fb .fb-u-st{flex:1 1 100%;max-width:none;overflow:visible;white-space:normal;text-overflow:clip}
@@ -396,13 +397,16 @@ function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-s
   tr.addEventListener('mousedown',(e)=>{if(!onControl(e)&&(e.shiftKey||e.detail>1))e.preventDefault();});
   // A finger held on a row picks it, as a phone's own file apps do; a slide or an early lift is a scroll or a tap.
   let hold=null,from=null;const letGo=()=>{clearTimeout(hold);hold=null;};
-  tr.addEventListener('touchstart',(e)=>{fb.held=null;letGo();if(!fbPhone()||e.touches.length!==1||onControl(e))return;from=e.touches[0];
+  tr.addEventListener('touchstart',(e)=>{fb.held=null;letGo();if(!fbPhone()||e.touches.length!==1||e.target.closest('input,a'))return;from=e.touches[0];
     hold=setTimeout(()=>{hold=null;fb.held=f.rel;if(!fb.sel.has(f.rel))fbPick(f.rel,{add:true});navigator.vibrate?.(FB_HOLD_BUZZ);},FB_HOLD_MS);},{passive:true});
   tr.addEventListener('touchmove',(e)=>{if(hold&&Math.hypot(e.touches[0].clientX-from.clientX,e.touches[0].clientY-from.clientY)>FB_HOLD_SLOP)letGo();},{passive:true});
   tr.addEventListener('touchend',letGo);tr.addEventListener('touchcancel',letGo);
-  tr.addEventListener('click',(e)=>{if(onControl(e))return;if(fb.held===f.rel){fb.held=null;return;}if(fbPhone())fbTap(f,e);else fbPick(f.rel,{add:e.ctrlKey||e.metaKey,range:e.shiftKey});});
+  // What follows a hold is not a tap, also on the folder's name, which opens by its own click.
+  tr.addEventListener('click',(e)=>{if(fb.held===f.rel){fb.held=null;e.preventDefault();e.stopPropagation();}},true);
+  tr.addEventListener('click',(e)=>{if(onControl(e))return;if(fbPhone())fbTap(f,e);else fbPick(f.rel,{add:e.ctrlKey||e.metaKey,range:e.shiftKey});});
   tr.addEventListener('dblclick',(e)=>{if(!onControl(e)&&!fbPhone())fbActivate(f);});
-  tr.addEventListener('contextmenu',(e)=>{e.preventDefault();if(fbPhone())return;if(!fb.sel.has(f.rel))fbPick(f.rel);fbMenu(e.clientX,e.clientY);});
+  // A phone's browser ends the touch with its own long press, sometimes before the timer: that is the same hold.
+  tr.addEventListener('contextmenu',(e)=>{e.preventDefault();if(fbPhone()){letGo();if(fb.held!==f.rel){fb.held=f.rel;if(!fb.sel.has(f.rel))fbPick(f.rel,{add:true});}return;}if(!fb.sel.has(f.rel))fbPick(f.rel);fbMenu(e.clientX,e.clientY);});
   tr.draggable=!fbPhone();tr.addEventListener('dragstart',(e)=>fbDragStart(e,f.rel));
   if(f.type==='dir')fbDropTarget(tr,()=>!fb.drag?.includes(f.rel)&&f.rel);
   const cn=td(null,'c-name');const n=el('div',null,'fb-name');const ic=el('span');ic.innerHTML=f.type==='dir'?FB_ICON.dir:FB_ICON.file;n.append(ic.firstChild);
@@ -436,7 +440,8 @@ function fbPick(rel,{add=false,range=false}={}){const rels=fbRels();
   else{fb.sel.clear();fb.sel.add(rel);fb.anchor=rel;}
   fb.focus=rel;fbPaint();}
 function fbFocusRow(){for(const r of document.querySelectorAll('#fb-rows tr'))if(r.dataset.rel===fb.focus){r.focus();r.scrollIntoView({block:'nearest'});return;}}
-function fbCmds(){const n=fb.sel.size;for(const id of ['fb-cut-btn','fb-copy-btn','fb-move-btn','fb-zip-btn','fb-trash-btn'])$(id).disabled=!n;
+function fbCmds(){const n=fb.sel.size;for(const id of ['fb-cut-btn','fb-copy-btn','fb-move-btn','fb-zip-btn','fb-trash-btn'])$(id).disabled=!n||!!fb.busy;
+  for(const b of $('fb-pick-acts').children)b.disabled=!!fb.busy;
   const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=one?.type!=='file';$('fb-tidy-btn').hidden=fb.root==='incoming';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
 function fbFoot(){fbCmds();const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   if(n)foot.dataset.sel='';else delete foot.dataset.sel;
@@ -490,13 +495,19 @@ async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await
 // 파일 압축 and 파일 검사 hand the picked files, or every game file under the picked folders, to the queues the 파일 압축 and 파일 검사 tabs show.
 async function fbNsz(rels){try{const out=await api('/admin/api/nsz/run-selected',{method:'POST',body:{rels}});toast(topFill('nz.runSelGo',{n:num(out.count)}));}catch(err){toast(err.message);}}
 async function fbVerify(rels){try{await api('/admin/api/library/verify/recheck',{method:'POST',body:{rels}});toast(topText('lv.rechecking'));}catch(err){toast(err.message);}}
+// A step on many files says so while it runs and shuts the buttons, so the same pick cannot go twice. A quick one shows nothing.
+const FB_BUSY_SHOW_MS=250;
+const fbStillBusy=()=>{if(fb.busy)toast(topText('fb.busyNow'));return !!fb.busy;};
+async function fbBusyRun(text,run){fb.busy=true;fbCmds();const box=$('fb-job');const bar=box.querySelector('progress');
+  const show=setTimeout(()=>{bar.removeAttribute('value');box.querySelector('span').textContent=text;box.hidden=false;},FB_BUSY_SHOW_MS);
+  try{return await run();}finally{clearTimeout(show);box.hidden=true;bar.value=0;fb.busy=false;fbCmds();}}
 // A folder's weight is what the question has to say: "1 item" may be forty files.
 async function fbTrashAsk(rels){const dirs=rels.filter((r)=>fbItem(r)?.type==='dir');let inside=0;
   if(dirs.length)try{inside=await fbHolds(fb.root,dirs);}catch{inside=0;}
   return inside?topFill('fb.askTrashIn',{n:num(rels.length),f:num(inside)}):topFill('fb.askTrash',{n:num(rels.length)});}
-async function fbTrash(rels){if(!rels.length||!await fbServerOk(rels))return;
+async function fbTrash(rels){if(!rels.length||fbStillBusy()||!await fbServerOk(rels))return;
   if(!await ask(await fbTrashAsk(rels),{danger:true}))return;
-  try{const out=await fbStep(fbPost('trash',{root:fb.root,paths:rels}),(o)=>({restore:o.restore}));for(const r of rels)fb.sel.delete(r);
+  try{const out=await fbBusyRun(topFill('fb.trashing',{n:num(rels.length)}),()=>fbStep(fbPost('trash',{root:fb.root,paths:rels}),(o)=>({restore:o.restore})));for(const r of rels)fb.sel.delete(r);
     fbToastUndo(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
 async function fbMkdir(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{await fbStep(fbPost('mkdir',{root:fb.root,path:fb.path,name:name.trim()}),(o)=>({trash:{root:o.root,paths:[o.rel]},held:0}));toast(topText('fb.made'));fbLoad();}catch(err){toast(err.message);}}
@@ -558,7 +569,7 @@ async function fbUpOne(it){
 // left out, because what lands there is sorted away at once.
 function fbUpSteps(){const fresh=fbu.items.filter((x)=>x.state==='done'&&x.to&&!x.stepped&&x.root!=='incoming');let pushed=false;
   for(const root of new Set(fresh.map((x)=>x.root))){const mine=fresh.filter((x)=>x.root===root);const restore=mine.flatMap((x)=>x.restore||[]);
-    pushed=fbUndoPush({trash:{root,paths:mine.map((x)=>x.to)},held:mine.length,...(restore.length?{restore}:{})})||pushed;}
+    pushed=fbUndoPush({trash:{root,paths:mine.map((x)=>x.to)},held:mine.length,redoUp:true,...(restore.length?{restore}:{})})||pushed;}
   for(const x of fresh)x.stepped=true;return pushed;}
 async function fbUpRun(){fbu.busy=true;fbUpShow();let it;
   while((it=fbu.items.find((x)=>x.state==='wait'))){it.state='up';fbUpPaint(it);
@@ -638,8 +649,8 @@ const FB_WHY={'game-into-game':'fb.gameIntoGame','title-into-title':'fb.titleInt
 const FB_NOTE={'other-game':'fb.r.otherGame','retro-no-system':'fb.r.noSystem','retro-wrong-system':'fb.r.wrongSystem','retro-too-deep':'fb.r.tooDeep'};
 const fbNotes=(notes)=>[...new Set((notes||[]).map((x)=>FB_NOTE[x.code]).filter(Boolean))].map(topText).join(' ');
 function fbRefusal(skipped){const s=skipped.find((x)=>FB_WHY[x.code]);return s?topText(FB_WHY[s.code]):'';}
-async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){if(!await fbServerOk(rels,fromRoot))return;
-  try{const out=await fbStep(fbPost('move',{root:fromRoot,paths:rels,toRoot,toPath}),(o)=>({journal:o.moved.map((m)=>m.undo)}));
+async function fbMoveTo(rels,toRoot,toPath,fromRoot=fb.root){if(fbStillBusy()||!await fbServerOk(rels,fromRoot))return;
+  try{const out=await fbBusyRun(topFill('fb.moving',{n:num(rels.length)}),()=>fbStep(fbPost('move',{root:fromRoot,paths:rels,toRoot,toPath}),(o)=>({journal:o.moved.map((m)=>m.undo)})));
     for(const m of out.moved)fb.sel.delete(m.from);
     const why=fbRefusal(out.skipped);if(!out.moved.length&&why){toast(why);fbLoad();return;}
     const msg=(out.skipped.length?topFill('fb.movedSome',{moved:num(out.moved.length),skipped:num(out.skipped.length)}):topFill('fb.moved',{n:num(out.moved.length)}))+(why?' '+why:'');
@@ -665,10 +676,12 @@ function fbToastUndo(msg,ms=FB_UNDO_TOAST_MS){toast(msg);const t=$('toast');cons
 const FB_UNDO_TOAST_MS=7000;
 const FB_NOTE_TOAST_MS=15000;
 function fbDropTarget(node,dest){node.classList.add('fb-takes');node.fbDest=dest;const ours=(e)=>fb.drag&&[...e.dataTransfer.types].includes(FB_DRAG)&&dest()!==false;
-  node.addEventListener('dragover',(e)=>{if(!ours(e))return;e.preventDefault();e.dataTransfer.dropEffect='move';node.classList.add('fb-target');fbTip(e,dest());});
+  // Ctrl, or Option on a Mac, makes a drag a copy.
+  const copying=(e)=>e.ctrlKey||e.altKey;
+  node.addEventListener('dragover',(e)=>{if(!ours(e))return;e.preventDefault();e.dataTransfer.dropEffect=copying(e)?'copy':'move';node.classList.add('fb-target');fbTip(e,dest(),copying(e)?'fb.dragCopy':'fb.dragTo');});
   node.addEventListener('dragleave',()=>{node.classList.remove('fb-target');fbTip(null);});
   node.addEventListener('drop',(e)=>{node.classList.remove('fb-target');fbTip(null);if(!ours(e))return;e.preventDefault();e.stopPropagation();
-    const rels=fb.drag;fb.drag=null;fbMoveTo(rels,fb.root,dest());});}
+    const rels=fb.drag;fb.drag=null;if(copying(e))fbCopyTo(rels,fb.root,{root:fb.root,path:dest()});else fbMoveTo(rels,fb.root,dest());});}
 document.addEventListener('dragend',()=>{fb.drag=null;fbTip(null);for(const n of document.querySelectorAll('#fb .fb-target'))n.classList.remove('fb-target');});
 // Several items, or a folder, come down as one zip: the server gets the list, the browser's own download takes the file.
 async function fbZip(rels){if(!rels.length)return;toast(topText('fb.zipping'));
@@ -757,6 +770,7 @@ function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rel
     if(one?.type==='file')add('fb.download','download',()=>fbDownload(one));
     else add('fb.zip','zip',()=>fbZip(rels));
     if(one?.type==='file')add('fb.share','share',()=>fbShare(one));
+    if(one?.shared)add('fb.shareEndAll','stop',()=>fbShareEndAll(one));
     if(fb.root==='games'){const picked=rels.map(fbItem).filter(Boolean);const has=(re)=>picked.some((f)=>f.type==='dir'||re.test(f.name));
       if(has(/[.](nsp|xci)$/i))add('fb.nsz','nsz',()=>fbNsz(rels));if(has(/[.](nsp|nsz|xci|xcz)$/i))add('fb.verify','verify',()=>fbVerify(rels));}
     add('fb.cut','cut',()=>fbClip('cut'));add('fb.copy','copy',()=>fbClip('copy'));

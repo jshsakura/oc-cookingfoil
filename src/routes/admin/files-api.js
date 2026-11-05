@@ -213,7 +213,8 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     res.json({ shares: shares.of(str(req.query.root), str(req.query.path)) });
   }));
   router.post("/api/files/share/end", handle(async (req, res) => {
-    if (!shares.revoke(str(req.body?.id))) throw new FileError("not-found", 404);
+    // A link already ended, here or in another window, is what was asked for.
+    shares.revoke(str(req.body?.id));
     res.json({ ok: true });
   }));
 

@@ -1599,7 +1599,7 @@ const PEOPLE_WORDS = {
     "pp.userNamePh": "사용자 이름 (영문, 숫자, . _ -)", "pp.passPh": "비밀번호 (비우면 자동 생성)",
     "pp.devNameOpt": "기기 이름 (선택)", "pp.devCodeLabel": "기기 코드", "pp.devNameLabel": "기기 이름",
     "pp.userNameLabel": "사용자 이름", "pp.passLabel": "비밀번호", "pp.usersArea": "사용자 구역", "pp.devicesArea": "기기 구역",
-    "pp.devWait": "대기 중", "pp.devApproved": "승인됨", "pp.devDisabled": "비활성", "pp.disabledToast": "비활성으로 전환했습니다.",
+    "pp.devWait": "대기 중", "pp.devApproved": "승인됨", "pp.devDisabled": "비활성", "pp.disabledToast": "사용 중지했습니다.",
     "pp.devCode": "기기 코드", "pp.approvedList": "승인된 기기", "pp.issuedClients": "내려받은 클라이언트",
     "pp.tabPending": "승인 대기", "pp.tabApproved": "승인된 기기", "pp.tabClients": "웹에서 받은 클라이언트",
     "pp.cancelClientAsk": "이 내려받은 클라이언트의 키를 취소할까요? 이 키를 쓰는 연결은 즉시 막힙니다.", "pp.cancelled": "클라이언트 키를 취소했습니다.",

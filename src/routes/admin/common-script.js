@@ -128,7 +128,8 @@ const askText=(msg,value='',opts)=>askDialog(msg,value,opts);
 // One of [{value,label}], or null when cancelled.
 const askPick=(msg,choices)=>askDialog(msg,'',{choices});
 function pill(txt,kind){return el('span',txt,'pill'+(kind?' '+kind:''));}
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
+// One line says one thing and ends without a period, whichever word table it came from.
+function toast(msg){const t=$('toast');t.textContent=String(msg).replace(/[.。]$/,'');t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
 // table(mount,cols,rows,empty) is in grid.js.
 function pagedTable(id,cols,items,row,empty,opts={}){
   table(id,cols,opts.slice?row(items):items.map(row),empty,{search:true,label:opts.label,placeholder:opts.placeholder});}

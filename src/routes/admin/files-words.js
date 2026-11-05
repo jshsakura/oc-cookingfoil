@@ -28,6 +28,7 @@ const KEYS = [
   "fb.clipCutTap", "fb.clipCopyTap", "fb.clipDrop",
   "fb.redo", "fb.redone", "fb.redoNone", "fb.redoFail", "fb.sharedRow", "fb.shareMore", "fb.zipStart",
   "fb.upHead", "fb.askTrashIn", "fb.dropUp", "fb.upTaken", "fb.upSkip", "fb.upKeep", "fb.upReplace", "fb.upSkipAll", "fb.upKeepAll", "fb.upReplaceAll", "fb.viewZoom",
+  "fb.trashing", "fb.moving", "fb.busyNow", "fb.dragCopy", "fb.shareEndAll", "fb.shareEndAsk",
 ];
 
 const ROWS = {
@@ -59,6 +60,7 @@ const ROWS = {
     "{n}개를 잘라냈습니다. 옮길 폴더로 가서 붙여넣기를 누릅니다", "{n}개를 복사해 뒀습니다. 붙여넣을 폴더로 가서 붙여넣기를 누릅니다", "붙여넣기 취소",
     "다시 실행", "다시 실행했습니다", "다시 실행할 작업이 없습니다", "다시 실행하지 못했습니다: {msg}", "공유 링크가 살아 있습니다", "이 파일에 살아 있는 링크가 {n}개 있습니다. 하나 더 만듭니까? 끊을 때는 링크마다 끊어야 합니다.", "파일 {n}개, {size}를 내려받습니다. 진행과 취소는 브라우저의 다운로드에 있습니다.",
     "{n}개를 올렸습니다. {s}개는 올리지 않았습니다", "고른 {n}개를 휴지통으로 옮길까요? 폴더 안의 파일 {f}개도 함께 옮겨집니다.", "{name} 폴더에 올립니다", "같은 이름의 파일이 이미 있습니다: {name}", "건너뜁니다", "둘 다 둡니다 (새 파일 이름에 번호를 붙입니다)", "바꿉니다 (옛 파일은 휴지통으로 갑니다)", "남은 파일도 모두 건너뜁니다", "남은 파일도 모두 둘 다 둡니다", "남은 파일도 모두 바꿉니다", "사진을 누르면 원본 크기로 봅니다",
+    "{n}개를 휴지통으로 옮기는 중입니다", "{n}개를 옮기는 중입니다", "아직 하던 일을 마치는 중입니다", "{name} 폴더로 복사합니다", "공유 링크 끊기", "살아 있는 링크 {n}개를 끊습니다. 받는 사람은 더 이상 내려받지 못합니다.",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -88,6 +90,7 @@ const ROWS = {
     "{n} cut. Go to the destination folder and tap Paste", "{n} copied. Go to the destination folder and tap Paste", "Cancel paste",
     "Redo", "Done again", "Nothing to redo", "Could not redo: {msg}", "A share link is live", "This file already has {n} live link(s). Make another? Each one has to be ended on its own.", "Downloading {n} files, {size}. Your browser's downloads show progress and can cancel.",
     "{n} uploaded. {s} not uploaded", "Move the {n} picked to the trash? The {f} files inside their folders go too.", "Upload into {name}", "A file with this name already exists: {name}", "Skip", "Keep both (the new file gets a number)", "Replace (the old file goes to the trash)", "Skip the rest too", "Keep both for the rest too", "Replace the rest too", "Tap the picture for full size",
+    "Moving {n} to the trash", "Moving {n}", "Still finishing the last step", "Copy into {name}", "End share links", "End the {n} live links? Whoever has them can no longer download.",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -117,6 +120,7 @@ const ROWS = {
     "{n} 件を切り取りました。移動先のフォルダーで貼り付けを押します", "{n} 件をコピーしました。貼り付け先のフォルダーで貼り付けを押します", "貼り付けを取り消す",
     "やり直す", "やり直しました", "やり直す操作はありません", "やり直せませんでした: {msg}", "共有リンクが有効です", "このファイルには有効なリンクが {n} 個あります。もう 1 つ作りますか？ 無効にするときはリンクごとに行います。", "{n} 個のファイル ({size}) をダウンロードします。進行状況と取り消しはブラウザのダウンロードにあります。",
     "{n}個をアップロードしました。{s}個はアップロードしませんでした", "選んだ{n}個をごみ箱へ移動しますか?フォルダー内の{f}個のファイルも一緒に移動します。", "{name} フォルダーにアップロードします", "同じ名前のファイルがすでにあります: {name}", "スキップします", "両方残します (新しいファイルの名前に番号を付けます)", "置き換えます (古いファイルはごみ箱へ移動します)", "残りもすべてスキップします", "残りもすべて両方残します", "残りもすべて置き換えます", "写真を押すと元のサイズで表示します",
+    "{n}個をごみ箱へ移動しています", "{n}個を移動しています", "前の作業をまだ終えていません", "{name} フォルダーへコピーします", "共有リンクを切る", "有効なリンク{n}個を切ります。受け取った人はダウンロードできなくなります。",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -146,6 +150,7 @@ const ROWS = {
     "已剪切 {n} 项。前往目标文件夹并点按粘贴", "已复制 {n} 项。前往目标文件夹并点按粘贴", "取消粘贴",
     "重做", "已重做", "没有可重做的操作", "无法重做：{msg}", "共享链接有效", "此文件已有 {n} 个有效链接。要再创建一个吗？每个链接都要单独停用。", "正在下载 {n} 个文件（{size}）。进度和取消在浏览器的下载中。",
     "已上传 {n} 个，{s} 个未上传", "将选中的 {n} 项移到回收站?文件夹内的 {f} 个文件也会一并移动。", "上传到 {name} 文件夹", "已有同名文件:{name}", "跳过", "两个都保留(新文件名后加编号)", "替换(旧文件移到回收站)", "其余也全部跳过", "其余也全部保留", "其余也全部替换", "点击图片查看原始大小",
+    "正在将 {n} 项移到回收站", "正在移动 {n} 项", "上一步还没完成", "复制到 {name} 文件夹", "结束共享链接", "结束 {n} 个有效链接?收到链接的人将无法再下载。",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -175,6 +180,7 @@ const ROWS = {
     "已剪下 {n} 項。前往目標資料夾並點選貼上", "已複製 {n} 項。前往目標資料夾並點選貼上", "取消貼上",
     "重做", "已重做", "沒有可重做的操作", "無法重做：{msg}", "共用連結有效", "此檔案已有 {n} 個有效連結。要再建立一個嗎？每個連結都要個別停用。", "正在下載 {n} 個檔案（{size}）。進度和取消在瀏覽器的下載中。",
     "已上傳 {n} 個，{s} 個未上傳", "將選取的 {n} 項移到垃圾桶?資料夾內的 {f} 個檔案也會一併移動。", "上傳到 {name} 資料夾", "已有同名檔案:{name}", "略過", "兩個都保留(新檔名後加編號)", "取代(舊檔案移到垃圾桶)", "其餘也全部略過", "其餘也全部保留", "其餘也全部取代", "點一下圖片查看原始大小",
+    "正在將 {n} 項移到垃圾桶", "正在移動 {n} 項", "上一步還沒完成", "複製到 {name} 資料夾", "結束共用連結", "結束 {n} 個有效連結?收到連結的人將無法再下載。",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -204,6 +210,7 @@ const ROWS = {
     "{n} cortados. Ve a la carpeta de destino y pulsa Pegar", "{n} copiados. Ve a la carpeta de destino y pulsa Pegar", "Cancelar pegado",
     "Rehacer", "Rehecho", "No hay nada que rehacer", "No se pudo rehacer: {msg}", "Hay un enlace compartido activo", "Este archivo ya tiene {n} enlaces activos. ¿Crear otro? Cada uno se corta por separado.", "Descargando {n} archivos, {size}. El progreso y la cancelación están en las descargas del navegador.",
     "{n} subidos. {s} sin subir", "¿Mover los {n} elegidos a la papelera? También irán los {f} archivos de sus carpetas.", "Subir a {name}", "Ya existe un archivo con este nombre: {name}", "Omitir", "Conservar ambos (el nuevo lleva un número)", "Reemplazar (el antiguo va a la papelera)", "Omitir también el resto", "Conservar ambos también en el resto", "Reemplazar también el resto", "Toca la imagen para verla a tamaño real",
+    "Moviendo {n} a la papelera", "Moviendo {n}", "Aún termina el paso anterior", "Copiar a {name}", "Terminar enlaces", "¿Terminar los {n} enlaces activos? Quien los tenga ya no podrá descargar.",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -233,6 +240,7 @@ const ROWS = {
     "{n} coupés. Allez dans le dossier de destination et touchez Coller", "{n} copiés. Allez dans le dossier de destination et touchez Coller", "Annuler le collage",
     "Rétablir", "Rétabli", "Rien à rétablir", "Impossible de rétablir : {msg}", "Un lien de partage est actif", "Ce fichier a déjà {n} lien(s) actif(s). En créer un autre ? Chacun se coupe séparément.", "Téléchargement de {n} fichiers, {size}. La progression et l'annulation sont dans les téléchargements du navigateur.",
     "{n} envoyés. {s} non envoyés", "Mettre les {n} éléments choisis à la corbeille ? Les {f} fichiers de leurs dossiers suivent aussi.", "Envoyer dans {name}", "Un fichier porte déjà ce nom : {name}", "Ignorer", "Garder les deux (le nouveau reçoit un numéro)", "Remplacer (l'ancien va à la corbeille)", "Ignorer aussi les suivants", "Garder les deux pour les suivants", "Remplacer aussi les suivants", "Touchez l'image pour la taille réelle",
+    "Mise à la corbeille de {n} éléments", "Déplacement de {n} éléments", "L'étape précédente n'est pas terminée", "Copier dans {name}", "Terminer les liens", "Terminer les {n} liens actifs ? Leurs détenteurs ne pourront plus télécharger.",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -262,6 +270,7 @@ const ROWS = {
     "{n} ausgeschnitten. Öffne den Zielordner und tippe auf Einfügen", "{n} kopiert. Öffne den Zielordner und tippe auf Einfügen", "Einfügen abbrechen",
     "Wiederholen", "Wiederholt", "Nichts zu wiederholen", "Wiederholen nicht möglich: {msg}", "Ein Freigabelink ist aktiv", "Diese Datei hat bereits {n} aktive Links. Noch einen erstellen? Jeder wird einzeln beendet.", "{n} Dateien, {size}, werden geladen. Fortschritt und Abbruch findest du in den Downloads des Browsers.",
     "{n} hochgeladen. {s} nicht hochgeladen", "Die {n} gewählten in den Papierkorb verschieben? Auch die {f} Dateien in ihren Ordnern gehen mit.", "In {name} hochladen", "Eine Datei mit diesem Namen gibt es schon: {name}", "Überspringen", "Beide behalten (die neue erhält eine Nummer)", "Ersetzen (die alte geht in den Papierkorb)", "Auch die übrigen überspringen", "Auch bei den übrigen beide behalten", "Auch die übrigen ersetzen", "Bild antippen für Originalgröße",
+    "{n} werden in den Papierkorb verschoben", "{n} werden verschoben", "Der letzte Schritt läuft noch", "Nach {name} kopieren", "Freigabelinks beenden", "Die {n} aktiven Links beenden? Wer sie hat, kann nicht mehr herunterladen.",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -291,6 +300,7 @@ const ROWS = {
     "{n} tagliati. Vai alla cartella di destinazione e tocca Incolla", "{n} copiati. Vai alla cartella di destinazione e tocca Incolla", "Annulla incolla",
     "Ripeti", "Ripetuto", "Niente da ripetere", "Impossibile ripetere: {msg}", "Un link di condivisione è attivo", "Questo file ha già {n} link attivi. Crearne un altro? Ognuno va interrotto a parte.", "Scaricamento di {n} file, {size}. Avanzamento e annullamento sono nei download del browser.",
     "{n} caricati. {s} non caricati", "Spostare i {n} scelti nel cestino? Vanno anche i {f} file nelle loro cartelle.", "Carica in {name}", "Esiste già un file con questo nome: {name}", "Salta", "Tieni entrambi (il nuovo riceve un numero)", "Sostituisci (il vecchio va nel cestino)", "Salta anche i restanti", "Tieni entrambi anche per i restanti", "Sostituisci anche i restanti", "Tocca l'immagine per le dimensioni reali",
+    "Spostamento di {n} nel cestino", "Spostamento di {n}", "Il passo precedente non è finito", "Copia in {name}", "Termina i link", "Terminare i {n} link attivi? Chi li ha non potrà più scaricare.",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -320,6 +330,7 @@ const ROWS = {
     "{n} cortados. Vá à pasta de destino e toque em Colar", "{n} copiados. Vá à pasta de destino e toque em Colar", "Cancelar colagem",
     "Refazer", "Refeito", "Nada para refazer", "Não foi possível refazer: {msg}", "Há um link de compartilhamento ativo", "Este arquivo já tem {n} links ativos. Criar outro? Cada um é encerrado separadamente.", "Baixando {n} arquivos, {size}. O progresso e o cancelamento ficam nos downloads do navegador.",
     "{n} enviados. {s} não enviados", "Mover os {n} escolhidos para a lixeira? Os {f} arquivos das pastas também vão.", "Enviar para {name}", "Já existe um arquivo com este nome: {name}", "Ignorar", "Manter os dois (o novo recebe um número)", "Substituir (o antigo vai para a lixeira)", "Ignorar também os restantes", "Manter os dois também nos restantes", "Substituir também os restantes", "Toque na imagem para ver no tamanho real",
+    "Movendo {n} para a lixeira", "Movendo {n}", "A etapa anterior ainda não terminou", "Copiar para {name}", "Encerrar links", "Encerrar os {n} links ativos? Quem os tem não poderá mais baixar.",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -349,6 +360,7 @@ const ROWS = {
     "{n} geknipt. Ga naar de doelmap en tik op Plakken", "{n} gekopieerd. Ga naar de doelmap en tik op Plakken", "Plakken annuleren",
     "Opnieuw", "Opnieuw gedaan", "Niets om opnieuw te doen", "Opnieuw doen mislukt: {msg}", "Er is een actieve deellink", "Dit bestand heeft al {n} actieve links. Nog een maken? Elke link moet apart worden beëindigd.", "{n} bestanden, {size}, worden gedownload. Voortgang en annuleren vind je bij de downloads van de browser.",
     "{n} geüpload. {s} niet geüpload", "De {n} gekozen items naar de prullenbak verplaatsen? De {f} bestanden in hun mappen gaan mee.", "Uploaden naar {name}", "Er bestaat al een bestand met deze naam: {name}", "Overslaan", "Beide houden (de nieuwe krijgt een nummer)", "Vervangen (de oude gaat naar de prullenbak)", "Ook de rest overslaan", "Ook bij de rest beide houden", "Ook de rest vervangen", "Tik op de afbeelding voor de ware grootte",
+    "{n} naar de prullenbak verplaatsen", "{n} verplaatsen", "De vorige stap is nog bezig", "Kopiëren naar {name}", "Deellinks beëindigen", "De {n} actieve links beëindigen? Wie ze heeft kan niet meer downloaden.",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -378,6 +390,7 @@ const ROWS = {
     "Вырезано: {n}. Откройте папку назначения и нажмите «Вставить»", "Скопировано: {n}. Откройте папку назначения и нажмите «Вставить»", "Отменить вставку",
     "Повторить", "Повторено", "Нечего повторять", "Не удалось повторить: {msg}", "Действует ссылка для общего доступа", "У этого файла уже есть действующие ссылки: {n}. Создать ещё одну? Каждую нужно отключать отдельно.", "Скачивается файлов: {n}, {size}. Ход и отмена в загрузках браузера.",
     "Загружено: {n}. Не загружено: {s}", "Переместить выбранные ({n}) в корзину? Файлы в их папках ({f}) тоже будут перемещены.", "Загрузить в {name}", "Файл с таким именем уже есть: {name}", "Пропустить", "Оставить оба (новому добавится номер)", "Заменить (старый уйдёт в корзину)", "Пропустить и остальные", "Оставить оба и для остальных", "Заменить и остальные", "Нажмите на изображение, чтобы увидеть полный размер",
+    "Перемещение в корзину: {n}", "Перемещение: {n}", "Предыдущий шаг ещё не завершён", "Копировать в {name}", "Закрыть ссылки", "Закрыть активные ссылки ({n})? Их получатели больше не смогут скачать.",
   ],
 };
 

@@ -672,10 +672,10 @@ test('an approved console gets a 관리자 기기 switch, off until the admin tu
     const sw = page.getByRole('checkbox', { name: '관리 콘솔 관리자 기기' });
     await expect(sw).not.toBeChecked();
     await sw.check({ force: true });
-    await expect(page.locator('#toast')).toContainText('관리 콘솔 에서 항목 설정을 바꿀 수 있습니다.');
+    await expect(page.locator('#toast')).toContainText('관리 콘솔 에서 항목 설정을 바꿀 수 있습니다');
     await expect.poll(flag).toBe(true);
     await page.getByRole('checkbox', { name: '관리 콘솔 관리자 기기' }).uncheck({ force: true });
-    await expect(page.locator('#toast')).toContainText('관리 콘솔 은(는) 다시 읽기만 합니다.');
+    await expect(page.locator('#toast')).toContainText('관리 콘솔 은(는) 다시 읽기만 합니다');
     await expect.poll(flag).toBe(false);
   } finally {
     await page.request.post('/admin/api/devices/revoke', { data: { deviceKey: KEY }, headers: origin });

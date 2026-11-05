@@ -34,6 +34,7 @@ export const OVERVIEW_CSS = /* css */ `
 .card .s{color:var(--muted);font-size:var(--fs-xs);margin-top:2px}
 .card.alert .v{color:var(--accent)}
 #ov-status .card .v{font-size:var(--fs-2xl);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:760px){.ov-col-h a{display:inline-flex;align-items:center;min-height:44px}}
 .ov-recent{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden}
 .ov-recent li{display:flex;gap:12px;padding:10px 16px;border-top:1px solid var(--line);font-size:var(--fs-sm);min-width:0}
 .ov-recent li:first-child{border-top:0}
