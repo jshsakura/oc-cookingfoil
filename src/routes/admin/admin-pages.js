@@ -23,7 +23,8 @@ export const ADMIN_PAGES = [
   { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
   { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat" },
   // incoming: what reached the server and waits for a place
-  { path: "/admin/upload", tab: "upload", label: "m.upload", row: "incoming", icon: "upload" },
+  // Reached from the header's upload button; the menu has no entry for it.
+  { path: "/admin/upload", tab: "upload", label: "m.upload", menu: false, icon: "upload" },
   { path: "/admin/incoming/temp", tab: "organize", label: "m.organize", row: "incoming", icon: "folder" },
   { path: "/admin/inbox", tab: "inbox", label: "m.inbox", row: "incoming", icon: "send", count: "inbox-count" },
   // the libraries: each page holds its own jobs as tabs
@@ -59,7 +60,7 @@ export const ADMIN_PAGES = [
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 
 const ROWS = {
-  incoming: { label: "m.incoming", icon: "inbox" },
+  incoming: { label: "m.organize", icon: "inbox" },
 };
 
 const GROUPS = {
@@ -112,6 +113,7 @@ export function sidebarNav(current, withIds = true) {
   const grouped = new Map(Object.keys(GROUPS).map((g) => [g, []]));
   const seen = new Set();
   for (const page of ADMIN_PAGES) {
+    if (page.menu === false) continue;
     if (page.group) grouped.get(page.group).push(page);
     else if (!page.row) rows.push(item(page, current, withIds));
     else if (!seen.has(page.row)) {
@@ -239,7 +241,7 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
  * matching path, answers back and forward between paths, and marks the sidebar.
  */
 export function admRouterScript(page) {
-  const conf = { path: page.path, tab: page.tab, sub: page.sub ?? "", param: page.param ?? "", anchor: page.anchor ?? "" };
+  const conf = { path: page.path, tab: page.tab, sub: page.sub ?? "", param: page.param ?? "", anchor: page.anchor ?? "", ...(page.menu === false ? { own: top(page.label) } : {}) };
   return /* js */ `
 (function(){
 const PAGE=${JSON.stringify(conf)};
@@ -276,7 +278,9 @@ function mark(){const p=activePath();
 // the last two, because 파일 alone does not say whose files. The label spans are copies, so the language switch
 // relabels them with the rest.
 function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySelector('.adm-side .adm-item[aria-current="page"]');
-  if(!c)return;c.replaceChildren();if(!a)return;
+  if(!c)return;c.replaceChildren();
+  // A page with no menu entry (업로드, from the header) names only itself.
+  if(!a){if(PAGE.own){c.insertAdjacentHTML('beforeend',PAGE.own);c.lastElementChild?.classList.add('adm-crumb-i');}return;}
   const label=(n)=>{const s=n&&n.querySelector(':scope>[data-top]');return s?s.cloneNode(true):null;};
   const plain=(n)=>{const s=n.querySelector('[data-top]');if(s)return s.cloneNode(true);const t=document.createElement('span');
     t.textContent=[...n.childNodes].filter((x)=>x.nodeType===3||(x.nodeType===1&&!x.classList.contains('count')&&!x.querySelector('svg')&&x.tagName!=='svg')).map((x)=>x.textContent).join('').trim();return t;};

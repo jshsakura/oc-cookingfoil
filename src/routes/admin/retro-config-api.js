@@ -130,8 +130,8 @@ export function mountRetroConfigApi(router, requireSession) {
   const str = (v) => (typeof v === "string" ? v : "");
   router.get("/api/retro-config", handle((req) => retroConfigView(requestLang(req))));
   router.get("/api/retro-config/file", handle((req) => raConfig.read(str(req.query.rel))));
-  router.post("/api/retro-config/file", handle((req) => writeRetroConfig(str(req.body?.rel), req.body?.changes, { by: actorOf(req) })));
-  router.post("/api/retro-config/spread", handle((req) => spreadRetroConfig(req.body?.changes, { by: actorOf(req) })));
+  router.post("/api/retro-config/file", handle((req) => writeRetroConfig(str(req.body?.rel), req.body?.changes, { by: actorOf(req).name })));
+  router.post("/api/retro-config/spread", handle((req) => spreadRetroConfig(req.body?.changes, { by: actorOf(req).name })));
   router.get("/api/retro-config/history", handle((req) => raConfig.history({ rel: req.query.rel ? str(req.query.rel) : null })));
-  router.post("/api/retro-config/restore", handle((req) => restoreRetroConfig(req.body?.id, { by: actorOf(req) })));
+  router.post("/api/retro-config/restore", handle((req) => restoreRetroConfig(req.body?.id, { by: actorOf(req).name })));
 }

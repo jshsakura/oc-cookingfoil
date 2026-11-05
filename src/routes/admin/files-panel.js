@@ -194,7 +194,7 @@ body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32p
   #fb-view{width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;inset:0;border:0;border-radius:0;box-sizing:border-box}
   #fb-view .fb-v-body{flex:1;min-height:0;touch-action:pinch-zoom}
   #fb-view .fb-v-body img{max-height:100%}#fb-view .fb-v-body pre{max-height:100%;align-self:stretch}
-  #fb .c-mtime,#fb .c-act{display:none}#fb .c-size{width:72px}
+  #fb .c-mtime,#fb .c-act{display:none}#fb .c-size{width:72px}#fb thead [data-sort]{min-height:44px;min-width:44px}
   /* The browser has its own back and forward. The path takes the rest of the first line, the search and the view the second. */
   #fb .fb-nav #fb-back,#fb .fb-nav #fb-fwd{display:none}
   #fb .fb-crumb{flex:1 1 calc(100% - 112px);min-width:0}
@@ -385,6 +385,11 @@ function fbCrumb(mount,root,path,go){mount.replaceChildren();const parts=path?pa
   const add=(label,to)=>{const li=el('li');const b=el('button',label);b.type='button';b.title=label;b.addEventListener('click',()=>go(to));
     if(to!==path)fbDropTarget(b,()=>to);li.append(b);mount.append(li);};
   add(fbRootName(root),'');parts.forEach((p,i)=>add(p,parts.slice(0,i+1).join('/')));}
+// The phone hides the date column, so its order is picked from the file menu.
+const FB_SORT_COL={name:'fb.colName',size:'fb.colSize',mtime:'fb.colMtime'};
+async function fbSortAsk(){const pick=await askPick(topText('fb.sortBy'),[['name','asc'],['name','desc'],['mtime','desc'],['mtime','asc'],['size','desc'],['size','asc']]
+  .map(([s,o])=>({value:s+':'+o,label:topText(FB_SORT_COL[s])+' '+(o==='asc'?'▲':'▼')})));
+  if(!pick)return;[fb.sort,fb.order]=pick.split(':');fbLoad();}
 function fbSortHeads(){for(const b of document.querySelectorAll('#fb thead [data-sort]')){const on=b.dataset.sort===fb.sort;
   if(on)b.setAttribute('aria-sort',fb.order==='asc'?'ascending':'descending');else b.removeAttribute('aria-sort');
   b.dataset.arrow=on?(fb.order==='asc'?'▲':'▼'):'';const t=b.querySelector('[data-top]');b.replaceChildren(t||b.firstChild);if(on)b.append(el('span',fb.order==='asc'?'▲':'▼'));}}
@@ -650,7 +655,7 @@ function fbMove(){const rels=[...fb.sel];if(!rels.length)return;fbm.root=fb.root
   $('fb-m-ok').onclick=()=>{const to={root:fbm.root,path:fbm.path};done();fbMoveTo(rels,to.root,to.path);};
   dlg.showModal();fbMoveLoad();}
 // A move or copy the server refused as a likely mistake says why, in the page's words (file-roots.js PLACE_RULES).
-const FB_WHY={'game-into-game':'fb.gameIntoGame','title-into-title':'fb.titleIntoTitle','game-wrong-root':'fb.gameWrongRoot'};
+const FB_WHY={'into-itself':'fb.intoItself','game-into-game':'fb.gameIntoGame','title-into-title':'fb.titleIntoTitle','game-wrong-root':'fb.gameWrongRoot'};
 // What the server noticed about where something landed (library/place-review.js): allowed, but it may not read as it should.
 const FB_NOTE={'other-game':'fb.r.otherGame','retro-no-system':'fb.r.noSystem','retro-wrong-system':'fb.r.wrongSystem','retro-too-deep':'fb.r.tooDeep'};
 const fbNotes=(notes)=>[...new Set((notes||[]).map((x)=>FB_NOTE[x.code]).filter(Boolean))].map(topText).join(' ');
@@ -679,10 +684,11 @@ function fbTip(e,dest,word='fb.dragTo'){const tip=$('fb-dragtip');if(!e){tip.hid
 function fbToastUndo(msg,ms=FB_UNDO_TOAST_MS){toastUndo(msg,fbUndo,ms);}
 const FB_UNDO_TOAST_MS=7000;
 const FB_NOTE_TOAST_MS=15000;
-function fbDropTarget(node,dest){node.classList.add('fb-takes');node.fbDest=dest;const ours=(e)=>fb.drag&&[...e.dataTransfer.types].includes(FB_DRAG)&&dest()!==false;
+function fbDropTarget(node,dest,why){node.classList.add('fb-takes');node.fbDest=dest;const mine=(e)=>fb.drag&&[...e.dataTransfer.types].includes(FB_DRAG);const ours=(e)=>mine(e)&&dest()!==false;
   // Ctrl, or Option on a Mac, makes a drag a copy.
   const copying=(e)=>e.ctrlKey||e.altKey;
-  node.addEventListener('dragover',(e)=>{if(!ours(e))return;e.preventDefault();e.dataTransfer.dropEffect=copying(e)?'copy':'move';node.classList.add('fb-target');fbTip(e,dest(),copying(e)?'fb.dragCopy':'fb.dragTo');});
+  // A place that will not take the drag says why while the pointer is over it.
+  node.addEventListener('dragover',(e)=>{if(!ours(e)){const w=mine(e)&&why?.();if(w)fbTip(e,null,w);return;}e.preventDefault();e.dataTransfer.dropEffect=copying(e)?'copy':'move';node.classList.add('fb-target');fbTip(e,dest(),copying(e)?'fb.dragCopy':'fb.dragTo');});
   node.addEventListener('dragleave',()=>{node.classList.remove('fb-target');fbTip(null);});
   node.addEventListener('drop',(e)=>{node.classList.remove('fb-target');fbTip(null);if(!ours(e))return;e.preventDefault();e.stopPropagation();
     const rels=fb.drag;fb.drag=null;if(copying(e))fbCopyTo(rels,fb.root,{root:fb.root,path:dest()});else fbMoveTo(rels,fb.root,dest());});}
@@ -786,7 +792,7 @@ function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rel
     if(fb.undos.length)add('fb.undo','undo',fbUndo);if(fb.redos.length)add('fb.redo','refresh',fbRedo);add('fb.props','props',fbProps);
 }
   else{add('fb.newFolder','mkdir',fbMkdir);add('fb.upload','upload',()=>$('fb-file').click());add('fb.uploadDir','open',()=>$('fb-dir').click());
-    if(fbPhone()&&fb.root!=='incoming')add('fb.tidy','tidy',fbTidy);
+    if(fbPhone()&&fb.root!=='incoming')add('fb.tidy','tidy',fbTidy);if(fbPhone())add('fb.sortBy','chev',fbSortAsk);
     if(fbPhone()&&fb.root==='games'&&$('rescan'))items.push({label:$('rescan').textContent.trim(),ic:'refresh',fn:()=>$('rescan').click()});
     if(fb.clip){add('fb.paste','paste',fbPaste);add('fb.clipDrop','stop',fbClipDrop);}if(fb.undos.length)add('fb.undo','undo',fbUndo);if(fb.redos.length)add('fb.redo','refresh',fbRedo);add('fb.props','props',fbProps);}
   return items;}

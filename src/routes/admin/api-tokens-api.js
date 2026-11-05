@@ -27,7 +27,7 @@ export function mountApiTokensApi(router, requireSession) {
     }
   };
 
-  router.get("/api/tokens", guarded((_req, res) => res.json({ tokens: apiTokens.list() })));
+  router.get("/api/tokens", guarded((req, res) => res.json({ tokens: apiTokens.list(), ...(adminActor(req) ? {} : { needAccount: apiWord(req, "token.needAccount") }) })));
 
   router.post("/api/tokens", guarded((req, res) => {
     const actor = adminActor(req);

@@ -493,10 +493,11 @@ test('the settings tab syncs every folder and makes a backup with one press each
   await expect(page.locator('.ss-row[data-key="syncHours"] .ss-src')).toHaveCount(0);
 });
 
-test('the automation token copy row stays out of sight until a token is made', async ({ page }) => {
+test('a session with no account is told a token needs one, and the copy row stays out of sight', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#settings/tokens');
-  await expect(page.locator('#tok-form')).toBeVisible();
+  await expect(page.locator('#tok-need')).toContainText('관리자 계정으로 로그인한 뒤에 만들 수 있습니다');
+  await expect(page.locator('#tok-form')).toBeHidden();
   await expect(page.locator('#tok-new')).toBeHidden();
   // A script that only reads the game list gets a catalog token, not the whole admin API.
   const scope = page.getByLabel('권한', { exact: true });

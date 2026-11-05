@@ -262,7 +262,7 @@ function fbTreeNode(rel,name){const li=el('li');li.setAttribute('role','treeitem
     fbTree.open.add(rel);await fbTreeKids(rel).catch(()=>fbTree.open.delete(rel));fbTreeDraw();});
   const lb=el('button',name,'fb-tl');lb.type='button';lb.title=name;lb.addEventListener('click',()=>fbGo(fb.root,rel));
   // A folder in the tree takes a drop as a folder in the list does, but not one going into itself or staying put.
-  fbDropTarget(lb,()=>rel!==fb.path&&!fb.drag?.some((d)=>rel===d||rel.startsWith(d+'/'))&&rel);
+  fbDropTarget(lb,()=>rel!==fb.path&&!fb.drag?.some((d)=>rel===d||rel.startsWith(d+'/'))&&rel,()=>fb.drag?.some((d)=>rel===d||rel.startsWith(d+'/'))?'fb.intoItself':null);
   row.append(tx,lb);li.append(row);
   if(open&&kids?.length){const ul=el('ul');ul.setAttribute('role','group');ul.append(...kids.map((k)=>fbTreeNode(k.rel,k.name)));li.append(ul);}
   return li;}
