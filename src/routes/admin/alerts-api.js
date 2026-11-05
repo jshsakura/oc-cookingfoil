@@ -25,6 +25,7 @@ import { apiWord } from "./api-words.js";
 import { securityError } from "../../security/security-messages.js";
 
 const TOKEN_RE = integrations.SERVICES.telegram.fields.botToken.re;
+const CHAT_RE = integrations.SERVICES.telegram.fields.chatId.re;
 
 export function mountAlertsApi(router, requireSession) {
   const guarded = (handler) => async (req, res) => {
@@ -63,6 +64,10 @@ export function mountAlertsApi(router, requireSession) {
   }));
 
   router.post("/api/alerts", guarded((req, res) => {
+    const token = String(req.body?.botToken ?? "").trim();
+    if (token && !TOKEN_RE.test(token)) return res.status(400).json({ error: apiWord(req, "alerts.badToken") });
+    const chatId = String(req.body?.chatId ?? "").trim();
+    if (chatId && !CHAT_RE.test(chatId)) return res.status(400).json({ error: apiWord(req, "alerts.badChat") });
     const ids = Array.isArray(req.body?.events) ? req.body.events.map(String).filter((k) => k in alerts.EVENTS) : [];
     const current = integrations.get("telegram");
     const buttons = typeof req.body?.buttons === "boolean" ? req.body.buttons : alerts.buttonsOn(current);

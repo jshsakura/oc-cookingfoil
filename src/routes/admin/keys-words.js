@@ -5,7 +5,7 @@ export const KEYS_WORDS = {
   ko: {
     "keys.gen": "서버 prod.keys 의 버전은 {fw} 입니다(키 {gen}세대). 펌웨어 버전 무시 설치는 이 버전까지의 게임을 낮은 펌웨어 기기에 맞춰 보냅니다.",
     "keys.noGen": "키 세대를 알 수 없습니다. header_key 와 key_area_key 또는 master_key 항목이 있는지 확인합니다.",
-    "keys.above": "라이브러리 게임 {n}개는 펌웨어 버전 무시 설치에 더 새 키가 필요합니다. {version} 이상 버전의 prod.keys 로 교체해 주십시오.",
+    "keys.above": "라이브러리 게임 {n}개는 펌웨어 버전 무시 설치에 더 새 키가 필요합니다. {version} 이상 버전의 prod.keys 로 교체해야 합니다.",
     "keys.aboveNone": "라이브러리 게임은 모두 이 키 세대 안에 있습니다.",
     "keys.pending": "게임 파일 {n}개는 아직 키 세대를 읽지 않았습니다. 백그라운드에서 읽고 있습니다.",
   },

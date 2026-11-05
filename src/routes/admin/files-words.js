@@ -27,6 +27,7 @@ const KEYS = [
   "fb.widened", "fb.noMatchDeep", "fb.pickAll",
   "fb.clipCutTap", "fb.clipCopyTap", "fb.clipDrop",
   "fb.redo", "fb.redone", "fb.redoNone", "fb.redoFail", "fb.sharedRow", "fb.shareMore", "fb.zipStart",
+  "fb.upHead", "fb.askTrashIn", "fb.dropUp", "fb.upTaken", "fb.upSkip", "fb.upKeep", "fb.upReplace", "fb.upSkipAll", "fb.upKeepAll", "fb.upReplaceAll", "fb.viewZoom",
 ];
 
 const ROWS = {
@@ -49,14 +50,15 @@ const ROWS = {
     "타이틀 폴더는 다른 타이틀 폴더 안에 넣지 않습니다.", "Switch 게임 파일은 게임 폴더에만 둡니다. 여기서는 게임으로 읽지 않습니다.", "확장자를 바꾸면 이 파일을 알아보지 못할 수 있습니다. 바꿀까요?",
     "새로 고침",
     "배급사", "출시일", "장르", "인원", "지역", "연령 등급", "평점", "최신 버전", "DLC", "필요 펌웨어",
-    "다른 게임이 들어 있는 폴더입니다. 게임이 섞이지 않았는지 확인해 주십시오.", "이 위치에서는 게임으로 인식되지 않습니다. roms 아래 기기 폴더로 옮겨 주십시오.", "이 기기 폴더에서는 이 확장자를 게임으로 인식하지 않습니다.", "폴더가 너무 깊어 게임으로 인식되지 않습니다.",
+    "다른 게임이 들어 있는 폴더입니다. 게임이 섞이지 않았는지 확인합니다.", "이 위치에서는 게임으로 인식되지 않습니다. roms 아래 기기 폴더로 옮겨야 합니다.", "이 기기 폴더에서는 이 확장자를 게임으로 인식하지 않습니다.", "폴더가 너무 깊어 게임으로 인식되지 않습니다.",
     "정리", "이렇게 정리합니다", "게임마다 폴더 하나에 본편을 두고 update와 DLC는 하위 폴더로 나눕니다. 파일 이름에는 [타이틀ID][버전]을 붙입니다. 덮어쓰는 파일은 없고, 끝난 뒤 되돌릴 수 있습니다.", "{n}개를 옮깁니다", "이미 정리돼 있어 옮길 파일이 없습니다.", "그대로 두는 파일 {n}개", "{n}개를 정리했습니다", "파일을 읽고 있습니다",
     "서버가 만들고 관리하는 파일입니다. 옮기거나 지우면 레트로 화면이나 기기에 받는 파일이 달라질 수 있습니다. 계속할까요?", "롬을 그 롬을 읽는 기기 폴더(roms/기기)로 옮깁니다. 이름은 바꾸지 않습니다. 덮어쓰는 파일은 없고, 끝난 뒤 되돌릴 수 있습니다.", "맨 위에 놓인 .nro 를 앱 이름의 폴더에 넣습니다. 덮어쓰는 파일은 없고, 끝난 뒤 되돌릴 수 있습니다.", "게임을 알 수 있는 패치 폴더를 그 게임의 [타이틀ID] 폴더 아래로 옮깁니다. 덮어쓰는 파일은 없고, 끝난 뒤 되돌릴 수 있습니다.", "게임을 알 수 있는 세이브 폴더를 그 게임의 [타이틀ID] 폴더 아래로 옮깁니다. 덮어쓰는 파일은 없고, 끝난 뒤 되돌릴 수 있습니다.",
     "서버용", "롬과 표지 그림을 짝지어 둔 목록입니다. 서버가 만들고 고칩니다.", "목록에 나오는 표지 그림과 화면 사진입니다. 서버가 받아 둡니다.", "게임 화면 둘레에 씌우는 테두리 그림입니다.", "게임 화면을 찍은 사진입니다.", "기기마다 보여 주는 아이콘입니다.", "콘솔에 보내는 레트로아크 묶음입니다. 코어, BIOS, 설정이 들어 있습니다.", "게임 연령 등급 목록입니다. 서버가 만듭니다.", "아케이드 게임의 다른 나라 이름 목록입니다.", "기기마다 어떤 코어와 확장자를 쓰는지 적은 설정입니다.", "기기별 롬 폴더가 모여 있습니다. 롬은 알맞은 기기 폴더에 넣습니다.", "{name} 롬을 넣는 폴더입니다.", "{name} 롬입니다.", "여기에 넣은 게임은 서버가 이름을 붙여 게임 폴더로 옮깁니다.", "이 게임의 업데이트 파일이 들어 있습니다.", "이 게임의 추가 콘텐츠(DLC)가 들어 있습니다.", "이 게임에 쓰는 패치가 들어 있습니다.", "이 게임의 세이브가 들어 있습니다.", "게임 설치 파일(NSP)입니다.", "압축한 게임 설치 파일(NSZ)입니다. 설치할 때 풀립니다.", "게임 카드를 그대로 옮긴 파일(XCI)입니다.", "압축한 게임 카드 파일(XCZ)입니다. 설치할 때 풀립니다.", "콘솔에서 바로 여는 홈브류 앱(NRO)입니다.", "그림 {n}개도 함께 옮깁니다.", "파일 압축", "파일 검사",
-    "폴더 안의 파일이 달라져 되돌리지 않았습니다. 필요 없으면 직접 휴지통으로 보내 주십시오.",
+    "폴더 안의 파일이 달라져 되돌리지 않았습니다. 필요 없으면 직접 휴지통으로 보냅니다.",
     "이 폴더에 없어서 하위 폴더까지 찾았습니다.", "찾는 이름이 이 폴더와 하위 폴더에 없습니다.", "전부",
     "{n}개를 잘라냈습니다. 옮길 폴더로 가서 붙여넣기를 누릅니다", "{n}개를 복사해 뒀습니다. 붙여넣을 폴더로 가서 붙여넣기를 누릅니다", "붙여넣기 취소",
     "다시 실행", "다시 실행했습니다", "다시 실행할 작업이 없습니다", "다시 실행하지 못했습니다: {msg}", "공유 링크가 살아 있습니다", "이 파일에 살아 있는 링크가 {n}개 있습니다. 하나 더 만듭니까? 끊을 때는 링크마다 끊어야 합니다.", "파일 {n}개, {size}를 내려받습니다. 진행과 취소는 브라우저의 다운로드에 있습니다.",
+    "{n}개를 올렸습니다. {s}개는 올리지 않았습니다", "고른 {n}개를 휴지통으로 옮길까요? 폴더 안의 파일 {f}개도 함께 옮겨집니다.", "{name} 폴더에 올립니다", "같은 이름의 파일이 이미 있습니다: {name}", "건너뜁니다", "둘 다 둡니다 (새 파일 이름에 번호를 붙입니다)", "바꿉니다 (옛 파일은 휴지통으로 갑니다)", "남은 파일도 모두 건너뜁니다", "남은 파일도 모두 둘 다 둡니다", "남은 파일도 모두 바꿉니다", "사진을 누르면 원본 크기로 봅니다",
   ],
   en: [
     "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
@@ -85,6 +87,7 @@ const ROWS = {
     "Not in this folder, so subfolders were searched too.", "That name is not in this folder or its subfolders.", "All",
     "{n} cut. Go to the destination folder and tap Paste", "{n} copied. Go to the destination folder and tap Paste", "Cancel paste",
     "Redo", "Done again", "Nothing to redo", "Could not redo: {msg}", "A share link is live", "This file already has {n} live link(s). Make another? Each one has to be ended on its own.", "Downloading {n} files, {size}. Your browser's downloads show progress and can cancel.",
+    "{n} uploaded. {s} not uploaded", "Move the {n} picked to the trash? The {f} files inside their folders go too.", "Upload into {name}", "A file with this name already exists: {name}", "Skip", "Keep both (the new file gets a number)", "Replace (the old file goes to the trash)", "Skip the rest too", "Keep both for the rest too", "Replace the rest too", "Tap the picture for full size",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -113,6 +116,7 @@ const ROWS = {
     "このフォルダーにないため、サブフォルダーまで検索しました。", "その名前はこのフォルダーにもサブフォルダーにもありません。", "すべて",
     "{n} 件を切り取りました。移動先のフォルダーで貼り付けを押します", "{n} 件をコピーしました。貼り付け先のフォルダーで貼り付けを押します", "貼り付けを取り消す",
     "やり直す", "やり直しました", "やり直す操作はありません", "やり直せませんでした: {msg}", "共有リンクが有効です", "このファイルには有効なリンクが {n} 個あります。もう 1 つ作りますか？ 無効にするときはリンクごとに行います。", "{n} 個のファイル ({size}) をダウンロードします。進行状況と取り消しはブラウザのダウンロードにあります。",
+    "{n}個をアップロードしました。{s}個はアップロードしませんでした", "選んだ{n}個をごみ箱へ移動しますか?フォルダー内の{f}個のファイルも一緒に移動します。", "{name} フォルダーにアップロードします", "同じ名前のファイルがすでにあります: {name}", "スキップします", "両方残します (新しいファイルの名前に番号を付けます)", "置き換えます (古いファイルはごみ箱へ移動します)", "残りもすべてスキップします", "残りもすべて両方残します", "残りもすべて置き換えます", "写真を押すと元のサイズで表示します",
   ],
   zh: [
     "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
@@ -141,6 +145,7 @@ const ROWS = {
     "此文件夹中没有，已同时搜索子文件夹。", "此文件夹及其子文件夹中都没有这个名称。", "全部",
     "已剪切 {n} 项。前往目标文件夹并点按粘贴", "已复制 {n} 项。前往目标文件夹并点按粘贴", "取消粘贴",
     "重做", "已重做", "没有可重做的操作", "无法重做：{msg}", "共享链接有效", "此文件已有 {n} 个有效链接。要再创建一个吗？每个链接都要单独停用。", "正在下载 {n} 个文件（{size}）。进度和取消在浏览器的下载中。",
+    "已上传 {n} 个，{s} 个未上传", "将选中的 {n} 项移到回收站?文件夹内的 {f} 个文件也会一并移动。", "上传到 {name} 文件夹", "已有同名文件:{name}", "跳过", "两个都保留(新文件名后加编号)", "替换(旧文件移到回收站)", "其余也全部跳过", "其余也全部保留", "其余也全部替换", "点击图片查看原始大小",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -169,6 +174,7 @@ const ROWS = {
     "此資料夾中沒有，已一併搜尋子資料夾。", "此資料夾及其子資料夾中都沒有這個名稱。", "全部",
     "已剪下 {n} 項。前往目標資料夾並點選貼上", "已複製 {n} 項。前往目標資料夾並點選貼上", "取消貼上",
     "重做", "已重做", "沒有可重做的操作", "無法重做：{msg}", "共用連結有效", "此檔案已有 {n} 個有效連結。要再建立一個嗎？每個連結都要個別停用。", "正在下載 {n} 個檔案（{size}）。進度和取消在瀏覽器的下載中。",
+    "已上傳 {n} 個，{s} 個未上傳", "將選取的 {n} 項移到垃圾桶?資料夾內的 {f} 個檔案也會一併移動。", "上傳到 {name} 資料夾", "已有同名檔案:{name}", "略過", "兩個都保留(新檔名後加編號)", "取代(舊檔案移到垃圾桶)", "其餘也全部略過", "其餘也全部保留", "其餘也全部取代", "點一下圖片查看原始大小",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -197,6 +203,7 @@ const ROWS = {
     "No está en esta carpeta; se han buscado también las subcarpetas.", "Ese nombre no está en esta carpeta ni en sus subcarpetas.", "Todo",
     "{n} cortados. Ve a la carpeta de destino y pulsa Pegar", "{n} copiados. Ve a la carpeta de destino y pulsa Pegar", "Cancelar pegado",
     "Rehacer", "Rehecho", "No hay nada que rehacer", "No se pudo rehacer: {msg}", "Hay un enlace compartido activo", "Este archivo ya tiene {n} enlaces activos. ¿Crear otro? Cada uno se corta por separado.", "Descargando {n} archivos, {size}. El progreso y la cancelación están en las descargas del navegador.",
+    "{n} subidos. {s} sin subir", "¿Mover los {n} elegidos a la papelera? También irán los {f} archivos de sus carpetas.", "Subir a {name}", "Ya existe un archivo con este nombre: {name}", "Omitir", "Conservar ambos (el nuevo lleva un número)", "Reemplazar (el antiguo va a la papelera)", "Omitir también el resto", "Conservar ambos también en el resto", "Reemplazar también el resto", "Toca la imagen para verla a tamaño real",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -225,6 +232,7 @@ const ROWS = {
     "Absent de ce dossier : les sous-dossiers ont aussi été parcourus.", "Ce nom n'est ni dans ce dossier ni dans ses sous-dossiers.", "Tout",
     "{n} coupés. Allez dans le dossier de destination et touchez Coller", "{n} copiés. Allez dans le dossier de destination et touchez Coller", "Annuler le collage",
     "Rétablir", "Rétabli", "Rien à rétablir", "Impossible de rétablir : {msg}", "Un lien de partage est actif", "Ce fichier a déjà {n} lien(s) actif(s). En créer un autre ? Chacun se coupe séparément.", "Téléchargement de {n} fichiers, {size}. La progression et l'annulation sont dans les téléchargements du navigateur.",
+    "{n} envoyés. {s} non envoyés", "Mettre les {n} éléments choisis à la corbeille ? Les {f} fichiers de leurs dossiers suivent aussi.", "Envoyer dans {name}", "Un fichier porte déjà ce nom : {name}", "Ignorer", "Garder les deux (le nouveau reçoit un numéro)", "Remplacer (l'ancien va à la corbeille)", "Ignorer aussi les suivants", "Garder les deux pour les suivants", "Remplacer aussi les suivants", "Touchez l'image pour la taille réelle",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -253,6 +261,7 @@ const ROWS = {
     "Nicht in diesem Ordner, daher wurden auch Unterordner durchsucht.", "Dieser Name ist weder in diesem Ordner noch in seinen Unterordnern.", "Alle",
     "{n} ausgeschnitten. Öffne den Zielordner und tippe auf Einfügen", "{n} kopiert. Öffne den Zielordner und tippe auf Einfügen", "Einfügen abbrechen",
     "Wiederholen", "Wiederholt", "Nichts zu wiederholen", "Wiederholen nicht möglich: {msg}", "Ein Freigabelink ist aktiv", "Diese Datei hat bereits {n} aktive Links. Noch einen erstellen? Jeder wird einzeln beendet.", "{n} Dateien, {size}, werden geladen. Fortschritt und Abbruch findest du in den Downloads des Browsers.",
+    "{n} hochgeladen. {s} nicht hochgeladen", "Die {n} gewählten in den Papierkorb verschieben? Auch die {f} Dateien in ihren Ordnern gehen mit.", "In {name} hochladen", "Eine Datei mit diesem Namen gibt es schon: {name}", "Überspringen", "Beide behalten (die neue erhält eine Nummer)", "Ersetzen (die alte geht in den Papierkorb)", "Auch die übrigen überspringen", "Auch bei den übrigen beide behalten", "Auch die übrigen ersetzen", "Bild antippen für Originalgröße",
   ],
   it: [
     "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -281,6 +290,7 @@ const ROWS = {
     "Non è in questa cartella: la ricerca include anche le sottocartelle.", "Questo nome non è in questa cartella né nelle sottocartelle.", "Tutti",
     "{n} tagliati. Vai alla cartella di destinazione e tocca Incolla", "{n} copiati. Vai alla cartella di destinazione e tocca Incolla", "Annulla incolla",
     "Ripeti", "Ripetuto", "Niente da ripetere", "Impossibile ripetere: {msg}", "Un link di condivisione è attivo", "Questo file ha già {n} link attivi. Crearne un altro? Ognuno va interrotto a parte.", "Scaricamento di {n} file, {size}. Avanzamento e annullamento sono nei download del browser.",
+    "{n} caricati. {s} non caricati", "Spostare i {n} scelti nel cestino? Vanno anche i {f} file nelle loro cartelle.", "Carica in {name}", "Esiste già un file con questo nome: {name}", "Salta", "Tieni entrambi (il nuovo riceve un numero)", "Sostituisci (il vecchio va nel cestino)", "Salta anche i restanti", "Tieni entrambi anche per i restanti", "Sostituisci anche i restanti", "Tocca l'immagine per le dimensioni reali",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -309,6 +319,7 @@ const ROWS = {
     "Não está nesta pasta; as subpastas também foram pesquisadas.", "Esse nome não está nesta pasta nem nas subpastas.", "Tudo",
     "{n} cortados. Vá à pasta de destino e toque em Colar", "{n} copiados. Vá à pasta de destino e toque em Colar", "Cancelar colagem",
     "Refazer", "Refeito", "Nada para refazer", "Não foi possível refazer: {msg}", "Há um link de compartilhamento ativo", "Este arquivo já tem {n} links ativos. Criar outro? Cada um é encerrado separadamente.", "Baixando {n} arquivos, {size}. O progresso e o cancelamento ficam nos downloads do navegador.",
+    "{n} enviados. {s} não enviados", "Mover os {n} escolhidos para a lixeira? Os {f} arquivos das pastas também vão.", "Enviar para {name}", "Já existe um arquivo com este nome: {name}", "Ignorar", "Manter os dois (o novo recebe um número)", "Substituir (o antigo vai para a lixeira)", "Ignorar também os restantes", "Manter os dois também nos restantes", "Substituir também os restantes", "Toque na imagem para ver no tamanho real",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -337,6 +348,7 @@ const ROWS = {
     "Niet in deze map, daarom zijn ook de submappen doorzocht.", "Die naam staat niet in deze map of de submappen.", "Alles",
     "{n} geknipt. Ga naar de doelmap en tik op Plakken", "{n} gekopieerd. Ga naar de doelmap en tik op Plakken", "Plakken annuleren",
     "Opnieuw", "Opnieuw gedaan", "Niets om opnieuw te doen", "Opnieuw doen mislukt: {msg}", "Er is een actieve deellink", "Dit bestand heeft al {n} actieve links. Nog een maken? Elke link moet apart worden beëindigd.", "{n} bestanden, {size}, worden gedownload. Voortgang en annuleren vind je bij de downloads van de browser.",
+    "{n} geüpload. {s} niet geüpload", "De {n} gekozen items naar de prullenbak verplaatsen? De {f} bestanden in hun mappen gaan mee.", "Uploaden naar {name}", "Er bestaat al een bestand met deze naam: {name}", "Overslaan", "Beide houden (de nieuwe krijgt een nummer)", "Vervangen (de oude gaat naar de prullenbak)", "Ook de rest overslaan", "Ook bij de rest beide houden", "Ook de rest vervangen", "Tik op de afbeelding voor de ware grootte",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -365,6 +377,7 @@ const ROWS = {
     "В этой папке нет, поэтому поиск выполнен и в подпапках.", "Такого имени нет ни в этой папке, ни в подпапках.", "Все",
     "Вырезано: {n}. Откройте папку назначения и нажмите «Вставить»", "Скопировано: {n}. Откройте папку назначения и нажмите «Вставить»", "Отменить вставку",
     "Повторить", "Повторено", "Нечего повторять", "Не удалось повторить: {msg}", "Действует ссылка для общего доступа", "У этого файла уже есть действующие ссылки: {n}. Создать ещё одну? Каждую нужно отключать отдельно.", "Скачивается файлов: {n}, {size}. Ход и отмена в загрузках браузера.",
+    "Загружено: {n}. Не загружено: {s}", "Переместить выбранные ({n}) в корзину? Файлы в их папках ({f}) тоже будут перемещены.", "Загрузить в {name}", "Файл с таким именем уже есть: {name}", "Пропустить", "Оставить оба (новому добавится номер)", "Заменить (старый уйдёт в корзину)", "Пропустить и остальные", "Оставить оба и для остальных", "Заменить и остальные", "Нажмите на изображение, чтобы увидеть полный размер",
   ],
 };
 

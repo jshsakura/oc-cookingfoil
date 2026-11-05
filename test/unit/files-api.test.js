@@ -157,6 +157,28 @@ test("a name already in the folder is refused before a byte goes up, and never o
   assert.equal(fs.readFileSync(path.join(games.dir, "Taken", "y.nsp"), "utf8"), "old");
 });
 
+test("a taken name gives way only when told: keep numbers the new file, replace trashes the old, a folder never gives way", async () => {
+  fs.mkdirSync(path.join(games.dir, "Answer", "Dir.nsp"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Answer", "x.txt"), "old");
+  const send = async (rel, taken, body) => {
+    const r = await post("/api/files/upload/chunks", { root: "games", path: "Answer", rel, size: body.length, lastModified: 1, taken });
+    if (r.status !== 200) return r;
+    const { id } = await r.json();
+    await chunks.append(dropDir, id, ME, 0, Buffer.from(body));
+    return post("/api/files/upload", { root: "games", path: "Answer", items: [{ id, rel, taken }] });
+  };
+  assert.equal((await send("x.txt", undefined, "nnn")).status, 409);
+  const kept = await (await send("x.txt", "keep", "kkk")).json();
+  assert.deepEqual(kept.placed, ["Answer/x (2).txt"]);
+  assert.equal(fs.readFileSync(path.join(games.dir, "Answer", "x.txt"), "utf8"), "old");
+  const swapped = await (await send("x.txt", "replace", "rrr")).json();
+  assert.deepEqual(swapped.placed, ["Answer/x.txt"]);
+  assert.equal(swapped.restore.length, 1);
+  assert.equal(fs.readFileSync(path.join(games.dir, "Answer", "x.txt"), "utf8"), "rrr");
+  assert.equal((await send("Dir.nsp", "replace", "rrr")).status, 409);
+  assert.equal(fs.statSync(path.join(games.dir, "Answer", "Dir.nsp")).isDirectory(), true);
+});
+
 test("an upload path that climbs out, hides in a dot folder or has a bad name is refused", async () => {
   for (const rel of ["../out.nsp", ".hidden/x.nsp", "a/../../x.nsp", "bad\\name.nsp", ""]) {
     const r = await post("/api/files/upload/chunks", { root: "games", path: "", rel, size: 1, lastModified: 1 });

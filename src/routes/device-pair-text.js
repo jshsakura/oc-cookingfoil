@@ -12,7 +12,7 @@ export const PAIR_TEXT = {
     clientExpired: "쓰지 않고 만료됐습니다",
     clientRevoked: "취소했습니다",
     kindClient: "받은 클라이언트",
-    errNoBuild: "이 서버에 올린 클라이언트가 아직 없습니다. 관리자에게 알려 주십시오.",
+    errNoBuild: "이 서버에 올린 클라이언트가 아직 없습니다. 관리자에게 알려야 합니다.",
     clientCancelConfirm: "이 파일로는 이제 연동할 수 없게 합니다. 계속할까요?",
     cancel: "취소",
     mineTitle: "내 기기",

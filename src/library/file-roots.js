@@ -11,15 +11,17 @@
  *   copy(key, rels, toKey, toRel)                      a copy into a folder; a taken name gets a number ("a (2).nsp")
  *   collect(key, rels)                                 everything under them, for a zip or a size
  *   trash(key, rels, { by })                           into the root's trash, never a plain delete
- *   uploadTarget(key, rel, sub)                        where an upload `sub` ("a.nsp", "Pack/a.nsp") would land, checked
- *   place(key, rel, sub, src)                          a finished upload moved there; a taken name is "exists"
+ *   uploadTarget(key, rel, sub, { taken })             where an upload `sub` ("a.nsp", "Pack/a.nsp") would land, checked
+ *   place(key, rel, sub, src, { taken, by })           a finished upload moved there; a taken name is "exists", unless
+ *                                                      taken is "keep" (it lands as "a (2).nsp") or "replace" (the old file goes to the trash)
  *
  * A path is refused (FileError "bad-path") when it climbs out of the root, has a
  * segment that starts with a dot (the server's trash, staging and partials live
  * there), resolves through a link to somewhere outside the root or to a dot
  * folder in it, or lies in another root or a fenced folder (the server's data
  * and keys) that sits inside this one, as in the old layout. Nothing is
- * ever overwritten: a taken name is "exists". After a write the root is read
+ * ever overwritten: a taken name is "exists", and an upload told to replace
+ * sends the old file to the trash first. After a write the root is read
  * again (`refresh`), so the library and the catalogs see the change.
  */
 import fs from "fs";
@@ -35,6 +37,9 @@ import * as env from "../helpers/envs.js";
 
 /** The roots the browser shows. The server's own data folder (keys, tokens) is never one of them. */
 const GAME_FILE_RE = /\.(nsp|xci|nsz|xcz)$/i;
+// What an upload may say about a name the folder already has.
+const TAKEN_ANSWERS = new Set(["keep", "replace"]);
+const KEEP_BOTH_MAX = 999;
 const TITLE_ID_RE = /^[0-9A-F]{16}$/i;
 // Roots no Switch game file belongs in: a game there is never read as a game, and leaves the games list.
 const NO_GAMES_ROOTS = new Set(["retro", "patches", "saves"]);
@@ -494,7 +499,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
    * Where an upload `sub` lands in the folder `rel`: its own folders (a dropped folder keeps its shape) may
    * be new, the file itself must not be there yet. Nothing is made here, so a refusal costs no upload.
    */
-  async function uploadTarget(key, rel, sub) {
+  async function uploadTarget(key, rel, sub, { taken = "" } = {}) {
     const dest = await folder(key, rel);
     const parts = String(sub ?? "").split("/");
     if (parts.some((p) => cleanName(p) !== p)) fail("bad-name");
@@ -503,7 +508,8 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
       at = path.join(at, p);
       const st = await fsp.lstat(at).catch(() => null);
       if (i === parts.length - 1) {
-        if (st) fail("exists", 409);
+        // Only a file gives way to another; a folder of that name is never replaced or numbered around.
+        if (st && !(TAKEN_ANSWERS.has(taken) && st.isFile())) fail("exists", 409);
       } else if (st && !st.isDirectory()) {
         fail("not-a-folder");
       }
@@ -511,7 +517,19 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return { dest, abs: at, rel: dest.rel ? `${dest.rel}/${sub}` : sub };
   }
 
-  async function place(key, rel, sub, src) {
+  async function place(key, rel, sub, src, { taken = "", by = null } = {}) {
+    if (taken === "keep") {
+      for (let k = 1; k <= KEEP_BOTH_MAX; k++) {
+        const out = await place(key, rel, numbered(sub, k, false), src).catch((err) => {
+          if (err?.code === "exists") return null;
+          throw err;
+        });
+        if (out) return out;
+      }
+      fail("exists", 409);
+    }
+    const replaced = taken === "replace" && await uploadTarget(key, rel, sub, { taken }).then((t) => fsp.lstat(t.abs).then(() => t.rel, () => null));
+    const restore = replaced ? (await trash(key, [replaced], { by })).entries.map((e) => e.id) : null;
     const t = await uploadTarget(key, rel, sub);
     const placed = await withLocks([t.dest.root.dir], async () => {
       await still(t.dest);
@@ -522,7 +540,7 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     });
     if (!placed) fail("exists", 409);
     refresh([key]);
-    return { root: key, rel: t.rel };
+    return { root: key, rel: t.rel, ...(restore ? { restore } : {}) };
   }
 
   async function trash(key, rels, { by = null } = {}) {

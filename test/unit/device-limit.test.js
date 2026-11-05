@@ -116,7 +116,7 @@ test("an account at its device limit: the download, the sign-in, the admin and t
     let body = await r.json();
     assert.equal(body.code, "device-limit");
     assert.equal(body.limit, 2);
-    assert.equal(body.error, "이 계정은 기기를 최대 2대까지 등록할 수 있습니다. 쓰지 않는 기기를 해제한 뒤 다시 승인해 주십시오.");
+    assert.equal(body.error, "이 계정은 기기를 최대 2대까지 등록할 수 있습니다. 쓰지 않는 기기를 해제한 뒤 다시 승인합니다.");
     body = await (await approve("en")).json();
     assert.match(body.error, /^This account can register up to 2 consoles\./);
 

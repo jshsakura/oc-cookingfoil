@@ -141,7 +141,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 /* The undo notice takes clicks only while it shows, and on the explorer it sits above the status bar it would cover. */
 .toast:has(.toast-act){display:flex;align-items:center;gap:14px}
 .toast.show:has(.toast-act){pointer-events:auto}
-body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-radius:var(--r-lg)}
+body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32px));border-radius:var(--r-lg)}
 .toast .toast-act{all:unset;cursor:pointer;color:var(--accent);font-weight:var(--fw-bold);padding:2px 4px;border-radius:var(--r-xs)}
 .toast .toast-act:focus-visible{outline:2px solid var(--accent)}
 #fb .fb-crumb button.fb-target{background:rgba(var(--accent-rgb),.18);color:var(--text)}
@@ -155,6 +155,9 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
 #fb-view .fb-v-body img{max-width:100%;max-height:calc(100vh - 200px);object-fit:contain}
 #fb-view .fb-v-body pre{place-self:stretch;margin:0;padding:12px 14px;font-size:var(--fs-sm);white-space:pre-wrap;word-break:break-all;max-height:calc(100vh - 200px);overflow:auto}
 #fb-view .fb-v-note{margin:0;font-size:var(--fs-xs)}
+#fb-view .fb-v-body img{cursor:zoom-in}
+#fb-view .fb-v-body.fb-v-full{display:block;touch-action:auto}
+#fb-view .fb-v-body.fb-v-full img{max-width:none;max-height:none;cursor:zoom-out}
 #fb-move{width:min(560px,calc(100vw - 32px))}
 #fb-tidy{width:min(760px,calc(100vw - 32px))}
 #fb-tidy .fb-t-sum{margin:6px 0 12px;color:var(--muted);font-size:var(--fs-sm);line-height:1.6}
@@ -186,6 +189,7 @@ body:has(#fb) .toast{bottom:84px;max-width:min(720px,calc(100vw - 32px));border-
   #fb thead th button{min-height:44px}
   /* A thumb's worth for what sits around the list. */
   #fb .fb-bar .fb-seg .ib,#fb .fb-bar .fb-nav .ib{width:44px;height:44px}
+  #fb-rows tr{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
   #fb-view .fb-v-head button{min-width:44px;min-height:44px}
   #fb .fb-upl li{flex-wrap:wrap}#fb .fb-u-st{flex:1 1 100%;max-width:none;overflow:visible;white-space:normal;text-overflow:clip}
   /* A preview takes the screen, and fingers zoom it as they do any picture. */
@@ -383,15 +387,22 @@ function fbCrumb(mount,root,path,go){mount.replaceChildren();const parts=path?pa
 function fbSortHeads(){for(const b of document.querySelectorAll('#fb thead [data-sort]')){const on=b.dataset.sort===fb.sort;
   if(on)b.setAttribute('aria-sort',fb.order==='asc'?'ascending':'descending');else b.removeAttribute('aria-sort');
   b.dataset.arrow=on?(fb.order==='asc'?'▲':'▼'):'';const t=b.querySelector('[data-top]');b.replaceChildren(t||b.firstChild);if(on)b.append(el('span',fb.order==='asc'?'▲':'▼'));}}
+const FB_HOLD_MS=500,FB_HOLD_SLOP=10,FB_HOLD_BUZZ=20;
 function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-selected',String(fb.sel.has(f.rel)));tr.tabIndex=f.rel===fb.focus?0:-1;
   const cs=td(null,'c-sel');const cb=el('input');cb.type='checkbox';cb.checked=fb.sel.has(f.rel);cb.setAttribute('aria-label',topFill('fb.selectRow',{name:f.name}));
   cb.addEventListener('change',()=>{if(cb.checked)fb.sel.add(f.rel);else fb.sel.delete(f.rel);fb.anchor=fb.focus=f.rel;fbPaint();});cs.append(cb);
   const onControl=(e)=>e.target.closest('button,input,a');
   // Shift and double clicks pick rows; without this they would also select the text under the pointer.
   tr.addEventListener('mousedown',(e)=>{if(!onControl(e)&&(e.shiftKey||e.detail>1))e.preventDefault();});
-  tr.addEventListener('click',(e)=>{if(onControl(e))return;if(fbPhone())fbTap(f,e);else fbPick(f.rel,{add:e.ctrlKey||e.metaKey,range:e.shiftKey});});
+  // A finger held on a row picks it, as a phone's own file apps do; a slide or an early lift is a scroll or a tap.
+  let hold=null,from=null;const letGo=()=>{clearTimeout(hold);hold=null;};
+  tr.addEventListener('touchstart',(e)=>{fb.held=null;letGo();if(!fbPhone()||e.touches.length!==1||onControl(e))return;from=e.touches[0];
+    hold=setTimeout(()=>{hold=null;fb.held=f.rel;if(!fb.sel.has(f.rel))fbPick(f.rel,{add:true});navigator.vibrate?.(FB_HOLD_BUZZ);},FB_HOLD_MS);},{passive:true});
+  tr.addEventListener('touchmove',(e)=>{if(hold&&Math.hypot(e.touches[0].clientX-from.clientX,e.touches[0].clientY-from.clientY)>FB_HOLD_SLOP)letGo();},{passive:true});
+  tr.addEventListener('touchend',letGo);tr.addEventListener('touchcancel',letGo);
+  tr.addEventListener('click',(e)=>{if(onControl(e))return;if(fb.held===f.rel){fb.held=null;return;}if(fbPhone())fbTap(f,e);else fbPick(f.rel,{add:e.ctrlKey||e.metaKey,range:e.shiftKey});});
   tr.addEventListener('dblclick',(e)=>{if(!onControl(e)&&!fbPhone())fbActivate(f);});
-  tr.addEventListener('contextmenu',(e)=>{e.preventDefault();if(!fb.sel.has(f.rel))fbPick(f.rel);fbMenu(e.clientX,e.clientY);});
+  tr.addEventListener('contextmenu',(e)=>{e.preventDefault();if(fbPhone())return;if(!fb.sel.has(f.rel))fbPick(f.rel);fbMenu(e.clientX,e.clientY);});
   tr.draggable=!fbPhone();tr.addEventListener('dragstart',(e)=>fbDragStart(e,f.rel));
   if(f.type==='dir')fbDropTarget(tr,()=>!fb.drag?.includes(f.rel)&&f.rel);
   const cn=td(null,'c-name');const n=el('div',null,'fb-name');const ic=el('span');ic.innerHTML=f.type==='dir'?FB_ICON.dir:FB_ICON.file;n.append(ic.firstChild);
@@ -479,17 +490,21 @@ async function fbRename(f){if(!await fbServerOk([f.rel]))return;const name=await
 // 파일 압축 and 파일 검사 hand the picked files, or every game file under the picked folders, to the queues the 파일 압축 and 파일 검사 tabs show.
 async function fbNsz(rels){try{const out=await api('/admin/api/nsz/run-selected',{method:'POST',body:{rels}});toast(topFill('nz.runSelGo',{n:num(out.count)}));}catch(err){toast(err.message);}}
 async function fbVerify(rels){try{await api('/admin/api/library/verify/recheck',{method:'POST',body:{rels}});toast(topText('lv.rechecking'));}catch(err){toast(err.message);}}
+// A folder's weight is what the question has to say: "1 item" may be forty files.
+async function fbTrashAsk(rels){const dirs=rels.filter((r)=>fbItem(r)?.type==='dir');let inside=0;
+  if(dirs.length)try{inside=await fbHolds(fb.root,dirs);}catch{inside=0;}
+  return inside?topFill('fb.askTrashIn',{n:num(rels.length),f:num(inside)}):topFill('fb.askTrash',{n:num(rels.length)});}
 async function fbTrash(rels){if(!rels.length||!await fbServerOk(rels))return;
-  if(!await ask(topFill('fb.askTrash',{n:num(rels.length)}),{danger:true}))return;
+  if(!await ask(await fbTrashAsk(rels),{danger:true}))return;
   try{const out=await fbStep(fbPost('trash',{root:fb.root,paths:rels}),(o)=>({restore:o.restore}));for(const r of rels)fb.sel.delete(r);
     fbToastUndo(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
 async function fbMkdir(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{await fbStep(fbPost('mkdir',{root:fb.root,path:fb.path,name:name.trim()}),(o)=>({trash:{root:o.root,paths:[o.rel]},held:0}));toast(topText('fb.made'));fbLoad();}catch(err){toast(err.message);}}
 // Upload into the open folder: files dropped on the list (a dropped folder keeps its shape) or picked with the
 // buttons go up one at a time in pieces (chunkUpload, common-script.js) and land where the list was when they were
-// picked. A name the folder already has is skipped before a byte goes up; nothing is ever overwritten. The panel in
-// the bottom bar lists every file with its progress and a stop button; a stopped file sent again picks up where it was.
-const fbu={busy:false,items:[],placed:0,skipped:0};
+// picked. A name the folder already has asks before a byte goes up: skip, keep both, or replace, where the old file
+// goes to the trash and the undo brings it back. The panel in the bottom bar lists every file with its progress and a stop button; a stopped file sent again picks up where it was.
+const fbu={busy:false,items:[],placed:0,skipped:0,taken:null};
 async function fbEntries(entry,prefix,out){
   if(entry.isFile){out.push({file:await new Promise((ok,no)=>entry.file(ok,no)),rel:prefix+entry.name});return;}
   if(!entry.isDirectory)return;const reader=entry.createReader();
@@ -513,29 +528,46 @@ function fbUpPaint(it){const li=it.li;if(!li)return;li.dataset.state=it.state;it
 function fbUpShow(){const box=$('fb-upl');const all=fbu.items;box.hidden=!all.length;if(!all.length)return;
   const bytes=all.reduce((a,it)=>a+it.file.size,0)||1,sent=all.reduce((a,it)=>a+(it.state==='done'?it.file.size:it.sent),0);
   const finished=all.filter((it)=>!FB_UP_LIVE.has(it.state)).length;
-  $('fb-up').textContent=fbu.busy?topFill('fb.uploading',{n:num(Math.min(finished+1,all.length)),t:num(all.length),p:String(Math.floor(sent/bytes*100))}):topFill('fb.upDone',{n:num(finished)});
+  const done=all.filter((it)=>it.state==='done').length;
+  $('fb-up').textContent=fbu.busy?topFill('fb.uploading',{n:num(Math.min(finished+1,all.length)),t:num(all.length),p:String(Math.floor(sent/bytes*100))}):finished>done?topFill('fb.upHead',{n:num(done),s:num(finished-done)}):topFill('fb.upDone',{n:num(done)});
   $('fb-up-stop').hidden=!fbu.busy;$('fb-up-close').hidden=fbu.busy;}
-function fbUpload(items){if(!items.length||!fb.root)return;const at={root:fb.root,path:fb.path};
+function fbUpload(items,path=fb.path){if(!items.length||!fb.root)return;const at={root:fb.root,path};
   const list=$('fb-u-list');
   for(const x of items){const it={...x,...at,state:'wait',sent:0,ctl:new AbortController()};fbu.items.push(it);list.append(fbUpItem(it));}
   fbUpShow();if(!fbu.busy)fbUpRun();}
 function fbUpStop(it){if(!FB_UP_LIVE.has(it.state))return;it.state='stop';it.ctl.abort();fbUpPaint(it);fbUpShow();}
+// What to do with a name the folder already has; "the rest too" answers once for the whole batch.
+async function fbUpTaken(it){if(fbu.taken)return fbu.taken;const more=fbu.items.some((x)=>x!==it&&x.state==='wait');
+  const how=(v,k)=>({value:v,label:topText(k)});
+  const pick=await askPick(topFill('fb.upTaken',{name:it.rel}),[how('skip','fb.upSkip'),how('keep','fb.upKeep'),how('replace','fb.upReplace'),
+    ...(more?[how('skip:all','fb.upSkipAll'),how('keep:all','fb.upKeepAll'),how('replace:all','fb.upReplaceAll')]:[])]);
+  const [what,all]=(pick||'skip').split(':');if(all)fbu.taken=what;return what;}
 async function fbUpOne(it){
-  const start={url:'/admin/api/files/upload/chunks',body:{root:it.root,path:it.path,rel:it.rel,size:it.file.size,lastModified:it.file.lastModified}};
+  const start={url:'/admin/api/files/upload/chunks',body:{root:it.root,path:it.path,rel:it.rel,size:it.file.size,lastModified:it.file.lastModified,taken:it.taken}};
   const r=await chunkUpload(null,it.file,(n)=>{it.sent=n;fbUpPaint(it);fbUpShow();},start,it.ctl.signal);
   if(it.state==='stop')return;
+  if(r.status===409&&r.d.code==='exists'&&!it.taken){const what=await fbUpTaken(it);
+    if(what!=='skip'&&it.state!=='stop'){it.taken=what;return fbUpOne(it);}
+    if(it.state!=='stop'){it.state='skip';fbu.skipped++;}return;}
   if(r.status===409&&r.d.code==='exists'){it.state='skip';fbu.skipped++;return;}
   if(r.status!==200){it.state='fail';it.msg=r.d?.error||topText('u.rNet');return;}
-  const f=await chunkCall('POST','/admin/api/files/upload',JSON.stringify({root:it.root,path:it.path,items:[{id:r.id,rel:it.rel}]}),'application/json');
+  const f=await chunkCall('POST','/admin/api/files/upload',JSON.stringify({root:it.root,path:it.path,items:[{id:r.id,rel:it.rel,taken:it.taken}]}),'application/json');
   if(f.status!==200){it.state='fail';it.msg=f.d.error||String(f.status);return;}
-  fbu.placed+=f.d.placed.length;fbu.skipped+=f.d.skipped.length;it.state=f.d.placed.length?'done':'skip';it.to=f.d.placed[0];}
+  fbu.placed+=f.d.placed.length;fbu.skipped+=f.d.skipped.length;it.state=f.d.placed.length?'done':'skip';it.to=f.d.placed[0];it.restore=f.d.restore;}
+// A batch is one step: the undo sends what it put up to the trash and brings back what it replaced. The drop box is
+// left out, because what lands there is sorted away at once.
+function fbUpSteps(){const fresh=fbu.items.filter((x)=>x.state==='done'&&x.to&&!x.stepped&&x.root!=='incoming');let pushed=false;
+  for(const root of new Set(fresh.map((x)=>x.root))){const mine=fresh.filter((x)=>x.root===root);const restore=mine.flatMap((x)=>x.restore||[]);
+    pushed=fbUndoPush({trash:{root,paths:mine.map((x)=>x.to)},held:mine.length,...(restore.length?{restore}:{})})||pushed;}
+  for(const x of fresh)x.stepped=true;return pushed;}
 async function fbUpRun(){fbu.busy=true;fbUpShow();let it;
   while((it=fbu.items.find((x)=>x.state==='wait'))){it.state='up';fbUpPaint(it);
     await fbUpOne(it);fbUpPaint(it);fbUpShow();
-    if(it.root===fb.root&&it.path===fb.path&&!fbu.items.some((x)=>x.state==='wait'))fbLoad();}
-  if(fbu.placed||fbu.skipped)toast(fbu.skipped?topFill('fb.upSome',{n:num(fbu.placed),s:num(fbu.skipped)}):topFill('fb.uploaded',{n:num(fbu.placed)}));
+    if(it.root===fb.root&&!fbu.items.some((x)=>x.state==='wait'))fbLoad();}
+  const said=fbu.skipped?topFill('fb.upSome',{n:num(fbu.placed),s:num(fbu.skipped)}):topFill('fb.uploaded',{n:num(fbu.placed)});
+  if(fbUpSteps())fbToastUndo(said);else if(fbu.placed||fbu.skipped)toast(said);
   const whole=fbu.placed?fbu.items.filter((x)=>x.root==='incoming'&&x.state==='done'&&x.to).map((x)=>x.to):[];
-  Object.assign(fbu,{busy:false,placed:0,skipped:0});fbUpShow();
+  Object.assign(fbu,{busy:false,placed:0,skipped:0,taken:null});fbUpShow();
   if(whole.length)fbSortBox(whole.slice(-500));}
 // What went up into the drop box is whole already, so it is sorted now instead of at the next timed sweep.
 async function fbSortBox(whole){try{const d=await api('/admin/api/library/organize/sweep',{method:'POST',body:{whole}});
@@ -546,12 +578,14 @@ $('fb-up-fold').addEventListener('click',(e)=>{const b=e.currentTarget;const ope
   b.setAttribute('aria-expanded',String(open));$('fb-u-list').hidden=!open;});
 // A page left while files go up asks first; what was sent waits a day and the same file picks up where it stopped.
 window.addEventListener('beforeunload',(e)=>{if(fbu.busy){e.preventDefault();e.returnValue='';}});
-// Files dropped anywhere on the page go up into the open folder; a folder keeps its shape.
-{let depth=0;const wrap=document;const has=(e)=>$('fb').offsetParent!==null&&[...(e.dataTransfer?.types||[])].includes('Files');
+// Files dropped on a folder (a row, the tree, the path) go up into it, anywhere else into the open folder; a folder keeps its shape.
+{let depth=0,lit=null;const wrap=document;const has=(e)=>$('fb').offsetParent!==null&&[...(e.dataTransfer?.types||[])].includes('Files');
+  const spot=(e)=>{const n=e.target.closest?.('.fb-takes');const d=n?n.fbDest():false;return d===false||d==null?null:{n,d};};
+  const light=(s,e)=>{if(lit&&lit!==s?.n)lit.classList.remove('fb-target');lit=s?.n||null;if(s){lit.classList.add('fb-target');fbTip(e,s.d,'fb.dropUp');}else fbTip(null);};
   wrap.addEventListener('dragenter',(e)=>{if(!has(e))return;e.preventDefault();depth++;$('fb').classList.add('dragging');});
-  wrap.addEventListener('dragover',(e)=>{if(!has(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
-  wrap.addEventListener('dragleave',()=>{if(--depth<=0){depth=0;$('fb').classList.remove('dragging');}});
-  wrap.addEventListener('drop',async(e)=>{if(!has(e))return;e.preventDefault();depth=0;$('fb').classList.remove('dragging');fbUpload(await fbDropped(e.dataTransfer));});}
+  wrap.addEventListener('dragover',(e)=>{if(!has(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';light(spot(e),e);});
+  wrap.addEventListener('dragleave',()=>{if(--depth<=0){depth=0;$('fb').classList.remove('dragging');light(null);}});
+  wrap.addEventListener('drop',async(e)=>{if(!has(e))return;e.preventDefault();const s=spot(e);depth=0;$('fb').classList.remove('dragging');light(null);fbUpload(await fbDropped(e.dataTransfer),s?s.d:fb.path);});}
 // One upload button on the screen: where the explorer shows, the header's button uploads into the folder that is open.
 $('up-entry')?.addEventListener('click',(e)=>{if($('fb').offsetParent===null)return;e.preventDefault();$('fb-file').click();});
 // A picked folder names each file under it (webkitRelativePath), so the folder lands with its shape like a dropped one.
@@ -622,15 +656,15 @@ function fbDragStart(e,rel){if(!fb.sel.has(rel))fbPick(rel);fb.drag=[...fb.sel];
   if(f&&f.type==='file')e.dataTransfer.setData('DownloadURL','application/octet-stream:'+f.name+':'+location.origin+'/admin/api/files/download?'+new URLSearchParams({root:fb.root,path:f.rel}));}
 // A move by mouse is easy to make by mistake, so the drag says where it will land, beside the pointer. The notice
 // after any change that can be taken back (a move, a copy, a rename, a delete) carries the undo for a few seconds.
-function fbTip(e,dest){const tip=$('fb-dragtip');if(!e){tip.hidden=true;return;}
+function fbTip(e,dest,word='fb.dragTo'){const tip=$('fb-dragtip');if(!e){tip.hidden=true;return;}
   const name=dest?dest.split('/').pop():(document.querySelector('#fb-crumb li:first-child')?.textContent||'');
-  tip.textContent=topFill('fb.dragTo',{name});tip.hidden=false;tip.style.left=(e.clientX+16)+'px';tip.style.top=(e.clientY+18)+'px';}
+  tip.textContent=topFill(word,{name});tip.hidden=false;tip.style.left=(e.clientX+16)+'px';tip.style.top=(e.clientY+18)+'px';}
 function fbToastUndo(msg,ms=FB_UNDO_TOAST_MS){toast(msg);const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
   b.addEventListener('click',()=>{t.classList.remove('show');fbUndo();});t.append(b);
   clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),ms);}
 const FB_UNDO_TOAST_MS=7000;
 const FB_NOTE_TOAST_MS=15000;
-function fbDropTarget(node,dest){const ours=(e)=>fb.drag&&[...e.dataTransfer.types].includes(FB_DRAG)&&dest()!==false;
+function fbDropTarget(node,dest){node.classList.add('fb-takes');node.fbDest=dest;const ours=(e)=>fb.drag&&[...e.dataTransfer.types].includes(FB_DRAG)&&dest()!==false;
   node.addEventListener('dragover',(e)=>{if(!ours(e))return;e.preventDefault();e.dataTransfer.dropEffect='move';node.classList.add('fb-target');fbTip(e,dest());});
   node.addEventListener('dragleave',()=>{node.classList.remove('fb-target');fbTip(null);});
   node.addEventListener('drop',(e)=>{node.classList.remove('fb-target');fbTip(null);if(!ours(e))return;e.preventDefault();e.stopPropagation();
@@ -648,7 +682,7 @@ const fbKind=(f)=>f.type==='file'&&(FB_VIEW.image.has(f.ext)?'image':FB_VIEW.tex
 const fbv={f:null,url:null,seq:0};
 function fbViewList(){return fb.data?fb.data.items.filter((x)=>fbKind(x)&&(fbKind(x)!=='image'||x.size<=FB_VIEW_MAX.image)):[];}
 async function fbView(f){const dlg=$('fb-view');const n=++fbv.seq;fbv.f=f;const kind=fbKind(f);
-  $('fb-v-title').textContent=f.name;$('fb-v-title').title=f.name;const body=$('fb-v-body');const note=$('fb-v-note');note.hidden=true;
+  $('fb-v-title').textContent=f.name;$('fb-v-title').title=f.name;const body=$('fb-v-body');body.classList.remove('fb-v-full');const note=$('fb-v-note');note.hidden=true;
   const list=fbViewList(),i=list.findIndex((x)=>x.rel===f.rel);$('fb-v-prev').disabled=i<=0;$('fb-v-next').disabled=i<0||i>=list.length-1;
   if(!dlg.open)dlg.showModal();body.replaceChildren(el('p',topText('fb.viewLoading'),'muted'));
   if(kind==='image'&&f.size>FB_VIEW_MAX.image){body.replaceChildren(el('p',topText('fb.viewBig'),'muted'));return;}
@@ -657,7 +691,11 @@ async function fbView(f){const dlg=$('fb-view');const n=++fbv.seq;fbv.f=f;const 
     if(!r.ok){let msg=String(r.status);try{msg=(await r.json()).error||msg;}catch{}throw new Error(msg);}blob=await r.blob();}
   catch(err){if(n===fbv.seq)body.replaceChildren(el('p',topFill('fb.viewFail',{msg:err.message}),'muted'));return;}
   if(n!==fbv.seq)return;fbViewFree();
-  if(kind==='image'){fbv.url=URL.createObjectURL(blob);const img=el('img');img.alt=f.name;img.src=fbv.url;body.replaceChildren(img);return;}
+  if(kind==='image'){fbv.url=URL.createObjectURL(blob);const img=el('img');img.alt=f.name;
+    // A picture shrunk to fit opens at its own size with a tap: a panorama fitted to a phone is a sliver.
+    img.addEventListener('click',()=>body.classList.toggle('fb-v-full'));
+    img.addEventListener('load',()=>{if(img.naturalWidth>img.clientWidth+1||img.naturalHeight>img.clientHeight+1){note.hidden=false;note.textContent=topText('fb.viewZoom');}},{once:true});
+    img.src=fbv.url;body.replaceChildren(img);return;}
   body.replaceChildren(el('pre',new TextDecoder().decode(await blob.arrayBuffer())));
   if(f.size>FB_VIEW_MAX.text){note.hidden=false;note.textContent=topFill('fb.viewCut',{size:fbSize(FB_VIEW_MAX.text)});}}
 function fbViewFree(){if(fbv.url)URL.revokeObjectURL(fbv.url);fbv.url=null;}
@@ -666,7 +704,7 @@ $('fb-v-prev').addEventListener('click',()=>fbViewStep(-1));$('fb-v-next').addEv
 $('fb-v-dl').addEventListener('click',()=>{if(fbv.f)fbDownload(fbv.f);});$('fb-v-x').addEventListener('click',()=>$('fb-view').close());
 // A swipe across a preview steps as the arrows do; a text preview scrolls sideways on its own.
 {const FB_SWIPE=60;let from=null;const v=$('fb-view');
-  v.addEventListener('touchstart',(e)=>{from=e.touches.length===1&&!e.target.closest('pre')&&(visualViewport?.scale??1)<=1.01?e.touches[0]:null;},{passive:true});
+  v.addEventListener('touchstart',(e)=>{from=e.touches.length===1&&!e.target.closest('pre,.fb-v-full')&&(visualViewport?.scale??1)<=1.01?e.touches[0]:null;},{passive:true});
   v.addEventListener('touchend',(e)=>{if(!from)return;const t=e.changedTouches[0],dx=t.clientX-from.clientX,dy=t.clientY-from.clientY;from=null;
     if(Math.abs(dx)>=FB_SWIPE&&Math.abs(dx)>Math.abs(dy)*2)fbViewStep(dx<0?1:-1);});}
 $('fb-view').addEventListener('keydown',(e)=>{if(e.key==='ArrowLeft'){e.preventDefault();fbViewStep(-1);}else if(e.key==='ArrowRight'){e.preventDefault();fbViewStep(1);}});

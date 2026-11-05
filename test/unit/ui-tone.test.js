@@ -9,9 +9,9 @@ const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) =
   return e.isDirectory() ? walk(p) : /[.](js|html)$/.test(e.name) ? [p] : [];
 });
 
-test("no screen asks in 해요체", () => {
+test("no screen asks in 해요체 or 주십시오", () => {
   const found = walk("src").flatMap((file) => fs.readFileSync(file, "utf8").split("\n")
-    .map((line, i) => (line.includes("주세요") && !/"ch[.]uex\d/.test(line) ? `${file}:${i + 1}` : null))
+    .map((line, i) => (/주세요|주십시오|하세요/.test(line) && !/"ch[.]uex\d/.test(line) ? `${file}:${i + 1}` : null))
     .filter(Boolean));
   assert.deepEqual(found, []);
 });

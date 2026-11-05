@@ -109,12 +109,13 @@ async function fbRedo(){const again=fb.redos.pop();if(!again){toast(topText('fb.
   catch(err){toast(topFill('fb.redoFail',{msg:err.message}));}fbLoad();}
 const fbHolds=(root,paths)=>api('/admin/api/files/info',{method:'POST',body:{root,paths}}).then((r)=>r.files);
 // Every part of a step is tried even when one fails (a file changed since), and the first refusal is said.
-// A new folder or a copy goes to the trash only as it was made: uploads are not steps, so a file added since would go with it unasked.
+// A new folder, a copy or an upload goes to the trash only as it was made: a file added since would go with it unasked.
 async function fbUndo(){const step=fb.undos.pop();if(!step){toast(topText('fb.undoNone'));return;}
   if(step.held!=null){let now;try{now=await fbHolds(step.trash.root,step.trash.paths);}catch(err){toast(topFill('fb.undoFail',{msg:err.message}));fbLoad();return;}
     if(now!==step.held){toast(topText('fb.undoKept'));fbLoad();return;}}
   const calls=[...[...step.journal].reverse().map((id)=>['/admin/api/trash/undo',{id}])];
-  if(step.restore)calls.push(['/admin/api/trash/restore',{ids:step.restore}]);if(step.trash)calls.push(['/admin/api/files/trash',step.trash]);
+  // Trash first: a replaced file comes back to the name the upload took.
+  if(step.trash)calls.push(['/admin/api/files/trash',step.trash]);if(step.restore)calls.push(['/admin/api/trash/restore',{ids:step.restore}]);
   let fail=null;for(const [url,body] of calls){try{await api(url,{method:'POST',body});}catch(err){fail??=err;}}
   if(!fail&&step.again)fb.redos.push(step.again);
   toast(fail?topFill('fb.undoFail',{msg:fail.message}):topText('fb.undone'));

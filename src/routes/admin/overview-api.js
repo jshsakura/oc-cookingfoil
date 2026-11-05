@@ -27,6 +27,7 @@ import { koreanNameSources } from "../../retro/ko-names.js";
 import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
 import { gameOf } from "../../meta/game-info.js";
+import { requestLang } from "../../meta/langs.js";
 
 const FRESH_MS = 10_000;
 const RECENT_MAX = 8;
@@ -125,18 +126,20 @@ export function createOverview({
         transfers: { active: activeTransfers() },
         plugins: { on: pl.filter((p) => p.state === "on" || p.state === "cooling").length, total: pl.length },
       },
-      recent: recentAlerts().slice(0, RECENT_MAX).map((e) => ({ at: e.at, event: e.event, text: firstLine(e.text), body: String(e.text ?? "").slice(0, BODY_MAX), status: e.status, detail: e.detail ?? null })),
+      recent: recentAlerts().slice(0, RECENT_MAX),
       added: addedOf(all, await Promise.resolve(patches()).catch(() => []), nameOf),
     };
   }
 
   return {
-    async read() {
+    // With a language the recent alerts read in it; without one (the capability) they read as they were written.
+    async read(lang) {
       const rev = patchRevision();
-      if (kept && kept.rev === rev && now() - kept.at < FRESH_MS) return kept.value;
-      const value = await build();
-      kept = { at: now(), rev, value };
-      return value;
+      if (!kept || kept.rev !== rev || now() - kept.at >= FRESH_MS) kept = { at: now(), rev, value: await build() };
+      return { ...kept.value, recent: kept.value.recent.map((e) => {
+        const seen = lang ? alerts.historyIn(e, lang) : e;
+        return { at: e.at, event: e.event, text: firstLine(seen.text), body: String(seen.text ?? "").slice(0, BODY_MAX), status: e.status, detail: seen.detail ?? null };
+      }) };
     },
     forget() { kept = null; },
   };
@@ -156,7 +159,7 @@ export function mountOverviewApi(router, requireSession, deps) {
   mounted = overview;
   router.get("/api/overview", async (req, res) => {
     if (!requireSession(req, res)) return;
-    res.set("Cache-Control", "no-store").json(await overview.read());
+    res.set("Cache-Control", "no-store").json(await overview.read(requestLang(req)));
   });
   return overview;
 }

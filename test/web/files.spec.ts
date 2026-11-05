@@ -247,6 +247,9 @@ test('files dropped on the list or picked with Upload land in the open folder, i
   await page.locator('#fb .fb-wrap').dispatchEvent('dragenter', { dataTransfer: drop });
   await expect(page.locator('#fb')).toHaveClass(/dragging/);
   await page.locator('#fb .fb-wrap').dispatchEvent('drop', { dataTransfer: drop });
+  await expect(page.locator('#ask-dialog')).toContainText('keep.txt');
+  await page.locator('#ask-select').selectOption('skip');
+  await page.locator('#ask-ok').click();
   await expect(page.locator('#toast')).toContainText('1개를 올렸습니다. 1개는 같은 이름이 이미 있어 건너뛰었습니다');
   await expect(page.locator('#fb')).not.toHaveClass(/dragging/);
   expect(fs.readFileSync(path.join(base, 'Beta/dropped.nsp'), 'utf8')).toBe('dropped bytes');
@@ -314,7 +317,8 @@ test('undo walks out of an empty new folder it takes back, and keeps one a file 
   expect(new URL(page.url()).searchParams.get('path')).toBe('fb-test');
 
   await made('Filled');
-  await page.locator('#fb-file').setInputFiles([{ name: 'precious.nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('bytes') }]);
+  put('Filled/precious.nsp', 'bytes');
+  await page.locator('#fb-refresh').click();
   await expect(row(page, 'precious.nsp')).toBeVisible();
   await page.locator('#fb-undo-btn').click();
   await expect(page.locator('#toast')).toContainText('되돌리지 않았습니다');

@@ -253,7 +253,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
   router.post("/api/files/upload/chunks", handle(async (req, res) => {
     const b = req.body ?? {};
     const root = str(b.root);
-    const t = await files.uploadTarget(root, str(b.path), str(b.rel));
+    const t = await files.uploadTarget(root, str(b.path), str(b.rel), { taken: str(b.taken) });
     const begun = await chunks.begin(dropOf(root), { account: chunks.accountOf(req), kind: chunks.DROP_PREFIX + root, name: path.basename(t.abs), size: b.size, lastModified: b.lastModified });
     res.json({ ...begun, kind: chunks.DROP_PREFIX + root });
   }));
@@ -266,11 +266,14 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     if (!items) throw new FileError("nothing");
     const placed = [];
     const skipped = [];
+    const restore = [];
     for (const item of items) {
       const rel = str(item?.rel);
       const part = await chunks.completed(dir, str(item?.id), chunks.accountOf(req));
       try {
-        placed.push((await files.place(root, str(b.path), rel, part.path)).rel);
+        const out = await files.place(root, str(b.path), rel, part.path, { taken: str(item?.taken), by: actorOf(req) });
+        placed.push(out.rel);
+        restore.push(...(out.restore ?? []));
         await chunks.discard(dir, str(item.id), chunks.accountOf(req));
       } catch (err) {
         // A name taken while the bytes went up: the old file stays, the partial waits for the sweep.
@@ -279,7 +282,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
       }
     }
     debug.log("admin: files: %d uploaded into %s:%s (%d skipped)", placed.length, root, str(b.path), skipped.length);
-    res.json({ placed, skipped });
+    res.json({ placed, skipped, ...(restore.length ? { restore } : {}) });
   }));
 
   // A zip is asked for with a POST (a selection can be long) and fetched by a plain link, so the browser's own
