@@ -474,11 +474,12 @@ async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
     // The server out of reach says nothing about the folder: what is on screen and the pick stay.
     if(err.offline&&view===fb.view&&fb.data){toast(err.message);return;}
     // A folder that is gone (moved elsewhere, a stale link) leads back to the top of its storage.
-    if(err.code==='not-found'&&fb.path){toast(err.message);fbGo(fb.root,'',{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());return;}
+    if(err.code==='not-found'&&fb.path){toast(err.message);const back=fb.good?.root===fb.root&&fb.good.path!==fb.path?fb.good.path:'';
+      fbGo(fb.root,back,{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());return;}
     fb.data=null;$('fb-rows').replaceChildren();const e=$('fb-empty');e.hidden=false;e.textContent=topFill('fb.loadFail',{msg:err.message});fbFoot();return;}
   clearTimeout(skel);if(n!==fb.seq)return;$('fb-rows').removeAttribute('aria-busy');
   if(fb.q&&fb.deep===null&&!d.total){fb.deep=true;$('fb-deep').checked=true;await fbLoad();if(fb.data?.items.length)toast(topText('fb.widened'));return;}
-  d.page=pages;d.pages=Math.max(1,Math.ceil(d.total/FB_PER));fb.data=d;fb.view=view;
+  d.page=pages;d.pages=Math.max(1,Math.ceil(d.total/FB_PER));fb.data=d;fb.view=view;fb.good={root:fb.root,path:fb.path};
   const live=new Set(d.items.map((f)=>f.rel));for(const r of [...fb.sel])if(!live.has(r))fb.sel.delete(r);
   if(!live.has(fb.focus))fb.focus=d.items[0]?.rel??null;if(!live.has(fb.anchor))fb.anchor=null;
   const found=fb.reveal&&live.has(fb.reveal)?fb.reveal:null;fb.reveal=null;if(found){fb.sel.add(found);fb.anchor=fb.focus=found;}

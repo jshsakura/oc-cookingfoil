@@ -27,7 +27,8 @@ const words = (lang) => TOP_WORDS[lang] ?? TOP_WORDS.en;
 const asks = (lang, w, error = "") => plainPage(lang, w["sh.title"], `<p>${w["sh.lead"]}</p><form method="post">
 ${error ? `<p class="err" role="alert">${error}</p>` : ""}<label for="password">${w["sh.password"]}</label>
 <input id="password" name="password" type="password" autocomplete="off" maxlength="200" required autofocus>
-<button type="submit">${w["sh.go"]}</button></form>`);
+<button type="submit">${w["sh.go"]}</button></form>
+<script>document.querySelector("form").addEventListener("submit",()=>document.querySelector(".err")?.remove())</script>`);
 
 const gone = (req, res, key) => {
   const lang = requestLang(req);

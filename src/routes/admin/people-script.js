@@ -72,9 +72,10 @@ if($('add-user'))$('add-user').addEventListener('submit',async(e)=>{e.preventDef
   try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password,role:$('new-role').value}});
     $('new-name').value='';$('new-pass').value='';credFirst=first;showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
   catch(err){toast(err.message);}});
-async function resetPassword(name){if(!await ask(isMe('password',name)?topText('pp.resetAskSelf'):topFill('pp.resetAsk',{name}),{danger:true}))return;
-  try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});
-    showCredential(topFill('pp.newPassTitle',{name}),cred);peopleReload();}catch(err){toast(err.message);}}
+async function resetPassword(name){const typed=await askDialog((isMe('password',name)?topText('pp.resetAskSelf'):topFill('pp.resetAsk',{name}))+' '+topText('pp.resetPwHint'),'',{secret:true,danger:true});
+  if(typed==null)return;
+  try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:typed?{password:typed}:{}});
+    if(typed)toast(topText('pp.saved'));else showCredential(topFill('pp.newPassTitle',{name}),cred);peopleReload();}catch(err){toast(errText(err));}}
 async function setRole(name,role){
   if(!await ask(topFill(role==='admin'?'pp.toAdminAsk':'pp.toUserAsk',{name}),{danger:true}))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+'/role',{method:'POST',body:{role}});toast(topText('pp.roleChanged'));peopleReload();}catch(err){toast(errText(err));}}

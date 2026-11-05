@@ -417,3 +417,11 @@ test('a stopped upload goes on from its own row', async ({ page }) => {
   await expect(row(page, 'resume-me.bin')).toBeVisible();
   await page.evaluate(() => (window as any).api('/admin/api/files/trash', { method: 'POST', body: { root: 'games', paths: ['fb-taken/resume-me.bin'] } }));
 });
+
+test('a mistyped address leaves you in the folder you were in', async ({ page }) => {
+  await page.locator('#fb-addr-btn').click();
+  await page.locator('#fb-addr').fill('게임/fb-taken/no-such-folder');
+  await page.locator('#fb-addr').press('Enter');
+  await expect(page.locator('#toast')).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get('path')).toBe('fb-taken');
+});

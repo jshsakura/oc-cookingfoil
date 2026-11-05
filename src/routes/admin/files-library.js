@@ -207,7 +207,7 @@ async function fbSideMeta(s,f,head){const id=String(f.titleId||'').toUpperCase()
 const FB_SHARE_MAX_H=720,FB_DAY_MS=864e5;
 const fbYmd=(ms)=>{const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 // A day picked stays open until that day ends.
-async function fbShareAsk(){const said=await askDialog(topText('fb.shareAsk'),'',{line:topText('fb.sharePwPh'),choices:[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d'],['date','fb.shareDate']].map(([value,k])=>({value,label:topText(k)}))});
+async function fbShareAsk(){const said=await askDialog(topText('fb.shareAsk'),'',{line:topText('fb.sharePwPh'),secret:true,choices:[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d'],['date','fb.shareDate']].map(([value,k])=>({value,label:topText(k)}))});
   if(!said)return null;const password=said.line;if(said.pick!=='date')return {hours:Number(said.pick),password};const now=Date.now();
   const day=await askText(topText('fb.shareDateAsk'),fbYmd(now+FB_DAY_MS),{type:'date',min:fbYmd(now),max:fbYmd(now+30*FB_DAY_MS)});
   return day?{hours:Math.max(1,Math.min(FB_SHARE_MAX_H,Math.ceil((new Date(day+'T23:59:59')-now)/36e5))),password}:null;}

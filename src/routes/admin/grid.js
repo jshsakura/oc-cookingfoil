@@ -50,7 +50,7 @@ export const GRID_CSS = /* css */ `
 .gcard-r{display:grid;grid-template-columns:88px minmax(0,1fr);gap:8px;align-items:baseline;font-size:var(--fs-sm)}
 .gcard-r:has(>.gcard-l:empty){grid-template-columns:minmax(0,1fr)}.gcard-r>.gcard-l:empty{display:none}
 .gcard-l{color:var(--muted)}
-.gcard-a{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.gcard-a .row-actions{flex-wrap:wrap;justify-content:flex-start}
+.gcard-a{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.gcard .gcard-a .row-actions{flex-wrap:wrap;justify-content:flex-start}
 .gcard button,.gcard select,.gcard a.btn{min-height:40px}
 .grid-tools{display:flex;gap:8px;align-items:center;margin:0 0 8px}.grid-tools input{flex:1;min-width:0;max-width:360px}
 .grid-tools{flex-wrap:wrap}.grid-tools select.grid-sort{width:auto;max-width:220px}
@@ -148,6 +148,8 @@ function gridControlsWidth(data,i){let w=0,k=0;for(const r of data){const n=r._n
 // opts.noFilter lists column titles that get no chip filter (the page already filters by them); opts.search adds a box that filters the rows; opts.paging=false keeps every row on one page
 // (for a list the server already pages); opts.tall lets a row grow to hold lists inside its cells.
 const gridPhone=()=>matchMedia('(max-width:760px)').matches;
+// The most a long-text column holds out for; past it the text is cut, so a row's actions stay on screen.
+const GRID_TEXT_MIN=200;
 function gridCard(d,cols){if(d._card)return d._card;const c=el('div',null,'gcard');let titled=false;const acts=[];
   d._n.forEach((n,i)=>{if(!n)return;const ctl=n.querySelector('button,a.btn,select,input');
     if(!n.textContent.trim()&&!ctl&&!n.querySelector('img,svg'))return;
@@ -187,7 +189,7 @@ function table(mount,cols,rows,empty,opts={}){const m=$(mount);
     const w=fit(i);if(w)return {...base,width:Math.max(w,title.length*14+32),minWidth:Math.max(72,title.length*14+24)};
     // Long text shares the spare width; it is cut only past what a cell can reasonably hold.
     const text=Math.max(...items.map((r)=>gridText((r._n[i]?.textContent||'').trim().slice(0,60),false)),0)+30;
-    return {...base,flex:Math.min(4,Math.max(1,avg(i)/10)),minWidth:Math.max(140,title.length*14+32,Math.min(text,320))};});
+    return {...base,flex:Math.min(4,Math.max(1,avg(i)/10)),minWidth:Math.max(140,title.length*14+32,Math.min(text,GRID_TEXT_MIN))};});
   // The grid always fills its width: with no long-text column, the widest plain one takes the rest.
   if(!columnDefs.some((c)=>c.flex)){const pick=columnDefs.filter((c,i)=>!(cols[i]===''&&i===cols.length-1)&&!ctl[i])
     .sort((a,b)=>(b.width||0)-(a.width||0))[0];if(pick){pick.minWidth=pick.width;delete pick.width;pick.flex=1;}}
