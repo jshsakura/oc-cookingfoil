@@ -150,3 +150,20 @@ test('the header says which page this is, not only 파일', async ({ page }) => 
   await expect(page.locator('#adm-crumb .adm-crumb-g').filter({ hasText: '게임' })).toBeVisible();
   await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('파일');
 });
+
+test('a long notice reads across the screen, with its undo inside it', async ({ page }) => {
+  await page.evaluate(() => (window as any).fbToastUndo('2개를 옮겼습니다. 다른 게임이 들어 있는 폴더입니다. 게임이 섞이지 않았는지 확인해 주세요.'));
+  const box = await page.locator('#toast').boundingBox();
+  expect(box!.width).toBeGreaterThan(300);
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  await expect(page.locator('#toast .toast-act')).toBeVisible();
+});
+
+test('a finished upload offers only its close button, inside the screen', async ({ page }) => {
+  await page.locator('#fb-file').setInputFiles([{ name: 'small.nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('bytes') }]);
+  await expect(row(page, 'small.nsp')).toBeVisible();
+  await expect(page.locator('#fb-up-stop')).toBeHidden();
+  const close = await page.locator('#fb-up-close').boundingBox();
+  expect(close!.x + close!.width).toBeLessThanOrEqual(390);
+});
