@@ -81,7 +81,7 @@ function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fb.clip={mod
 async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,path:fb.path};
   if(c.mode==='cut'){fb.clip=null;await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
   try{const out=await fbCopyRun({root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path});
-    if(out.copied.length)fbUndoPush({trash:{root:to.root,paths:out.copied.map((x)=>x.to)}});
+    if(out.copied.length){const paths=out.copied.map((x)=>x.to);fbUndoPush({trash:{root:to.root,paths},held:await fbHolds(to.root,paths).catch(()=>null)});}
     const why=fbRefusal(out.skipped);if(!out.copied.length&&why){toast(why);fbLoad();return;}
     const msg=(out.skipped.length?topFill('fb.copiedSome',{n:num(out.copied.length),s:num(out.skipped.length)}):topFill('fb.copied',{n:num(out.copied.length)}))+(why?' '+why:'');
     const note=fbNotes(out.notes);
@@ -93,12 +93,19 @@ const FB_UNDO_MAX=30;
 function fbUndoPush(step){const journal=(step.journal||[]).filter(Boolean);
   if(step.journal&&!journal.length)return;if(step.restore&&!step.restore.length)return;
   fb.undos.push({...step,journal});if(fb.undos.length>FB_UNDO_MAX)fb.undos.shift();fbCmds();}
+const fbHolds=(root,paths)=>api('/admin/api/files/info',{method:'POST',body:{root,paths}}).then((r)=>r.files);
 // Every part of a step is tried even when one fails (a file changed since), and the first refusal is said.
+// A new folder or a copy goes to the trash only as it was made: uploads are not steps, so a file added since would go with it unasked.
 async function fbUndo(){const step=fb.undos.pop();if(!step){toast(topText('fb.undoNone'));return;}
+  if(step.held!=null){let now;try{now=await fbHolds(step.trash.root,step.trash.paths);}catch(err){toast(topFill('fb.undoFail',{msg:err.message}));fbLoad();return;}
+    if(now!==step.held){toast(topText('fb.undoKept'));fbLoad();return;}}
   const calls=[...[...step.journal].reverse().map((id)=>['/admin/api/trash/undo',{id}])];
   if(step.restore)calls.push(['/admin/api/trash/restore',{ids:step.restore}]);if(step.trash)calls.push(['/admin/api/files/trash',step.trash]);
   let fail=null;for(const [url,body] of calls){try{await api(url,{method:'POST',body});}catch(err){fail??=err;}}
-  toast(fail?topFill('fb.undoFail',{msg:fail.message}):topText('fb.undone'));fbLoad();}
+  toast(fail?topFill('fb.undoFail',{msg:fail.message}):topText('fb.undone'));
+  // Standing inside what just went: step out of it, or the list reports the folder missing over this notice.
+  const gone=!fail&&step.trash?.root===fb.root&&step.trash.paths.find((p)=>fb.path===p||fb.path.startsWith(p+'/'));
+  if(gone){fbGo(fb.root,gone.split('/').slice(0,-1).join('/'),{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());}else fbLoad();}
 // Properties of the pick, or of the open folder when nothing is picked: sizes and counts go through every folder.
 async function fbProps(){const rels=fb.sel.size?[...fb.sel]:null;const one=rels?.length===1?fbItem(rels[0]):null;
   const dlg=$('fb-props');const list=$('fb-p-list');const lead=rels?rels[0]:fb.path;

@@ -290,9 +290,61 @@ test('a picked folder keeps its shape, and the upload panel stops a file that ha
   release();
   await expect(panel.locator('li', { hasText: 'slow.nsp' })).toHaveAttribute('data-state', 'done');
   await expect(page.locator('#fb-up-close')).toBeVisible();
+  await expect(page.locator('#fb-up-stop')).toBeHidden();
   expect(has('Beta/slow.nsp') && !has('Beta/never.nsp')).toBe(true);
   await page.locator('#fb-up-close').click();
   await expect(panel).toBeHidden();
+});
+
+test('undo walks out of an empty new folder it takes back, and keeps one a file went into', async ({ page }) => {
+  const made = async (name: string) => {
+    await page.locator('#fb-mkdir').click();
+    await page.locator('#ask-input').fill(name);
+    await page.locator('#ask-ok').click();
+    await row(page, name).dblclick();
+    await expect(page.locator('#fb-empty')).toBeVisible();
+  };
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await made('Empty');
+  await page.locator('#fb-undo-btn').click();
+  await expect(row(page, 'Alpha')).toBeVisible();
+  await expect(page.locator('#toast')).toHaveText('되돌렸습니다');
+  expect(has('Empty')).toBe(false);
+  expect(new URL(page.url()).searchParams.get('path')).toBe('fb-test');
+
+  await made('Filled');
+  await page.locator('#fb-file').setInputFiles([{ name: 'precious.nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('bytes') }]);
+  await expect(row(page, 'precious.nsp')).toBeVisible();
+  await page.locator('#fb-undo-btn').click();
+  await expect(page.locator('#toast')).toContainText('되돌리지 않았습니다');
+  expect(has('Filled/precious.nsp')).toBe(true);
+  await expect(row(page, 'precious.nsp')).toBeVisible();
+});
+
+test('undo takes back a pasted folder only as it was pasted', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  const paste = async () => {
+    await row(page, 'Beta').locator('td.c-size').click();
+    await page.locator('#fb-copy-btn').click();
+    await row(page, 'Alpha').dblclick();
+    await expect(row(page, 'one.nsp')).toBeVisible();
+    await page.locator('#fb-paste-btn').click();
+    await expect(row(page, 'Beta')).toBeVisible();
+  };
+  await paste();
+  await page.locator('#fb-undo-btn').click();
+  await expect(page.locator('#toast')).toHaveText('되돌렸습니다');
+  await expect(row(page, 'Beta')).toBeHidden();
+  expect(has('Alpha/Beta')).toBe(false);
+
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await paste();
+  put('Alpha/Beta/added.txt');
+  await page.locator('#fb-undo-btn').click();
+  await expect(page.locator('#toast')).toContainText('되돌리지 않았습니다');
+  expect(has('Alpha/Beta/added.txt')).toBe(true);
 });
 
 test('rows dragged onto a folder or onto the path move there', async ({ page }) => {

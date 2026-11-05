@@ -221,7 +221,7 @@ button.ip-more{background:none;border:0;padding:0;min-height:0;color:var(--accen
 .ip-list{max-height:min(60vh,520px);overflow:auto;margin:12px 0;display:grid;gap:8px}
 .ip-row{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;align-items:baseline;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);font-size:var(--fs-sm)}
 .ip-row .ip-chips{display:flex;flex-wrap:wrap;gap:4px 12px}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:12px 20px;border-radius:var(--r-pill);font-size:var(--fs-sm);font-weight:var(--fw-bold);opacity:0;transition:opacity .2s;pointer-events:none}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);background:var(--text);color:var(--bg);padding:12px 20px;border-radius:var(--r-pill);font-size:var(--fs-sm);font-weight:var(--fw-bold);opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .fcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:18px;margin-bottom:14px}
 .fcard .top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}

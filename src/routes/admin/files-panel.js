@@ -125,7 +125,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-u-fold .ico{transition:transform .15s;color:var(--muted)}#fb .fb-u-fold[aria-expanded="true"] .ico{transform:rotate(90deg)}
 #fb .fb-up{font-weight:var(--fw-bold);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fb .fb-u-list{list-style:none;margin:0;padding:0;max-height:min(30vh,240px);overflow:auto;display:flex;flex-direction:column}
-#fb .fb-u-list[hidden]{display:none}
+#fb .fb-u-list[hidden],#fb .fb-u-head button[hidden]{display:none}
 #fb .fb-u-list li{display:grid;grid-template-columns:minmax(0,1fr) 120px 140px 30px;align-items:center;gap:10px;padding:3px 0;font-size:var(--fs-sm)}
 #fb .fb-u-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fb .fb-u-list progress{width:100%;height:6px;accent-color:var(--accent)}
@@ -441,7 +441,7 @@ async function fbTrash(rels){if(!rels.length||!await fbServerOk(rels))return;
     fbUndoPush({restore:out.restore});fbToastUndo(topFill('fb.trashed',{n:num(out.files.length)}));fbLoad();}catch(err){toast(err.message);}}
 async function fbMkdir(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{const out=await api('/admin/api/files/mkdir',{method:'POST',body:{root:fb.root,path:fb.path,name:name.trim()}});
-    fbUndoPush({trash:{root:out.root,paths:[out.rel]}});toast(topText('fb.made'));fbLoad();}catch(err){toast(err.message);}}
+    fbUndoPush({trash:{root:out.root,paths:[out.rel]},held:0});toast(topText('fb.made'));fbLoad();}catch(err){toast(err.message);}}
 // Upload into the open folder: files dropped on the list (a dropped folder keeps its shape) or picked with the
 // buttons go up one at a time in pieces (chunkUpload, common-script.js) and land where the list was when they were
 // picked. A name the folder already has is skipped before a byte goes up; nothing is ever overwritten. The panel in
@@ -527,7 +527,7 @@ async function fbMoveLoad(){const n=++fbm.seq;const list=$('fb-m-list');fbMoveOk
   if(!dirs.length)list.append(el('p',topText('fb.empty')));}
 async function fbMoveNewFolder(){const name=await askText(topText('fb.newFolderAsk'),'');if(name==null||!name.trim())return;
   try{const out=await api('/admin/api/files/mkdir',{method:'POST',body:{root:fbm.root,path:fbm.path,name:name.trim()}});
-    fbUndoPush({trash:{root:out.root,paths:[out.rel]}});fbm.path=out.rel;fbMoveLoad();}catch(err){toast(err.message);}}
+    fbUndoPush({trash:{root:out.root,paths:[out.rel]},held:0});fbm.path=out.rel;fbMoveLoad();}catch(err){toast(err.message);}}
 // 정리: the folder's own layout on the pick (or the open folder), shown first and carried out on a click
 // (library/tidy.js for games, library/tidy-places.js for the rest). The whole run comes back with one undo.
 async function fbTidy(){if(fb.root==='incoming')return;const root=fb.root;const rels=fb.sel.size?[...fb.sel]:[fb.path];const dlg=$('fb-tidy');const list=$('fb-t-list');const ok=$('fb-t-ok');
