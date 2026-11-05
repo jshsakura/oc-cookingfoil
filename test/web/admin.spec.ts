@@ -436,6 +436,11 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   await row.locator('.ss-switch').click();
   await expect(row).toContainText('여기서 정한 값입니다. compose 값은 켜짐 입니다.');
   expect(await features()).not.toContain('device-pairing');
+  // One press is all a switch takes, so its notice takes it back.
+  await page.locator('#toast .toast-act').click();
+  await expect.poll(features).toContain('device-pairing');
+  await row.locator('.ss-switch').click();
+  await expect.poll(features).not.toContain('device-pairing');
 
   const approval = page.locator('.ss-row[data-key="deviceApproval"] select');
   await approval.selectOption('manual');

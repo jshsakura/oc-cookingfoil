@@ -295,7 +295,7 @@ test('on a phone the path steps are thumb sized', async ({ page }) => {
   expect((await step.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });
 
-test('a space in the middle of typing is part of the name, and alone it still picks', async ({ page }) => {
+test('a space in the middle of typing is part of the name, alone it keeps the pick, and Ctrl+Space toggles it', async ({ page }) => {
   put('alpha one.txt'); put('alpha two.txt');
   await page.reload();
   await row(page, 'same.txt').locator('td.c-size').click();
@@ -305,9 +305,9 @@ test('a space in the middle of typing is part of the name, and alone it still pi
   await page.waitForTimeout(900);
   await page.keyboard.press('ArrowUp');
   await page.keyboard.press(' ');
-  await expect(page.locator('#fb-rows tr[aria-selected=true]')).toHaveCount(0);
-  await page.keyboard.press(' ');
   await expect(page.locator('#fb-rows tr[aria-selected=true]')).toHaveCount(1);
+  await page.keyboard.press('Control+ ');
+  await expect(page.locator('#fb-rows tr[aria-selected=true]')).toHaveCount(0);
 });
 
 test('Alt with the arrows walks the folders, and the pencil opens the path to type', async ({ page }) => {
@@ -390,4 +390,16 @@ test('a held finger picks wherever on the row it lands', async ({ browser, baseU
   await expect(r).toHaveAttribute('aria-selected', 'true');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await ctx.close();
+});
+
+test('a check box pick takes the shortcuts, and a paste into another storage asks first', async ({ page }) => {
+  await row(page, 'same.txt').locator('td.c-sel input').check();
+  await page.keyboard.press('Control+c');
+  await expect(page.locator('#fb-paste-btn')).toBeEnabled();
+  await page.goto('/admin/saves?tab=folder');
+  await page.locator('#fb-rows').waitFor();
+  await page.keyboard.press('Control+v');
+  await expect(page.locator('#ask-dialog')).toContainText('게임에서 복사한 1개를');
+  await page.locator('#ask-no').click();
+  await page.keyboard.press('Escape');
 });

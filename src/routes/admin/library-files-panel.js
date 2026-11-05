@@ -76,9 +76,7 @@ function sgItem(f){const box=el('section',null,'sg-item');const k='sg.c.'+f.code
 // A drop goes through the file browser's trash, after the files are shown; the notice takes it back.
 async function sgDrop(f,d){if(!await ask(topFill('sg.askDrop',{files:d.rels.join('\\n')}),{danger:true}))return;
   try{const out=await api('/admin/api/files/trash',{method:'POST',body:{root:f.root,paths:d.rels}});
-    toast(topFill('fb.trashed',{n:num(out.files.length)}));const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
-    b.addEventListener('click',async()=>{t.classList.remove('show');try{await api('/admin/api/trash/restore',{method:'POST',body:{ids:out.restore}});toast(topText('fb.undone'));sgLoad();}catch(err){toast(err.message);}});
-    t.append(b);clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),7000);sgLoad();}
+    toastUndo(topFill('fb.trashed',{n:num(out.files.length)}),async()=>{try{await api('/admin/api/trash/restore',{method:'POST',body:{ids:out.restore}});toast(topText('fb.undone'));sgLoad();}catch(err){toast(err.message);}});sgLoad();}
   catch(err){toast(err.message);}}
 async function sgKeep(f){try{await api('/admin/api/library/suggestions/keep',{method:'POST',body:{id:f.id}});toast(topText('sg.kept'));sgLoad();}catch(err){toast(err.message);}}
 $('lv-hash-all').addEventListener('click',async()=>{

@@ -93,12 +93,13 @@ const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
 const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?topText('ov.on'):topText('ov.off')):ssText(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1]||v)||topText('ss.empty');
 // The overview owns the health summary; a standalone settings page has none.
 function ssRefreshHealth(){if(typeof loadHealth==='function')loadHealth();}
-async function ssSave(body,msg){try{const d=await api('/admin/api/server-settings',{method:'POST',body});toast(msg||topText('pp.saved'));ssRender(d);ssRefreshHealth();}
+async function ssSave(body,msg,undo){try{const d=await api('/admin/api/server-settings',{method:'POST',body});if(undo)toastUndo(msg,undo);else toast(msg||topText('pp.saved'));ssRender(d);ssRefreshHealth();}
   catch(err){const row=SS_GROUPS.flatMap((g)=>g[1]).find((r)=>String(err.message).startsWith(r[0]+' '));
     toast(row?topFill('ss.badValue',{f:ssText(row[2])}):err.message);loadServerSettings();}}
 function ssControl(key,kind,s,ph){
   if(kind==='bool'){const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=s.value===true;b.setAttribute('aria-label',key);
-    b.addEventListener('change',()=>ssSave({[key]:b.checked},topText((b.checked?'ss.on.':'ss.off.')+key)));w.append(b,el('span'));return w;}
+    const flip=(on)=>ssSave({[key]:on},topText((on?'ss.on.':'ss.off.')+key),on===b.checked?()=>flip(!on):null);
+    b.addEventListener('change',()=>flip(b.checked));w.append(b,el('span'));return w;}
   if(kind==='gb'){const i=el('input');i.type='number';i.min='0.001';i.step='any';i.inputMode='decimal';i.value=ssGb(s.value);i.setAttribute('aria-label',key);
     const unit=el('span','GB','muted');
     i.addEventListener('change',()=>{const v=Math.round(Number(i.value)*GIB);if(!(v>0)){toast(topText('ss.sizePositive'));i.value=ssGb(s.value);return;}ssSave({[key]:v});});

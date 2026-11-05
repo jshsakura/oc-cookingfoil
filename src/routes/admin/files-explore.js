@@ -87,6 +87,8 @@ function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fbClipSet({m
   if(fbPhone()){fb.sel.clear();fb.anchor=null;fbPaint();}
   const phone=fbPhone();toast(topFill(mode==='cut'?(phone?'fb.clipCutTap':'fb.clipCut'):(phone?'fb.clipCopyTap':'fb.clipCopy'),{n:num(rels.length)}));}
 async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,path:fb.path};
+  // What was cut or copied stays through a move to another storage, so landing there is said first.
+  if(c.root!==to.root&&!await ask(topFill(c.mode==='cut'?'fb.pasteMoveAsk':'fb.pasteCopyAsk',{n:num(c.rels.length),from:fbRootName(c.root),to:fbRootName(to.root)})))return;
   if(c.mode==='cut'){fbClipSet(null);await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
   await fbCopyTo(c.rels,c.root,to);}
 async function fbCopyTo(rels,root,to){
@@ -181,7 +183,7 @@ async function fbThumbLoad(tr){const f=fbItem(tr.dataset.rel);if(!f)return;const
   addEventListener('pointerup',()=>{if(!start)return;start=null;box.hidden=true;
     if(!drew&&base&&!base.size&&fb.sel.size){fb.sel.clear();fb.anchor=null;fbPaint();}});}
 // The rest of the explorer keys, anywhere on the open file tab and never while typing or in a dialog.
-document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.closest('input,textarea,select,dialog'))return;
+document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.closest(FB_NOT_KEYS))return;
   const mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();const texty=!getSelection().isCollapsed;
   if(mod&&k==='c'&&fb.sel.size&&!texty){e.preventDefault();fbClip('copy');}
   else if(mod&&k==='x'&&fb.sel.size&&!texty){e.preventDefault();fbClip('cut');}

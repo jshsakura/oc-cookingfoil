@@ -74,6 +74,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .c-sel{width:44px;text-align:center}#fb .c-size{width:110px;text-align:right}#fb .c-mtime{width:180px}#fb .c-act{width:132px}
 #fb .c-size,#fb .c-mtime{font-variant-numeric:tabular-nums;color:var(--muted)}
 #fb .fb-shared{flex:none;display:inline-flex;color:var(--accent,var(--text))}#fb .fb-shared svg{width:15px;height:15px}
+#fb-rows[aria-busy=true]:not(:has(.fb-skel)){opacity:.55;transition:opacity .15s .25s}
 #fb th.c-size button{margin-left:auto}
 #fb .fb-name{display:flex;align-items:center;gap:10px;min-width:0}
 #fb .fb-name .ico{color:var(--muted)}#fb .fb-name .is-dir{color:var(--accent)}
@@ -138,12 +139,8 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 /* A folder row or a step of the path that rows dragged from the list would move into. */
 #fb tbody tr.fb-target td{background:rgba(var(--accent-rgb),.18)}
 #fb .fb-dragtip{position:fixed;z-index:60;pointer-events:none;padding:6px 12px;border-radius:var(--r-pill);background:var(--text);color:var(--bg);font-size:var(--fs-sm);font-weight:var(--fw-bold);white-space:nowrap;box-shadow:0 4px 16px var(--shadow)}
-/* The undo notice takes clicks only while it shows, and on the explorer it sits above the status bar it would cover. */
-.toast:has(.toast-act){display:flex;align-items:center;gap:14px}
-.toast.show:has(.toast-act){pointer-events:auto}
+/* On the explorer the notice sits above the status bar it would cover. */
 body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32px));border-radius:var(--r-lg)}
-.toast .toast-act{all:unset;cursor:pointer;color:var(--accent);font-weight:var(--fw-bold);padding:2px 4px;border-radius:var(--r-xs)}
-.toast .toast-act:focus-visible{outline:2px solid var(--accent)}
 #fb .fb-crumb button.fb-target{background:rgba(var(--accent-rgb),.18);color:var(--text)}
 #fb tbody tr[draggable="true"]{-webkit-user-drag:element}
 #fb-view{width:min(960px,calc(100vw - 32px));max-height:calc(100vh - 32px);display:none;flex-direction:column;gap:10px}
@@ -367,6 +364,8 @@ export const FILES_SCRIPT = /* js */ `
 const FB_ICON=${JSON.stringify({ dir: icon("folder", "ico is-dir"), file: icon("file"), up: icon("chevleft"), chev: icon("chevright"), open: icon("folder"), download: icon("download"), share: icon("send"), rename: icon("pencil"), move: icon("foldermove"), trash: icon("trash"), mkdir: icon("plus"), tidy: icon("sparkles"), refresh: icon("refresh"), upload: icon("upload"), stop: icon("x"), zip: icon("package"), view: icon("image"), cut: icon("scissors"), copy: icon("copy"), paste: icon("clipboard"), undo: icon("undo"), props: icon("info"), more: icon("more"), nsz: icon("shrink"), verify: icon("check"), ...Object.fromEntries(Object.entries(ROOT_ICONS).map(([k, v]) => [k, icon(v)])) })};
 const FB_PER=100;
 const FB_SKEL_MS=120;
+// Keys stay with a field being typed in or a dialog, but a pick's check box is part of the list.
+const FB_NOT_KEYS='input:not([type=checkbox]),textarea,select,dialog';
 const FB_MAX_PAGES=5;
 const fb={roots:[],root:'',path:'',sort:'mtime',order:'desc',q:'',sel:new Set(),anchor:null,focus:null,drag:null,hi:0,hmax:0,deep:null,clip:null,undos:[],redos:[],seq:0,data:null,timer:null};
 const fbSize=(n)=>{if(n==null)return '';const u=['B','KB','MB','GB','TB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return (i?v.toFixed(v<10?1:0):String(v))+' '+u[i];};
@@ -470,14 +469,14 @@ async function fbLoad(){if(!fb.root)return;const n=++fb.seq;fb.moreBusy=false;
   const qs=new URLSearchParams({root:fb.root,path:fb.path,sort:fb.sort,order:fb.order});if(fb.q)qs.set('q',fb.q);if(fb.q&&fb.deep)qs.set('deep','1');
   fbNav();fbCrumb($('fb-crumb'),fb.root,fb.path,(to)=>fbGo(fb.root,to));fbSortHeads();
   const view=fb.root+'|'+qs;const pages=view===fb.view&&fb.data?Math.min(FB_MAX_PAGES,Math.max(1,fb.data.page)):1;
-  qs.set('page','1');qs.set('perPage',String(FB_PER*pages));const skel=view!==fb.view?setTimeout(()=>{if(n===fb.seq)fbSkel();},FB_SKEL_MS):null;
-  let d;try{d=await api('/admin/api/files/list?'+qs);}catch(err){clearTimeout(skel);if(n!==fb.seq)return;
+  qs.set('page','1');qs.set('perPage',String(FB_PER*pages));$('fb-rows').setAttribute('aria-busy','true');const skel=view!==fb.view?setTimeout(()=>{if(n===fb.seq)fbSkel();},FB_SKEL_MS):null;
+  let d;try{d=await api('/admin/api/files/list?'+qs);}catch(err){clearTimeout(skel);if(n!==fb.seq)return;$('fb-rows').removeAttribute('aria-busy');
     // The server out of reach says nothing about the folder: what is on screen and the pick stay.
     if(err.offline&&view===fb.view&&fb.data){toast(err.message);return;}
     // A folder that is gone (moved elsewhere, a stale link) leads back to the top of its storage.
     if(err.code==='not-found'&&fb.path){toast(err.message);fbGo(fb.root,'',{push:false});history.replaceState({fbi:fb.hi},'',fbUrl());return;}
     fb.data=null;$('fb-rows').replaceChildren();const e=$('fb-empty');e.hidden=false;e.textContent=topFill('fb.loadFail',{msg:err.message});fbFoot();return;}
-  clearTimeout(skel);if(n!==fb.seq)return;
+  clearTimeout(skel);if(n!==fb.seq)return;$('fb-rows').removeAttribute('aria-busy');
   if(fb.q&&fb.deep===null&&!d.total){fb.deep=true;$('fb-deep').checked=true;await fbLoad();if(fb.data?.items.length)toast(topText('fb.widened'));return;}
   d.page=pages;d.pages=Math.max(1,Math.ceil(d.total/FB_PER));fb.data=d;fb.view=view;
   const live=new Set(d.items.map((f)=>f.rel));for(const r of [...fb.sel])if(!live.has(r))fb.sel.delete(r);
@@ -671,9 +670,7 @@ function fbDragStart(e,rel){if(!fb.sel.has(rel))fbPick(rel);fb.drag=[...fb.sel];
 function fbTip(e,dest,word='fb.dragTo'){const tip=$('fb-dragtip');if(!e){tip.hidden=true;return;}
   const name=dest?dest.split('/').pop():(document.querySelector('#fb-crumb li:first-child')?.textContent||'');
   tip.textContent=topFill(word,{name});tip.hidden=false;tip.style.left=(e.clientX+16)+'px';tip.style.top=(e.clientY+18)+'px';}
-function fbToastUndo(msg,ms=FB_UNDO_TOAST_MS){toast(msg);const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
-  b.addEventListener('click',()=>{t.classList.remove('show');fbUndo();});t.append(b);
-  clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),ms);}
+function fbToastUndo(msg,ms=FB_UNDO_TOAST_MS){toastUndo(msg,fbUndo,ms);}
 const FB_UNDO_TOAST_MS=7000;
 const FB_NOTE_TOAST_MS=15000;
 function fbDropTarget(node,dest){node.classList.add('fb-takes');node.fbDest=dest;const ours=(e)=>fb.drag&&[...e.dataTransfer.types].includes(FB_DRAG)&&dest()!==false;
@@ -741,7 +738,7 @@ $('fb-pick-all').addEventListener('click',()=>fbAll(!$('fb-all').checked));
 window.addEventListener('popstate',(e)=>{const p=new URLSearchParams(location.search);fb.hi=e.state?.fbi??0;
   if(fb.root&&p.get('tab')==='folder')fbGo(fb.root,p.get('path')||'',{push:false});});
 // On a focused row: the arrows, Home and End walk the list (Shift stretches the pick, Ctrl or Cmd only moves),
-// Space toggles, Enter opens, F2 renames, and the menu key or Shift+F10 opens the menu.
+// Space picks (Ctrl+Space toggles), Enter opens, F2 renames, and the menu key or Shift+F10 opens the menu.
 $('fb-rows').addEventListener('keydown',(e)=>{const tr=e.target;if(tr.tagName!=='TR')return;
   const rels=fbRels(),i=rels.indexOf(tr.dataset.rel),f=fbItem(tr.dataset.rel);
   const walk=(j)=>{const rel=rels[Math.max(0,Math.min(rels.length-1,j))];if(rel==null)return;
@@ -749,13 +746,13 @@ $('fb-rows').addEventListener('keydown',(e)=>{const tr=e.target;if(tr.tagName!==
   const step=fbCols();
   if(e.key==='ArrowDown')walk(i+step);else if(e.key==='ArrowUp'&&!e.altKey)walk(i-step);
   else if(step>1&&e.key==='ArrowRight')walk(i+1);else if(step>1&&e.key==='ArrowLeft')walk(i-1);else if(e.key==='Home')walk(0);else if(e.key==='End')walk(rels.length-1);
-  else if(e.key===' '&&!fb.typing)fbPick(tr.dataset.rel,{add:true});else if(e.key==='Enter'&&f)fbActivate(f);else if(e.key==='F2'&&f)fbRename(f);
+  else if(e.key===' '&&!fb.typing){if(e.ctrlKey||e.metaKey||!fb.sel.has(tr.dataset.rel))fbPick(tr.dataset.rel,{add:true});}else if(e.key==='Enter'&&f)fbActivate(f);else if(e.key==='F2'&&f)fbRename(f);
   else if(e.key==='ContextMenu'||(e.key==='F10'&&e.shiftKey)){if(!fb.sel.has(tr.dataset.rel))fbPick(tr.dataset.rel);const r=tr.getBoundingClientRect();fbMenu(r.left+48,r.bottom-8);}
   else return;
   e.preventDefault();});
 // Anywhere on the open file tab: Esc clears the pick, Delete trashes it, Ctrl or Cmd+A picks the page, Backspace or
 // Alt+Up goes to the parent folder. None fires while typing or in a dialog.
-document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.closest('input,textarea,select,dialog'))return;
+document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.closest(FB_NOT_KEYS))return;
   if(e.key==='Escape'&&fb.sel.size)$('fb-clear').click();else if(e.key==='Escape'&&fb.clip)fbClipDrop();else if(e.key==='Delete'&&fb.sel.size)fbTrash([...fb.sel]);
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'&&fbRels().length){e.preventDefault();fbAll(true);}
   else if(e.key==='Backspace'||(e.altKey&&e.key==='ArrowUp')){if(fb.path){e.preventDefault();fbParent();}}

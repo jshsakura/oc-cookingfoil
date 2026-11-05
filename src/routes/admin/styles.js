@@ -48,6 +48,11 @@ html.adm::-webkit-scrollbar-corner,html.adm ::-webkit-scrollbar-corner{backgroun
 .hide-bar{scrollbar-width:none}.hide-bar::-webkit-scrollbar{display:none}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
+/* A notice with an undo button takes clicks only while it shows. */
+.toast:has(.toast-act){display:flex;align-items:center;gap:14px}
+.toast.show:has(.toast-act){pointer-events:auto}
+.toast .toast-act{all:unset;cursor:pointer;color:var(--accent);font-weight:var(--fw-bold);padding:2px 4px;border-radius:var(--r-xs)}
+.toast .toast-act:focus-visible{outline:2px solid var(--accent)}
 body{margin:0;font:14px/1.55 "Inter","Noto Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);word-break:keep-all;-webkit-font-smoothing:antialiased}
 .muted{color:var(--muted);font-size:var(--fs-sm)}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}

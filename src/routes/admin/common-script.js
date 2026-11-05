@@ -130,6 +130,9 @@ const askPick=(msg,choices)=>askDialog(msg,'',{choices});
 function pill(txt,kind){return el('span',txt,'pill'+(kind?' '+kind:''));}
 // One line says one thing and ends without a period, whichever word table it came from.
 function toast(msg){const t=$('toast');t.textContent=String(msg).replace(/[.。]$/,'');t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
+// A notice with a button that takes back what it reports.
+function toastUndo(msg,fn,ms=7000){toast(msg);const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
+  b.addEventListener('click',()=>{t.classList.remove('show');fn();});t.append(b);clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),ms);}
 // table(mount,cols,rows,empty) is in grid.js.
 function pagedTable(id,cols,items,row,empty,opts={}){
   table(id,cols,opts.slice?row(items):items.map(row),empty,{search:true,label:opts.label,placeholder:opts.placeholder});}

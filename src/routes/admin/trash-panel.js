@@ -65,7 +65,8 @@ function trSelUpdate(){const n=trSel.size;$('tr-restore-sel').disabled=!n;$('tr-
 function trRow(e){const r=el('div',null,'tr-row'+(trData&&e.ageDays>=trData.noticeDays?' old':''));r.dataset.id=e.id;
   const c=el('input');c.type='checkbox';c.checked=trSel.has(e.id);c.setAttribute('aria-label',trT('pick',{name:e.name||e.items[0]?.rel||e.entry}));
   c.addEventListener('change',()=>{if(c.checked)trSel.add(e.id);else trSel.delete(e.id);trSelUpdate();});
-  const main=el('div',null,'tr-main');main.append(el('b',e.name||String(e.items[0]?.rel||'').split('/').pop()||e.entry));
+  const main=el('div',null,'tr-main');const name=e.name||String(e.items[0]?.rel||'').split('/').pop()||e.entry;
+  main.append(el('b',e.items.length>1?trT('andMore',{name,n:num(e.items.length-1)}):name));
   for(const it of e.items.slice(0,5))main.append(el('span',trT('from',{path:trRoot(e.root)+' / '+it.rel})));
   if(e.items.length>5)main.append(el('span','+'+(e.items.length-5)));
   const meta=el('div',null,'tr-meta');meta.append(pill(trAction(e.action)),pill(trRoot(e.root)),el('span',trSize(e.size)),el('span',trT('age',{n:e.ageDays+1})),el('span',trT('at',{when:trWhen(e.trashedAt)})),el('span',trBy(e.by)));

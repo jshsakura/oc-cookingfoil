@@ -52,6 +52,7 @@ export const LIBRARY_CSS = /* css */ `
 :is(#fb .fb-side,#fb-props) .fb-s-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 4px 10px;border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-sm)}
 :is(#fb .fb-side,#fb-props) .fb-s-link+.fb-s-link{margin-top:4px}
 :is(#fb .fb-side,#fb-props) .fb-s-link .ib{width:28px;height:28px;padding:0;display:inline-grid;place-items:center}
+@media (max-width:760px){#fb-props .fb-s-link .ib{width:40px;height:40px}}
 :is(#fb .fb-side,#fb-props) .fb-s-link .ib .ico{width:14px;height:14px}
 :is(#fb .fb-side,#fb-props) .fb-s-none{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:24px 0}
 #fb .fb-more{height:1px}
