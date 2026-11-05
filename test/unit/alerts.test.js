@@ -162,3 +162,13 @@ test("a console queued quietly (past the hourly cap) raises no alert", async () 
   await settle();
   assert.equal(sent.length, 1, "only the console that was not held back");
 });
+
+test("history reads in its viewer's language, whichever one Telegram is written in", () => {
+  alerts.alert("server", (t) => t("serverStarted"));
+  const entry = alerts.recent()[0];
+  assert.match(alerts.historyIn(entry, "en").text, /[a-z]/);
+  assert.notEqual(alerts.historyIn(entry, "en").text, alerts.historyIn(entry, "ko").text);
+  assert.equal(alerts.historyIn(entry, "es").text, alerts.historyIn(entry, "en").text);
+  assert.ok(!("texts" in alerts.historyIn(entry, "en")));
+  assert.equal(alerts.historyIn({ at: 1, event: "server", text: "옛 기록" }, "en").text, "옛 기록");
+});

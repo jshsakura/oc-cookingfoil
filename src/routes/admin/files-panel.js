@@ -656,6 +656,11 @@ function fbViewFree(){if(fbv.url)URL.revokeObjectURL(fbv.url);fbv.url=null;}
 function fbViewStep(d){const list=fbViewList();const i=list.findIndex((x)=>x.rel===fbv.f?.rel);const to=list[i+d];if(to){fbPick(to.rel);fbView(to);}}
 $('fb-v-prev').addEventListener('click',()=>fbViewStep(-1));$('fb-v-next').addEventListener('click',()=>fbViewStep(1));
 $('fb-v-dl').addEventListener('click',()=>{if(fbv.f)fbDownload(fbv.f);});$('fb-v-x').addEventListener('click',()=>$('fb-view').close());
+// A swipe across a preview steps as the arrows do; a text preview scrolls sideways on its own.
+{const FB_SWIPE=60;let from=null;const v=$('fb-view');
+  v.addEventListener('touchstart',(e)=>{from=e.touches.length===1&&!e.target.closest('pre')?e.touches[0]:null;},{passive:true});
+  v.addEventListener('touchend',(e)=>{if(!from)return;const t=e.changedTouches[0],dx=t.clientX-from.clientX,dy=t.clientY-from.clientY;from=null;
+    if(Math.abs(dx)>=FB_SWIPE&&Math.abs(dx)>Math.abs(dy)*2)fbViewStep(dx<0?1:-1);});}
 $('fb-view').addEventListener('keydown',(e)=>{if(e.key==='ArrowLeft'){e.preventDefault();fbViewStep(-1);}else if(e.key==='ArrowRight'){e.preventDefault();fbViewStep(1);}});
 $('fb-view').addEventListener('close',()=>{fbv.seq++;fbViewFree();$('fb-v-body').replaceChildren();fbFocusRow();});
 function fbAll(on){for(const rel of fbRels()){if(on)fb.sel.add(rel);else fb.sel.delete(rel);}fbPaint();}

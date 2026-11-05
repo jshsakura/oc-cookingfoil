@@ -13,7 +13,8 @@
  * The token and chat are stored as the "telegram" integration, so the secret
  * stays sealed in the security database and is only ever reported as set or not set.
  */
-import { LANGS } from "../../helpers/alert-messages.js";
+import { LANGS, translator } from "../../helpers/alert-messages.js";
+import { requestLang } from "../../meta/langs.js";
 import * as integrations from "../../security/integrations.js";
 import * as alerts from "../../helpers/alerts.js";
 import * as updates from "../../security/telegram-updates.js";
@@ -37,7 +38,10 @@ export function mountAlertsApi(router, requireSession) {
     }
   };
 
-  router.get("/api/alerts", guarded(async (_req, res) => {
+  router.get("/api/alerts", guarded(async (req, res) => {
+    const lang = requestLang(req);
+    const t = translator(LANGS.includes(lang) ? lang : "en");
+    const inLang = (key, fallback) => (t(key) === key ? fallback : t(key));
     const d = integrations.describe().telegram;
     const { botToken, chatId, approvers } = integrations.get("telegram");
     const on = new Set(alerts.enabledEvents());
@@ -53,8 +57,8 @@ export function mountAlertsApi(router, requireSession) {
       lang: alerts.alertLang(),
       approvers: approvers ? approvers.split(",") : [],
       users: updates.recentUsers(),
-      events: Object.entries(alerts.EVENTS).map(([id, e]) => ({ id, label: e.label, desc: e.desc, on: on.has(id) })),
-      history: alerts.recent(),
+      events: Object.entries(alerts.EVENTS).map(([id, e]) => ({ id, label: inLang(`event.${id}`, e.label), desc: inLang(`eventDesc.${id}`, e.desc), on: on.has(id) })),
+      history: alerts.recent().map((h) => alerts.historyIn(h, lang)),
     });
   }));
 

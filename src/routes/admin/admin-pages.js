@@ -305,7 +305,7 @@ function sums(){
     if(s){if(d.textContent!==s.textContent)d.textContent=s.textContent;
       if(d.hidden!==s.hidden)d.hidden=s.hidden;}}}
 window.__admSums=sums;
-(function(){const q=new URLSearchParams(location.search);let tab=PAGE.tab,sub=PAGE.sub;
+(function(){if(!H2P[PAGE.tab])return;const q=new URLSearchParams(location.search);let tab=PAGE.tab,sub=PAGE.sub;
   if(!sub){if(tab==='library'&&q.get('view'))sub=q.get('view');
     else if(tab==='settings'&&q.get('view'))sub=q.get('view');
     else if(q.get('tab'))sub=q.get('tab');}

@@ -905,3 +905,41 @@ test('the retro folder says what each folder is for, marks the server\'s own, an
   await side.getByRole('button', { name: '미리 보기' }).click();
   await expect(page.locator('#fb-view')).toBeVisible();
 });
+
+test('a folder in the tree takes a drop, but not the folder the files are already in', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.locator('#fb-t-tree').click();
+  const tree = page.locator('#fb-tree');
+  await tree.getByRole('button', { name: 'Alpha', exact: true }).waitFor();
+  await row(page, 'loose.nsp').locator('td.c-size').dragTo(tree.getByRole('button', { name: 'Alpha', exact: true }));
+  await expect(page.locator('#toast')).toContainText('1개를 옮겼습니다');
+  expect(has('Alpha/loose.nsp')).toBe(true);
+});
+
+test('the empty space under a short list opens the folder menu and takes a box drag', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test%2FAlpha');
+  await expect(row(page, 'one.nsp')).toBeVisible();
+  const main = (await page.locator('#fb-main').boundingBox())!;
+  const wrap = (await page.locator('#fb .fb-wrap').boundingBox())!;
+  const y = wrap.y + wrap.height + 20;
+  expect(y).toBeLessThan(main.y + main.height);
+  await page.mouse.click(main.x + 200, y, { button: 'right' });
+  await expect(page.locator('#fb-menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.mouse.move(main.x + 300, y);
+  await page.mouse.down();
+  await page.mouse.move(main.x + 200, wrap.y + 50, { steps: 6 });
+  await expect(page.locator('#fb-lasso')).toBeVisible();
+  await page.mouse.up();
+});
+
+test('picking a folder with a file counts what the folder holds in the details', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.locator('#fb-t-side').click();
+  await row(page, 'Alpha').locator('td.c-size').click();
+  await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
+  await expect(page.locator('#fb .fb-side .fb-s-sub')).toContainText('파일 3개');
+});

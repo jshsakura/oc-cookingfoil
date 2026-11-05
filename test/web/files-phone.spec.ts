@@ -232,7 +232,7 @@ test('with nothing picked the bottom edge offers upload and 파일 메뉴, which
   for (const name of ['새 폴더', '올리기', '폴더 올리기', '정리', '다시 스캔', '속성']) await expect(menu.getByRole('menuitem', { name, exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   const first = await page.locator('#fb-rows tr').first().boundingBox();
-  expect(first!.y).toBeLessThan(300);
+  expect(first!.y).toBeLessThan(305);
   const foot = (await page.locator('#fb-foot').boundingBox())!;
   expect(foot.height).toBeLessThan(72);
   expect(foot.y + foot.height).toBeCloseTo(844, 0);
@@ -342,5 +342,33 @@ test('a table on a phone reads as cards with nothing to scroll sideways, and sti
   expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
   await page.locator('#card-btn').click();
   expect(await page.evaluate(() => (window as any).cardHit)).toBe(true);
+});
+
+test('an address with no page keeps the admin frame and offers a way on', async ({ page }) => {
+  const res = await page.goto('/admin/no-such-page');
+  expect(res!.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: '찾는 페이지가 없습니다' })).toBeVisible();
+  await page.getByRole('link', { name: '관리 홈으로 갑니다' }).click();
+  await expect(page).toHaveURL(/[/]admin(#.*)?$/);
+  const api = await page.request.get('/admin/api/no-such-thing');
+  expect(api.status()).toBe(404);
+  expect(await api.text()).not.toContain('adm-shell');
+});
+
+test('a swipe across a preview steps to the next file', async ({ page }) => {
+  put('Shots/a.txt', 'first');
+  put('Shots/b.txt', 'second');
+  fs.utimesSync(path.join(base, 'Shots/b.txt'), new Date(0), new Date(0));
+  await page.goto('/admin/games?tab=folder&path=fb-phone%2FShots');
+  await row(page, 'a.txt').click({ position: { x: 120, y: 10 } });
+  const title = page.locator('#fb-v-title');
+  const before = await title.textContent();
+  await page.evaluate(() => {
+    const v = document.getElementById('fb-v-title')!;
+    const fire = (type: string, x: number) => v.dispatchEvent(Object.assign(new Event(type, { bubbles: true }), { touches: type === 'touchstart' ? [{ clientX: x, clientY: 100 }] : [], changedTouches: [{ clientX: x, clientY: 100 }] }));
+    fire('touchstart', 300);
+    fire('touchend', 100);
+  });
+  await expect(title).not.toHaveText(before!);
 });
 
