@@ -294,3 +294,66 @@ test('on a phone the path steps are thumb sized', async ({ page }) => {
   await expect(step).toBeVisible();
   expect((await step.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 });
+
+test('a space in the middle of typing is part of the name, and alone it still picks', async ({ page }) => {
+  put('alpha one.txt'); put('alpha two.txt');
+  await page.reload();
+  await row(page, 'same.txt').locator('td.c-size').click();
+  await page.keyboard.type('alpha t');
+  await expect(row(page, 'alpha two.txt')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#fb-rows tr[aria-selected=true]')).toHaveCount(1);
+  await page.waitForTimeout(900);
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press(' ');
+  await expect(page.locator('#fb-rows tr[aria-selected=true]')).toHaveCount(0);
+  await page.keyboard.press(' ');
+  await expect(page.locator('#fb-rows tr[aria-selected=true]')).toHaveCount(1);
+});
+
+test('Alt with the arrows walks the folders, and the pencil opens the path to type', async ({ page }) => {
+  await row(page, 'Target').locator('.fb-name').dblclick();
+  await expect.poll(() => new URL(page.url()).searchParams.get('path')).toBe('fb-taken/Target');
+  await page.keyboard.press('Alt+ArrowLeft');
+  await expect.poll(() => new URL(page.url()).searchParams.get('path')).toBe('fb-taken');
+  await page.keyboard.press('Alt+ArrowRight');
+  await expect.poll(() => new URL(page.url()).searchParams.get('path')).toBe('fb-taken/Target');
+  await page.locator('#fb-addr-btn').click();
+  await expect(page.locator('#fb-addr')).toBeVisible();
+  await expect(page.locator('#fb-addr')).toHaveValue(/fb-taken\/Target$/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#fb-crumb')).toBeVisible();
+});
+
+test('a share can run until a picked day, and no longer than thirty days', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await row(page, 'same.txt').locator('td.c-size').click();
+  await row(page, 'same.txt').click({ button: 'right' });
+  await page.locator('#fb-menu').getByRole('menuitem', { name: '공유 링크', exact: true }).click();
+  await page.locator('#ask-select').selectOption('date');
+  await page.locator('#ask-ok').click();
+  const day = new Date(Date.now() + 10 * 864e5);
+  const ymd = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+  await expect(page.locator('#ask-input')).toHaveAttribute('type', 'date');
+  await page.locator('#ask-input').fill(ymd);
+  await page.locator('#ask-ok').click();
+  await expect(row(page, 'same.txt').locator('.fb-shared')).toHaveCount(1);
+  const { shares } = await page.evaluate(() => (window as any).api('/admin/api/files/shares?root=games&path=fb-taken/same.txt'));
+  const left = shares[0].expiresAt - Date.now();
+  expect(left).toBeGreaterThan(9 * 864e5);
+  expect(left).toBeLessThan(11 * 864e5);
+  for (const sh of shares) await page.evaluate((id) => (window as any).api('/admin/api/files/share/end', { method: 'POST', body: { id } }), sh.id);
+  await page.reload();
+  await expect(row(page, 'same.txt')).toBeVisible();
+  await page.evaluate(() => (window as any).api('/admin/api/users').then(() => null));
+  const refused = await page.evaluate(() => (window as any).api('/admin/api/files/share', { method: 'POST', body: { root: 'games', path: 'fb-taken/same.txt', hours: 721 } }).then(() => null, (e: Error) => e.message));
+  expect(refused).toContain('30일');
+});
+
+test('on a phone a file with no preview says why it only got picked', async ({ page }) => {
+  put('game [0100000000000000][v0].nsp');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await row(page, 'game [0100000000000000][v0].nsp').locator('.fb-name').click();
+  await expect(page.locator('#toast')).toContainText('미리 볼 수 없는 파일');
+  await expect(row(page, 'game [0100000000000000][v0].nsp')).toHaveAttribute('aria-selected', 'true');
+});

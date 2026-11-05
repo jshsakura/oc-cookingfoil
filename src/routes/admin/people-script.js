@@ -50,10 +50,10 @@ function showCredential(title,cred){lastCred=cred;$('cred-title').textContent=ti
       try{await navigator.clipboard.writeText(value);toast(topFill('pp.copyOk',{label}));}catch{toast(topText('pp.copyFail'));}}));}
   $('cred-dialog').showModal();}
 // The first account signs this very page out, and its password shows only here: closing asks once.
-let credSignsOut=false;
-const credCloseOk=async()=>{if(credSignsOut&&!await ask(topText('pp.firstClose')))return false;credSignsOut=false;return true;};
+let credFirst=false;
+const credCloseOk=async()=>{if(credFirst&&!await ask(topText('pp.firstClose')))return false;credFirst=false;return true;};
 if($('cred-close'))$('cred-close').addEventListener('click',async()=>{if(!await credCloseOk())return;$('cred-dialog').close();lastCred=null;});
-if($('cred-dialog'))$('cred-dialog').addEventListener('cancel',(e)=>{if(!credSignsOut)return;e.preventDefault();$('cred-close').click();});
+if($('cred-dialog'))$('cred-dialog').addEventListener('cancel',(e)=>{if(!credFirst)return;e.preventDefault();$('cred-close').click();});
 function clearCredential(){lastCred=null;$('cred')?.replaceChildren();if($('cred-title'))$('cred-title').textContent='';}
 if($('cred-dialog')){
   $('cred-dialog').addEventListener('close',clearCredential);
@@ -69,7 +69,7 @@ if($('add-user'))$('add-user').addEventListener('submit',async(e)=>{e.preventDef
   const first=!(await api('/admin/api/users')).users.length;
   if(first&&!await ask(topText('pp.firstUser')+' '+topText('pp.firstOut')))return;
   try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password,role:$('new-role').value}});
-    $('new-name').value='';$('new-pass').value='';credSignsOut=first;showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
+    $('new-name').value='';$('new-pass').value='';credFirst=first;showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
   catch(err){toast(err.message);}});
 async function resetPassword(name){if(!await ask(isMe('password',name)?topText('pp.resetAskSelf'):topFill('pp.resetAsk',{name}),{danger:true}))return;
   try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});
@@ -163,7 +163,7 @@ async function loadDevices(force){
   const pending=d.pending||[];
   for(const id of ['pending-count','pending-sub-count']){$(id).hidden=!pending.length;$(id).textContent=pending.length;}
   table('pending',[topText('pp.devCode'),topText('pp.devNameMsg'),topText('pp.requestedFrom'),topText('pp.devKey'),topText('pp.requestedAt'),''],pending.map((p)=>{const tr=el('tr');
-    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;const f=p.from,who=td('');if(f){who.append(el('div',f.ip+(f.place?' ('+f.place+')':''),'ip'));if(f.accounts&&f.accounts.length)who.append(el('div',topText('pp.sameAddrAcct')+f.accounts.slice(0,3).join(', ')+(f.accounts.length>3?topText('pp.otherCount')+(f.accounts.length-3)+topText('pp.countUnit'):''),'dim'));if(f.app)who.append(el('div',topText('pp.appLabel')+f.app,'dim'));}else{who.textContent='—';who.className='dim';who.title=topText('pp.notAfterRestart');}
+    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;const f=p.from,who=td('');if(f){who.append(el('div',f.ip+(f.place?' ('+topText('pp.place.'+f.place)+')':''),'ip'));if(f.accounts&&f.accounts.length)who.append(el('div',topText('pp.sameAddrAcct')+f.accounts.slice(0,3).map((a)=>a==='google:'?topText('pp.googleAcct'):a).join(', ')+(f.accounts.length>3?topText('pp.otherCount')+(f.accounts.length-3)+topText('pp.countUnit'):''),'dim'));if(f.app)who.append(el('div',topText('pp.appLabel')+f.app,'dim'));}else{who.textContent='—';who.className='dim';who.title=topText('pp.notAfterRestart');}
     if(p.download){const w=who.textContent==='—';if(w){who.textContent='';who.className='';}who.prepend(el('div',topText('pp.receivedBy')+p.download.owner+' ('+(DOWNLOAD_WORDS[p.download.state]||topText('pp.download'))+')'));}
     const said=td('');if(p.name)said.append(el('div',p.name));if(p.message)said.append(el('div',p.message,p.name?'dim':''));if(!p.name&&!p.message){said.textContent='—';said.className='dim';}
     tr.append(td(p.code||'—','ip'),said,who,k,td(fmt(p.lastSeenAt)));

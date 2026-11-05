@@ -203,10 +203,17 @@ async function fbSideMeta(s,f,head){const id=String(f.titleId||'').toUpperCase()
   if(!box.childElementCount)box.remove();}
 
 // ── share links: one file, anyone with the link, for a while (library/file-shares.js) ─
+const FB_SHARE_MAX_H=720,FB_DAY_MS=864e5;
+const fbYmd=(ms)=>{const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+// A day picked stays open until that day ends.
+async function fbShareHours(){const pick=await askPick(topText('fb.shareAsk'),[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d'],['date','fb.shareDate']].map(([value,k])=>({value,label:topText(k)})));
+  if(pick!=='date')return pick;const now=Date.now();
+  const day=await askText(topText('fb.shareDateAsk'),fbYmd(now+FB_DAY_MS),{type:'date',min:fbYmd(now),max:fbYmd(now+30*FB_DAY_MS)});
+  return day?Math.max(1,Math.min(FB_SHARE_MAX_H,Math.ceil((new Date(day+'T23:59:59')-now)/36e5))):null;}
 async function fbShare(f){const root=fb.root;
   const live=await api('/admin/api/files/shares?'+new URLSearchParams({root,path:f.rel})).then((x)=>x.shares.length).catch(()=>0);
   if(live&&!await ask(topFill('fb.shareMore',{n:num(live)})))return;
-  const hours=await askPick(topText('fb.shareAsk'),[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d']].map(([value,k])=>({value,label:topText(k)})));
+  const hours=await fbShareHours();
   if(!hours)return;
   let r;try{r=await api('/admin/api/files/share',{method:'POST',body:{root,path:f.rel,hours:Number(hours)}});}catch(err){toast(err.message);return;}
   const when=fbDate(r.expiresAt);

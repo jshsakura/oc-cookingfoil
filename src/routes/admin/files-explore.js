@@ -54,9 +54,10 @@ $('fb-back').addEventListener('click',()=>{if(fb.hi>0)history.back();});
 $('fb-fwd').addEventListener('click',()=>{if(fb.hi<fb.hmax)history.forward();});
 $('fb-upb').addEventListener('click',fbParent);
 // The path turns into a text box to type a folder into; Enter goes there, Esc or leaving it puts the path back.
-function fbAddrOpen(){const a=$('fb-addr');a.value=[fbRootName(fb.root),...(fb.path?[fb.path]:[])].join('/');$('fb-crumb').hidden=true;a.hidden=false;a.focus();a.select();}
-function fbAddrClose(){$('fb-addr').hidden=true;$('fb-crumb').hidden=false;}
+function fbAddrOpen(){const a=$('fb-addr');a.value=[fbRootName(fb.root),...(fb.path?[fb.path]:[])].join('/');$('fb-crumb').hidden=true;$('fb-addr-btn').hidden=true;a.hidden=false;a.focus();a.select();}
+function fbAddrClose(){$('fb-addr').hidden=true;$('fb-crumb').hidden=false;$('fb-addr-btn').hidden=false;}
 $('fb-crumb').addEventListener('click',(e)=>{if(!e.target.closest('button'))fbAddrOpen();});
+$('fb-addr-btn').addEventListener('click',fbAddrOpen);
 $('fb-addr').addEventListener('keydown',(e)=>{if(e.key==='Escape'){e.preventDefault();fbAddrClose();}
   else if(e.key==='Enter'){e.preventDefault();const parts=$('fb-addr').value.split('/').map((p)=>p.trim()).filter(Boolean);
     // The address starts with the storage's own name; typing another one's goes there.
@@ -64,9 +65,10 @@ $('fb-addr').addEventListener('keydown',(e)=>{if(e.key==='Escape'){e.preventDefa
 $('fb-addr').addEventListener('blur',fbAddrClose);
 $('fb-deep').addEventListener('change',(e)=>{fb.deep=e.target.checked;if(fb.q){fbLoad();}});
 // Letters typed on a row go to the first name that starts with them; one letter again steps to the next such name.
+// A space once a name is under way belongs to the name; before that it picks the row.
 const fbType={buf:'',t:0};
-$('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.length!==1||e.key===' '||e.ctrlKey||e.metaKey||e.altKey)return;
-  e.preventDefault();clearTimeout(fbType.t);fbType.buf+=e.key.toLowerCase();fbType.t=setTimeout(()=>{fbType.buf='';},800);
+$('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.length!==1||(e.key===' '&&!fb.typing)||e.ctrlKey||e.metaKey||e.altKey)return;
+  e.preventDefault();clearTimeout(fbType.t);fbType.buf+=e.key.toLowerCase();fb.typing=true;fbType.t=setTimeout(()=>{fbType.buf='';fb.typing=false;},800);
   const items=fb.data?.items||[];const i=items.findIndex((f)=>f.rel===fb.focus);
   const one=[...fbType.buf].every((c)=>c===fbType.buf[0]);const want=one?fbType.buf[0]:fbType.buf;const from=one?i+1:Math.max(i,0);
   const hit=[...items.slice(from),...items.slice(0,from)].find((f)=>f.name.toLowerCase().startsWith(want));

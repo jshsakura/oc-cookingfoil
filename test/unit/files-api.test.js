@@ -392,7 +392,8 @@ test("a share link sends one file to anyone until it runs out or is ended, and o
   assert.equal((await post("/api/files/share/end", { id: again.id })).status, 200);
   assert.equal((await fetch(url(`/share/${again.url.split("/share/")[1]}`))).status, 404, "an ended link opens nothing");
 
-  assert.equal((await post("/api/files/share", { root: "games", path: "Shared/s.nsp", hours: 5 })).status, 400);
+  assert.equal((await post("/api/files/share", { root: "games", path: "Shared/s.nsp", hours: 721 })).status, 400);
+  assert.equal((await post("/api/files/share", { root: "games", path: "Shared/s.nsp", hours: 0.5 })).status, 400);
   assert.equal((await post("/api/files/share", { root: "games", path: "Shared", hours: 1 })).status, 400, "a folder is not shared");
   assert.equal((await post("/api/files/share", { root: "games", path: "../x", hours: 1 })).status, 400);
   for (const [m, p] of [["POST", "/api/files/share"], ["GET", "/api/files/shares"], ["POST", "/api/files/share/end"]]) assert.equal(tokenBlocked(m, p), true, `${m} ${p}`);

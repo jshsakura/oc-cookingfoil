@@ -252,6 +252,7 @@ const M = {
     zh: ({ names, more }) => `👥 同一地址登录过的账号：${names}${more ? ` 等另外 ${more} 个` : ""}`,
   },
   requesterApp: { ko: ({ app }) => `📱 앱: ${app}`, en: ({ app }) => `📱 App: ${app}`, ja: ({ app }) => `📱 アプリ: ${app}`, zh: ({ app }) => `📱 应用：${app}` },
+  "place.google": { ko: "구글 계정", en: "Google account", ja: "Googleアカウント", zh: "谷歌账号" },
   "place.server": { ko: "이 서버", en: "this server", ja: "このサーバー", zh: "本服务器" },
   "place.tailscale": { ko: "Tailscale", en: "Tailscale", ja: "Tailscale", zh: "Tailscale" },
   "place.home": { ko: "집 안", en: "home network", ja: "家庭内", zh: "家庭网络" },

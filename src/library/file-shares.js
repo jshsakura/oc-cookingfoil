@@ -8,7 +8,7 @@ import crypto from "crypto";
 import { recordStore } from "../db/security-stores.js";
 import { FileError } from "./file-roots.js";
 
-export const SHARE_HOURS = Object.freeze([1, 24, 168]);
+export const SHARE_HOURS_MAX = 30 * 24;
 const SHARES_MAX = 200;
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -35,7 +35,7 @@ export function createFileShares({ store = recordStore("file-share"), now = Date
   return {
     /** { token, id, expiresAt } for a new link to `rel` in storage `root`; the token is shown once and never kept. */
     create({ root, rel, name, hours, by = null }) {
-      if (!SHARE_HOURS.includes(hours)) throw new FileError("share-hours");
+      if (!Number.isInteger(hours) || hours < 1 || hours > SHARE_HOURS_MAX) throw new FileError("share-hours");
       const kept = live();
       if (kept.size >= SHARES_MAX) throw new FileError("share-full", 429);
       const token = crypto.randomBytes(24).toString("base64url");

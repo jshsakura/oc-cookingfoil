@@ -47,6 +47,7 @@ html.adm::-webkit-scrollbar-corner,html.adm ::-webkit-scrollbar-corner{backgroun
 /* A row that hides its scrollbar on purpose says so with this class. */
 .hide-bar{scrollbar-width:none}.hide-bar::-webkit-scrollbar{display:none}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;font:14px/1.55 "Inter","Noto Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);word-break:keep-all;-webkit-font-smoothing:antialiased}
 .muted{color:var(--muted);font-size:var(--fs-sm)}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}

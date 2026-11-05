@@ -11,7 +11,7 @@ const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) =
 
 test("no screen asks in 해요체 or 주십시오", () => {
   const found = walk("src").flatMap((file) => fs.readFileSync(file, "utf8").split("\n")
-    .map((line, i) => (/주세요|주십시오|하세요/.test(line) && !/"ch[.]uex\d/.test(line) ? `${file}:${i + 1}` : null))
+    .map((line, i) => (/[가-힣]세요|주십시오/.test(line) && !/"ch[.]uex\d/.test(line) ? `${file}:${i + 1}` : null))
     .filter(Boolean));
   assert.deepEqual(found, []);
 });

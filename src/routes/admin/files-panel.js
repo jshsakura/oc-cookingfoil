@@ -189,7 +189,7 @@ body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32p
   #fb thead th button{min-height:44px}
   /* A thumb's worth for what sits around the list. */
   #fb .fb-bar .fb-seg .ib,#fb .fb-bar .fb-nav .ib{width:44px;height:44px}
-  #fb .fb-crumb button{min-height:44px}
+  #fb .fb-crumb button{min-height:44px}#fb .fb-addr-btn{display:none}
   #fb-rows tr{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
   #fb-view .fb-v-head button{min-width:44px;min-height:44px}
   #fb .fb-upl li{flex-wrap:wrap}#fb .fb-u-st{flex:1 1 100%;max-width:none;overflow:visible;white-space:normal;text-overflow:clip}
@@ -258,6 +258,7 @@ export const FOLDER_HTML = `<div id="fb">
       <button type="button" class="ib" id="fb-refresh" ${topLabel("fb.refresh")}>${icon("refresh")}</button>
     </div>
     <ol class="fb-crumb" id="fb-crumb" ${topLabel("fb.crumbLabel")}></ol>
+    <button type="button" class="ib fb-addr-btn" id="fb-addr-btn" ${topLabel("fb.addrEdit")}>${icon("pencil")}</button>
     <input type="text" class="fb-addr" id="fb-addr" hidden autocomplete="off" spellcheck="false" ${topLabel("fb.crumbLabel")}>
     <label class="fb-q">${icon("search")}<input type="search" id="fb-q" autocomplete="off" spellcheck="false" maxlength="200" ${topPh("fb.qPh")} ${topLabel("fb.qPh")}></label>
     <label class="fb-deep"><input type="checkbox" id="fb-deep">${top("fb.deep")}</label>
@@ -427,7 +428,7 @@ const fbItem=(rel)=>fb.data?.items.find((f)=>f.rel===rel);
 function fbDownload(f){location.href='/admin/api/files/download?'+new URLSearchParams({root:fb.root,path:f.rel});}
 function fbActivate(f){if(f.type==='dir')fbGo(fb.root,f.rel);else if(fbKind(f))fbView(f);else fbDownload(f);}
 // A tap opens a folder or a preview. Anything else only gets picked, because a game file opened by a slip would start a download of many gigabytes.
-function fbTap(f,e){if(e.target.closest('.c-sel')||fb.sel.size||!(f.type==='dir'||fbKind(f)))fbPick(f.rel,{add:true});else fbActivate(f);}
+function fbTap(f,e){const opens=f.type==='dir'||fbKind(f);if(e.target.closest('.c-sel')||fb.sel.size)fbPick(f.rel,{add:true});else if(opens)fbActivate(f);else{fbPick(f.rel,{add:true});toast(topText('fb.noView'));}}
 function fbParent(){if(fb.path)fbGo(fb.root,fb.path.split('/').slice(0,-1).join('/'));}
 // The rows show fb.sel and the one focusable row (fb.focus); every pick goes through here.
 function fbPaint(){for(const r of document.querySelectorAll('#fb-rows tr')){const on=fb.sel.has(r.dataset.rel);
@@ -748,7 +749,7 @@ $('fb-rows').addEventListener('keydown',(e)=>{const tr=e.target;if(tr.tagName!==
   const step=fbCols();
   if(e.key==='ArrowDown')walk(i+step);else if(e.key==='ArrowUp'&&!e.altKey)walk(i-step);
   else if(step>1&&e.key==='ArrowRight')walk(i+1);else if(step>1&&e.key==='ArrowLeft')walk(i-1);else if(e.key==='Home')walk(0);else if(e.key==='End')walk(rels.length-1);
-  else if(e.key===' ')fbPick(tr.dataset.rel,{add:true});else if(e.key==='Enter'&&f)fbActivate(f);else if(e.key==='F2'&&f)fbRename(f);
+  else if(e.key===' '&&!fb.typing)fbPick(tr.dataset.rel,{add:true});else if(e.key==='Enter'&&f)fbActivate(f);else if(e.key==='F2'&&f)fbRename(f);
   else if(e.key==='ContextMenu'||(e.key==='F10'&&e.shiftKey)){if(!fb.sel.has(tr.dataset.rel))fbPick(tr.dataset.rel);const r=tr.getBoundingClientRect();fbMenu(r.left+48,r.bottom-8);}
   else return;
   e.preventDefault();});
@@ -757,7 +758,9 @@ $('fb-rows').addEventListener('keydown',(e)=>{const tr=e.target;if(tr.tagName!==
 document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.closest('input,textarea,select,dialog'))return;
   if(e.key==='Escape'&&fb.sel.size)$('fb-clear').click();else if(e.key==='Escape'&&fb.clip)fbClipDrop();else if(e.key==='Delete'&&fb.sel.size)fbTrash([...fb.sel]);
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'&&fbRels().length){e.preventDefault();fbAll(true);}
-  else if(e.key==='Backspace'||(e.altKey&&e.key==='ArrowUp')){if(fb.path){e.preventDefault();fbParent();}}});
+  else if(e.key==='Backspace'||(e.altKey&&e.key==='ArrowUp')){if(fb.path){e.preventDefault();fbParent();}}
+  else if(e.altKey&&e.key==='ArrowLeft'&&fb.hi>0){e.preventDefault();history.back();}
+  else if(e.altKey&&e.key==='ArrowRight'&&fb.hi<fb.hmax){e.preventDefault();history.forward();}});
 // The menu for a right click: on rows it holds what the pick allows, on the empty part of the list a new folder
 // and an upload. It closes on a pick, Esc, a click elsewhere, a scroll or a resize, and gives focus back.
 // It lives on the body: a page panel that is a containing block (a transform, a filter) would offset a fixed menu by its own place.

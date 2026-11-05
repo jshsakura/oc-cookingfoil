@@ -108,10 +108,12 @@ async function loadIntegrations(){
       const r=c.querySelector('[data-redirect]');if(r)r.textContent=d.dropboxRedirectUri||'';});
   }catch(err){toast(err.message);}
 }
+// The server names a refused field by its key; the card knows what it calls that field.
+const intgError=(c,err)=>err.code==='integration.badField'?[...c.querySelectorAll('input[name]')].reduce((m,i)=>m.replace(i.name,i.getAttribute('aria-label')),err.message):err.message;
 document.querySelectorAll('.intg').forEach((c)=>{const svc=c.dataset.svc;const msg=c.querySelector('[data-msg]');
   c.querySelector('form').addEventListener('submit',async(e)=>{e.preventDefault();
     const body=Object.fromEntries([...c.querySelectorAll('input[name]')].map((i)=>[i.name,i.value]));
-    try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast(topText('pp.saved'));loadIntegrations();}catch(err){msg.textContent=err.message;}});
+    try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast(topText('pp.saved'));loadIntegrations();}catch(err){msg.textContent=intgError(c,err);}});
   c.querySelector('[data-test]').addEventListener('click',async()=>{msg.textContent=topText('ig.testing');
     try{const r=await api('/admin/api/integrations/'+svc+'/test',{method:'POST',body:{}});msg.textContent=r.message;}catch(err){msg.textContent=err.message;}});
   c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!await ask(topText('ig.askClear'),{danger:true}))return;
