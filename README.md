@@ -184,7 +184,7 @@ These have to be known before the admin page exists, or are kept out of it on pu
 | `COOK_DIRECT_EDGE_SECRET` | _(empty)_ | Shared secret of the direct download proxy. See [below](#optional-direct-download-address) |
 | `COOK_DIRECT_COUNTRIES` | _(empty)_ | Countries the direct download address admits, as ISO codes (`KR,JP`). A client Cloudflare places elsewhere keeps the normal URLs. Empty admits any country |
 | `COOK_RATE_LIMIT_PER_MIN`, `COOK_RATE_LIMIT_BURST` | `1200`, `300` | Requests per minute for one address, and how many it may send at once |
-| `COOK_AUTH_MAX_FAILURES`, `COOK_LOCKOUT_TTL_HOURS` | `5`, `0` | Failed sign-ins before an address is locked, and how long the lock lasts (`0` keeps it until an admin unlocks it) |
+| `COOK_AUTH_MAX_FAILURES`, `COOK_LOCKOUT_TTL_HOURS` | `5`, `1` | Failed sign-ins before an address is locked, and how long the lock lasts (`0` keeps it until an admin unlocks it) |
 | `COOK_ADMIN_SESSION_HOURS` | `8` | How long an admin page sign-in lasts |
 | `COOK_OUTBOUND_PRIVATE_HOSTS` | _(empty)_ | Host names the server may fetch even when they resolve to a private, loopback or CGNAT address, for example a titledb mirror on your tailnet. Any other admin-set address that points into a private network is refused |
 

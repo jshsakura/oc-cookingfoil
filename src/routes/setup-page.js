@@ -161,11 +161,11 @@ button.link{background:none;border:0;color:var(--muted);text-decoration:underlin
 <script>
 const S=${json};const $=(id)=>document.getElementById(id);
 async function post(path,body){const r=await fetch('/setup/api/'+path,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(body||{})});
-  const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'other');return d;}
+  const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.error||'other'),{note:d.message});return d;}
 async function show(step){document.querySelectorAll('.step').forEach((s)=>{s.hidden=s.dataset.step!==step;});$('err').textContent='';
   if(step==='otp'){try{const d=await post('otp/start');$('qr').innerHTML=d.qr||'';$('key').textContent=String(d.secret).replace(/(.{4})/g,'$1 ').trim();}catch(e){fail(e);}}
   const f=document.querySelector('.step:not([hidden]) input');if(f)f.focus();}
-function fail(e){$('err').textContent=S.err[e.message]||S.err.other;}
+function fail(e){$('err').textContent=e.note||S.err[e.message]||S.err.other;}
 document.querySelectorAll('form[data-api]').forEach((f)=>f.addEventListener('submit',async(ev)=>{ev.preventDefault();
   if(f.dataset.confirm&&!confirm(f.dataset.confirm))return;
   const fd=new FormData(f);const body=Object.fromEntries(fd);if(f.dataset.api==='plugins')body.ids=fd.getAll('ids');

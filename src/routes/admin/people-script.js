@@ -67,7 +67,7 @@ if($('add-user'))$('add-user').addEventListener('submit',async(e)=>{e.preventDef
   try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password,role:$('new-role').value}});
     $('new-name').value='';$('new-pass').value='';showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
   catch(err){toast(err.message);}});
-async function resetPassword(name){if(!await ask(topFill('pp.resetAsk',{name}),{danger:true}))return;
+async function resetPassword(name){if(!await ask(isMe('password',name)?topText('pp.resetAskSelf'):topFill('pp.resetAsk',{name}),{danger:true}))return;
   try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});
     showCredential(topFill('pp.newPassTitle',{name}),cred);peopleReload();}catch(err){toast(err.message);}}
 async function setRole(name,role){
@@ -78,9 +78,10 @@ async function setEnabled(name,enabled){
   try{await api('/admin/api/users/'+encodeURIComponent(name)+'/enabled',{method:'POST',body:{enabled}});
     toast(enabled?topText('pp.enabled'):topText('pp.disabledToast'));peopleReload();}catch(err){toast(errText(err));}}
 async function removeUser(name){
-  const last=(await api('/admin/api/users')).users.length===1;
+  const d=await api('/admin/api/users');const last=d.users.length===1;
   const msg=topFill(last?'pp.lastWarn':'pp.delAsk',{name});
-  if(!await ask(msg,{danger:true}))return;
+  // The last account is refused unless this server runs without accounts on purpose: nothing to ask, the refusal says why.
+  if((!last||d.canEmpty)&&!await ask(msg,{danger:true}))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+(last?'?allowEmpty=1':''),{method:'DELETE'});toast(topText('pp.deleted'));peopleReload();}
   catch(err){toast(errText(err));}}
 

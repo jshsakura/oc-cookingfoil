@@ -245,11 +245,11 @@ pkBtn.addEventListener('click',async()=>{pkErr.textContent='';const why=pkReady(
   return { button, script };
 }
 
-export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null, passwords = true, origin = null, passkey = false } = {}) {
+export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null, notice = null, passwords = true, origin = null, passkey = false } = {}) {
   const t = textFor(lang);
   // A shared server address lands here, so the link preview card does too.
   const head = shareTags(origin, lang);
-  const errText = { wrong: t.errWrong, locked: t.errLocked, expired: t.errStale, google: t.errGoogle, passwordsOff: t.errPasswordsOff }[error];
+  const errText = notice ?? { wrong: t.errWrong, locked: t.errLocked, expired: t.errStale, google: t.errGoogle, passwordsOff: t.errPasswordsOff }[error];
   const noteText = googleState === "pending" ? t.pendingLead : googleState === "disabled" ? t.disabledLead : null;
   // No visible heading or lead line: the logo and the action carry the page; the h1 stays for screen readers.
   const note = noteText ? `<p class="note">${icon("info")}<span>${fill(noteText, googleEmail)}</span></p>` : "";

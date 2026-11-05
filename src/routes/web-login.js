@@ -27,7 +27,7 @@ import express from "express";
 import * as accounts from "../security/google-accounts.js";
 import * as users from "../security/users.js";
 import * as store from "../security/store.js";
-import { lockoutRetryAfter, retryAfter } from "../security/retry-after.js";
+import { lockNotice, lockoutRetryAfter, retryAfter } from "../security/retry-after.js";
 import * as googleConfig from "../security/google-config.js";
 import {
   OAUTH_COOKIE, OAUTH_MS, clearUserSession, cookieLine, cookies, csrfOk, csrfToken,
@@ -48,6 +48,7 @@ import { devicePage, loginPage } from "./login-page.js";
 import debug from "../debug.js";
 import { gravatarUrl } from "../helpers/gravatar.js";
 import { accountPasswordsOk } from "../security/password-policy.js";
+import { sameOrigin } from "../security/same-origin.js";
 
 const TOKEN_RE = /^[a-f0-9]{32}$/;
 const MAX_FIELD = 200;
@@ -70,8 +71,7 @@ function pageHeaders(res) {
 
 /** A write from this site's own page: its origin (when sent) and its CSRF token. */
 function sameSite(req, res) {
-  const origin = req.get("Origin");
-  if (origin && origin !== resolveOrigin(req, publicBaseUrl)) {
+  if (!sameOrigin(req)) {
     res.status(403).json({ error: "origin mismatch" });
     return false;
   }
@@ -82,7 +82,7 @@ function sameSite(req, res) {
   return true;
 }
 
-function renderLogin(req, res, { status = 200, next, error = null }) {
+function renderLogin(req, res, { status = 200, next, error = null, notice = null }) {
   const google = sessionAccount(req);
   res.status(status).type("html").send(loginPage({
     lang: requestLang(req),
@@ -93,6 +93,7 @@ function renderLogin(req, res, { status = 200, next, error = null }) {
     googleEmail: google?.email ?? null,
     passwords: accountPasswordsOk(req),
     error,
+    notice,
     origin: resolveOrigin(req, publicBaseUrl),
     passkey: passkeys.usableHere(req, "web"),
   }));
@@ -113,7 +114,7 @@ function mountPasswordLogin(router) {
     const next = safeNext(req.body?.next);
     const ip = clientIp(req);
     const trusted = trustedHere(req);
-    if (!trusted && store.isLocked(ip)) return renderLogin(req, retryAfter(res, lockoutRetryAfter(ip)), { status: 429, next, error: "locked" });
+    if (!trusted && store.isLocked(ip)) return renderLogin(req, retryAfter(res, lockoutRetryAfter(ip)), { status: 429, next, error: "locked", notice: lockNotice(requestLang(req), ip) });
     if (!csrfOk(req)) return renderLogin(req, res, { status: 403, next, error: "expired" });
     if (!accountPasswordsOk(req)) return renderLogin(req, res, { status: 403, next, error: "passwordsOff" });
     const name = String(req.body?.username ?? "").trim().slice(0, MAX_FIELD);
@@ -121,7 +122,7 @@ function mountPasswordLogin(router) {
     const ok = Boolean(name && password) && (await users.verifyAsync(name, password));
     if (!ok) {
       if (!trusted) recordFailure(ip, req);
-      return renderLogin(req, res, { status: 401, next, error: store.isLocked(ip) && !trusted ? "locked" : "wrong" });
+      return renderLogin(req, res, store.isLocked(ip) && !trusted ? { status: 401, next, error: "locked", notice: lockNotice(requestLang(req), ip) } : { status: 401, next, error: "wrong" });
     }
     store.clearFailure(ip);
     store.recordAccess(name, ip);

@@ -57,6 +57,7 @@ test('/pair lays connecting and my consoles side by side on a desktop and stacks
   await page.setViewportSize({ width:1440, height:900 });
   const adminCookie = await signIn(page);
   expect((await page.request.post('/admin/api/users', { data:{ name:NAME, password:PASSWORD }, headers:{ Origin:new URL(page.url()).origin } })).status()).toBe(201);
+  await page.context().clearCookies({ name:'cf_user' });
   try {
   await page.goto('/login?next=/pair');
   await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
@@ -111,6 +112,7 @@ test('the client download button says it is preparing the file, then that the do
   const NAME = 'dl-feedback-e2e', PASSWORD = 'dl-feedback-password-123';
   const adminCookie = await signIn(page);
   expect((await page.request.post('/admin/api/users', { data:{ name:NAME, password:PASSWORD }, headers:{ Origin:new URL(page.url()).origin } })).status()).toBe(201);
+  await page.context().clearCookies({ name:'cf_user' });
   try {
     await page.goto('/login?next=/pair');
     await page.getByLabel(/^(아이디|Username)$/).fill(NAME);

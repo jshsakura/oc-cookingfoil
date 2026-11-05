@@ -27,6 +27,8 @@ import * as envs from "../../helpers/envs.js";
 import { apiWord } from "./api-words.js";
 import { isMetaCode, metaErrorText } from "../../meta/meta-messages.js";
 import { requestLang } from "../../meta/langs.js";
+import { sameOrigin as ownSite } from "../../security/same-origin.js";
+import { issuePasswordSession, renewPasswordSession } from "../../security/user-session.js";
 
 const USER_ERROR_STATUS = {
   "invalid-name": 400, "weak-password": 400, "invalid-role": 400, "not-found": 404, exists: 409, "last-user": 409,
@@ -35,8 +37,7 @@ const USER_ERROR_STATUS = {
 };
 
 function sameOrigin(req, res) {
-  const origin = req.get("Origin");
-  if (!origin || origin === resolveOrigin(req, publicBaseUrl)) return true;
+  if (ownSite(req)) return true;
   res.status(403).json({ error: "origin mismatch" });
   return false;
 }
@@ -48,7 +49,7 @@ class SelfError extends Error {
   }
 }
 
-/** An admin never locks themselves out (the one exception: emptying the server, which opens it). */
+/** An admin never locks themselves out (the one exception: emptying a server that runs without accounts on purpose). */
 function notSelf(req, name, { emptying = false } = {}) {
   if (isSelf(req, "password", name) && !emptying) throw new SelfError();
 }
@@ -74,14 +75,17 @@ export function mountManageApi(router, guard) {
   router.get("/api/users", (req, res) => {
     if (!guard(req, res)) return;
     res.set("Cache-Control", "no-store");
-    res.json({ users: users.list() });
+    res.json({ users: users.list(), canEmpty: !envs.firstRunSetup });
   });
 
   // The plaintext password is returned exactly once, so the operator can hand
   // it to the person; only its hash is kept.
   router.post("/api/users", change((req, res) => {
+    const first = !users.hasUsers();
     const created = users.add(String(req.body?.name ?? "").trim(), req.body?.password || undefined, req.body?.role === "admin" ? "admin" : "user");
     debug.log("admin: added user %s", created.name);
+    // The first account puts the whole server behind sign-in: whoever made it stays in, or closing its password window locks them out.
+    if (first && !req.webUser) issuePasswordSession(req, res, created.name);
     res.status(201).json(created);
   }));
 
@@ -89,6 +93,8 @@ export function mountManageApi(router, guard) {
     const updated = users.setPassword(req.params.name, req.body?.password || undefined);
     revokeOwnedBy(updated.name);
     debug.log("admin: reset password for %s", updated.name);
+    // The new password ends this account's sessions. Yours carries on: closing its window must not lock you out.
+    if (isSelf(req, "password", updated.name)) renewPasswordSession(req, res, updated.name);
     res.json(updated);
   }));
 
@@ -112,6 +118,10 @@ export function mountManageApi(router, guard) {
     // Google-only with no password account left would read as "no accounts": the server would open up.
     if (!envs.passwordLogin && users.list().length === 1 && users.list()[0].name === req.params.name) {
       return res.status(409).json({ error: apiWord(req, "account.lastPassword"), code: "account.lastPassword" });
+    }
+    // Without an account no admin gets back in, short of a restart and the setup code in the log.
+    if (envs.firstRunSetup && users.list().length === 1 && users.list()[0].name === req.params.name) {
+      return res.status(409).json({ error: apiWord(req, "account.last"), code: "account.last" });
     }
     notSelf(req, req.params.name, { emptying: req.query.allowEmpty === "1" && users.list().length === 1 });
     users.remove(req.params.name, { allowEmpty: req.query.allowEmpty === "1" });

@@ -24,6 +24,9 @@ export const SECURITY_MESSAGES = {
     "token.max": "토큰은 {n}개까지 만들 수 있습니다",
     "token.scope": "토큰 종류는 관리자(admin) 또는 카탈로그 읽기(catalog) 중 하나입니다",
     "token.missing": "없는 토큰입니다",
+    "lock.title": "이 주소가 잠겼습니다",
+    "lock.timed": "로그인을 여러 번 틀려 이 주소를 잠갔습니다. {minutes}분 뒤에 풀립니다. 다른 기기나 네트워크에서 관리자로 들어가면 먼저 풀 수 있습니다.",
+    "lock.noEnd": "로그인을 여러 번 틀려 이 주소를 잠갔습니다. 다른 기기나 네트워크에서 관리자로 들어가 풀어야 합니다.",
     "totp.locked": "인증 코드를 너무 여러 번 틀려 잠갔습니다. 15분 뒤에 다시 시도합니다.",
   },
   en: {
@@ -39,6 +42,9 @@ export const SECURITY_MESSAGES = {
     "token.max": "Up to {n} tokens can be made",
     "token.scope": "A token's scope is admin or catalog",
     "token.missing": "No such token",
+    "lock.title": "This address is locked",
+    "lock.timed": "Too many failed sign-ins, so this address is locked. It opens again in {minutes} min. An admin signed in from another device or network can open it sooner.",
+    "lock.noEnd": "Too many failed sign-ins, so this address is locked. An admin has to open it, signed in from another device or network.",
     "totp.locked": "Too many wrong codes, so sign-in by code is locked. Try again in 15 minutes.",
   },
   ja: {
@@ -54,6 +60,9 @@ export const SECURITY_MESSAGES = {
     "token.max": "トークンは {n} 個まで作れます",
     "token.scope": "トークンの種類は admin（管理者）か catalog（カタログ読み取り）です",
     "token.missing": "存在しないトークンです",
+    "lock.title": "このアドレスはロックされています",
+    "lock.timed": "ログインの失敗が続いたため、このアドレスをロックしました。{minutes} 分後に解除されます。別の機器やネットワークから管理者として入ると先に解除できます。",
+    "lock.noEnd": "ログインの失敗が続いたため、このアドレスをロックしました。別の機器やネットワークから管理者として入って解除してください。",
     "totp.locked": "認証コードを何度も間違えたためロックしました。15 分後にもう一度試します。",
   },
   zh: {
@@ -69,6 +78,9 @@ export const SECURITY_MESSAGES = {
     "token.max": "最多可以创建 {n} 个令牌",
     "token.scope": "令牌类型为 admin（管理员）或 catalog（目录只读）",
     "token.missing": "没有这个令牌",
+    "lock.title": "此地址已被锁定",
+    "lock.timed": "登录失败次数过多，此地址已被锁定。{minutes} 分钟后解除。从其他设备或网络以管理员身份登录可提前解除。",
+    "lock.noEnd": "登录失败次数过多，此地址已被锁定。请从其他设备或网络以管理员身份登录后解除。",
     "totp.locked": "验证码错误次数过多，已锁定。请 15 分钟后再试。",
   },
   "zh-Hant": {
@@ -84,6 +96,9 @@ export const SECURITY_MESSAGES = {
       "token.max": "最多可以建立 {n} 個權杖",
       "token.scope": "權杖類型為 admin（管理員）或 catalog（目錄唯讀）",
       "token.missing": "找不到此權杖",
+      "lock.title": "此位址已被鎖定",
+      "lock.timed": "登入失敗次數過多，此位址已被鎖定。{minutes} 分鐘後解除。從其他裝置或網路以管理員身分登入可提前解除。",
+      "lock.noEnd": "登入失敗次數過多，此位址已被鎖定。請從其他裝置或網路以管理員身分登入後解除。",
       "totp.locked": "驗證碼錯誤次數過多，已鎖定。請在 15 分鐘後再試。"
   },
   "es": {
@@ -99,6 +114,9 @@ export const SECURITY_MESSAGES = {
       "token.max": "Se pueden crear hasta {n} tokens",
       "token.scope": "El tipo de token es admin o catalog",
       "token.missing": "No existe ese token",
+      "lock.title": "Esta dirección está bloqueada",
+      "lock.timed": "Demasiados inicios de sesión fallidos: esta dirección está bloqueada. Se abrirá en {minutes} min. Un administrador conectado desde otro dispositivo o red puede abrirla antes.",
+      "lock.noEnd": "Demasiados inicios de sesión fallidos: esta dirección está bloqueada. Debe abrirla un administrador conectado desde otro dispositivo o red.",
       "totp.locked": "Demasiados códigos de verificación incorrectos. Acceso bloqueado; vuelve a intentarlo en 15 minutos."
   },
   "fr": {
@@ -114,6 +132,9 @@ export const SECURITY_MESSAGES = {
       "token.max": "Vous pouvez créer jusqu’à {n} jetons",
       "token.scope": "Le type de jeton est admin ou catalog",
       "token.missing": "Ce jeton n’existe pas",
+      "lock.title": "Cette adresse est verrouillée",
+      "lock.timed": "Trop de connexions échouées : cette adresse est verrouillée. Elle sera rouverte dans {minutes} min. Un administrateur connecté depuis un autre appareil ou réseau peut la rouvrir plus tôt.",
+      "lock.noEnd": "Trop de connexions échouées : cette adresse est verrouillée. Un administrateur connecté depuis un autre appareil ou réseau doit la rouvrir.",
       "totp.locked": "Trop de codes de vérification incorrects. Accès bloqué ; réessayez dans 15 minutes."
   },
   "de": {
@@ -129,6 +150,9 @@ export const SECURITY_MESSAGES = {
       "token.max": "Es können höchstens {n} Tokens erstellt werden",
       "token.scope": "Der Token-Typ ist admin oder catalog",
       "token.missing": "Dieses Token existiert nicht",
+      "lock.title": "Diese Adresse ist gesperrt",
+      "lock.timed": "Zu viele fehlgeschlagene Anmeldungen: Diese Adresse ist gesperrt. Die Sperre endet in {minutes} Min. Ein Admin kann sie von einem anderen Gerät oder Netz aus früher aufheben.",
+      "lock.noEnd": "Zu viele fehlgeschlagene Anmeldungen: Diese Adresse ist gesperrt. Ein Admin muss sie von einem anderen Gerät oder Netz aus aufheben.",
       "totp.locked": "Zu viele falsche Bestätigungscodes. Der Zugriff ist gesperrt; versuchen Sie es in 15 Minuten erneut."
   },
   "it": {
@@ -144,6 +168,9 @@ export const SECURITY_MESSAGES = {
       "token.max": "Puoi creare al massimo {n} token",
       "token.scope": "Il tipo di token è admin o catalog",
       "token.missing": "Questo token non esiste",
+      "lock.title": "Questo indirizzo è bloccato",
+      "lock.timed": "Troppi accessi non riusciti: questo indirizzo è bloccato. Si sblocca tra {minutes} min. Un amministratore collegato da un altro dispositivo o rete può sbloccarlo prima.",
+      "lock.noEnd": "Troppi accessi non riusciti: questo indirizzo è bloccato. Deve sbloccarlo un amministratore collegato da un altro dispositivo o rete.",
       "totp.locked": "Troppi codici di verifica errati. Accesso bloccato; riprova tra 15 minuti."
   },
   "pt": {
@@ -159,6 +186,9 @@ export const SECURITY_MESSAGES = {
       "token.max": "É possível criar até {n} tokens",
       "token.scope": "O tipo de token é admin ou catalog",
       "token.missing": "Esse token não existe",
+      "lock.title": "Este endereço está bloqueado",
+      "lock.timed": "Muitos logins com falha: este endereço está bloqueado. Ele será liberado em {minutes} min. Um administrador conectado de outro dispositivo ou rede pode liberá-lo antes.",
+      "lock.noEnd": "Muitos logins com falha: este endereço está bloqueado. Um administrador conectado de outro dispositivo ou rede precisa liberá-lo.",
       "totp.locked": "Muitos códigos de verificação incorretos. Acesso bloqueado; tente novamente em 15 minutos."
   },
   "nl": {
@@ -174,6 +204,9 @@ export const SECURITY_MESSAGES = {
       "token.max": "Er kunnen maximaal {n} tokens worden gemaakt",
       "token.scope": "Het tokentype is admin of catalog",
       "token.missing": "Dit token bestaat niet",
+      "lock.title": "Dit adres is geblokkeerd",
+      "lock.timed": "Te veel mislukte aanmeldingen: dit adres is geblokkeerd. Het gaat over {minutes} min weer open. Een beheerder die via een ander apparaat of netwerk is aangemeld, kan het eerder openen.",
+      "lock.noEnd": "Te veel mislukte aanmeldingen: dit adres is geblokkeerd. Een beheerder die via een ander apparaat of netwerk is aangemeld, moet het openen.",
       "totp.locked": "Te veel onjuiste verificatiecodes. De toegang is geblokkeerd; probeer het over 15 minuten opnieuw."
   },
   "ru": {
@@ -189,6 +222,9 @@ export const SECURITY_MESSAGES = {
       "token.max": "Максимальное число токенов: {n}",
       "token.scope": "Тип токена: admin или catalog",
       "token.missing": "Такого токена нет",
+      "lock.title": "Этот адрес заблокирован",
+      "lock.timed": "Слишком много неудачных входов: этот адрес заблокирован. Блокировка снимется через {minutes} мин. Администратор с другого устройства или из другой сети может снять её раньше.",
+      "lock.noEnd": "Слишком много неудачных входов: этот адрес заблокирован. Снять блокировку должен администратор с другого устройства или из другой сети.",
       "totp.locked": "Слишком много неверных кодов подтверждения. Доступ заблокирован; повторите попытку через 15 минут."
   },
 

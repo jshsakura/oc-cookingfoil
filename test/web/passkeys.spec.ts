@@ -73,6 +73,7 @@ async function removeAccount(page: Page, name: string) {
 test('a signed-in account adds a passkey from the account menu and signs in with it on /login', async ({ page }) => {
   await adminOnLocalhost(page);
   expect((await page.request.post(`${LOCAL}/admin/api/users`, { data: { ...ADMIN, role: 'admin' } })).status()).toBe(201);
+  await page.context().clearCookies({ name: 'cf_user' });
   // Once an account exists, the admin API wants an admin account signed in.
   await passwordLogin(page, ADMIN);
   expect((await page.request.post(`${LOCAL}/admin/api/users`, { data: { ...USER, role: 'user' } })).status()).toBe(201);

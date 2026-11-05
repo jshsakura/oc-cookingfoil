@@ -48,6 +48,7 @@ import { mountWebSends } from "./device-sends.js";
 import { holds } from "../security/device-owner.js";
 import * as deviceSends from "../security/device-sends.js";
 import { mountWebWishlist } from "./wishlist.js";
+import { sameOrigin } from "../security/same-origin.js";
 
 const JSQR_PATH = createRequire(import.meta.url).resolve("jsqr/dist/jsQR.js");
 const TOKEN_RE = /^[a-f0-9]{32}$/;
@@ -72,7 +73,7 @@ function guardWrite(req, res) {
     return null;
   }
   const origin = req.get("Origin");
-  if (!origin || origin !== resolveOrigin(req, publicBaseUrl)) {
+  if (!origin || !sameOrigin(req)) {
     res.status(403).json({ error: "origin mismatch" });
     return null;
   }

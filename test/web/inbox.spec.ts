@@ -32,6 +32,7 @@ test('a signed-in user shares files, a note and links, and the admin sorts them 
   await acceptAsks(page);
   await adminSignIn(page);
   expect((await page.request.post('/admin/api/users', { data: { name: NAME, password: PASSWORD, role: 'admin' } })).status()).toBe(201);
+  await page.context().clearCookies({ name: 'cf_user' });
 
   await page.goto('/login');
   await page.getByLabel(/^(아이디|Username)$/).fill(NAME);
