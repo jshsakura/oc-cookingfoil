@@ -369,6 +369,34 @@ test("folder sizes come from a cache that sees a change in any folder below", as
   assert.equal(tokenBlocked("POST", "/api/files/sizes"), true);
 });
 
+test("a folder's link sends one zip, and a password keeps the bytes behind the right one", async () => {
+  fs.mkdirSync(path.join(games.dir, "Pack/in"), { recursive: true });
+  fs.writeFileSync(path.join(games.dir, "Pack/in/a.nsp"), "abc");
+  const folder = await (await post("/api/files/share", { root: "games", path: "Pack", hours: 1 })).json();
+  const zip = await fetch(url(`/share/${folder.url.split("/share/")[1]}`));
+  assert.equal(zip.status, 200);
+  assert.match(zip.headers.get("content-disposition"), /Pack\.zip/);
+  const bytes = Buffer.from(await zip.arrayBuffer());
+  assert.equal(bytes.subarray(0, 2).toString(), "PK");
+  assert.ok(bytes.includes("Pack/in/a.nsp"), "paths start at the folder");
+
+  const made = await (await post("/api/files/share", { root: "games", path: "Pack/in/a.nsp", hours: 1, password: "open sesame" })).json();
+  assert.ok(!JSON.stringify([...kept]).includes("open sesame"), "the password itself is never stored");
+  const link = url(`/share/${made.url.split("/share/")[1]}`);
+  const asked = await fetch(link);
+  assert.equal(asked.status, 200);
+  assert.doesNotMatch(await asked.text(), /abc|a\.nsp/, "the page gives away neither the bytes nor the name");
+  const send = (password) => fetch(link, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ password }) });
+  assert.equal((await send("nope")).status, 401);
+  const right = await send("open sesame");
+  assert.equal(right.status, 200);
+  assert.equal(await right.text(), "abc");
+  const live = await (await fetch(url("/api/files/shares?root=games&path=Pack%2Fin%2Fa.nsp"))).json();
+  assert.equal(live.shares[0].locked, true);
+  assert.ok(!JSON.stringify(live).includes("hash"), "the hash stays on the server");
+  fs.rmSync(path.join(games.dir, "Pack"), { recursive: true, force: true });
+});
+
 test("a share link sends one file to anyone until it runs out or is ended, and only its hash is kept", async () => {
   fs.mkdirSync(path.join(games.dir, "Shared"), { recursive: true });
   fs.writeFileSync(path.join(games.dir, "Shared/s.nsp"), "abc");
@@ -394,7 +422,7 @@ test("a share link sends one file to anyone until it runs out or is ended, and o
 
   assert.equal((await post("/api/files/share", { root: "games", path: "Shared/s.nsp", hours: 721 })).status, 400);
   assert.equal((await post("/api/files/share", { root: "games", path: "Shared/s.nsp", hours: 0.5 })).status, 400);
-  assert.equal((await post("/api/files/share", { root: "games", path: "Shared", hours: 1 })).status, 400, "a folder is not shared");
+  assert.equal((await post("/api/files/share", { root: "games", path: "", hours: 1 })).status, 400, "a whole storage has no link");
   assert.equal((await post("/api/files/share", { root: "games", path: "../x", hours: 1 })).status, 400);
   for (const [m, p] of [["POST", "/api/files/share"], ["GET", "/api/files/shares"], ["POST", "/api/files/share/end"]]) assert.equal(tokenBlocked(m, p), true, `${m} ${p}`);
 });

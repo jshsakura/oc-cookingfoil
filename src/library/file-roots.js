@@ -5,6 +5,7 @@
  *   list(key, rel, { q, deep, sort, order, page, perPage })  a folder, folders first, paged on the server;
  *                                                      `deep` finds `q` in every folder under it
  *   open(key, rel)                                     a file to send: { abs, name, size, mtime }
+ *   kind(key, rel)                                     what a path is, for a link: { name, dir }
  *   mkdir(key, rel, name)                              a new folder in `rel`
  *   rename(key, rel, name)                             in the same folder, journaled
  *   move(key, rels, toKey, toRel)                      into a folder, across roots too, journaled
@@ -252,6 +253,12 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     const st = await fsp.stat(at.real);
     if (!st.isFile()) fail("not-a-file");
     return { abs: at.real, name: path.basename(at.abs), size: st.size, mtime: Math.round(st.mtimeMs) };
+  }
+
+  /** What `rel` is, for a link to it: { name, dir }. A root itself has no link. */
+  async function kind(key, rel) {
+    const at = await resolve(key, rel, { mayBeRoot: false });
+    return { name: path.basename(at.abs), dir: (await fsp.stat(at.real)).isDirectory() };
   }
 
   /**
@@ -553,5 +560,5 @@ export function createFileRoots({ roots = libraryRoots, refresh = refreshRoots, 
     return out;
   }
 
-  return { list, open, collect, sizes, mkdir, rename, move, copy, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
+  return { list, open, kind, collect, sizes, mkdir, rename, move, copy, trash, uploadTarget, place, rootOf, roots: () => roots().filter((r) => FILE_ROOT_KEYS.includes(r.key) && fs.existsSync(r.dir)) };
 }

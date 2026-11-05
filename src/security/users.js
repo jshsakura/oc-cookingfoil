@@ -45,9 +45,11 @@ const accounts = new Map(); // name → { hash, enabled, role, createdAt, update
 const verified = new Set(); // sha256(name \0 password) of recent successful checks
 
 export class UserError extends Error {
-  constructor(code, message) {
+  constructor(code, message, { word = code, vars = {} } = {}) {
     super(message);
     this.code = code;
+    this.word = word;
+    this.vars = vars;
   }
 }
 
@@ -119,7 +121,7 @@ function validateName(name) {
     throw new UserError("invalid-name", "Use 1-32 letters, digits, dot, dash or underscore.");
   }
   if (SYSTEM_APPROVERS.has(name.toLowerCase())) {
-    throw new UserError("invalid-name", `"${name}" is reserved for the server's own approvals.`);
+    throw new UserError("invalid-name", `"${name}" is reserved for the server's own approvals.`, { word: "reserved-name", vars: { name } });
   }
 }
 
@@ -128,7 +130,7 @@ function resolvePassword(password) {
     return crypto.randomBytes(GENERATED_BYTES).toString("base64url");
   }
   if (typeof password !== "string" || password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
-    throw new UserError("weak-password", `Passwords need ${MIN_PASSWORD}-${MAX_PASSWORD} characters.`);
+    throw new UserError("weak-password", `Passwords need ${MIN_PASSWORD}-${MAX_PASSWORD} characters.`, { vars: { min: MIN_PASSWORD, max: MAX_PASSWORD } });
   }
   return password;
 }

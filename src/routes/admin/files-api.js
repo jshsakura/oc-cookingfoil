@@ -38,7 +38,6 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import yazl from "yazl";
 import { createFileRoots, FileError } from "../../library/file-roots.js";
 import { actorOf } from "../../library/trash-service.js";
 import { TrashError } from "../../library/trash.js";
@@ -51,9 +50,12 @@ import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
 import { loadSystems, systemOfFolder } from "../../retro/systems.js";
 import * as chunks from "../../meta/upload-chunks.js";
+import { sendZip } from "../../library/zip-send.js";
+import { hashPassword } from "../../security/password-hash.js";
 
 const MAX_PATHS = 1000;
 const ZIP_TTL_MS = 10 * 60 * 1000;
+const SHARE_PASSWORD_MAX = 200;
 const INFO_MAX = 100000;
 const COPY_TTL_MS = 10 * 60 * 1000;
 const SIZES_MAX = 500;
@@ -203,9 +205,10 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
   router.post("/api/files/share", handle(async (req, res) => {
     const b = req.body ?? {};
     const root = str(b.root);
-    const f = await files.open(root, str(b.path));
     const rel = str(b.path);
-    const made = shares.create({ root, rel, name: f.name, hours: Number(b.hours), by: actorOf(req) });
+    const f = await files.kind(root, rel);
+    const password = str(b.password).slice(0, SHARE_PASSWORD_MAX);
+    const made = shares.create({ root, rel, name: f.name, dir: f.dir, hash: password ? hashPassword(password) : null, hours: Number(b.hours), by: actorOf(req) });
     debug.log("admin: files: shared %s:%s for %dh", root, rel, Number(b.hours));
     res.json({ url: `${resolveOrigin(req, publicBaseUrl)}/share/${made.token}`, id: made.id, expiresAt: made.expiresAt });
   }));
@@ -312,31 +315,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     purge();
     const z = zips.get(str(req.params.id));
     if (!z) throw new FileError("not-found", 404);
-    const zip = new yazl.ZipFile();
-    // The one file being read, so a download stopped halfway closes it instead of leaving it open.
-    let reading = null;
-    for (const e of z.entries) {
-      if (e.dir) zip.addEmptyDirectory(e.name, { mtime: e.mtime });
-      else zip.addReadStreamLazy(e.name, { size: e.size, mtime: e.mtime, compress: false }, (cb) => cb(null, (reading = fs.createReadStream(e.real))));
-    }
-    // Every size is known, so yazl answers the zip's length at once, before a byte is sent.
-    zip.end((total) => {
-      if (total >= 0) res.set("Content-Length", String(total));
-    });
-    // A file that changed or went away since the list cut the zip short; the browser then calls the download failed.
-    zip.on("error", (err) => {
-      debug.error("admin: files: zip: %s", err.message);
-      res.destroy(err);
-    });
-    res.on("close", () => {
-      if (res.writableFinished) return;
-      zip.outputStream.unpipe(res);
-      zip.outputStream.destroy();
-      reading?.destroy();
-    });
-    res.attachment(z.name);
-    res.type("application/zip");
-    zip.outputStream.pipe(res);
+    sendZip(res, z.entries, z.name);
   }));
 
   router.post("/api/files/trash", handle(async (req, res) => {

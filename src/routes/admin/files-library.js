@@ -153,7 +153,7 @@ function fbSideTop(f){const head=el('div',null,'fb-s-head');
   if(f.titleId){const img=fbGameIcon(f,'md','fb-s-art');img.addEventListener('error',()=>img.replaceWith(fbSideIcon(f)),{once:true});head.append(img);}else head.append(fbSideIcon(f));
   head.append(el('h4',f.title||f.name));if(f.title)head.append(el('div',f.name,'fb-s-sub'));
   const badges=fbBadges(f);if(badges.length){const b=el('div',null,'fb-s-badges');b.append(...badges);head.append(b);}
-  const links=el('div',null,'fb-s-links');if(f.type==='file')fbShareList(f,links);
+  const links=el('div',null,'fb-s-links');fbShareList(f,links);
   const about=fbAbout(f);const what=about?[el('p',about,'fb-s-what')]:[];
   return {head,top:[head,...what,...fbSidePreview(f),links]};}
 function fbFacts(f){const rows=[];
@@ -206,16 +206,16 @@ async function fbSideMeta(s,f,head){const id=String(f.titleId||'').toUpperCase()
 const FB_SHARE_MAX_H=720,FB_DAY_MS=864e5;
 const fbYmd=(ms)=>{const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 // A day picked stays open until that day ends.
-async function fbShareHours(){const pick=await askPick(topText('fb.shareAsk'),[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d'],['date','fb.shareDate']].map(([value,k])=>({value,label:topText(k)})));
-  if(pick!=='date')return pick;const now=Date.now();
+async function fbShareAsk(){const said=await askDialog(topText('fb.shareAsk'),'',{line:topText('fb.sharePwPh'),choices:[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d'],['date','fb.shareDate']].map(([value,k])=>({value,label:topText(k)}))});
+  if(!said)return null;const password=said.line;if(said.pick!=='date')return {hours:Number(said.pick),password};const now=Date.now();
   const day=await askText(topText('fb.shareDateAsk'),fbYmd(now+FB_DAY_MS),{type:'date',min:fbYmd(now),max:fbYmd(now+30*FB_DAY_MS)});
-  return day?Math.max(1,Math.min(FB_SHARE_MAX_H,Math.ceil((new Date(day+'T23:59:59')-now)/36e5))):null;}
+  return day?{hours:Math.max(1,Math.min(FB_SHARE_MAX_H,Math.ceil((new Date(day+'T23:59:59')-now)/36e5))),password}:null;}
 async function fbShare(f){const root=fb.root;
   const live=await api('/admin/api/files/shares?'+new URLSearchParams({root,path:f.rel})).then((x)=>x.shares.length).catch(()=>0);
   if(live&&!await ask(topFill('fb.shareMore',{n:num(live)})))return;
-  const hours=await fbShareHours();
-  if(!hours)return;
-  let r;try{r=await api('/admin/api/files/share',{method:'POST',body:{root,path:f.rel,hours:Number(hours)}});}catch(err){toast(err.message);return;}
+  const said=await fbShareAsk();
+  if(!said)return;
+  let r;try{r=await api('/admin/api/files/share',{method:'POST',body:{root,path:f.rel,hours:said.hours,...(said.password?{password:said.password}:{})}});}catch(err){toast(err.message);return;}
   const when=fbDate(r.expiresAt);
   // Over plain http the browser keeps the clipboard shut; the link is then shown to copy by hand.
   try{await navigator.clipboard.writeText(r.url);toast(topFill('fb.shareCopied',{when}));}
@@ -224,7 +224,7 @@ async function fbShare(f){const root=fb.root;
 async function fbShareList(f,links){const root=fb.root;let r;
   try{r=await api('/admin/api/files/shares?'+new URLSearchParams({root,path:f.rel}));}catch{return;}
   if(!links.isConnected)return;
-  links.replaceChildren(...r.shares.map((sh)=>{const row=el('div',null,'fb-s-link');row.append(el('span',topFill('fb.shareUntil',{when:fbDate(sh.expiresAt)})));
+  links.replaceChildren(...r.shares.map((sh)=>{const row=el('div',null,'fb-s-link');row.append(el('span',topFill('fb.shareUntil',{when:fbDate(sh.expiresAt)})+(sh.locked?' · '+topText('fb.shareLocked'):'')));
     const end=fbSideBtn(FB_ICON.stop,'fb.shareEnd',async()=>{try{await api('/admin/api/files/share/end',{method:'POST',body:{id:sh.id}});toast(topText('fb.shareEnded'));}
       catch(err){toast(err.message);}fbShareList(f,links);fbLoad();},'danger');row.append(end);return row;}));}
 async function fbShareEndAll(f){let r;try{r=await api('/admin/api/files/shares?'+new URLSearchParams({root:fb.root,path:f.rel}));}catch(err){toast(err.message);return;}

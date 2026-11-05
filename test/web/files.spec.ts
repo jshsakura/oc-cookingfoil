@@ -153,7 +153,7 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await expect(menu).toBeHidden();
 
   await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '파일 압축', '파일 검사', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '공유 링크', '파일 압축', '파일 검사', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
   await menu.getByRole('menuitem', { name: '이름 바꾸기' }).click();
   await page.locator('#ask-input').fill('Alef');
   await page.locator('#ask-ok').click();

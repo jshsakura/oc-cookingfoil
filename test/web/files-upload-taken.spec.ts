@@ -357,3 +357,37 @@ test('on a phone a file with no preview says why it only got picked', async ({ p
   await expect(page.locator('#toast')).toContainText('미리 볼 수 없는 파일');
   await expect(row(page, 'game [0100000000000000][v0].nsp')).toHaveAttribute('aria-selected', 'true');
 });
+
+test('a folder gets a link too, with a password shown as set', async ({ page }) => {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await row(page, 'Bulk').locator('td.c-size').click();
+  await page.locator('#fb-share-btn').click();
+  await page.locator('#ask-select').selectOption('1');
+  await page.locator('#ask-input').fill('open sesame');
+  await page.locator('#ask-ok').click();
+  await expect(row(page, 'Bulk').locator('.fb-shared')).toHaveCount(1);
+  await page.keyboard.press('Alt+Enter');
+  await expect(page.locator('.fb-s-link').first()).toContainText('비밀번호 걸림');
+  const { shares } = await page.evaluate(() => (window as any).api('/admin/api/files/shares?root=games&path=fb-taken/Bulk'));
+  for (const sh of shares) await page.evaluate((id) => (window as any).api('/admin/api/files/share/end', { method: 'POST', body: { id } }), sh.id);
+});
+
+test('a held finger picks wherever on the row it lands', async ({ browser, baseURL }) => {
+  const { defaultBrowserType: _, ...phone } = devices['iPhone 13'];
+  const ctx = await browser.newContext({ ...phone, baseURL });
+  const page = await ctx.newPage();
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-taken');
+  const r = row(page, 'same.txt');
+  await expect(r).toBeVisible();
+  const b = (await r.boundingBox())!;
+  const cdp = await ctx.newCDPSession(page);
+  const x = b.x + 220, y = b.y + b.height / 2;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+  await page.waitForTimeout(100);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 2, y: y + 1, id: 1 }] });
+  await page.waitForTimeout(700);
+  await expect(r).toHaveAttribute('aria-selected', 'true');
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await ctx.close();
+});

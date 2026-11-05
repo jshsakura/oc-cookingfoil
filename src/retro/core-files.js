@@ -3,7 +3,7 @@
  * code the consoles run, so an upload must look like one: named
  * <core>_libretro_libnx.nro, an NRO by its header, and not over CORE_MAX_BYTES.
  * A core that is replaced or removed goes to the retro trash (trash.js), from
- * where the trash tab puts it back; nothing is deleted.
+ * where the trash page puts it back; nothing is deleted.
  *
  * A core placed here is the operator's own: nothing the server fetches later
  * replaces it (the pack plan's ownership rule). An upload holds the pack

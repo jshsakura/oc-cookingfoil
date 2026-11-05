@@ -443,7 +443,7 @@ function fbPick(rel,{add=false,range=false}={}){const rels=fbRels();
 function fbFocusRow(){for(const r of document.querySelectorAll('#fb-rows tr'))if(r.dataset.rel===fb.focus){r.focus();r.scrollIntoView({block:'nearest'});return;}}
 function fbCmds(){const n=fb.sel.size;for(const id of ['fb-cut-btn','fb-copy-btn','fb-move-btn','fb-zip-btn','fb-trash-btn'])$(id).disabled=!n||!!fb.busy;
   for(const b of $('fb-pick-acts').children)b.disabled=!!fb.busy;
-  const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=one?.type!=='file';$('fb-tidy-btn').hidden=fb.root==='incoming';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
+  const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=!one;$('fb-tidy-btn').hidden=fb.root==='incoming';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
 function fbFoot(){fbCmds();const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   if(n)foot.dataset.sel='';else delete foot.dataset.sel;
   $('fb-info').textContent=n?topFill('fb.selected',{n:num(n)}):d?topFill('fb.counts',{dirs:num(d.counts.dirs),files:num(d.counts.files)}):'';
@@ -733,7 +733,7 @@ $('fb-move-btn').addEventListener('click',fbMove);
 $('fb-zip-btn').addEventListener('click',()=>{const rels=[...fb.sel];const one=rels.length===1?fbItem(rels[0]):null;if(one?.type==='file')fbDownload(one);else fbZip(rels);});
 $('fb-cut-btn').addEventListener('click',()=>fbClip('cut'));$('fb-copy-btn').addEventListener('click',()=>fbClip('copy'));$('fb-paste-btn').addEventListener('click',fbPaste);
 $('fb-rename-btn').addEventListener('click',()=>{const one=fb.sel.size===1?fbItem([...fb.sel][0]):null;if(one)fbRename(one);});
-$('fb-share-btn').addEventListener('click',()=>{const one=fb.sel.size===1?fbItem([...fb.sel][0]):null;if(one?.type==='file')fbShare(one);});
+$('fb-share-btn').addEventListener('click',()=>{const one=fb.sel.size===1?fbItem([...fb.sel][0]):null;if(one)fbShare(one);});
 $('fb-undo-btn').addEventListener('click',fbUndo);$('fb-tidy-btn').addEventListener('click',fbTidy);$('fb-refresh').addEventListener('click',()=>fbLoad());
 $('fb-trash-btn').addEventListener('click',()=>fbTrash([...fb.sel]));
 $('fb-clear').addEventListener('click',()=>{fb.sel.clear();fb.anchor=null;fbPaint();});
@@ -772,7 +772,7 @@ function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rel
     if(one&&fbKind(one))add('fb.view','view',()=>fbView(one));
     if(one?.type==='file')add('fb.download','download',()=>fbDownload(one));
     else add('fb.zip','zip',()=>fbZip(rels));
-    if(one?.type==='file')add('fb.share','share',()=>fbShare(one));
+    if(one)add('fb.share','share',()=>fbShare(one));
     if(one?.shared)add('fb.shareEndAll','stop',()=>fbShareEndAll(one));
     if(fb.root==='games'){const picked=rels.map(fbItem).filter(Boolean);const has=(re)=>picked.some((f)=>f.type==='dir'||re.test(f.name));
       if(has(/[.](nsp|xci)$/i))add('fb.nsz','nsz',()=>fbNsz(rels));if(has(/[.](nsp|nsz|xci|xcz)$/i))add('fb.verify','verify',()=>fbVerify(rels));}

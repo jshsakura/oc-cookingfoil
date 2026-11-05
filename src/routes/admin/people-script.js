@@ -67,7 +67,8 @@ if($('cred-config'))$('cred-config').addEventListener('click',()=>{if(!lastCred)
 if($('add-user'))$('add-user').addEventListener('submit',async(e)=>{e.preventDefault();
   const name=$('new-name').value.trim(),password=$('new-pass').value;
   const first=!(await api('/admin/api/users')).users.length;
-  if(first&&!await ask(topText('pp.firstUser')+' '+topText('pp.firstOut')))return;
+  if(first){const stops=((await api('/admin/api/devices').catch(()=>({}))).approved||[]).filter((a)=>noOwner(a)&&a.admin!==true).length;
+    if(!await ask(topText('pp.firstUser')+' '+topText('pp.firstOut')+(stops?' '+topFill('pp.firstDevices',{n:stops}):'')))return;}
   try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password,role:$('new-role').value}});
     $('new-name').value='';$('new-pass').value='';credFirst=first;showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
   catch(err){toast(err.message);}});

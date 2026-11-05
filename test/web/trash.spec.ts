@@ -104,7 +104,7 @@ test('emptying everything empties what the list showed and leaves an entry that 
   expect(listed.items[0].items[0].rel).toBe(LATE);
 });
 
-test('the trash tab speaks the language the top area is set to', async ({ page }) => {
+test('the trash page speaks the language the top area is set to', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#trash');
   await page.locator('#lang-btn').click();

@@ -115,11 +115,11 @@ function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const ico
 // Removing, revoking and the like pass {danger:true}: the message sits on the red warning card
 // and the cancel button starts focused. The message itself may be any language.
 function askDialog(msg,value,opts={}){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input'),sel=$('ask-select');
-  const choosing=Array.isArray(opts.choices),typing=value!==undefined&&!choosing,danger=opts.danger===true;
-  $('ask-text').textContent=msg;ok.className='primary';d.classList.toggle('warn',danger);inp.hidden=!typing;inp.type=opts.secret?'password':opts.type||'text';inp.min=opts.min||'';inp.max=opts.max||'';inp.value=typing?value:'';inp.autocomplete=opts.secret?'current-password':'off';
+  const choosing=Array.isArray(opts.choices),typing=value!==undefined&&!choosing,both=choosing&&opts.line!==undefined,danger=opts.danger===true;
+  $('ask-text').textContent=msg;ok.className='primary';d.classList.toggle('warn',danger);inp.hidden=!typing&&!both;inp.placeholder=both?opts.line:'';inp.type=opts.secret?'password':opts.type||'text';inp.min=opts.min||'';inp.max=opts.max||'';inp.value=typing?value:'';inp.autocomplete=opts.secret?'current-password':'off';
   if(sel){sel.hidden=!choosing;sel.replaceChildren(...(choosing?opts.choices:[]).map((c)=>{const o=el('option',c.label);o.value=c.value;return o;}));}
   return new Promise((resolve)=>{const done=(v)=>{ok.onclick=no.onclick=d.oncancel=inp.onkeydown=null;d.close();resolve(v);};
-    const yes=()=>done(choosing?sel.value:typing?inp.value:true),nope=()=>done(choosing||typing?null:false);
+    const yes=()=>done(both?{pick:sel.value,line:inp.value}:choosing?sel.value:typing?inp.value:true),nope=()=>done(choosing||typing?null:false);
     ok.onclick=yes;no.onclick=nope;d.oncancel=(e)=>{e.preventDefault();nope();};
     inp.onkeydown=(e)=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();yes();}};
     d.showModal();if(choosing)sel.focus();else if(typing){inp.focus();inp.select();if(opts.selectTo!=null)inp.setSelectionRange(0,opts.selectTo);}else(danger?no:ok).focus();});}
