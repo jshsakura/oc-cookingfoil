@@ -31,13 +31,13 @@ import { apiWord } from "./api-words.js";
 import { securityError } from "../../security/security-messages.js";
 import { applyServerSettings, SettingsRefusal, startTitledbRefresh, titledbFetching } from "./server-settings-apply.js";
 
-// Who may sign in and how, the addresses consoles are sent to, and where the client build they
-// install comes from, and how long an original stays after NSZ conversion (a token setting it to 0
+// Who may sign in and how, the addresses consoles are sent to, and where the client build and the
+// firmware they install come from, and how long an original stays after NSZ conversion (a token setting it to 0
 // would delete each original as soon as it is converted, a high disk floor would purge every kept
 // one): never changed with an automation token.
 export const TOKEN_LOCKED = [
   "devicePairing", "passwordLogin", "deviceApproval", "deviceLimit", "enrollPerHour", "publicBaseUrl", "publicDirectBaseUrl", "directDownloads", "downloadLinkTtl",
-  "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset",
+  "clientSource", "clientReleaseRepo", "clientReleaseTag", "clientReleaseAsset", "firmwareRepo",
   "nszKeepHours", "nszKeepGb", "nszDiskFloorGb", "mcpEnabled", "chatEnabled", "chatName", "chatPersona", "chatContextTokens",
 ];
 

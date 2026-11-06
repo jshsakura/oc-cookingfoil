@@ -105,3 +105,17 @@ test("library info says nothing of download options or console facts while no pl
   for (const feature of ["file-variants", "console-facts", "nca-rewrap"]) assert.ok(!info.features.includes(feature), feature);
   for (const key of ["variants", "console", "rewrapMaxGen", "rewrapMaxFirmware"]) assert.equal(info[key], undefined, key);
 });
+
+test("library info lists firmware only while a firmware source is set, from compose or the admin page", () => {
+  assert.ok(!probe({ COOK_FIRMWARE_REPO: "" }).features.includes("firmware"), "no source by default");
+  assert.ok(!probe({ COOK_FIRMWARE_REPO: "not a repo" }).features.includes("firmware"), "a malformed one is none");
+  assert.ok(probe({ COOK_FIRMWARE_REPO: "example/fw-releases" }).features.includes("firmware"));
+  const saved = `
+    const settings = await import("../../src/security/server-settings.js");
+    settings.save({ firmwareRepo: "example/fw-releases" });`;
+  assert.ok(probe({ COOK_FIRMWARE_REPO: "" }, saved).features.includes("firmware"), "saved on the admin page, no restart");
+  const cleared = `
+    const settings = await import("../../src/security/server-settings.js");
+    settings.save({ firmwareRepo: "" });`;
+  assert.ok(!probe({ COOK_FIRMWARE_REPO: "example/fw-releases" }, cleared).features.includes("firmware"), "cleared on the admin page");
+});

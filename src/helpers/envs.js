@@ -334,6 +334,12 @@ let clientSource = envString("COOK_CLIENT_SOURCE", "manual") === "github" ? "git
 let clientReleaseRepo = envString("COOK_CLIENT_RELEASE_REPO", "jshsakura/oc-cookingfoil-client");
 let clientReleaseTag = envString("COOK_CLIENT_RELEASE_TAG", "");
 let clientReleaseAsset = envString("COOK_CLIENT_RELEASE_ASSET", "cookingfoil.nro");
+// Firmware releases (src/firmware): a GitHub repository ("owner/name") whose releases each carry one
+// firmware zip. Empty, the default, offers no firmware at all. keep "latest" fetches the newest
+// version ahead of any console, "all" every one; the list is read again every firmwareHours.
+let firmwareRepo = envString("COOK_FIRMWARE_REPO", "").trim();
+let firmwareKeep = envString("COOK_FIRMWARE_KEEP", "latest").trim() === "all" ? "all" : "latest";
+let firmwareHours = envNumber("COOK_FIRMWARE_HOURS", 6, { min: 1, max: 168, integer: true });
 // How many connections one console may open for one download (Range requests
 // in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/library/info
 // download.maxConnections), not enforced: the client opens up to this many.
@@ -443,6 +449,9 @@ const ENV_SETTINGS = Object.freeze({
   clientReleaseRepo,
   clientReleaseTag,
   clientReleaseAsset,
+  firmwareRepo,
+  firmwareKeep,
+  firmwareHours,
   downloadMaxConnections,
   publicDirectBaseUrl: envDirectBaseUrl || "",
   directDownloads,
@@ -503,6 +512,9 @@ function applyServerSettings(saved = {}) {
   clientReleaseRepo = v.clientReleaseRepo;
   clientReleaseTag = v.clientReleaseTag;
   clientReleaseAsset = v.clientReleaseAsset;
+  firmwareRepo = v.firmwareRepo;
+  firmwareKeep = v.firmwareKeep;
+  firmwareHours = v.firmwareHours;
   downloadMaxConnections = v.downloadMaxConnections;
   directDownloads = v.directDownloads;
   publicDirectBaseUrl = v.directDownloads && v.publicDirectBaseUrl ? normalizeBaseUrl(v.publicDirectBaseUrl) : null;
@@ -570,6 +582,9 @@ export {
   clientReleaseRepo,
   clientReleaseTag,
   clientReleaseAsset,
+  firmwareRepo,
+  firmwareKeep,
+  firmwareHours,
   titledbAutoFetch,
   titledbRegions,
   titledbSource,

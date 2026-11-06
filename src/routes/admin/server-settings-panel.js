@@ -1,6 +1,6 @@
 /**
  * The settings tab's "서버 동작" block: device approval, uploads, the share inbox, the public
- * address, names, titledb, the outside lookups and the safe restart, each saved
+ * address, names, titledb, the outside lookups, the safe restart and the firmware releases, each saved
  * the moment it is changed and applied without a restart. Talks to
  * /admin/api/server-settings, and to /admin/api/server/* for the restart button.
  */
@@ -27,7 +27,7 @@ export const SERVER_SETTINGS_CSS = `
 `;
 
 export const SERVER_SETTINGS_SCRIPT = /* js */ `
-const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLogin'),dashboard:()=>topText('ss.grpDashboard'),'prod.keys':'prod.keys',gameinfo:()=>topText('ss.grpGameinfo'),download:()=>topText('ss.grpDownload'),restart:()=>topText('ss.grpRestart'),sync:()=>topText('ss.grpSync'),inbox:()=>topText('ss.grpInbox'),names:()=>topText('ss.grpNames'),lookups:()=>topText('ss.grpLookups')};
+const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLogin'),dashboard:()=>topText('ss.grpDashboard'),'prod.keys':'prod.keys',gameinfo:()=>topText('ss.grpGameinfo'),download:()=>topText('ss.grpDownload'),restart:()=>topText('ss.grpRestart'),sync:()=>topText('ss.grpSync'),inbox:()=>topText('ss.grpInbox'),names:()=>topText('ss.grpNames'),lookups:()=>topText('ss.grpLookups'),firmware:()=>topText('ss.grpFirmware')};
 const SS_GROUPS=[
   ['device',[
     ['devicePairing','bool',()=>topText('ss.f.devicePairing'),()=>topText('ss.f.devicePairingD')],
@@ -85,6 +85,11 @@ const SS_GROUPS=[
     ['retroAutoArt','bool',()=>topText('ss.autoArt'),()=>topText('ss.autoArtD')],
     ['retroPackUrl','text',()=>topText('ss.f.retroPackUrl'),()=>topText('ss.f.retroPackUrlD'),'https://...'],
   ]],
+  ['firmware',[
+    ['firmwareRepo','text',()=>topText('ss.f.firmwareRepo'),()=>topText('ss.f.firmwareRepoD'),'owner/name'],
+    ['firmwareKeep',[['latest',()=>topText('ss.fwKeepLatest')],['all',()=>topText('ss.fwKeepAll')]],()=>topText('ss.f.firmwareKeep'),()=>topText('ss.f.firmwareKeepD')],
+    ['firmwareHours',[['1',()=>topFill('ss.nHoursEvery',{n:1})],['3',()=>topFill('ss.nHoursEvery',{n:3})],['6',()=>topFill('ss.nHoursEveryDef',{n:6})],['12',()=>topFill('ss.nHoursEvery',{n:12})],['24',()=>topText('ss.nEveryDay')]],()=>topText('ss.f.firmwareHours'),()=>topText('ss.f.firmwareHoursD')],
+  ]],
 ];
 // A label or description may be a function, for the rows shown in the admin page's own language.
 const ssText=(v)=>typeof v==='function'?v():v;
@@ -137,6 +142,7 @@ function ssRender(d){ssLast=d;const list=$('ss-list');list.replaceChildren();con
     if(title==='prod.keys')g.append(ssKeysRow(d.keys||{}));
     if(title==='restart')g.append(ssRestartRow());
     if(title==='sync')g.append(ssSyncRow(d.sync||{}),ssBackupRow(d.backup||{}));
+    if(title==='firmware')g.append(ssFirmwareRow());
     list.append(box);}
   ssShowGroup(ssGroup());}
 // One group on screen at a time; the last one picked comes back after a reload.
@@ -189,5 +195,16 @@ function ssKeysRow(k){const r=el('div',null,'ss-row');r.dataset.key='prodKeys';c
   if(k.source==='upload')c.append(tbtn('delete','ss.keysRemoveBtn',async()=>{if(!await ask(topText('ss.keysRemoveAsk'),{danger:true}))return;
     try{await api('/admin/api/keys',{method:'DELETE'});toast(topText('ss.keysRemoved'));loadServerSettings();ssRefreshHealth();}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}
+// The firmware list the server keeps: how many versions it knows and holds, the last check, a fetch under way.
+function ssFirmwareRow(){const r=el('div',null,'ss-row');r.dataset.key='firmwareStatus';const t=el('div');const note=el('p',topText('ss.statusLoading'));
+  t.append(el('b',topText('ss.fwTitle')),note);
+  const c=el('div',null,'ss-ctl');const b=tbtn('retry','ss.fwCheckBtn',async()=>{try{await api('/admin/api/firmware/refresh',{method:'POST',body:{}});toast(topText('ss.fwCheckStarted'));setTimeout(()=>ssFirmwareNote(note,b),3000);}catch(err){toast(err.message);}});
+  c.append(b);ssFirmwareNote(note,b);r.append(t,c);return r;}
+function ssFirmwareNote(note,b){api('/admin/api/firmware').then((st)=>{b.disabled=!st.enabled;
+  if(!st.enabled){note.textContent=topText('ss.fwOff');return;}
+  const parts=[st.checked_at?topFill('ss.fwLine',{n:st.versions.length,c:st.cache.count,gb:(st.cache.bytes/GIB).toFixed(1),t:fmt(st.checked_at)}):topText('ss.fwNever')];
+  if(st.checked_at&&!st.reachable)parts.push(topText('ss.fwOffline'));
+  if(st.fetching)parts.push(topFill('ss.fwFetching',{v:st.fetching.version,p:Math.floor(st.fetching.bytes*100/Math.max(1,st.fetching.size))}));
+  note.textContent=parts.join(' ');}).catch(()=>{});}
 async function loadServerSettings(){ssRender(await api('/admin/api/server-settings'));}
 `;

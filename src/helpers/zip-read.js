@@ -1,7 +1,8 @@
 /**
  * Reads one file out of a zip archive: enough to hash the ROM inside a
  * cartridge zip. Only stored and deflated entries, no zip64, no encryption;
- * anything else is null.
+ * anything else is null. directoryAt() and centralEntries() also read the
+ * directory of a zip held elsewhere (a firmware zip's tail, firmware/archive.js).
  */
 import fs from "fs/promises";
 import { createReadStream } from "fs";
@@ -9,10 +10,11 @@ import { Readable, Transform, pipeline } from "stream";
 import zlib from "zlib";
 
 const EOCD_SIG = 0x06054b50;
+const ZIP64_LOCATOR_SIG = 0x07064b50;
 const CENTRAL_SIG = 0x02014b50;
 const LOCAL_SIG = 0x04034b50;
 const EOCD_MIN = 22;
-const EOCD_SEARCH = EOCD_MIN + 0xffff;
+export const EOCD_SEARCH = EOCD_MIN + 0xffff;
 const CENTRAL_MIN = 46;
 // A record is 46 bytes plus a name, an extra field and a comment of up to 64 KB each.
 const CENTRAL_MAX = CENTRAL_MIN + 3 * 0xffff;
@@ -26,8 +28,25 @@ function eocdAt(buf) {
   return -1;
 }
 
+/**
+ * Where the central directory of a zip `size` bytes long is, read from `tail`, its last bytes:
+ * { count, dirAt, dirLen }, { zip64: true } for a zip64 archive (not read here), or null when
+ * `tail` holds no end record or the record points outside the file. Pure.
+ */
+export function directoryAt(tail, size) {
+  const eocd = eocdAt(tail);
+  if (eocd < 0) return null;
+  const count = tail.readUInt16LE(eocd + 10);
+  const dirLen = tail.readUInt32LE(eocd + 12);
+  const dirAt = tail.readUInt32LE(eocd + 16);
+  const located = eocd >= 20 && tail.readUInt32LE(eocd - 20) === ZIP64_LOCATOR_SIG;
+  if (located || count === 0xffff || dirLen === 0xffffffff || dirAt === 0xffffffff) return { zip64: true };
+  if (dirAt + dirLen > size || dirLen > DIR_MAX || dirLen < count * CENTRAL_MIN || dirLen > count * CENTRAL_MAX) return null;
+  return { count, dirAt, dirLen };
+}
+
 /** `count` central directory entries read from `buf` starting at `at`; offsets are the zip's own. Pure. */
-function centralEntries(buf, at, count) {
+export function centralEntries(buf, at, count) {
   const out = [];
   for (let n = 0; n < count && at + 46 <= buf.length; n++) {
     if (buf.readUInt32LE(at) !== CENTRAL_SIG) break;
