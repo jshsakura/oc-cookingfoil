@@ -60,7 +60,7 @@ export const ADMIN_PAGES = [
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 
 const ROWS = {
-  incoming: { label: "m.organize", icon: "inbox" },
+  incoming: { label: "m.incoming", icon: "inbox" },
 };
 
 const GROUPS = {

@@ -9,11 +9,11 @@ import { freshCode, signIn } from './admin-sign-in';
 const PAGES: [string, string, string][] = [
   ['/admin', 'tab-overview', '서버 현황'],
   ['/admin/games', 'tab-library', '게임'],
-  ['/admin/incoming/temp', 'tab-organize', '임시 폴더'],
+  ['/admin/incoming/temp', 'tab-organize', '주고받기'],
   ['/admin/upload', 'tab-upload', ''],
   // Stage B first bundle: these pages carry only their own panel.
   ['/admin/convert', 'tab-nsz', '파일 압축'],
-  ['/admin/inbox', 'tab-inbox', '임시 폴더'],
+  ['/admin/inbox', 'tab-inbox', '주고받기'],
   ['/admin/featured', 'tab-featured', '홈 화면 구성'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
