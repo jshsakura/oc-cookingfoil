@@ -4,8 +4,8 @@
  * from GitHub is laid over the list already kept (firmware/service.js). All pure.
  *
  * The list only grows from an answer GitHub gives: a version the source no
- * longer lists stays, marked gone upstream, so a console still sees it (and
- * gets it while the server holds its zip).
+ * longer lists stays, marked gone upstream, so a console still sees it as
+ * one it cannot get until the source lists it again.
  */
 import { REPO_RE } from "../meta/client-release.js";
 
@@ -68,9 +68,6 @@ export function upstreamVersions(releases) {
   return out;
 }
 
-/** Whether two assets are the same upload (same id and size), so what was read from one holds for the other. Pure. */
-const sameAsset = (a, b) => Boolean(a && b && a.id === b.id && a.size === b.size && a.url === b.url);
-
 /**
  * Why an answer from the same source must not replace the kept list, or null when it may:
  * it lists nothing, or fewer than half the versions the source listed before. Pure.
@@ -84,29 +81,12 @@ export function shrinkProblem(upstream, kept, sameSource) {
 
 /**
  * The kept versions with a good answer laid over them. A version the source lists takes its
- * release and asset (and keeps what was read from the same asset before); a bad_archive mark is
- * cleared, so it is tried again. From the same source, a version it no longer lists stays with
- * upstream false. From another source (the setting changed), only those whose zip is cached stay.
- * Pure: `cached` is version -> cached record.
+ * release and asset. From the same source, a version it no longer lists stays with upstream
+ * false. From another source (the setting changed), only what it lists is kept. Pure.
  */
-export function mergeUpstream(kept, upstream, { sameSource, cached }) {
+export function mergeUpstream(kept, upstream, { sameSource }) {
   const next = {};
-  for (const [version, { released, asset }] of upstream) {
-    const prev = sameSource ? kept[version] : undefined;
-    const known = sameAsset(prev?.asset, asset);
-    next[version] = {
-      released,
-      asset,
-      upstream: true,
-      files: known ? prev.files : 0,
-      unpacked: known ? prev.unpacked : 0,
-      dir_hash: known ? prev.dir_hash : null,
-      bad: null,
-    };
-  }
-  for (const [version, prev] of Object.entries(kept)) {
-    if (next[version] || (!sameSource && !cached[version])) continue;
-    next[version] = { ...prev, upstream: false, bad: null };
-  }
+  for (const [version, { released, asset }] of upstream) next[version] = { released, asset, upstream: true };
+  if (sameSource) for (const [version, prev] of Object.entries(kept)) if (!next[version]) next[version] = { ...prev, upstream: false };
   return next;
 }

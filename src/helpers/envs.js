@@ -335,10 +335,9 @@ let clientReleaseRepo = envString("COOK_CLIENT_RELEASE_REPO", "jshsakura/oc-cook
 let clientReleaseTag = envString("COOK_CLIENT_RELEASE_TAG", "");
 let clientReleaseAsset = envString("COOK_CLIENT_RELEASE_ASSET", "cookingfoil.nro");
 // Firmware releases (src/firmware): a GitHub repository ("owner/name") whose releases each carry one
-// firmware zip. Empty, the default, offers no firmware at all. keep "latest" fetches the newest
-// version ahead of any console, "all" every one; the list is read again every firmwareHours.
+// firmware zip. Empty, the default, offers no firmware at all. The server passes on the list only,
+// read again every firmwareHours; a console downloads each zip from the source itself.
 let firmwareRepo = envString("COOK_FIRMWARE_REPO", "").trim();
-let firmwareKeep = envString("COOK_FIRMWARE_KEEP", "latest").trim() === "all" ? "all" : "latest";
 let firmwareHours = envNumber("COOK_FIRMWARE_HOURS", 6, { min: 1, max: 168, integer: true });
 // How many connections one console may open for one download (Range requests
 // in parallel). Only advertised (X-CookingFoil-Max-Connections, /api/library/info
@@ -450,7 +449,6 @@ const ENV_SETTINGS = Object.freeze({
   clientReleaseTag,
   clientReleaseAsset,
   firmwareRepo,
-  firmwareKeep,
   firmwareHours,
   downloadMaxConnections,
   publicDirectBaseUrl: envDirectBaseUrl || "",
@@ -513,7 +511,6 @@ function applyServerSettings(saved = {}) {
   clientReleaseTag = v.clientReleaseTag;
   clientReleaseAsset = v.clientReleaseAsset;
   firmwareRepo = v.firmwareRepo;
-  firmwareKeep = v.firmwareKeep;
   firmwareHours = v.firmwareHours;
   downloadMaxConnections = v.downloadMaxConnections;
   directDownloads = v.directDownloads;
@@ -583,7 +580,6 @@ export {
   clientReleaseTag,
   clientReleaseAsset,
   firmwareRepo,
-  firmwareKeep,
   firmwareHours,
   titledbAutoFetch,
   titledbRegions,

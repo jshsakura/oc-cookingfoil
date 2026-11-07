@@ -84,7 +84,7 @@ export async function applyServerSettings(body) {
   if (changed.includes("fillMissingArt")) artFiller().settingChanged();
   // The file check waiting for its hours looks again at once.
   if (changed.includes("verifyHours")) import("../../meta/verify-service.js").then((m) => m.default.pump()).catch(() => {});
-  // A new firmware source is asked at once; a new interval or keep mode applies now.
+  // A new firmware source is asked at once; a new interval applies now.
   if (changed.some((k) => k.startsWith("firmware"))) import("../firmware.js").then((m) => m.firmware.settingsChanged(changed)).catch((err) => debug.error("admin: firmware after settings failed: %s", err.message));
   // The conversion queue stops when turned off and looks again after any of its settings.
   if (changed.some((k) => k.startsWith("nsz"))) await nszQueue.settingsChanged();

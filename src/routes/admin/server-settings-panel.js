@@ -87,7 +87,6 @@ const SS_GROUPS=[
   ]],
   ['firmware',[
     ['firmwareRepo','text',()=>topText('ss.f.firmwareRepo'),()=>topText('ss.f.firmwareRepoD'),'owner/name'],
-    ['firmwareKeep',[['latest',()=>topText('ss.fwKeepLatest')],['all',()=>topText('ss.fwKeepAll')]],()=>topText('ss.f.firmwareKeep'),()=>topText('ss.f.firmwareKeepD')],
     ['firmwareHours',[['1',()=>topFill('ss.nHoursEvery',{n:1})],['3',()=>topFill('ss.nHoursEvery',{n:3})],['6',()=>topFill('ss.nHoursEveryDef',{n:6})],['12',()=>topFill('ss.nHoursEvery',{n:12})],['24',()=>topText('ss.nEveryDay')]],()=>topText('ss.f.firmwareHours'),()=>topText('ss.f.firmwareHoursD')],
   ]],
 ];
@@ -196,16 +195,15 @@ function ssKeysRow(k){const r=el('div',null,'ss-row');r.dataset.key='prodKeys';c
   if(k.source==='upload')c.append(tbtn('delete','ss.keysRemoveBtn',async()=>{if(!await ask(topText('ss.keysRemoveAsk'),{danger:true}))return;
     try{await api('/admin/api/keys',{method:'DELETE'});toast(topText('ss.keysRemoved'));loadServerSettings();ssRefreshHealth();}catch(err){toast(err.message);}}));
   r.append(t,c);return r;}
-// The firmware list the server keeps: how many versions it knows and holds, the last check, a fetch under way.
+// The firmware list the server keeps: how many versions it knows and the last check. No zip is held here.
 function ssFirmwareRow(){const r=el('div',null,'ss-row');r.dataset.key='firmwareStatus';const t=el('div');const note=el('p',topText('ss.statusLoading'));
   t.append(el('b',topText('ss.fwTitle')),note);
   const c=el('div',null,'ss-ctl');const b=tbtn('retry','ss.fwCheckBtn',async()=>{try{await api('/admin/api/firmware/refresh',{method:'POST',body:{}});toast(topText('ss.fwCheckStarted'));setTimeout(()=>ssFirmwareNote(note,b),3000);}catch(err){toast(err.message);}});
   c.append(b);ssFirmwareNote(note,b);r.append(t,c);return r;}
 function ssFirmwareNote(note,b){api('/admin/api/firmware').then((st)=>{b.disabled=!st.enabled;
   if(!st.enabled){note.textContent=topText('ss.fwOff');return;}
-  const parts=[st.checked_at?topFill('ss.fwLine',{n:st.versions.length,c:st.cache.count,gb:(st.cache.bytes/GIB).toFixed(1),t:fmt(st.checked_at)}):topText('ss.fwNever')];
+  const parts=[st.checked_at?topFill('ss.fwLine',{n:st.versions.length,t:fmt(st.checked_at)}):topText('ss.fwNever')];
   if(st.checked_at&&!st.reachable)parts.push(topText('ss.fwOffline'));
-  if(st.fetching)parts.push(topFill('ss.fwFetching',{v:st.fetching.version,p:Math.floor(st.fetching.bytes*100/Math.max(1,st.fetching.size))}));
   note.textContent=parts.join(' ');}).catch(()=>{});}
 async function loadServerSettings(){ssRender(await api('/admin/api/server-settings'));}
 `;
