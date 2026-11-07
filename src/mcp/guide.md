@@ -73,7 +73,7 @@ Settings tab; each can also be preset in `.env`.
 - Name language order (`COOK_LANG_PRIORITY`, `ko,en,ja,en-US`).
 - titledb: auto download, regions and source (`COOK_TITLEDB_AUTO_FETCH`, `COOK_TITLEDB_REGIONS`, `COOK_TITLEDB_URL`).
 - Client build source (`COOK_CLIENT_SOURCE`): `manual` only an uploaded build; `github` follows the latest release.
-- Firmware releases (`COOK_FIRMWARE_REPO`, empty and off): a GitHub `owner/name` whose releases each carry one firmware zip; `COOK_FIRMWARE_KEEP` (`latest` or `all`) and `COOK_FIRMWARE_HOURS` (6).
+- Firmware releases (`COOK_FIRMWARE_REPO`, empty and off): a GitHub `owner/name` whose releases each carry one firmware zip; the server passes on the list only, read every `COOK_FIRMWARE_HOURS` (6) hours, and consoles download each zip from the source.
 - Icons read from files (`COOK_EXTRACT_ICONS`, `missing`), review scores and retro details (`COOK_RATING_SYNC`, `COOK_RETRO_META`), ready-made retro folders (`COOK_RETRO_SCAFFOLD`).
 - Connections per download (`COOK_DOWNLOAD_MAX_CONNECTIONS`, 4); direct download address and token lifetime (`COOK_PUBLIC_DIRECT_BASE_URL`, `COOK_DOWNLOAD_LINK_TTL`, 21600 s).
 - Folder sync every `COOK_SYNC_HOURS` (6) hours; daily backups kept `COOK_BACKUP_DAYS` (14) days; 0 turns each off.

@@ -27,10 +27,8 @@ export const OPT_OUT = {
   "POST /setup/api/plugins": "browser-only",
   // The console client's strings for a language it shows (meta/client-strings.js).
   "GET /api/client/strings": "console-ui",
-  // Firmware releases for the console (routes/firmware.js): the list is firmware_status in the console's
-  // shape, and the download is a binary a tool cannot carry.
+  // Firmware releases for the console (routes/firmware.js): the list is firmware_status in the console's shape.
   "GET /api/firmware/": "console-ui",
-  "GET /api/firmware/:version/download": "token-blocked",
   // The console's own queue of downloads sent to it: read and acked by the paired console only.
   "GET /api/device/sends/": "console-ui",
   "POST /api/device/sends/ack": "console-ui",

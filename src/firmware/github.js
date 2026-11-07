@@ -1,24 +1,15 @@
 /**
- * The GitHub side of firmware releases: the release list (every page, each
- * asked with If-None-Match), a range of an asset (its zip's tail), and an
- * asset downloaded to a file with its sha256. Asset addresses redirect to
- * GitHub's storage; fetch follows them here, so a console never sees one.
+ * The GitHub side of firmware releases: the release list, every page, each
+ * asked with If-None-Match. Nothing else is read from GitHub here: a console
+ * downloads an asset from its own address at the source.
  *
  * Failures come back as SourceError with a `kind` the service records:
- * "network", "rate_limited" (403, 429), "not_found" (404), "http", or "size"
- * for a download whose body is not the asset's size (a bad archive, not an outage).
+ * "network", "rate_limited" (403, 429), "not_found" (404, 410, 451) or "http".
  */
-import crypto from "crypto";
-import fs from "fs";
-import { Readable, Transform } from "stream";
-import { pipeline } from "stream/promises";
 import { PAGE_SIZE, slimRelease } from "./versions.js";
 
 const USER_AGENT = "oc-cookingfoil";
 const API_TIMEOUT_MS = 20_000;
-const RANGE_TIMEOUT_MS = 30_000;
-// A firmware zip is a few hundred MB; an hour covers a slow line, and a stalled one ends there.
-const DOWNLOAD_TIMEOUT_MS = 60 * 60_000;
 // 100 releases a page: far more versions than exist.
 const MAX_PAGES = 20;
 
@@ -71,58 +62,4 @@ export async function listReleases({ repo, kept = [], token = null, fetchImpl = 
     if (page.releases.length < PAGE_SIZE) break;
   }
   return { pages, releases: pages.flatMap((p) => p.releases) };
-}
-
-/** Bytes start..end (inclusive) of the asset at `url`, which is `size` bytes long. */
-export async function fetchRange({ url, start, end, size, fetchImpl = fetch }) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), RANGE_TIMEOUT_MS);
-  try {
-    const res = await ask(fetchImpl, url, { headers: { "User-Agent": USER_AGENT, Range: `bytes=${start}-${end}` }, signal: controller.signal });
-    // A 200 would be the whole zip: never read it for a few KB of directory.
-    if (res.status !== 206) {
-      controller.abort();
-      throw new SourceError(`the asset answered ${res.status} to a range request`, res.status === 200 ? "http" : kindOf(res.status));
-    }
-    const total = /\/(\d+)$/.exec(res.headers.get("content-range") ?? "")?.[1];
-    if (total !== undefined && Number(total) !== size) {
-      controller.abort();
-      throw new SourceError(`the asset is ${total} bytes, the release says ${size}`, "http");
-    }
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length !== end - start + 1) throw new SourceError(`asked for ${end - start + 1} bytes, got ${buf.length}`, "http");
-    return buf;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/**
- * Downloads the asset at `url` into `dest` (created or replaced), refusing a body other than
- * `size` bytes. Resolves to its sha256; `onBytes(n)` hears how far it got.
- */
-export async function downloadAsset({ url, dest, size, fetchImpl = fetch, onBytes = () => {} }) {
-  const res = await ask(fetchImpl, url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-  if (!res.ok || !res.body) throw new SourceError(`the asset answered ${res.status}`, kindOf(res.status));
-  const hash = crypto.createHash("sha256");
-  let received = 0;
-  const count = new Transform({
-    transform(chunk, _enc, cb) {
-      received += chunk.length;
-      if (received > size) return cb(new SourceError(`the asset is larger than the release's ${size} bytes`, "size"));
-      hash.update(chunk);
-      onBytes(received);
-      cb(null, chunk);
-    },
-  });
-  try {
-    await pipeline(Readable.fromWeb(res.body), count, fs.createWriteStream(dest));
-  } catch (err) {
-    if (err instanceof SourceError) throw err;
-    // The disk refusing the file is this server's problem, not the source's.
-    if (err.code === "ENOSPC" || err.code === "EACCES" || err.code === "EROFS") throw err;
-    throw new SourceError(`the download broke off: ${err.message}`, "network");
-  }
-  if (received !== size) throw new SourceError(`got ${received} bytes, the release says ${size}`, "size");
-  return hash.digest("hex");
 }

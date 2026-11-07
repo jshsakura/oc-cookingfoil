@@ -112,9 +112,8 @@ export const SETTINGS = {
   clientReleaseRepo: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 140 && REPO_RE.test(v) },
   clientReleaseTag: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || TAG_RE.test(v) },
   clientReleaseAsset: { parse: (v) => String(v ?? "").trim(), check: (v) => ASSET_RE.test(v) },
-  // Firmware releases (firmware/service.js): the repository followed, empty for none; what is fetched ahead; how often the list is read.
+  // Firmware releases (firmware/service.js): the repository followed, empty for none; how often the list is read.
   firmwareRepo: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || (v.length <= 140 && REPO_RE.test(v)) },
-  firmwareKeep: oneOf("latest", "all"),
   firmwareHours: whole(1, 168),
 };
 

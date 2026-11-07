@@ -107,7 +107,7 @@ curl -s -H "Authorization: Bearer $TOKEN" $BASE/admin/api/stats
 | 잠긴 주소 풀기 | `POST /admin/api/unlock` `{ "ip" }` |
 | 클라이언트 오류 기록 | `GET /admin/api/client-logs` |
 | 클라이언트 빌드 상태(받는 방식, 내려주는 빌드와 출처), 지금 가져오기 (설정은 서버 동작의 `clientSource` `clientReleaseRepo` `clientReleaseTag` `clientReleaseAsset`. 기본은 `manual` 로 올린 빌드만 쓰고, `github` 는 `jshsakura/oc-cookingfoil-client` 의 최신 릴리스를 따릅니다. 태그를 넣으면 그 태그의 릴리스를 따릅니다) | `GET /admin/api/client-release`, `POST /admin/api/client-release/check` |
-| 펌웨어 목록 상태(원본, 지난 확인 때 응답했는지, 버전마다 서버에 받아 두었는지와 받을 수 있는지), 지금 확인 (설정은 서버 동작의 `firmwareRepo` `firmwareKeep` `firmwareHours`. `firmwareRepo` 는 기본으로 비어 있고, 그동안 콘솔에는 펌웨어 탭이 나오지 않습니다. 확인에 실패해도 목록은 그대로이고, 원본을 바꿔도 받아 둔 zip 은 남습니다) | `GET /admin/api/firmware`, `POST /admin/api/firmware/refresh` |
+| 펌웨어 목록 상태(원본, 지난 확인 때 응답했는지, 버전마다 원본에서 받을 수 있는지), 지금 확인 (설정은 서버 동작의 `firmwareRepo` `firmwareHours`. `firmwareRepo` 는 기본으로 비어 있고, 그동안 콘솔에는 펌웨어 탭이 나오지 않습니다. 서버는 목록만 전하고 파일은 두지 않으며, 확인에 실패해도 목록은 그대로입니다) | `GET /admin/api/firmware`, `POST /admin/api/firmware/refresh` |
 | 임시 공유 목록 (open 정리할 것, done 정리함, all 전체), 파일 받기 | `GET /admin/api/inbox?show=open`, `GET /admin/api/inbox/<id>/file?path=<files/ 안의 경로>` |
 | 임시 공유 정리함으로 보내기, 되돌리기, 삭제 | `POST /admin/api/inbox/<id>/done` `{ "done": true }`, `DELETE /admin/api/inbox/<id>` |
 

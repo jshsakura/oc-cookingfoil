@@ -2,12 +2,11 @@
  * The settings tab's firmware row (server-settings-panel.js) and the firmware capability:
  *
  *   GET  /admin/api/firmware          the follower's status (firmware/service.js status()):
- *                                     { source, enabled, keep, hours, reachable, checked_at, error, next_check,
- *                                       checking, fetching, queued, failed, cache: { count, bytes }, versions: [...] }
+ *                                     { source, enabled, hours, reachable, checked_at, error, next_check, checking, versions: [...] }
  *   POST /admin/api/firmware/refresh  reads the release list again now, in the background;
  *                                     { started, ...status }. 409 { error } while no source is set
  *
- * The source, keep mode and interval are the firmwareRepo, firmwareKeep and firmwareHours server settings.
+ * The source and interval are the firmwareRepo and firmwareHours server settings. The server keeps no zip.
  */
 import { firmware } from "../firmware.js";
 

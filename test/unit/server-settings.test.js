@@ -158,20 +158,17 @@ test("the share inbox switch and its two sizes are saved in bytes and apply at o
   assert.equal(env.inboxMaxBytes, 2 * 1024 ** 3);
 });
 
-test("firmware releases are off until a source is set; the source, keep mode and interval apply at once", () => {
+test("firmware releases are off until a source is set; the source and interval apply at once", () => {
   const d = settings.describe();
   assert.equal(d.firmwareRepo.value, "", "no source by default");
-  assert.equal(d.firmwareKeep.value, "latest");
   assert.equal(d.firmwareHours.value, 6);
-  settings.save({ firmwareRepo: " example/fw-releases ", firmwareKeep: "all", firmwareHours: "12" });
+  settings.save({ firmwareRepo: " example/fw-releases ", firmwareHours: "12" });
   assert.equal(env.firmwareRepo, "example/fw-releases");
-  assert.equal(env.firmwareKeep, "all");
   assert.equal(env.firmwareHours, 12);
   for (const bad of ["example", "a/b/c", "../x", "example/..", "with space/x"]) assert.throws(() => settings.save({ firmwareRepo: bad }), /firmwareRepo/, bad);
-  assert.throws(() => settings.save({ firmwareKeep: "some" }), /firmwareKeep/);
   for (const bad of [0, 169, "1.5"]) assert.throws(() => settings.save({ firmwareHours: bad }), /firmwareHours/, String(bad));
   settings.save({ firmwareRepo: "" });
   assert.equal(env.firmwareRepo, "");
-  settings.save({ firmwareRepo: null, firmwareKeep: null, firmwareHours: null });
-  assert.equal(env.firmwareKeep, "latest");
+  settings.save({ firmwareRepo: null, firmwareHours: null });
+  assert.equal(env.firmwareHours, 6);
 });
