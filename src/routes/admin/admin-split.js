@@ -96,6 +96,7 @@ const listPage = (tab, root, listHtml) => withFolder({
 
 /** The first bundle's pages, by the path the router already knows. */
 export const SPLIT_PAGES = {
+  "/admin/not-found": bundle({ body: `<section id="tab-not-found"><div class="hd"><h2>${top("nf.title")}</h2></div><p class="muted">${top("nf.body")}</p><p><a class="btn primary" href="/admin">${top("nf.home")}</a></p></section>`, script: "", init: "" }),
   "/admin/games": withFolder({
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+LIBRARY_FILES_CSS,
     body: LIBRARY_HTML+CONTENT_DIALOG_HTML,

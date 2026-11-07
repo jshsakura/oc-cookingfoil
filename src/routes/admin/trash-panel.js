@@ -35,6 +35,7 @@ export const TRASH_CSS = `
 .tr-chk{display:inline-flex;align-items:center;gap:8px;font-weight:var(--fw-bold)}
 .tr-list{display:grid;gap:10px}
 .tr-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:12px 14px}
+.tr-jmany>summary{list-style:none;cursor:pointer}.tr-jmany>summary::-webkit-details-marker{display:none}.tr-jmany>.tr-row{margin-left:16px}
 .tr-row.old{border-color:rgba(var(--accent-rgb),.6)}
 .tr-main{display:grid;gap:3px;min-width:0}
 .tr-main b{overflow-wrap:anywhere}
@@ -42,7 +43,10 @@ export const TRASH_CSS = `
 .tr-main .err{color:var(--bad)}
 .tr-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:var(--fs-sm)}
 .tr-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-@media (max-width:640px){.tr-row{grid-template-columns:auto 1fr}.tr-act{grid-column:1/-1;justify-content:flex-start}}
+@media (max-width:640px){.tr-row{grid-template-columns:auto 1fr}.tr-act{grid-column:1/-1;justify-content:flex-start}
+  /* One line of folders that slides, so the list starts on the first screen. */
+  .tr-cards{display:flex;overflow-x:auto;gap:6px;margin:6px 0 10px;scrollbar-width:none}
+  .tr-cards .card{flex:none;display:flex;align-items:baseline;gap:6px;min-height:44px;padding:8px 12px;box-sizing:border-box;white-space:nowrap}.tr-cards .card .v{font-size:var(--fs-md)}}
 `;
 
 export const TRASH_SCRIPT = /* js */ `
@@ -61,10 +65,11 @@ function trSelUpdate(){const n=trSel.size;$('tr-restore-sel').disabled=!n;$('tr-
 function trRow(e){const r=el('div',null,'tr-row'+(trData&&e.ageDays>=trData.noticeDays?' old':''));r.dataset.id=e.id;
   const c=el('input');c.type='checkbox';c.checked=trSel.has(e.id);c.setAttribute('aria-label',trT('pick',{name:e.name||e.items[0]?.rel||e.entry}));
   c.addEventListener('change',()=>{if(c.checked)trSel.add(e.id);else trSel.delete(e.id);trSelUpdate();});
-  const main=el('div',null,'tr-main');main.append(el('b',e.name||String(e.items[0]?.rel||'').split('/').pop()||e.entry));
+  const main=el('div',null,'tr-main');const name=e.name||String(e.items[0]?.rel||'').split('/').pop()||e.entry;
+  main.append(el('b',e.items.length>1?trT('andMore',{name,n:num(e.items.length-1)}):name));
   for(const it of e.items.slice(0,5))main.append(el('span',trT('from',{path:trRoot(e.root)+' / '+it.rel})));
   if(e.items.length>5)main.append(el('span','+'+(e.items.length-5)));
-  const meta=el('div',null,'tr-meta');meta.append(pill(trAction(e.action)),pill(trRoot(e.root)),el('span',trSize(e.size)),el('span',trT('age',{n:e.ageDays})),el('span',trT('at',{when:trWhen(e.trashedAt)})),el('span',trBy(e.by)));
+  const meta=el('div',null,'tr-meta');meta.append(pill(trAction(e.action)),pill(trRoot(e.root)),el('span',trSize(e.size)),el('span',trT('age',{n:e.ageDays+1})),el('span',trT('at',{when:trWhen(e.trashedAt)})),el('span',trBy(e.by)));
   main.append(meta);
   if(e.missing)main.append(el('span',trT('missing',{n:e.missing}),'err'));
   if(e.incomplete)main.append(el('span',trT('incomplete',{n:e.incomplete}),'err'));
@@ -90,11 +95,26 @@ function trMove(o){const r=el('div',null,'tr-row');const main=el('div',null,'tr-
   const act=el('div',null,'tr-act');if(o.undoable)act.append(btn(trT('undo'),()=>trUndo(o)));
   if(o.held)act.append(btn(trT('release'),()=>trRelease(o)));
   r.append(el('span'),main,act);return r;}
+// A bulk step writes a line per file; lines of one step read as one row that opens to its files.
+const TR_J_GAP_MS=5000;
+const trDir=(p)=>String(p).split('/').slice(0,-1).join('/');
+function trJGroups(items){const out=[];for(const o of items){const g=out[out.length-1],a=g?.[0],last=g?.[g.length-1];
+    if(a&&!a.held&&!o.held&&a.action===o.action&&trBy(a.by)===trBy(o.by)&&a.fromRoot===o.fromRoot&&a.toRoot===o.toRoot&&trDir(a.from)===trDir(o.from)&&trDir(a.to)===trDir(o.to)&&Math.abs(new Date(last.at)-new Date(o.at))<TR_J_GAP_MS)g.push(o);else out.push([o]);}
+  return out;}
+function trMoves(g){if(g.length===1)return trMove(g[0]);const o=g[0];const box=el('details',null,'tr-jmany');const s=el('summary',null,'tr-row');const main=el('div',null,'tr-main');
+  main.append(el('b',(topWords.ko['t.j.'+o.action]?trT('j.'+o.action):o.action)+' · '+trT('jCount',{n:num(g.length)})),el('span',trRoot(o.fromRoot)+' / '+trDir(o.from)+'  →  '+trRoot(o.toRoot)+' / '+trDir(o.to)));
+  const meta=el('div',null,'tr-meta');meta.append(el('span',trWhen(o.at)),el('span',trBy(o.by)));main.append(meta);
+  const act=el('div',null,'tr-act');const open=g.filter((x)=>x.undoable);
+  if(open.length){const b=btn(trT('undo'),()=>trUndoMany(open));b.addEventListener('click',(e)=>e.preventDefault());act.append(b);}
+  s.append(el('span'),main,act);box.append(s,...g.map(trMove));return box;}
+async function trUndoMany(list){if(!await ask(trT('undoAskMany',{n:num(list.length)})))return;let fail=null;
+  for(const o of list){try{await api('/admin/api/trash/undo',{method:'POST',body:{id:o.id}});}catch(err){fail??=err;}}
+  toast(fail?fail.message:trT('undoneToast'));loadTrash();}
 // Held files come from the server's full hold list, not the page of recent moves: a release is always reachable.
 function trJournalRender(){if(!trJournal)return;const box=$('tr-journal');const held=trJournal.held||[];
   $('tr-held-box').hidden=!held.length;$('tr-held').replaceChildren(...held.map(trMove));
   if(!trJournal.items.length){box.replaceChildren(el('p',trT('jNone'),'muted'));return;}
-  box.replaceChildren(...trJournal.items.map(trMove));}
+  box.replaceChildren(...trJGroups(trJournal.items).map(trMoves));}
 async function loadTrash(){try{[trData,trJournal]=await Promise.all([api('/admin/api/trash'),api('/admin/api/trash/journal?limit=100')]);trRender();}
   catch(err){if(err.message!=='session')toast(trT('loadFail',{err:err.message}));}}
 async function trRestore(ids){if(!ids.length)return toast(trT('pickFirst'));
@@ -105,7 +125,7 @@ async function trRestore(ids){if(!ids.length)return toast(trT('pickFirst'));
   catch(err){toast(err.message);}loadTrash();}
 async function trEmpty(ids){const all=ids==='all';const picked=all?trData.items:trData.items.filter((e)=>ids.includes(e.id));
   if(!picked.length)return toast(trT('pickFirst'));
-  const word=trT('word');const typed=await askText(trT('askEmpty',{n:num(picked.length),size:trSize(picked.reduce((n,e)=>n+e.size,0)),word}),'');
+  const word=trT('word');const typed=await askText(trT('askEmpty',{n:num(picked.length),size:trSize(picked.reduce((n,e)=>n+e.size,0)),word}),'',{danger:true});
   if(typed==null)return;if(typed.trim()!==word)return toast(trT('typedWrong'));
   // Everything means what this list showed: its version and time go along. Entries that came in after it are left; the server refuses only if what it showed changed.
   try{const d=await api('/admin/api/trash/empty',{method:'POST',body:all?{all:true,version:trData.version,listedAt:trData.listedAt,confirm:'empty'}:{ids,confirm:'empty'}});

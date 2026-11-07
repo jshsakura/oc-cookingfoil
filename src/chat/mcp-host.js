@@ -24,7 +24,7 @@ export const PENDING_TTL_MS = 30 * 60 * 1000;
 export const MAX_OPEN_REQUESTS = 3;
 // The model relays this to the person in their language, so it is given in each.
 const TOO_MANY_WORDS = {
-  ko: "이미 관리자 승인을 기다리는 요청이 있습니다. 처리된 뒤에 다시 요청해 주세요.",
+  ko: "이미 관리자 승인을 기다리는 요청이 있습니다. 처리된 뒤에 다시 요청합니다.",
   en: "There are already requests waiting for the admin's approval. Please ask again once they are handled.",
   ja: "管理者の承認を待っているリクエストがすでにあります。処理されたあとで、もう一度お願いします。",
   zh: "已有请求在等待管理员批准。请在处理完成后再提出请求。",

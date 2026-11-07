@@ -28,7 +28,7 @@ test("every section keeps its id and every job keeps its page address", () => {
   for (const path of ["/admin", "/admin/games", "/admin/retro", "/admin/homebrew", "/admin/upload", "/admin/convert", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/settings/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
     assert.match(html, new RegExp(`href="${path.replace(/\//g, "\\/")}"`), `sidebar link for ${path}`);
   }
-  assert.match(html, /data-paths="\/admin\/upload \/admin\/incoming\/temp \/admin\/inbox"/, "the incoming row stands for its three pages");
+  assert.match(html, /data-paths="\/admin\/incoming\/temp \/admin\/inbox"/, "the incoming row stands for its two pages; upload is the header's");
 });
 
 test("the look-alike folder notice names both folders and the system, and says the art follows the folder", () => {

@@ -376,6 +376,9 @@ export default function adminPageRouter() {
   // Alerts moved under the settings: an old bookmark lands on the new address.
   router.get("/notifications", (req, res) => res.redirect(301, "/admin/settings/notifications"));
 
+  // An address with no page gets the admin's own frame and a way on (the last route of this router).
+  const NOT_FOUND_PAGE = { path: "/admin/not-found", tab: "not-found", label: "nf.title" };
+
   // The operator's guide, which is also what an AI assistant is handed with a token.
   router.get("/guide.md", (req, res) => {
     if (!requireSession(req, res)) return;
@@ -660,6 +663,12 @@ export default function adminPageRouter() {
   mountServerApi(router, requireSession);
   mountNszApi(router, requireSession);
   mountTransfersApi(router, requireSession);
+
+  router.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api/") || !req.accepts("html")) return next();
+    if (hasValidSession(req)) res.status(404);
+    return serveAdminPage(req, res, NOT_FOUND_PAGE);
+  });
 
   return router;
 }

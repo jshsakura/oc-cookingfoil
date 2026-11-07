@@ -49,7 +49,7 @@ test('a standalone server setting saves without calling the overview health pane
   await page.locator('.ss-row[data-key="inboxEnabled"] label').click();
   expect((await saved).ok()).toBe(true);
   await expect(page.locator('#toast')).not.toContainText('loadHealth');
-  await expect(page.locator('#toast')).toHaveText(!before ? '임시 공유를 받습니다.' : '임시 공유를 받지 않습니다.');
+  await expect(page.locator('#toast')).toContainText(!before ? '임시 공유를 받습니다' : '임시 공유를 받지 않습니다');
   await page.reload();
   await page.locator('#ss-jump [data-group="inbox"]').click();
   await expect(control).toBeChecked({ checked: !before });

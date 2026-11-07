@@ -82,7 +82,7 @@ function sameSite(req, res) {
   return true;
 }
 
-function renderLogin(req, res, { status = 200, next, error = null, notice = null }) {
+function renderLogin(req, res, { status = 200, next, error = null, notice = null, username = "" }) {
   const google = sessionAccount(req);
   res.status(status).type("html").send(loginPage({
     lang: requestLang(req),
@@ -94,6 +94,7 @@ function renderLogin(req, res, { status = 200, next, error = null, notice = null
     passwords: accountPasswordsOk(req),
     error,
     notice,
+    username,
     origin: resolveOrigin(req, publicBaseUrl),
     passkey: passkeys.usableHere(req, "web"),
   }));
@@ -122,7 +123,7 @@ function mountPasswordLogin(router) {
     const ok = Boolean(name && password) && (await users.verifyAsync(name, password));
     if (!ok) {
       if (!trusted) recordFailure(ip, req);
-      return renderLogin(req, res, store.isLocked(ip) && !trusted ? { status: 401, next, error: "locked", notice: lockNotice(requestLang(req), ip) } : { status: 401, next, error: "wrong" });
+      return renderLogin(req, res, store.isLocked(ip) && !trusted ? { status: 401, next, username: name, error: "locked", notice: lockNotice(requestLang(req), ip) } : { status: 401, next, username: name, error: "wrong" });
     }
     store.clearFailure(ip);
     store.recordAccess(name, ip);

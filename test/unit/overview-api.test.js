@@ -63,6 +63,12 @@ test("the status counts games by title, sums their size and keeps the disks it c
   assert.equal(status.verify.counts.damaged, 2);
 });
 
+test("recent reads in the viewer's language when the entry keeps its words", async () => {
+  const { o } = overviewWith({ recentAlerts: () => [{ at: 1, event: "start", text: "서버가 기동되었습니다.", texts: { en: "The server started.", ko: "서버가 기동되었습니다." }, status: "sent" }] });
+  assert.equal((await o.read("en")).recent[0].text, "The server started.");
+  assert.equal((await o.read()).recent[0].text, "서버가 기동되었습니다.");
+});
+
 test("recent shows the eight newest alerts: the first line for the list, the whole message for its detail", async () => {
   const { o } = overviewWith();
   const { recent } = await o.read();

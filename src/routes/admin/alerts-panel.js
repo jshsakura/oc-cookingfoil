@@ -52,6 +52,7 @@ export const ALERTS_HTML = `<section id="tab-alerts" hidden>
 
 export const ALERTS_CSS = `
 .al-status{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:14px 16px;margin:12px 0 18px}
+.al-status[hidden]{display:none}
 .al-status strong{display:block;font-size:var(--fs-md)}.al-status span:not(.al-dot){font-size:var(--fs-sm);color:var(--muted)}
 .al-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}.al-status.on .al-dot{background:var(--good)}.al-status.bad .al-dot{background:var(--bad)}
 #al-form h3{margin:18px 0 8px;font-size:var(--fs-md)}
@@ -76,6 +77,8 @@ let alData=null;
 async function loadAlerts(){
   try{alData=await api('/admin/api/alerts');}catch(err){toast(err.message);return;}
   const d=alData,st=$('al-status');
+  // The log page is the log; how alerts are set up belongs to the settings page.
+  st.hidden=location.pathname==='/admin/logs/alerts';
   st.classList.toggle('on',d.configured&&d.bot!==null);st.classList.toggle('bad',d.bot===null);
   const [title,sub]=!d.tokenSet?[topText('al.offT'),topText('al.offS')]
     :d.bot===null?[topText('al.badTokenT'),topText('al.badTokenS')]

@@ -6,7 +6,7 @@
 export const RETRO_VARIANTS_WORDS = {
   ko: {
     "rv.title": "중복 버전",
-    "rv.helpDups": "같은 시스템에서 제목이 같은 파일을 묶었습니다. 목록에는 묶음마다 추천 버전 하나만 나오고 나머지 버전은 게임 창에서 고릅니다. 추천 버전은 공식 한국어판, 가장 새 한글 패치 순으로 정하고 여기서 바꿀 수 있습니다. 삭제한 파일은 롬과 표지, 베젤까지 레트로 폴더의 .trash 로 가고, 휴지통 탭에서 되돌릴 수 있습니다.",
+    "rv.helpDups": "같은 시스템에서 제목이 같은 파일을 묶었습니다. 목록에는 묶음마다 추천 버전 하나만 나오고 나머지 버전은 게임 창에서 고릅니다. 추천 버전은 공식 한국어판, 가장 새 한글 패치 순으로 정하고 여기서 바꿀 수 있습니다. 삭제한 파일은 롬과 표지, 베젤까지 레트로 폴더의 .trash 로 가고, 휴지통 페이지에서 되돌릴 수 있습니다.",
     "rv.helpSets": "아케이드는 FinalBurn Neo 의 부모 세트와 클론 세트를 한 게임으로 봅니다. 한국판, 해외판, 북미판, 유럽판, 일본판 순으로 돌아가는 정규 세트를 추천 버전으로 정합니다. 부모 롬이나 BIOS 가 roms/arcade 에 없으면 그 세트는 실행되지 않습니다.",
     "rv.helpTrash": "휴지통으로 옮긴 롬과 코어입니다. 지우지 않고 보관하며, 되돌리면 원래 자리로 돌아갑니다.",
     "rv.tag.bootleg": "부트렉",
@@ -61,7 +61,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   en: {
     "rv.title": "Multiple versions of the same game",
-    "rv.helpDups": "Groups files with the same title on one system. The list shows one recommended version per group; the other versions are picked in the game window. The recommended version is chosen by official Korean release first, then the newest Korean patch, and it can be changed here. Deleted files go to .trash in the retro folder, ROM and box art and bezel included, and come back from the trash tab.",
+    "rv.helpDups": "Groups files with the same title on one system. The list shows one recommended version per group; the other versions are picked in the game window. The recommended version is chosen by official Korean release first, then the newest Korean patch, and it can be changed here. Deleted files go to .trash in the retro folder, ROM and box art and bezel included, and come back from the trash page.",
     "rv.helpSets": "Arcade counts a FinalBurn Neo parent set and its clones as one game. The recommended version is the regular set going round in the order Korean, world, US, EU, Japanese. Without the parent ROM or the BIOS in roms/arcade the set does not run.",
     "rv.helpTrash": "ROMs and cores moved to the trash. Kept, not erased; restoring puts each back where it was.",
     "rv.tag.bootleg": "bootleg",
@@ -116,7 +116,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   ja: {
     "rv.title": "同じゲームの複数バージョン",
-    "rv.helpDups": "同じシステムでタイトルが同じファイルをまとめました。一覧にはまとめごとに推奨バージョン一つだけが出て、残りのバージョンはゲーム画面で選びます。推奨バージョンは公式韓国語版、最も新しい韓国語パッチの順で決まり、ここで変えられます。削除したファイルはロムとパッケージ・ベゼルまでレトロフォルダの .trash へ行き、ゴミ箱タブから戻せます。",
+    "rv.helpDups": "同じシステムでタイトルが同じファイルをまとめました。一覧にはまとめごとに推奨バージョン一つだけが出て、残りのバージョンはゲーム画面で選びます。推奨バージョンは公式韓国語版、最も新しい韓国語パッチの順で決まり、ここで変えられます。削除したファイルはロムとパッケージ・ベゼルまでレトロフォルダの .trash へ行き、ゴミ箱ページから戻せます。",
     "rv.helpSets": "アーケードはFinalBurn Neoの親セットとクローンセットを一つのゲームと見なします。韓国、海外、北米、欧州、日本の順で巡る正規セットを推奨バージョンにします。親ロムやBIOSが roms/arcade にないとそのセットは起動しません。",
     "rv.helpTrash": "ゴミ箱へ移したロムとコアです。消さずに保管し、戻せば元の場所に返ります。",
     "rv.tag.bootleg": "海賊版",
@@ -171,7 +171,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   zh: {
     "rv.title": "同一游戏的多个版本",
-    "rv.helpDups": "把同一系统里标题相同的文件分组。列表中每组只显示一个推荐版本，其余版本在游戏窗口中选择。推荐版本按官方韩文版、最新汉化补丁的顺序确定，可在此更改。删除的文件连同 ROM、封面和边框一起进入复古文件夹的 .trash，可在回收站标签页还原。",
+    "rv.helpDups": "把同一系统里标题相同的文件分组。列表中每组只显示一个推荐版本，其余版本在游戏窗口中选择。推荐版本按官方韩文版、最新汉化补丁的顺序确定，可在此更改。删除的文件连同 ROM、封面和边框一起进入复古文件夹的 .trash，可在回收站页面还原。",
     "rv.helpSets": "街机把 FinalBurn Neo 的父套装和克隆套装视为一个游戏。推荐版本按韩版、海外、北美、欧洲、日本的轮换顺序选择正规套装。父 ROM 或 BIOS 不在 roms/arcade 时该套装无法运行。",
     "rv.helpTrash": "移入回收站的 ROM 和核心。只保管不删除，还原后回到原位。",
     "rv.tag.bootleg": "盗版",
@@ -226,7 +226,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   "zh-Hant": {
     "rv.title": "同一遊戲的多個版本",
-    "rv.helpDups": "把同一系統裡標題相同的檔案分組。清單中每組只顯示一個推薦版本，其餘版本在遊戲視窗中選擇。推薦版本按官方韓文版、最新漢化補丁的順序決定，可在此變更。刪除的檔案連同 ROM、封面和邊框一起進入復古資料夾的 .trash，可在回收站分頁還原。",
+    "rv.helpDups": "把同一系統裡標題相同的檔案分組。清單中每組只顯示一個推薦版本，其餘版本在遊戲視窗中選擇。推薦版本按官方韓文版、最新漢化補丁的順序決定，可在此變更。刪除的檔案連同 ROM、封面和邊框一起進入復古資料夾的 .trash，可在回收站頁面還原。",
     "rv.helpSets": "街機把 FinalBurn Neo 的父套件和複製套件視為一個遊戲。推薦版本按韓版、海外、北美、歐洲、日本的輪替順序選擇正規套件。父 ROM 或 BIOS 不在 roms/arcade 時該套件無法執行。",
     "rv.helpTrash": "移入回收站的 ROM 和核心。只保管不刪除，還原後回到原位。",
     "rv.tag.bootleg": "盜版",
@@ -281,7 +281,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   es: {
     "rv.title": "Varias versiones del mismo juego",
-    "rv.helpDups": "Agrupa archivos con el mismo título en un mismo sistema. La lista saca una versión recomendada por grupo; las demás se eligen en la ventana del juego. La recomendada se decide por edición oficial coreana primero y parche coreano más nuevo después, y se puede cambiar aquí. Lo borrado va a .trash de la carpeta retro, ROM, carátula y marco incluidos, y se recupera desde la pestaña de papelera.",
+    "rv.helpDups": "Agrupa archivos con el mismo título en un mismo sistema. La lista saca una versión recomendada por grupo; las demás se eligen en la ventana del juego. La recomendada se decide por edición oficial coreana primero y parche coreano más nuevo después, y se puede cambiar aquí. Lo borrado va a .trash de la carpeta retro, ROM, carátula y marco incluidos, y se recupera desde la página de papelera.",
     "rv.helpSets": "El arcade cuenta el set padre de FinalBurn Neo y sus clones como un juego. La versión recomendada es el set regular que va rotando en orden coreano, mundial, norteamericano, europeo y japonés. Sin el ROM padre o la BIOS en roms/arcade, el set no arranca.",
     "rv.helpTrash": "ROMs y núcleos movidos a la papelera. Se guardan sin borrarse y al restaurar vuelven a su sitio.",
     "rv.tag.bootleg": "pirata",
@@ -336,7 +336,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   fr: {
     "rv.title": "Plusieurs versions du même jeu",
-    "rv.helpDups": "Regroupe les fichiers de même titre sur un même système. La liste montre une version recommandée par groupe ; les autres se choisissent dans la fenêtre du jeu. La recommandée suit d’abord l’édition officielle coréenne, puis le patch coréen le plus récent, et se change ici. Ce qui est supprimé part vers .trash du dossier rétro, ROM, pochette et bezel compris, et revient depuis l’onglet corbeille.",
+    "rv.helpDups": "Regroupe les fichiers de même titre sur un même système. La liste montre une version recommandée par groupe ; les autres se choisissent dans la fenêtre du jeu. La recommandée suit d’abord l’édition officielle coréenne, puis le patch coréen le plus récent, et se change ici. Ce qui est supprimé part vers .trash du dossier rétro, ROM, pochette et bezel compris, et revient depuis la page corbeille.",
     "rv.helpSets": "L’arcade compte un set parent FinalBurn Neo et ses clones comme un jeu. La version recommandée est le set officiel tournant dans l’ordre coréen, monde, US, Europe, Japon. Sans le ROM parent ou la BIOS dans roms/arcade, le set ne tourne pas.",
     "rv.helpTrash": "ROMs et cœurs mis à la corbeille. Gardés, pas effacés ; la restauration remet chacun à sa place.",
     "rv.tag.bootleg": "bootleg",
@@ -391,7 +391,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   de: {
     "rv.title": "Mehrere Versionen desselben Spiels",
-    "rv.helpDups": "Bündelt Dateien mit demselben Titel auf einem System. Die Liste zeigt je Bündel eine empfohlene Version; die anderen werden im Spielfenster gewählt. Empfohlen wird erst die offizielle koreanische Fassung, dann der neueste koreanische Patch, und hier lässt es sich ändern. Gelöschte Dateien wandern mit ROM, Cover und Bezel in .trash des Retro-Ordners und kommen über den Papierkorb-Reiter zurück.",
+    "rv.helpDups": "Bündelt Dateien mit demselben Titel auf einem System. Die Liste zeigt je Bündel eine empfohlene Version; die anderen werden im Spielfenster gewählt. Empfohlen wird erst die offizielle koreanische Fassung, dann der neueste koreanische Patch, und hier lässt es sich ändern. Gelöschte Dateien wandern mit ROM, Cover und Bezel in .trash des Retro-Ordners und kommen über den Seite Papierkorb zurück.",
     "rv.helpSets": "Arcade zählt einen FinalBurn-Neo-Elternset mit seinen Klonen als ein Spiel. Empfohlen wird der reguläre Set in der Runde Korea, Welt, US, Europa, Japan. Fehlt das Eltern-ROM oder die BIOS in roms/arcade, läuft der Set nicht.",
     "rv.helpTrash": "ROMs und Cores in der Papierkorb verschoben. Aufgehoben, nicht gelöscht; Wiederherstellen setzt alles an seinen Ort zurück.",
     "rv.tag.bootleg": "Bootleg",
@@ -446,7 +446,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   it: {
     "rv.title": "Più versioni dello stesso gioco",
-    "rv.helpDups": "Raggruppa i file con lo stesso titolo sullo stesso sistema. L’elenco mostra una versione consigliata per gruppo; le altre si scelgono nella finestra del gioco. La consigliata segue prima l’edizione ufficiale coreana, poi la patch coreana più recente, e qui si può cambiare. I file eliminati vanno in .trash della cartella retro, ROM, copertina e bezel compresi, e tornano dalla scheda cestino.",
+    "rv.helpDups": "Raggruppa i file con lo stesso titolo sullo stesso sistema. L’elenco mostra una versione consigliata per gruppo; le altre si scelgono nella finestra del gioco. La consigliata segue prima l’edizione ufficiale coreana, poi la patch coreana più recente, e qui si può cambiare. I file eliminati vanno in .trash della cartella retro, ROM, copertina e bezel compresi, e tornano dalla pagina cestino.",
     "rv.helpSets": "L’arcade conta un set padre FinalBurn Neo e i suoi cloni come un gioco. La versione consigliata è il set regolare che ruota in ordine coreano, mondiale, nordamericano, europeo, giapponese. Senza la ROM padre o la BIOS in roms/arcade il set non parte.",
     "rv.helpTrash": "ROM e core spostati nel cestino. Conservati, non cancellati; il ripristino rimette ciascuno al suo posto.",
     "rv.tag.bootleg": "bootleg",
@@ -501,7 +501,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   pt: {
     "rv.title": "Várias versões do mesmo jogo",
-    "rv.helpDups": "Agrupa arquivos com o mesmo título num mesmo sistema. A lista mostra uma versão recomendada por grupo; as outras se escolhem na janela do jogo. A recomendada segue primeiro a edição oficial coreana, depois o patch coreano mais novo, e muda aqui. O apagado vai para .trash da pasta retrô, ROM, capa e bezel inclusos, e volta pela aba lixeira.",
+    "rv.helpDups": "Agrupa arquivos com o mesmo título num mesmo sistema. A lista mostra uma versão recomendada por grupo; as outras se escolhem na janela do jogo. A recomendada segue primeiro a edição oficial coreana, depois o patch coreano mais novo, e muda aqui. O apagado vai para .trash da pasta retrô, ROM, capa e bezel inclusos, e volta pela página lixeira.",
     "rv.helpSets": "O arcade conta um set pai do FinalBurn Neo e seus clones como um jogo. A versão recomendada é o set regular que alterna na ordem Coreia, mundial, norte-americano, europeu, japonês. Sem a ROM pai ou a BIOS em roms/arcade o set não roda.",
     "rv.helpTrash": "ROMs e núcleos movidos para a lixeira. Guardados, não apagados; restaurar devolve cada um ao seu lugar.",
     "rv.tag.bootleg": "pirata",
@@ -556,7 +556,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   nl: {
     "rv.title": "Meerdere versies van hetzelfde spel",
-    "rv.helpDups": "Groepeert bestanden met dezelfde titel op hetzelfde systeem. De lijst toont per groep één aanbevolen versie; de rest kies je in het spelvenster. De aanbevolen volgt eerst de officiële Koreaanse uitgave, dan de nieuwste Koreaanse patch, en hier is hij te wisselen. Gewiste bestanden gaan met ROM, cover en bezel naar .trash van de retromap en komen terug via het prullenbaktabblad.",
+    "rv.helpDups": "Groepeert bestanden met dezelfde titel op hetzelfde systeem. De lijst toont per groep één aanbevolen versie; de rest kies je in het spelvenster. De aanbevolen volgt eerst de officiële Koreaanse uitgave, dan de nieuwste Koreaanse patch, en hier is hij te wisselen. Gewiste bestanden gaan met ROM, cover en bezel naar .trash van de retromap en komen terug via de prullenbakpagina.",
     "rv.helpSets": "Arcade telt een FinalBurn Neo-ouderset en zijn klonen als één spel. Aanbevolen is de reguliere set die rouleert in de volgorde Korea, wereld, VS, Europa, Japan. Zonder de ouder-ROM of de BIOS in roms/arcade draait de set niet.",
     "rv.helpTrash": "ROMs en cores naar de prullenbak verplaatst. Bewaard, niet gewist; terugzetten zet alles op zijn plek terug.",
     "rv.tag.bootleg": "bootleg",
@@ -611,7 +611,7 @@ export const RETRO_VARIANTS_WORDS = {
   },
   ru: {
     "rv.title": "Несколько версий одной игры",
-    "rv.helpDups": "Группирует файлы с одинаковым названием в одной системе. В списке показывается одна рекомендуемая версия на группу; остальные выбираются в окне игры. Рекомендуемой сначала идёт официальное корейское издание, затем самый свежий корейский патч, и её можно поменять здесь. Удалённые файлы уходят в .trash папки ретро вместе с ROM, обложкой и безелом и возвращаются из вкладки корзины.",
+    "rv.helpDups": "Группирует файлы с одинаковым названием в одной системе. В списке показывается одна рекомендуемая версия на группу; остальные выбираются в окне игры. Рекомендуемой сначала идёт официальное корейское издание, затем самый свежий корейский патч, и её можно поменять здесь. Удалённые файлы уходят в .trash папки ретро вместе с ROM, обложкой и безелом и возвращаются из страницы корзины.",
     "rv.helpSets": "Аркада считает родительский набор FinalBurn Neo и его клоны одной игрой. Рекомендуется обычный набор, чередующийся в порядке Корея, мир, США, Европа, Япония. Без родительского ROM или BIOS в roms/arcade набор не запускается.",
     "rv.helpTrash": "ROM и ядра, перемещённые в корзину. Хранятся, не стираются; восстановление возвращает каждый на место.",
     "rv.tag.bootleg": "пиратка",

@@ -33,7 +33,7 @@ import debug from "../debug.js";
 import { dataDir, publicBaseUrl } from "./envs.js";
 import * as integrations from "../security/integrations.js";
 import * as approvalTokens from "../security/approval-tokens.js";
-import { DEFAULT_LANG, render, translator } from "./alert-messages.js";
+import { DEFAULT_LANG, LANGS, render, translator } from "./alert-messages.js";
 import { downloadSecurityHistory } from "./download-security-history.js";
 
 /** What can be told, with what the admin page says about each; `on` is the default. */
@@ -99,6 +99,12 @@ export const recent = () => [...(history ??= readHistory()), ...downloadSecurity
   .map((e, i) => [e, i])
   .sort((a, b) => b[0].at - a[0].at || b[1] - a[1])
   .map(([e]) => e);
+
+/** One history entry as a viewer reads it: its words and its note in `lang`, or as written when it has no such words. */
+export function historyIn({ texts, detailKey, ...entry }, lang) {
+  const l = LANGS.includes(lang) ? lang : "en";
+  return { ...entry, text: texts?.[l] ?? entry.text, ...(detailKey ? { detail: translator(l)(detailKey) } : {}) };
+}
 
 /** The events the admin has on: a saved comma list, "-" for none, empty for the defaults. */
 export function enabledEvents(list = integrations.get("telegram").events) {
@@ -176,15 +182,15 @@ const link = () => (publicBaseUrl ? `\n\n🔗 ${publicBaseUrl.replace(/\/$/, "")
 const EVENT_ICON = { device: "💌", account: "🙋", lockout: "🔒", security: "🛡️", probe: "🚨", inbox: "📥", direct: "🌐", nsz: "🗜️", server: "🚀", plugin: "🧩", damaged: "🩹", chat: "💬", test: "🔔" };
 
 /** Sends now and records how it went. Resolves to the history entry. */
-async function deliver(event, text, now, title = translator(alertLang())(`event.${event}`), extra = {}) {
+async function deliver(event, text, now, title = translator(alertLang())(`event.${event}`), extra = {}, texts = null) {
   const conf = integrations.get("telegram");
   try {
     const d = await sendTelegram(conf, `${EVENT_ICON[event] ?? "🔔"} ${title} · CookingFoil\n\n${text}${link()}`, extra);
     if (!d.ok) debug.log("alerts: telegram refused: %s", d.description ?? "unknown");
-    return remember({ at: now, event, text, status: d.ok ? "sent" : "failed", ...(d.ok ? {} : { detail: d.description ?? "" }) });
+    return remember({ at: now, event, text, ...(texts ? { texts } : {}), status: d.ok ? "sent" : "failed", ...(d.ok ? {} : { detail: d.description ?? "" }) });
   } catch (err) {
     debug.log("alerts: telegram unreachable: %s", err.message);
-    return remember({ at: now, event, text, status: "failed", detail: translator("ko")("detailTelegramFail") });
+    return remember({ at: now, event, text, ...(texts ? { texts } : {}), status: "failed", detail: translator("ko")("detailTelegramFail"), detailKey: "detailTelegramFail" });
   }
 }
 
@@ -244,8 +250,11 @@ function burstAllows(event, now) {
 export function alert(event, message, { subject = "", now = Date.now(), digest = null, approval = null, burst = false } = {}) {
   if (!(event in EVENTS)) return false;
   const text = render(message, alertLang());
+  // The history page reads in its viewer's language, whichever one Telegram is written in.
+  const texts = typeof message === "function" ? Object.fromEntries(LANGS.map((l) => [l, render(message, l)])) : null;
+  const said = texts ? { text, texts } : { text };
   if (!integrations.configured("telegram") || !wanted(event)) {
-    remember({ at: now, event, text, status: "off" });
+    remember({ at: now, event, ...said, status: "off" });
     return false;
   }
   if (digest) {
@@ -262,7 +271,7 @@ export function alert(event, message, { subject = "", now = Date.now(), digest =
   } else {
     const key = `${event}:${subject}`;
     if (now - (lastSent.get(key) ?? -Infinity) < DEDUPE_MS) {
-      remember({ at: now, event, text, status: "held", detail: translator("ko")("detailHeldSame") });
+      remember({ at: now, event, ...said, status: "held", detail: translator("ko")("detailHeldSame"), detailKey: "detailHeldSame" });
       return false;
     }
     lastSent.delete(key);
@@ -270,11 +279,11 @@ export function alert(event, message, { subject = "", now = Date.now(), digest =
     pruneLastSent(now);
   }
   if ((approval || burst) && !burstAllows(event, now)) {
-    remember({ at: now, event, text, status: "held", detail: translator("ko")("detailHeldBurst") });
+    remember({ at: now, event, ...said, status: "held", detail: translator("ko")("detailHeldBurst"), detailKey: "detailHeldBurst" });
     return false;
   }
   const extra = approval && buttonsOn() ? { reply_markup: approvalKeyboard(approvalTokens.issue(approval.kind, approval.ref, now)) } : {};
-  deliver(event, text, now, undefined, extra);
+  deliver(event, text, now, undefined, extra, texts);
   return true;
 }
 

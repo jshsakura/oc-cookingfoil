@@ -9,11 +9,11 @@ import { freshCode, signIn } from './admin-sign-in';
 const PAGES: [string, string, string][] = [
   ['/admin', 'tab-overview', '서버 현황'],
   ['/admin/games', 'tab-library', '게임'],
-  ['/admin/incoming/temp', 'tab-organize', '파일 업로드'],
-  ['/admin/upload', 'tab-upload', '파일 업로드'],
+  ['/admin/incoming/temp', 'tab-organize', '주고받기'],
+  ['/admin/upload', 'tab-upload', ''],
   // Stage B first bundle: these pages carry only their own panel.
   ['/admin/convert', 'tab-nsz', '파일 압축'],
-  ['/admin/inbox', 'tab-inbox', '파일 업로드'],
+  ['/admin/inbox', 'tab-inbox', '주고받기'],
   ['/admin/featured', 'tab-featured', '홈 화면 구성'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
@@ -26,7 +26,7 @@ const PAGES: [string, string, string][] = [
   ['/admin/client', 'tab-client', '클라이언트 배포'],
   ['/admin/settings/server', 'ss-list', '서버 동작'],
   ['/admin/settings/integrations', 'intg-h', '외부 서비스'],
-  ['/admin/settings/login', 'tab-settings', '로그인'],
+  ['/admin/settings/login', 'tab-settings', '구글 로그인'],
   ['/admin/settings/admin', 'tab-settings', '관리자 보안'],
   ['/admin/settings/automation', 'mcp-on', '자동화 토큰'],
 ];
@@ -38,7 +38,8 @@ test('every page opens its own section, marks the sidebar and keeps its address 
     await page.goto(path);
     const sel = section.startsWith('h2:') ? section : `#${section}`;
     await expect(page.locator(sel), path).toBeVisible();
-    await expect(page.locator(`aside.adm-side > nav a[aria-current="page"]`), path).toContainText(label);
+    if (label) await expect(page.locator(`aside.adm-side > nav a[aria-current="page"]`), path).toContainText(label);
+    else await expect(page.locator(`aside.adm-side > nav a[href="${path}"]`), `${path} has no menu entry`).toHaveCount(0);
     expect(page.url().replace(/#.*$/, ''), path).toContain(path);
     await page.reload();
     await expect(page.locator(`#${section}`), `${path} after reload`).toBeVisible();
@@ -325,15 +326,15 @@ test('the sidebar lists each group in the agreed order, with no separate securit
   expect(await hrefs('details[data-grp="ops"]')).toEqual(['/admin/convert', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']);
   expect(await hrefs('details[data-grp="set"]')).toEqual(['/admin/settings/server', '/admin/settings/login', '/admin/settings/admin', '/admin/settings/notifications', '/admin/settings/integrations', '/admin/settings/plugins', '/admin/settings/automation']);
   await expect(side.locator('details[data-grp="ops"] summary [data-top]')).toHaveText('작업과 기록');
-  await expect(side.locator('a.adm-item[href="/admin/settings/login"]')).toHaveText('로그인');
+  await expect(side.locator('a.adm-item[href="/admin/settings/login"]')).toHaveText('구글 로그인');
   await expect(side.locator('a.adm-item[href="/admin/settings/automation"]')).toHaveText('자동화 토큰');
 });
 
-test('the upload page is called 업로드 in the header, the tab and the breadcrumb', async ({ page }) => {
+test('the upload page is called 업로드 in the header and the breadcrumb, and has no menu entry or tab', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/upload');
   await expect(page.locator('#up-entry .up-entry-t')).toHaveText('업로드');
-  await expect(page.locator('.adm-rowtabs a[href="/admin/upload"]')).toHaveText('업로드');
+  await expect(page.locator('a[href="/admin/upload"]:not(#up-entry)')).toHaveCount(0);
   await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('업로드');
 });
 

@@ -51,12 +51,12 @@ test('a recommended line goes in with one click, can be undone from its notice, 
   const advice = page.locator('#rcf-advice');
   await expect(advice).toContainText('ScummVM');
   await advice.getByRole('button', { name: '적용' }).click();
-  await expect(page.locator('#toast')).toContainText('저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('저장했습니다');
   await expect(advice).toContainText('추천하는 설정이 모두 들어가 있습니다.');
   expect(fs.readFileSync(override, 'utf8')).toBe('video_threaded = "false"\n');
 
   await page.locator('#toast').getByRole('button', { name: '되돌리기' }).click();
-  await expect(page.locator('#toast')).toContainText('되돌렸습니다.');
+  await expect(page.locator('#toast')).toContainText('되돌렸습니다');
   await expect(advice.getByRole('button', { name: '적용' })).toBeVisible();
   expect(fs.existsSync(override)).toBe(false);
 
@@ -74,7 +74,7 @@ test('a core setting left empty says it follows the global value, and each setti
   await expect(threaded.locator('select option').first()).toContainText('전체 설정 따름');
 
   await threaded.locator('select').selectOption('false');
-  await expect(page.locator('#toast')).toContainText('저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('저장했습니다');
   expect(fs.readFileSync(override, 'utf8')).toBe('video_threaded = "false"\n');
   await expect(page.locator('#rcf-body .rcf-row[data-set]').first()).toBeVisible();
 });
@@ -85,11 +85,11 @@ test('a global setting spreads into every core override as one change that undoe
   await openSettings(page);
   const row = await settingRow(page, 'fps_show');
   await row.locator('select').selectOption('true');
-  await expect(page.locator('#toast')).toContainText('저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('저장했습니다');
   await row.getByRole('button', { name: '모든 기기에' }).click();
-  await expect(page.locator('#toast')).toContainText('코어 1개에 넣었습니다.');
+  await expect(page.locator('#toast')).toContainText('코어 1개에 넣었습니다');
   expect(fs.readFileSync(override, 'utf8')).toBe('fps_show = "true"\n');
   await page.locator('#toast').getByRole('button', { name: '되돌리기' }).click();
-  await expect(page.locator('#toast')).toContainText('되돌렸습니다.');
+  await expect(page.locator('#toast')).toContainText('되돌렸습니다');
   expect(fs.existsSync(override)).toBe(false);
 });

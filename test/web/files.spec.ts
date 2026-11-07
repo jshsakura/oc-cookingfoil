@@ -153,7 +153,7 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await expect(menu).toBeHidden();
 
   await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '파일 압축', '파일 검사', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['열기', 'zip으로 내려받기', '공유 링크', '파일 압축', '파일 검사', '잘라내기', '복사', '이름 바꾸기', '이동', '휴지통으로', '속성']);
   await menu.getByRole('menuitem', { name: '이름 바꾸기' }).click();
   await page.locator('#ask-input').fill('Alef');
   await page.locator('#ask-ok').click();
@@ -164,7 +164,7 @@ test('a right click opens a menu of what the pick allows, and on the empty list 
   await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
   await row(page, 'Beta').locator('td.c-mtime').click({ button: 'right' });
   await expect(menu).toContainText('2개를 골랐습니다');
-  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '파일 압축', '파일 검사', '잘라내기', '복사', '이동', '휴지통으로', '속성']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['zip으로 내려받기', '파일 압축', '파일 검사', '잘라내기', '복사', '이동', '휴지통으로', '되돌리기', '속성']);
   await page.locator('#fb-info').click();
   await expect(menu).toBeHidden();
 
@@ -183,11 +183,11 @@ test('in the games folder the menu sends the pick to 파일 압축 and 파일 �
   const menu = page.locator('#fb-menu');
   await row(page, 'Alpha').locator('td.c-mtime').click({ button: 'right' });
   await menu.getByRole('menuitem', { name: '파일 압축' }).click();
-  await expect(page.locator('#toast')).toContainText('선택한 2개를 변환합니다.');
+  await expect(page.locator('#toast')).toContainText('선택한 2개를 변환합니다');
   expect(sent.nsz).toEqual({ rels: ['fb-test/Alpha'] });
   await row(page, 'loose.nsp').locator('td.c-mtime').click({ button: 'right' });
   await menu.getByRole('menuitem', { name: '파일 검사' }).click();
-  await expect(page.locator('#toast')).toContainText('다시 검사합니다.');
+  await expect(page.locator('#toast')).toContainText('다시 검사합니다');
   expect(sent.verify).toEqual({ rels: ['fb-test/loose.nsp'] });
 
   await row(page, 'Beta').locator('td.c-name').dblclick();
@@ -247,6 +247,9 @@ test('files dropped on the list or picked with Upload land in the open folder, i
   await page.locator('#fb .fb-wrap').dispatchEvent('dragenter', { dataTransfer: drop });
   await expect(page.locator('#fb')).toHaveClass(/dragging/);
   await page.locator('#fb .fb-wrap').dispatchEvent('drop', { dataTransfer: drop });
+  await expect(page.locator('#ask-dialog')).toContainText('keep.txt');
+  await page.locator('#ask-select').selectOption('skip');
+  await page.locator('#ask-ok').click();
   await expect(page.locator('#toast')).toContainText('1개를 올렸습니다. 1개는 같은 이름이 이미 있어 건너뛰었습니다');
   await expect(page.locator('#fb')).not.toHaveClass(/dragging/);
   expect(fs.readFileSync(path.join(base, 'Beta/dropped.nsp'), 'utf8')).toBe('dropped bytes');
@@ -314,7 +317,8 @@ test('undo walks out of an empty new folder it takes back, and keeps one a file 
   expect(new URL(page.url()).searchParams.get('path')).toBe('fb-test');
 
   await made('Filled');
-  await page.locator('#fb-file').setInputFiles([{ name: 'precious.nsp', mimeType: 'application/octet-stream', buffer: Buffer.from('bytes') }]);
+  put('Filled/precious.nsp', 'bytes');
+  await page.locator('#fb-refresh').click();
   await expect(row(page, 'precious.nsp')).toBeVisible();
   await page.locator('#fb-undo-btn').click();
   await expect(page.locator('#toast')).toContainText('되돌리지 않았습니다');
@@ -904,4 +908,109 @@ test('the retro folder says what each folder is for, marks the server\'s own, an
   if (process.env.FB_SHOTS) await page.screenshot({ path: path.join(process.env.FB_SHOTS, 'files-retro-preview.png') });
   await side.getByRole('button', { name: '미리 보기' }).click();
   await expect(page.locator('#fb-view')).toBeVisible();
+});
+
+test('a folder in the tree takes a drop, but not the folder the files are already in', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.locator('#fb-t-tree').click();
+  const tree = page.locator('#fb-tree');
+  await tree.getByRole('button', { name: 'Alpha', exact: true }).waitFor();
+  await row(page, 'loose.nsp').locator('td.c-size').dragTo(tree.getByRole('button', { name: 'Alpha', exact: true }));
+  await expect(page.locator('#toast')).toContainText('1개를 옮겼습니다');
+  expect(has('Alpha/loose.nsp')).toBe(true);
+});
+
+test('the empty space under a short list opens the folder menu and takes a box drag', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test%2FAlpha');
+  await expect(row(page, 'one.nsp')).toBeVisible();
+  const main = (await page.locator('#fb-main').boundingBox())!;
+  const wrap = (await page.locator('#fb .fb-wrap').boundingBox())!;
+  const y = wrap.y + wrap.height + 20;
+  expect(y).toBeLessThan(main.y + main.height);
+  await page.mouse.click(main.x + 200, y, { button: 'right' });
+  await expect(page.locator('#fb-menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.mouse.move(main.x + 300, y);
+  await page.mouse.down();
+  await page.mouse.move(main.x + 200, wrap.y + 50, { steps: 6 });
+  await expect(page.locator('#fb-lasso')).toBeVisible();
+  await page.mouse.up();
+});
+
+test('picking a folder with a file counts what the folder holds in the details', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await page.locator('#fb-t-side').click();
+  await row(page, 'Alpha').locator('td.c-size').click();
+  await row(page, 'loose.nsp').locator('td.c-size').click({ modifiers: ['ControlOrMeta'] });
+  await expect(page.locator('#fb .fb-side .fb-s-sub')).toContainText('파일 3개');
+});
+
+test('Ctrl+Y does a taken-back rename again, and a new step ends what could be done again', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await row(page, 'loose.nsp').locator('td.c-size').click();
+  await page.keyboard.press('F2');
+  await page.locator('#ask-input').fill('renamed.nsp');
+  await page.locator('#ask-ok').click();
+  await expect(row(page, 'renamed.nsp')).toBeVisible();
+  await page.keyboard.press('Control+z');
+  await expect(row(page, 'loose.nsp')).toBeVisible();
+  await page.keyboard.press('Control+y');
+  await expect(row(page, 'renamed.nsp')).toBeVisible();
+  await expect(page.locator('#toast')).toContainText('다시 실행했습니다');
+  await page.keyboard.press('Control+z');
+  await expect(row(page, 'loose.nsp')).toBeVisible();
+  await row(page, 'loose.nsp').locator('td.c-size').click();
+  await page.keyboard.press('Delete');
+  await page.locator('#ask-ok').click();
+  await expect(row(page, 'loose.nsp')).toHaveCount(0);
+  await page.keyboard.press('Control+y');
+  await expect(page.locator('#toast')).toContainText('다시 실행할 작업이 없습니다');
+});
+
+test('a shared file is marked in the list, and a second link asks first', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  put('shared-once.nsp');
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  const share = async () => {
+    await row(page, 'shared-once.nsp').locator('td.c-size').click({ button: 'right' });
+    await page.locator('#fb-menu').getByRole('menuitem', { name: '공유 링크', exact: true }).click();
+  };
+  await share();
+  await page.locator('#ask-ok').click();
+  await expect(row(page, 'shared-once.nsp').locator('.fb-shared')).toBeVisible();
+  await share();
+  await expect(page.locator('#ask-text')).toContainText('살아 있는 링크가 1개');
+  await page.locator('#ask-no').click();
+  await expect(page.locator('#ask-dialog')).toBeHidden();
+});
+
+test('the trash journal names a move in words, and an entry from today is on its first day', async ({ page }) => {
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test');
+  await row(page, 'loose.nsp').locator('td.c-size').dragTo(row(page, 'Alpha').locator('td.c-size'));
+  await expect(row(page, 'loose.nsp')).toHaveCount(0);
+  await page.goto('/admin/trash');
+  await expect(page.locator('#tr-journal b').filter({ hasText: /^이동$/ }).first()).toBeVisible();
+  await expect(page.locator('#tr-journal b').filter({ hasText: /^move$/ })).toHaveCount(0);
+});
+
+test('a file says its own id, not its base game\'s, and a folder says none', async ({ page }) => {
+  put('Own/Patch [0100000000020800][v0].nsp');
+  await page.route('**/admin/api/files/list**', async (route) => {
+    const res = await route.fetch();
+    const json = await res.json();
+    for (const i of json.items) if (i.name.startsWith('Patch')) Object.assign(i, { titleId: '0100000000020000', ownId: '0100000000020800', kind: 'update' });
+    await route.fulfill({ response: res, json });
+  });
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await signIn(page);
+  await page.goto('/admin/games?tab=folder&path=fb-test%2FOwn');
+  await row(page, 'Patch [0100000000020800][v0].nsp').locator('td.c-size').click();
+  await expect(page.locator('#fb .fb-side')).toContainText('0100000000020800');
+  await expect(page.locator('#fb .fb-side')).not.toContainText('0100000000020000');
 });

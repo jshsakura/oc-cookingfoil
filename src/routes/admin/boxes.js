@@ -14,6 +14,7 @@ export const BOX_CSS = /* css */ `
 .box-jump{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
 .box-jump button{padding:6px 13px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel);color:var(--text);font-size:var(--fs-sm);font-weight:var(--fw-bold);min-height:0}
 .box-jump button:hover{background:var(--sunk)}
+@media (max-width:760px){.box-jump button{min-height:44px}}
 .box-jump button[aria-selected=true]{background:var(--text);color:var(--panel);border-color:var(--text)}
 .box-fold>summary{list-style:none;cursor:pointer}.box-fold>summary::-webkit-details-marker{display:none}
 .box-fold>summary::after{content:"";width:8px;height:8px;margin-left:auto;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}

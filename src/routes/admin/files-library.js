@@ -23,37 +23,38 @@ export const LIBRARY_CSS = /* css */ `
 #fb .fb-tn button:hover{background:var(--sunk)}
 #fb .fb-tn[aria-current="page"] .fb-tl{background:rgba(var(--accent-rgb),.12);color:var(--text);font-weight:var(--fw-bold)}
 #fb .fb-gicon{width:28px;height:28px;flex:0 0 28px;border-radius:var(--r-sm);object-fit:cover;background:var(--sunk)}
-#fb .fb-badge{flex:0 0 auto;padding:1px 7px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:var(--fw-bold);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
-#fb .fb-badge[data-tone="warn"]{color:var(--warn);border-color:currentColor}
-#fb .fb-badge[data-tone="bad"]{color:var(--bad);border-color:currentColor}
-#fb .fb-side .fb-s-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
-#fb .fb-side .fb-s-art{width:96px;height:96px;border-radius:var(--r-lg);object-fit:cover;background:var(--sunk)}
-#fb .fb-side .fb-s-art.ico{padding:24px;color:var(--muted)}
-#fb .fb-side .fb-s-meta{display:grid;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-#fb .fb-side .fb-s-about{margin:0;font-size:var(--fs-xs);line-height:1.6;color:var(--muted);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:8;overflow:hidden}
-#fb .fb-side .fb-s-shots{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-#fb .fb-side .fb-s-shots img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-sm);background:var(--sunk)}
-#fb .fb-side h4{margin:0;font-size:var(--fs-md);overflow-wrap:anywhere}
-#fb .fb-side .fb-s-sub{font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
-#fb .fb-side .fb-s-why{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.55;color:var(--muted)}
+:is(#fb,#fb-props) .fb-badge{flex:0 0 auto;padding:1px 7px;border-radius:var(--r-pill);font-size:var(--fs-xs);font-weight:var(--fw-bold);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+:is(#fb,#fb-props) .fb-badge[data-tone="warn"]{color:var(--warn);border-color:currentColor}
+:is(#fb,#fb-props) .fb-badge[data-tone="bad"]{color:var(--bad);border-color:currentColor}
+:is(#fb .fb-side,#fb-props) .fb-s-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+:is(#fb .fb-side,#fb-props) .fb-s-art{width:96px;height:96px;border-radius:var(--r-lg);object-fit:cover;background:var(--sunk)}
+:is(#fb .fb-side,#fb-props) .fb-s-art.ico{padding:24px;color:var(--muted)}
+:is(#fb .fb-side,#fb-props) .fb-s-meta{display:grid;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+:is(#fb .fb-side,#fb-props) .fb-s-about{margin:0;font-size:var(--fs-xs);line-height:1.6;color:var(--muted);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:8;overflow:hidden}
+:is(#fb .fb-side,#fb-props) .fb-s-shots{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+:is(#fb .fb-side,#fb-props) .fb-s-shots img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-sm);background:var(--sunk)}
+:is(#fb .fb-side,#fb-props) h4{margin:0;font-size:var(--fs-md);overflow-wrap:anywhere}
+:is(#fb .fb-side,#fb-props) .fb-s-sub{font-size:var(--fs-xs);color:var(--faint);overflow-wrap:anywhere}
+:is(#fb .fb-side,#fb-props) .fb-s-why{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.55;color:var(--muted)}
 #fb .fb-about{flex:0 1000 auto;min-width:0;color:var(--faint);font-size:var(--fs-xs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fb .fb-side .fb-s-what{margin:0;font-size:var(--fs-sm);line-height:1.55;color:var(--muted)}
-#fb .fb-side .fb-s-prev{display:grid;gap:6px}
-#fb .fb-side .fb-s-prev img{display:block;max-width:100%;max-height:220px;margin:0 auto;border-radius:var(--r-md);background:var(--sunk);cursor:zoom-in}
-#fb .fb-side .fb-s-prev pre{margin:0;max-height:180px;overflow:auto;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
-#fb .fb-side .fb-s-why strong{display:block;margin-bottom:4px;font-size:var(--fs-sm);color:var(--text)}
-#fb .fb-side .fb-s-why p{margin:0 0 6px}
-#fb .fb-side .fb-s-why[data-tone="bad"] strong{color:var(--bad)}
-#fb .fb-side .fb-s-why[data-tone="warn"] strong{color:var(--warn)}
-#fb .fb-side .fb-s-badges{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
-#fb .fb-side dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;margin:0;font-size:var(--fs-sm)}
-#fb .fb-side dt{color:var(--muted)}#fb .fb-side dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-#fb .fb-side .fb-s-links:empty{display:none}
-#fb .fb-side .fb-s-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 4px 10px;border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-sm)}
-#fb .fb-side .fb-s-link+.fb-s-link{margin-top:4px}
-#fb .fb-side .fb-s-link .ib{width:28px;height:28px;padding:0;display:inline-grid;place-items:center}
-#fb .fb-side .fb-s-link .ib .ico{width:14px;height:14px}
-#fb .fb-side .fb-s-none{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:24px 0}
+:is(#fb .fb-side,#fb-props) .fb-s-what{margin:0;font-size:var(--fs-sm);line-height:1.55;color:var(--muted)}
+:is(#fb .fb-side,#fb-props) .fb-s-prev{display:grid;gap:6px}
+:is(#fb .fb-side,#fb-props) .fb-s-prev img{display:block;max-width:100%;max-height:220px;margin:0 auto;border-radius:var(--r-md);background:var(--sunk);cursor:zoom-in}
+:is(#fb .fb-side,#fb-props) .fb-s-prev pre{margin:0;max-height:180px;overflow:auto;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-xs);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+:is(#fb .fb-side,#fb-props) .fb-s-why strong{display:block;margin-bottom:4px;font-size:var(--fs-sm);color:var(--text)}
+:is(#fb .fb-side,#fb-props) .fb-s-why p{margin:0 0 6px}
+:is(#fb .fb-side,#fb-props) .fb-s-why[data-tone="bad"] strong{color:var(--bad)}
+:is(#fb .fb-side,#fb-props) .fb-s-why[data-tone="warn"] strong{color:var(--warn)}
+:is(#fb .fb-side,#fb-props) .fb-s-badges{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
+:is(#fb .fb-side,#fb-props) dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;margin:0;font-size:var(--fs-sm)}
+:is(#fb .fb-side,#fb-props) dt{color:var(--muted)}#fb .fb-side dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+:is(#fb .fb-side,#fb-props) .fb-s-links:empty{display:none}
+:is(#fb .fb-side,#fb-props) .fb-s-link{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 4px 4px 10px;border-radius:var(--r-md);background:var(--sunk);font-size:var(--fs-sm)}
+:is(#fb .fb-side,#fb-props) .fb-s-link+.fb-s-link{margin-top:4px}
+:is(#fb .fb-side,#fb-props) .fb-s-link .ib{width:28px;height:28px;padding:0;display:inline-grid;place-items:center}
+@media (max-width:760px){#fb-props .fb-s-link .ib{width:40px;height:40px}}
+:is(#fb .fb-side,#fb-props) .fb-s-link .ib .ico{width:14px;height:14px}
+:is(#fb .fb-side,#fb-props) .fb-s-none{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:24px 0}
 #fb .fb-more{height:1px}
 /* With the details pane open its buttons stand in for the row's, which leaves the names their room. */
 @media (min-width:900px){#fb.side-on .c-act{display:none}}
@@ -137,20 +138,31 @@ function fbDecorate(n,f){if(f.titleId){const ic=n.querySelector('.ico');if(ic){c
 // What the file check found, in the words the console shows: a title and what it means for an install.
 function fbWhy(f){if(!f.why?.help)return [];const box=el('div',null,'fb-s-why');box.dataset.tone=f.check==='modified'?'':f.why.certain===false?'warn':'bad';
   box.append(el('strong',f.why.help.title),...f.why.help.body.split('\\n\\n').map((t)=>el('p',t)));return [box];}
+let fbSideHeld=null;
 function fbSideOn(){return $('fb').classList.contains('side-on');}
 function fbSide(){if(!fbSideOn())return;const s=$('fb-side');const items=[...fb.sel].map(fbItem).filter(Boolean);
   if(items.length===1)return fbSideOne(s,items[0]);
-  if(items.length>1){const files=items.filter((f)=>f.type==='file');
-    s.replaceChildren(el('h4',topFill('fb.selected',{n:num(items.length)})),el('p',topFill('fb.side.files',{n:num(files.length),size:fbSize(files.reduce((a,f)=>a+(f.size||0),0))}),'fb-s-sub'));return;}
+  if(items.length>1){const files=items.filter((f)=>f.type==='file');const line=el('p',topFill('fb.side.files',{n:num(files.length),size:fbSize(files.reduce((a,f)=>a+(f.size||0),0))}),'fb-s-sub');
+    s.replaceChildren(el('h4',topFill('fb.selected',{n:num(items.length)})),line);if(files.length===items.length)return;
+    // A folder counts by what it holds, as it does when picked alone. A repaint of the same pick reuses the answer.
+    const key=fb.root+'|'+items.map((f)=>f.rel).join('|');const show=(r)=>{line.textContent=topFill('fb.side.files',{n:num(r.files),size:fbSize(r.bytes)});};
+    if(fbSideHeld?.key===key){if(fbSideHeld.r)show(fbSideHeld.r);return;}const held=fbSideHeld={key,r:null};
+    api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:items.map((f)=>f.rel)}}).then((r)=>{held.r=r;if(line.isConnected)show(r);}).catch(()=>{});return;}
   s.replaceChildren(el('p',topText('fb.side.none'),'fb-s-none'));}
-function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
+// What the details pane and the properties window both open with: the picture, the name, the badges and what the item is.
+function fbSideTop(f){const head=el('div',null,'fb-s-head');
   if(f.titleId){const img=fbGameIcon(f,'md','fb-s-art');img.addEventListener('error',()=>img.replaceWith(fbSideIcon(f)),{once:true});head.append(img);}else head.append(fbSideIcon(f));
   head.append(el('h4',f.title||f.name));if(f.title)head.append(el('div',f.name,'fb-s-sub'));
   const badges=fbBadges(f);if(badges.length){const b=el('div',null,'fb-s-badges');b.append(...badges);head.append(b);}
-  const rows=[];
-  if(f.titleId)rows.push(['fb.p.titleId',f.titleId]);
+  const links=el('div',null,'fb-s-links');fbShareList(f,links);
+  const about=fbAbout(f);const what=about?[el('p',about,'fb-s-what')]:[];
+  return {head,top:[head,...what,...fbSidePreview(f),links]};}
+function fbFacts(f){const rows=[];
+  if(f.type==='file'&&(f.ownId||f.titleId))rows.push(['fb.p.titleId',f.ownId||f.titleId]);
   if(f.version!=null)rows.push(['fb.p.version','v'+f.version]);
   if(f.check)rows.push(['fb.p.check',f.why?.label||topText('fb.c.'+f.check)]);
+  return rows;}
+function fbSideOne(s,f){const {head,top}=fbSideTop(f);const rows=fbFacts(f);
   if(f.type==='file')rows.push(['fb.p.size',topFill('fb.p.bytes',{size:fbSize(f.size),bytes:num(f.size)})]);
   rows.push(['fb.p.mtime',fbDate(f.mtime)]);
   const dl=el('dl');dl.append(...rows.flatMap(([k,v])=>[el('dt',topText(k)),el('dd',v)]));
@@ -161,9 +173,7 @@ function fbSideOne(s,f){const head=el('div',null,'fb-s-head');
       try{const r=await api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:[f.rel]}});
         dd.textContent=topFill('fb.p.bytes',{size:fbSize(r.bytes),bytes:num(r.bytes)})+' · '+topFill('fb.p.holdsVal',{files:num(r.files),dirs:num(Math.max(0,r.dirs-1))});}
       catch(err){dd.textContent=err.message;}});dd.append(b);dl.append(el('dt',topText('fb.p.size')),dd);}
-  const links=el('div',null,'fb-s-links');if(f.type==='file')fbShareList(f,links);
-  const about=fbAbout(f);const what=about?[el('p',about,'fb-s-what')]:[];
-  s.replaceChildren(head,...what,...fbSidePreview(f),links,dl,...fbWhy(f));fbSideMeta(s,f,head);}
+  s.replaceChildren(...top,dl,...fbWhy(f));fbSideMeta(s,f,head);}
 // A picture shows itself and a text file its first lines, right in the pane; a click opens the full viewer.
 const FB_SIDE_TEXT=2048;
 function fbSidePreview(f){const kind=fbKind(f);if(!kind||(kind==='image'&&f.size>FB_THUMB_MAX))return [];
@@ -194,21 +204,33 @@ async function fbSideMeta(s,f,head){const id=String(f.titleId||'').toUpperCase()
   if(!box.childElementCount)box.remove();}
 
 // ── share links: one file, anyone with the link, for a while (library/file-shares.js) ─
+const FB_SHARE_MAX_H=720,FB_DAY_MS=864e5;
+const fbYmd=(ms)=>{const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+// A day picked stays open until that day ends.
+async function fbShareAsk(){const said=await askDialog(topText('fb.shareAsk'),'',{line:topText('fb.sharePwPh'),secret:true,choices:[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d'],['date','fb.shareDate']].map(([value,k])=>({value,label:topText(k)}))});
+  if(!said)return null;const password=said.line;if(said.pick!=='date')return {hours:Number(said.pick),password};const now=Date.now();
+  const day=await askText(topText('fb.shareDateAsk'),fbYmd(now+FB_DAY_MS),{type:'date',min:fbYmd(now),max:fbYmd(now+30*FB_DAY_MS)});
+  return day?{hours:Math.max(1,Math.min(FB_SHARE_MAX_H,Math.ceil((new Date(day+'T23:59:59')-now)/36e5))),password}:null;}
 async function fbShare(f){const root=fb.root;
-  const hours=await askPick(topText('fb.shareAsk'),[['1','fb.share1h'],['24','fb.share1d'],['168','fb.share7d']].map(([value,k])=>({value,label:topText(k)})));
-  if(!hours)return;
-  let r;try{r=await api('/admin/api/files/share',{method:'POST',body:{root,path:f.rel,hours:Number(hours)}});}catch(err){toast(err.message);return;}
+  const live=await api('/admin/api/files/shares?'+new URLSearchParams({root,path:f.rel})).then((x)=>x.shares.length).catch(()=>0);
+  if(live&&!await ask(topFill('fb.shareMore',{n:num(live)})))return;
+  const said=await fbShareAsk();
+  if(!said)return;
+  let r;try{r=await api('/admin/api/files/share',{method:'POST',body:{root,path:f.rel,hours:said.hours,...(said.password?{password:said.password}:{})}});}catch(err){toast(err.message);return;}
   const when=fbDate(r.expiresAt);
   // Over plain http the browser keeps the clipboard shut; the link is then shown to copy by hand.
   try{await navigator.clipboard.writeText(r.url);toast(topFill('fb.shareCopied',{when}));}
   catch{await askDialog(topFill('fb.shareCopy',{when}),r.url);}
-  if(root===fb.root)fbSide();}
+  if(root===fb.root)fbLoad();}
 async function fbShareList(f,links){const root=fb.root;let r;
   try{r=await api('/admin/api/files/shares?'+new URLSearchParams({root,path:f.rel}));}catch{return;}
   if(!links.isConnected)return;
-  links.replaceChildren(...r.shares.map((sh)=>{const row=el('div',null,'fb-s-link');row.append(el('span',topFill('fb.shareUntil',{when:fbDate(sh.expiresAt)})));
+  links.replaceChildren(...r.shares.map((sh)=>{const row=el('div',null,'fb-s-link');row.append(el('span',topFill('fb.shareUntil',{when:fbDate(sh.expiresAt)})+(sh.locked?' · '+topText('fb.shareLocked'):'')));
     const end=fbSideBtn(FB_ICON.stop,'fb.shareEnd',async()=>{try{await api('/admin/api/files/share/end',{method:'POST',body:{id:sh.id}});toast(topText('fb.shareEnded'));}
-      catch(err){toast(err.message);}fbShareList(f,links);},'danger');row.append(end);return row;}));}
+      catch(err){toast(err.message);}fbShareList(f,links);fbLoad();},'danger');row.append(end);return row;}));}
+async function fbShareEndAll(f){let r;try{r=await api('/admin/api/files/shares?'+new URLSearchParams({root:fb.root,path:f.rel}));}catch(err){toast(err.message);return;}
+  if(!await ask(topFill('fb.shareEndAsk',{n:num(r.shares.length)}),{danger:true}))return;
+  try{for(const sh of r.shares)await api('/admin/api/files/share/end',{method:'POST',body:{id:sh.id}});toast(topText('fb.shareEnded'));}catch(err){toast(err.message);}fbLoad();}
 function fbSideBtn(svg,key,fn,cls){const b=el('button',null,'ib'+(cls?' '+cls:''));b.type='button';b.innerHTML=svg;
   const t=topText(key);b.title=t;b.setAttribute('aria-label',t);b.addEventListener('click',fn);return b;}
 function fbSideIcon(f){const w=el('span');w.innerHTML=f.type==='dir'?FB_ICON.dir:FB_ICON.file;const ic=w.firstChild;ic.classList.add('fb-s-art');return ic;}
@@ -239,6 +261,8 @@ function fbTreeNode(rel,name){const li=el('li');li.setAttribute('role','treeitem
   tx.addEventListener('click',async()=>{if(fbTree.open.has(rel)){fbTree.open.delete(rel);fbTreeDraw();return;}
     fbTree.open.add(rel);await fbTreeKids(rel).catch(()=>fbTree.open.delete(rel));fbTreeDraw();});
   const lb=el('button',name,'fb-tl');lb.type='button';lb.title=name;lb.addEventListener('click',()=>fbGo(fb.root,rel));
+  // A folder in the tree takes a drop as a folder in the list does, but not one going into itself or staying put.
+  fbDropTarget(lb,()=>rel!==fb.path&&!fb.drag?.some((d)=>rel===d||rel.startsWith(d+'/'))&&rel,()=>fb.drag?.some((d)=>rel===d||rel.startsWith(d+'/'))?'fb.intoItself':null);
   row.append(tx,lb);li.append(row);
   if(open&&kids?.length){const ul=el('ul');ul.setAttribute('role','group');ul.append(...kids.map((k)=>fbTreeNode(k.rel,k.name)));li.append(ul);}
   return li;}
@@ -295,9 +319,10 @@ async function fbSizeRows(items){const dirs=items.filter((f)=>f.type==='dir');if
 
 // ── a copy's progress ───────────────────────────────────────────────
 const FB_JOB_MS=700;
-async function fbCopyRun(body){const start=await api('/admin/api/files/copy',{method:'POST',body:{...body,background:true}});
-  const box=$('fb-job');const bar=box.querySelector('progress');const txt=box.querySelector('span');box.hidden=false;
-  try{for(;;){const j=await api('/admin/api/files/copy/'+start.job);
+async function fbCopyRun(body){const box=$('fb-job');const bar=box.querySelector('progress');const txt=box.querySelector('span');
+  bar.removeAttribute('value');txt.textContent=topText('fb.copyStart');box.hidden=false;
+  try{const start=await api('/admin/api/files/copy',{method:'POST',body:{...body,background:true}});
+    for(;;){const j=await api('/admin/api/files/copy/'+start.job);
       const p=j.total?Math.floor(j.done*100/j.total):100;bar.max=100;bar.value=p;
       txt.textContent=topFill('fb.copyProg',{done:fbSize(j.done),total:fbSize(j.total),p:num(p)});
       if(j.state==='done')return j;if(j.state==='failed')throw new Error(j.error);

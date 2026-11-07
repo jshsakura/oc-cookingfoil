@@ -5,7 +5,7 @@
  *                    by requireSession (tokenBlocked lists /api/chat), since the chat is a person's tool.
  *   /api/chat        a person signed in on the web page (routes/chat.js): only the user allowlist
  *                    (chat/policy.js USER_TIERS), their own conversations, a cap on messages.
- * Both are off (404) until the chatEnabled setting is on.
+ * Both are off (404, but for ?status=1, which says configured: false) until the chatEnabled setting is on.
  *
  *   GET    <base>               { configured, name, window, conversations: [{ id, title, updated }], pending: [...] }
  *                               the admin's pending holds its own waiting calls and then people's requests (with `by`)
@@ -46,6 +46,8 @@ export function mountChatRoutes(router, { path, whoOf, service, enabled, limit =
     const who = whoOf(req, res);
     if (!who) return;
     res.set("Cache-Control", "no-store");
+    // The floating chat asks on every page, so a chat that is off answers that one question without an error.
+    if (!enabled() && req.method === "GET" && req.query.status !== undefined) return res.json({ configured: false, name: "" });
     if (!enabled()) return res.status(404).json({ error: "the chat is off" });
     try {
       await fn(req, res, service(), who);

@@ -374,7 +374,7 @@ test("the admin adds a RetroArch core, replaces it only when asked, and removes 
     const trash = await (await fetch(`${BASE}/admin/api/retro-variants/trash`, { headers: admin })).json();
     assert.deepEqual(trash.items.map((i) => [i.system, i.name]).sort(), [["core", "mgba_libretro_libnx.nro"], ["core", "mgba_libretro_libnx.nro"]]);
     r = await fetch(`${BASE}/admin/api/retro-variants/restore`, { method: "POST", headers: { ...admin, "Content-Type": "application/json" }, body: JSON.stringify({ entry: trash.items[0].entry }) });
-    assert.equal(r.status, 200, "a removed core comes back from the trash tab");
+    assert.equal(r.status, 200, "a removed core comes back from the trash page");
     assert.ok(fs.existsSync(core));
   } finally {
     server.kill("SIGKILL");

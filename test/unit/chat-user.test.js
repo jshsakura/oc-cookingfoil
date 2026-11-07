@@ -278,7 +278,8 @@ test("the web chat needs a signed-in person and the CSRF token, and is not there
   assert.equal(status.configured, true);
   s.close();
   const off = await startWeb({ enabled: false });
-  assert.equal((await off.as("alice", "/api/chat?status=1")).status, 404);
+  assert.deepEqual(await (await off.as("alice", "/api/chat?status=1")).json(), { configured: false, name: "" });
+  assert.equal((await off.as("alice", "/api/chat")).status, 404);
   assert.equal((await off.as("alice", "/api/chat", { method: "POST", body: JSON.stringify({ message: "hi" }) })).status, 404);
   off.close();
 });
@@ -323,7 +324,7 @@ test("a person has at most MAX_OPEN_REQUESTS waiting; past that the model is tol
   const waiting = await chat.requests("admin");
   assert.equal(waiting.length, MAX_OPEN_REQUESTS);
   assert.equal(told.length, MAX_OPEN_REQUESTS);
-  const refused = toolReplies(seen).filter((c) => c.includes("이미 관리자 승인을 기다리는 요청이 있습니다. 처리된 뒤에 다시 요청해 주세요."));
+  const refused = toolReplies(seen).filter((c) => c.includes("이미 관리자 승인을 기다리는 요청이 있습니다. 처리된 뒤에 다시 요청합니다."));
   assert.equal(refused.length, 2, "the model gets words it can pass on");
   assert.ok(refused.every((c) => c.includes("Please ask again once they are handled.")));
 

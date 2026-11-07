@@ -55,8 +55,11 @@ nav.tabs.has-pill a[aria-current="page"]{background:transparent;box-shadow:none}
   transition:transform .28s cubic-bezier(.3,.8,.3,1),width .28s cubic-bezier(.3,.8,.3,1),height .28s cubic-bezier(.3,.8,.3,1)}
 
 /* A section fades in as its tab opens. */
-section[id^="tab-"]:not([hidden]){animation:polish-in .26s ease both}
+section[id^="tab-"]:not([hidden]){animation:polish-in .26s ease backwards}
 @keyframes polish-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* A transform would hold the phone's file bar away from the screen edge until the entrance ends. */
+@media (max-width:760px){section[id^="tab-"]:not([hidden]):has(#fb){animation-name:polish-fade}}
+@keyframes polish-fade{from{opacity:0}to{opacity:1}}
 
 dialog[open]{animation:polish-pop .2s ease both}
 dialog[open]::backdrop{animation:polish-fade .2s ease both}

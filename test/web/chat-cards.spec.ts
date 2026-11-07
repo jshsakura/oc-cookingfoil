@@ -65,7 +65,7 @@ test('game cards, the context ring and the waiting phrases', async ({ page }) =>
   });
   await page.locator('#ch-text').fill('또 추천해 줘');
   await page.locator('#ch-go').click();
-  const think = ['생각하는 중입니다', '내용을 살펴보는 중입니다', '답을 정리하고 있습니다', '조금만 기다려 주세요', '좋은 답을 고르는 중입니다'];
+  const think = ['생각하는 중입니다', '내용을 살펴보는 중입니다', '답을 정리하고 있습니다', '조금만 더 기다리면 됩니다', '좋은 답을 고르는 중입니다'];
   const phrase = (await page.locator('.ch-typing .ch-wait').textContent())!;
   expect(think).toContain(phrase);
 });
