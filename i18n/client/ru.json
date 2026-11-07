@@ -1260,5 +1260,6 @@
   "Could not read the firmware list.": "Не удалось прочитать список прошивок.",
   "The server lists no firmware yet.": "На сервере пока нет прошивок.",
   "This firmware cannot be downloaded right now.": "Эту прошивку сейчас нельзя скачать.",
+  "The server is out of space for this firmware.": "На сервере нет места для этой прошивки.",
   "The server is still getting this firmware. Try again shortly.": "Сервер ещё получает эту прошивку. Повторите попытку чуть позже."
 }

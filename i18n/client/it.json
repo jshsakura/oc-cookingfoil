@@ -1260,5 +1260,6 @@
   "Could not read the firmware list.": "Impossibile leggere l'elenco dei firmware.",
   "The server lists no firmware yet.": "Il server non ha ancora firmware.",
   "This firmware cannot be downloaded right now.": "Questo firmware non può essere scaricato ora.",
+  "The server is out of space for this firmware.": "Il server non ha spazio per questo firmware.",
   "The server is still getting this firmware. Try again shortly.": "Il server sta ancora recuperando questo firmware. Riprova tra poco."
 }
