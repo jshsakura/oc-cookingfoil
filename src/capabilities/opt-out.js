@@ -138,8 +138,6 @@ export const OPT_OUT = {
   "GET /admin/settings/notifications": "browser-only",
   // The shell's four sidebar numbers: a read for the page's own badges, not a tool.
   "GET /admin/api/counts": "browser-only",
-  // Emptying the trash is the one permanent delete; only a person on the admin page does it.
-  "POST /admin/api/trash/empty": "token-blocked",
   // A plugin is code that runs in this process: switching one on, deleting or restoring one is a person's choice.
   "GET /admin/api/plugins/:id/download": "token-blocked",
   // A plugin's own addresses (plugins/routes.js): one pattern for every route a manifest declares, refused to tokens in the router.

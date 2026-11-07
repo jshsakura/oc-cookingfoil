@@ -4,7 +4,7 @@
  *   auto     runs at once: a read, or a write named in AUTO_WRITES with its reason
  *   approve  every other write; shows a preview first; an admin approves with a button, anyone else sends a request
  *            the admin answers (Telegram)
- *   blocked  not offered and refused if called (every removal)
+ *   blocked  not offered and refused if called (every removal but trash_empty, which the admin approves after its preview)
  *
  * A capability missing from the table is blocked, so a feature added later cannot start running on
  * its own.
@@ -32,7 +32,7 @@ export const DEFAULT_TIERS = Object.freeze(Object.fromEntries([
   ),
   ...approve(
     "game_art_set", "game_art_crop", "retro_art_sync", "retro_art_match", "retro_cover_set", "retro_ko_name_decide", "retro_ko_index",
-    "retro_cores_fetch_missing", "retro_cores_update", "retro_core_fetch", "retro_config_set", "retro_config_undo", "trash_restore", "trash_undo",
+    "retro_cores_fetch_missing", "retro_cores_update", "retro_core_fetch", "retro_config_set", "retro_config_undo", "trash_restore", "trash_undo", "trash_empty",
     "settings_set", "integration_set", "account_set", "device_set", "sends_set", "alerts_set", "server_restart", "server_task", "library_rescan",
     "retro_core_enabled", "retro_core_source", "retro_core_repo", "agent_order", "agent_clear", "firmware_refresh",
   ),

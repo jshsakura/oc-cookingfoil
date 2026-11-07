@@ -297,18 +297,23 @@ export async function restore(ids, by = null, { exactName = false, lang = "ko" }
  * as seen. Every id is checked before anything is deleted. Returns { removed,
  * bytes }. Only a person on the admin page may.
  */
+/**
+ * The entry ids `target` names: the list given, or with { all: true, version, listedAt } every
+ * entry a list made at listedAt showed, refused (409 changedSince) when the trash no longer
+ * matches that version. What empty() deletes; trash_empty's preview asks it first.
+ */
+export async function targetsOf(target) {
+  if (Array.isArray(target)) return target;
+  if (target?.all !== true) throw trashStore.trashError("pickEmpty", 400);
+  const at = target.listedAt ?? Number.POSITIVE_INFINITY;
+  if (typeof at !== "number" || Number.isNaN(at)) throw trashStore.trashError("badListedAt", 400);
+  const seen = seenBy(await trashStore.listAll(libraryRoots()), at).map((e) => e.id);
+  if (typeof target.version !== "string" || target.version !== versionOf(seen)) throw trashStore.trashError("changedSince", 409);
+  return seen;
+}
+
 export async function empty(target, by = null) {
-  let ids;
-  if (Array.isArray(target)) ids = target;
-  else if (target?.all === true) {
-    const at = target.listedAt ?? Number.POSITIVE_INFINITY;
-    if (typeof at !== "number" || Number.isNaN(at)) throw trashStore.trashError("badListedAt", 400);
-    const seen = seenBy(await trashStore.listAll(libraryRoots()), at).map((e) => e.id);
-    if (typeof target.version !== "string" || target.version !== versionOf(seen)) {
-      throw trashStore.trashError("changedSince", 409);
-    }
-    ids = seen;
-  } else throw trashStore.trashError("pickEmpty", 400);
+  const ids = await targetsOf(target);
   const targets = ids.map(parse);
   for (const t of targets) {
     if (!(await trashStore.hasEntry(t.root, t.home, t.entry))) throw trashStore.trashError("missingSome", 404);

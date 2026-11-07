@@ -69,6 +69,7 @@ export function leanTrash(list, input = {}) {
     roots: list.roots,
     old: list.old,
     noticeDays: list.noticeDays,
+    ...(list.version ? { version: list.version, listedAt: list.listedAt } : {}),
     ...(list.unavailable?.length ? { unavailable: list.unavailable } : {}),
     offset,
     items: list.items.slice(offset, offset + limit).map((e) => ({

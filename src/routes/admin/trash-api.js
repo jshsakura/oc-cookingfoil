@@ -14,9 +14,10 @@
  *   POST /admin/api/trash/undo             { id }    moves a journaled file back → { from, to, warning? }
  *   POST /admin/api/trash/release          { id }    lets the drop box sort a file an undo put back in it again
  *
- * Emptying is the only permanent delete the server has, so only a person on the
- * admin page may (admin-page.js TOKEN_BLOCKED_RE refuses it to automation tokens);
- * listing, restoring and undoing are open to them. Nothing empties by itself.
+ * Emptying is the only permanent delete the server has, so admin-page.js TOKEN_BLOCKED_RE
+ * refuses it to automation tokens; a person does it here, or through MCP's trash_empty
+ * (capabilities/trash.js) after its preview and an approval. Listing, restoring and undoing
+ * are open to tokens. Nothing empties by itself.
  */
 import debug from "../../debug.js";
 import * as trash from "../../library/trash-service.js";

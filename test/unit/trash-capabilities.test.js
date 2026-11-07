@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 // The 휴지통 tab's routes are capabilities an agent can find: listing and reading the journal are
-// reads, restoring, undoing and releasing are writes a manage token may make. Emptying is not a
-// tool at all: only a person on the admin page deletes for good.
+// reads, restoring, undoing and releasing are writes a manage token may make. Emptying deletes for
+// good, so tokens are refused its route and MCP alone serves it, behind its preview and an approval.
 process.env.COOK_DATA_DIR = mkdtempSync(path.join(tmpdir(), "cook-trash-capabilities-"));
 const { registry } = await import("../../src/capabilities/registry.js");
 const { OPT_OUT } = await import("../../src/capabilities/opt-out.js");
@@ -28,10 +28,14 @@ test("each trash route but emptying is a capability with the safety it needs", (
   }
 });
 
-test("emptying the trash is never a tool: tokens are refused it", () => {
-  assert.equal(OPT_OUT["POST /admin/api/trash/empty"], "token-blocked");
-  assert.ok(!registry.all.some((c) => c.http && `${c.http.method} ${c.http.path}` === "POST /admin/api/trash/empty"));
-  assert.ok(!registry.toolsFor("full").some((c) => c.id === "trash_empty"));
+test("emptying the trash is served by MCP alone, as the destructive action it is, behind its preview", () => {
+  const cap = registry.byId("trash_empty");
+  assert.ok(cap, "trash_empty is registered");
+  assert.deepEqual([cap.safety, cap.mcp, cap.access, `${cap.http.method} ${cap.http.path}`], ["destructive", true, "full", "POST /admin/api/trash/empty"]);
+  assert.notEqual(cap.token, true, "automation tokens are still refused the HTTP route");
+  assert.equal(typeof cap.preview, "function");
+  assert.ok(!("POST /admin/api/trash/empty" in OPT_OUT), "the route is a capability now, not an opt-out");
+  assert.ok(!registry.toolsFor("full").some((c) => c.id === "trash_empty"), "not a token tool");
 });
 
 test("trash_restore's ids are a bounded list of strings, so a tool call is checked like the HTTP route", () => {

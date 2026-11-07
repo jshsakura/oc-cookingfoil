@@ -22,10 +22,11 @@ test("art, names, restores and downloads of core files need an approval", () => 
   }
 });
 
-test("every kind of removal is blocked in chat", () => {
+test("every removal is blocked in chat; emptying the trash alone is offered, behind the admin's approval of its preview", () => {
   for (const id of ["library_files_remove", "patches_remove", "game_art_remove", "trash_release", "job_cancel"]) {
     assert.equal(tierOf(id), "blocked", id);
   }
+  assert.equal(tierOf("trash_empty"), "approve");
 });
 
 test("settings, accounts, devices and restart need an approval", () => {
