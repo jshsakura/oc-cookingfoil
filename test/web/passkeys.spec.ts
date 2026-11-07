@@ -30,7 +30,7 @@ test('an admin adds a passkey on 관리자 보안 and it passes the admin check 
   await page.goto(`${LOCAL}/admin/settings/admin`);
   await expect(page.locator('#pk-status')).toHaveText('등록한 패스키가 없습니다.');
   await page.getByRole('button', { name: '패스키 추가' }).click();
-  await expect(page.locator('#toast')).toHaveText('패스키를 추가했습니다.');
+  await expect(page.locator('#toast')).toHaveText('패스키를 추가했습니다');
   await expect(page.locator('#pk-list li')).toHaveCount(1);
 
   await page.context().clearCookies({ name: 'cf_admin' });
@@ -42,7 +42,7 @@ test('an admin adds a passkey on 관리자 보안 and it passes the admin check 
   await expect(page.locator('#pk-list li').first()).toContainText('마지막 사용:');
   await page.locator('#pk-list li button').click();
   await page.locator('#ask-ok').click();
-  await expect(page.locator('#toast')).toHaveText('패스키를 지웠습니다.');
+  await expect(page.locator('#toast')).toHaveText('패스키를 지웠습니다');
   await expect(page.locator('#pk-list li')).toHaveCount(0);
   await page.context().clearCookies({ name: 'cf_admin' });
   await page.goto(`${LOCAL}/admin`);
@@ -52,7 +52,7 @@ test('an admin adds a passkey on 관리자 보안 and it passes the admin check 
 test('on a plain http address the admin page says passkeys need HTTPS and offers no add', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/settings/admin');
-  await expect(page.locator('#pk-status')).toHaveText('이 주소에서는 패스키를 쓸 수 없습니다. HTTPS 주소로 접속해 주세요.');
+  await expect(page.locator('#pk-status')).toHaveText('이 주소에서는 패스키를 쓸 수 없습니다. HTTPS 주소로 접속해야 합니다.');
   await expect(page.getByRole('button', { name: '패스키 추가' })).toBeDisabled();
 });
 

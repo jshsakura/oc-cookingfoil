@@ -436,6 +436,11 @@ test('server behaviour is switched on the settings tab, applies at once and goes
   await row.locator('.ss-switch').click();
   await expect(row).toContainText('여기서 정한 값입니다. compose 값은 켜짐 입니다.');
   expect(await features()).not.toContain('device-pairing');
+  // One press is all a switch takes, so its notice takes it back.
+  await page.locator('#toast .toast-act').click();
+  await expect.poll(features).toContain('device-pairing');
+  await row.locator('.ss-switch').click();
+  await expect.poll(features).not.toContain('device-pairing');
 
   const approval = page.locator('.ss-row[data-key="deviceApproval"] select');
   await approval.selectOption('manual');
@@ -488,10 +493,11 @@ test('the settings tab syncs every folder and makes a backup with one press each
   await expect(page.locator('.ss-row[data-key="syncHours"] .ss-src')).toHaveCount(0);
 });
 
-test('the automation token copy row stays out of sight until a token is made', async ({ page }) => {
+test('a session with no account is told a token needs one, and the copy row stays out of sight', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#settings/tokens');
-  await expect(page.locator('#tok-form')).toBeVisible();
+  await expect(page.locator('#tok-need')).toContainText('관리자 계정으로 로그인한 뒤에 만들 수 있습니다');
+  await expect(page.locator('#tok-form')).toBeHidden();
   await expect(page.locator('#tok-new')).toBeHidden();
   // A script that only reads the game list gets a catalog token, not the whole admin API.
   const scope = page.getByLabel('권한', { exact: true });
@@ -672,10 +678,10 @@ test('an approved console gets a 관리자 기기 switch, off until the admin tu
     const sw = page.getByRole('checkbox', { name: '관리 콘솔 관리자 기기' });
     await expect(sw).not.toBeChecked();
     await sw.check({ force: true });
-    await expect(page.locator('#toast')).toContainText('관리 콘솔 에서 항목 설정을 바꿀 수 있습니다.');
+    await expect(page.locator('#toast')).toContainText('관리 콘솔 에서 항목 설정을 바꿀 수 있습니다');
     await expect.poll(flag).toBe(true);
     await page.getByRole('checkbox', { name: '관리 콘솔 관리자 기기' }).uncheck({ force: true });
-    await expect(page.locator('#toast')).toContainText('관리 콘솔 은(는) 다시 읽기만 합니다.');
+    await expect(page.locator('#toast')).toContainText('관리 콘솔 은(는) 다시 읽기만 합니다');
     await expect.poll(flag).toBe(false);
   } finally {
     await page.request.post('/admin/api/devices/revoke', { data: { deviceKey: KEY }, headers: origin });

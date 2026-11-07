@@ -49,7 +49,11 @@ function showCredential(title,cred){lastCred=cred;$('cred-title').textContent=ti
     box.append(el('span',label,'muted'),el('span',value,'v'),tbtn('copy','pp.copyBtn',async()=>{
       try{await navigator.clipboard.writeText(value);toast(topFill('pp.copyOk',{label}));}catch{toast(topText('pp.copyFail'));}}));}
   $('cred-dialog').showModal();}
-if($('cred-close'))$('cred-close').addEventListener('click',()=>{$('cred-dialog').close();lastCred=null;});
+// The first account signs this very page out, and its password shows only here: closing asks once.
+let credFirst=false;
+const credCloseOk=async()=>{if(credFirst&&!await ask(topText('pp.firstClose')))return false;credFirst=false;return true;};
+if($('cred-close'))$('cred-close').addEventListener('click',async()=>{if(!await credCloseOk())return;$('cred-dialog').close();lastCred=null;});
+if($('cred-dialog'))$('cred-dialog').addEventListener('cancel',(e)=>{if(!credFirst)return;e.preventDefault();$('cred-close').click();});
 function clearCredential(){lastCred=null;$('cred')?.replaceChildren();if($('cred-title'))$('cred-title').textContent='';}
 if($('cred-dialog')){
   $('cred-dialog').addEventListener('close',clearCredential);
@@ -63,13 +67,15 @@ if($('cred-config'))$('cred-config').addEventListener('click',()=>{if(!lastCred)
 if($('add-user'))$('add-user').addEventListener('submit',async(e)=>{e.preventDefault();
   const name=$('new-name').value.trim(),password=$('new-pass').value;
   const first=!(await api('/admin/api/users')).users.length;
-  if(first&&!await ask(topText('pp.firstUser')))return;
+  if(first){const stops=((await api('/admin/api/devices').catch(()=>({}))).approved||[]).filter((a)=>noOwner(a)&&a.admin!==true).length;
+    if(!await ask(topText('pp.firstUser')+' '+topText('pp.firstOut')+(stops?' '+topFill('pp.firstDevices',{n:stops}):'')))return;}
   try{const cred=await api('/admin/api/users',{method:'POST',body:{name,password,role:$('new-role').value}});
-    $('new-name').value='';$('new-pass').value='';showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
+    $('new-name').value='';$('new-pass').value='';credFirst=first;showCredential(topFill('pp.createdToast',{name}),cred);peopleReload();}
   catch(err){toast(err.message);}});
-async function resetPassword(name){if(!await ask(isMe('password',name)?topText('pp.resetAskSelf'):topFill('pp.resetAsk',{name}),{danger:true}))return;
-  try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:{}});
-    showCredential(topFill('pp.newPassTitle',{name}),cred);peopleReload();}catch(err){toast(err.message);}}
+async function resetPassword(name){const typed=await askDialog((isMe('password',name)?topText('pp.resetAskSelf'):topFill('pp.resetAsk',{name}))+' '+topText('pp.resetPwHint'),'',{secret:true,danger:true});
+  if(typed==null)return;
+  try{const cred=await api('/admin/api/users/'+encodeURIComponent(name)+'/password',{method:'POST',body:typed?{password:typed}:{}});
+    if(typed)toast(topText('pp.saved'));else showCredential(topFill('pp.newPassTitle',{name}),cred);peopleReload();}catch(err){toast(errText(err));}}
 async function setRole(name,role){
   if(!await ask(topFill(role==='admin'?'pp.toAdminAsk':'pp.toUserAsk',{name}),{danger:true}))return;
   try{await api('/admin/api/users/'+encodeURIComponent(name)+'/role',{method:'POST',body:{role}});toast(topText('pp.roleChanged'));peopleReload();}catch(err){toast(errText(err));}}
@@ -90,7 +96,7 @@ const ACCOUNT_STATUS={pending:[topText('pp.devWait'),'warn'],approved:[topText('
 let accountsLoaded=false;
 async function loadAccounts(){
   const d=await api('/admin/api/accounts');accountsLoaded=true;const list=d.accounts||[];
-  $('accounthint').textContent=d.enabled?topText('pp.googleLead')
+  const hint=$('accounthint');if(hint)hint.textContent=d.enabled?topText('pp.googleLead')
     :topText('pp.googleOff');
   const waiting=list.filter((a)=>a.status==='pending').length;
   for(const id of ['account-count','account-sub-count']){$(id).hidden=!waiting;$(id).textContent=waiting;}
@@ -154,12 +160,12 @@ let devicesSeen='';
 async function loadDevices(force){
   const d=await api('/admin/api/devices');
   const seen=JSON.stringify(d);if(!force&&seen===devicesSeen)return;devicesSeen=seen;
-  $('devhint').textContent=d.pairingEnabled?topText('pp.pairingOnLead')
+  const hint=$('devhint');if(hint)hint.textContent=d.pairingEnabled?topText('pp.pairingOnLead')
     :topText('pp.pairingOffLead');
   const pending=d.pending||[];
   for(const id of ['pending-count','pending-sub-count']){$(id).hidden=!pending.length;$(id).textContent=pending.length;}
   table('pending',[topText('pp.devCode'),topText('pp.devNameMsg'),topText('pp.requestedFrom'),topText('pp.devKey'),topText('pp.requestedAt'),''],pending.map((p)=>{const tr=el('tr');
-    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;const f=p.from,who=td('');if(f){who.append(el('div',f.ip+(f.place?' ('+f.place+')':''),'ip'));if(f.accounts&&f.accounts.length)who.append(el('div',topText('pp.sameAddrAcct')+f.accounts.slice(0,3).join(', ')+(f.accounts.length>3?topText('pp.otherCount')+(f.accounts.length-3)+topText('pp.countUnit'):''),'dim'));if(f.app)who.append(el('div',topText('pp.appLabel')+f.app,'dim'));}else{who.textContent='—';who.className='dim';who.title=topText('pp.notAfterRestart');}
+    const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;const f=p.from,who=td('');if(f){who.append(el('div',f.ip+(f.place?' ('+topText('pp.place.'+f.place)+')':''),'ip'));if(f.accounts&&f.accounts.length)who.append(el('div',topText('pp.sameAddrAcct')+f.accounts.slice(0,3).map((a)=>a==='google:'?topText('pp.googleAcct'):a).join(', ')+(f.accounts.length>3?topText('pp.otherCount')+(f.accounts.length-3)+topText('pp.countUnit'):''),'dim'));if(f.app)who.append(el('div',topText('pp.appLabel')+f.app,'dim'));}else{who.textContent='—';who.className='dim';who.title=topText('pp.notAfterRestart');}
     if(p.download){const w=who.textContent==='—';if(w){who.textContent='';who.className='';}who.prepend(el('div',topText('pp.receivedBy')+p.download.owner+' ('+(DOWNLOAD_WORDS[p.download.state]||topText('pp.download'))+')'));}
     const said=td('');if(p.name)said.append(el('div',p.name));if(p.message)said.append(el('div',p.message,p.name?'dim':''));if(!p.name&&!p.message){said.textContent='—';said.className='dim';}
     tr.append(td(p.code||'—','ip'),said,who,k,td(fmt(p.lastSeenAt)));

@@ -112,6 +112,7 @@ test("the status query tells whether the chat is on and its model set, without l
   assert.deepEqual(await (await fetch(`${unset.base}?status=1`)).json(), { configured: false, name: "" });
   unset.close();
   const off = await start({ enabled: false });
-  assert.equal((await fetch(`${off.base}?status=1`)).status, 404);
+  assert.deepEqual(await (await fetch(`${off.base}?status=1`)).json(), { configured: false, name: "" });
+  assert.equal((await fetch(off.base)).status, 404);
   off.close();
 });

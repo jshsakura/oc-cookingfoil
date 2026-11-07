@@ -56,6 +56,7 @@ ${topScript(["gt.", "as.codeDigits", "pk."])}
 ${PASSKEY_CLIENT_JS}
 const MODE=${JSON.stringify(mode)};
 const pw=document.getElementById('pw'),code=document.getElementById('code'),go=document.getElementById('go'),err=document.getElementById('err');
+try{if(sessionStorage.getItem('adm-ended')){sessionStorage.removeItem('adm-ended');err.textContent=topText('gt.ended');}}catch{}
 let use=MODE==='password'?'pw':'code';
 for(const b of document.querySelectorAll('[data-use]'))b.addEventListener('click',()=>{use=b.dataset.use;err.textContent='';
   for(const x of document.querySelectorAll('[data-use]'))x.setAttribute('aria-pressed',String(x===b));

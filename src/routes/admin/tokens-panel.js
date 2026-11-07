@@ -8,6 +8,7 @@ import { top, topPh, topLabel } from "./top-i18n.js";
 
 export const TOKENS_HTML = `<div class="hd"><h2>${top("tok.h2")}</h2></div>
 <p class="muted">${top("tok.lede")}</p>
+<p class="muted" id="tok-need" hidden></p>
 <form class="add" id="tok-form" autocomplete="off">
   <input id="tok-label" ${topPh("tok.labelPh")} ${topLabel("tok.labelAria")} maxlength="64">
   <select id="tok-scope" ${topLabel("tok.scope")}><option value="admin">${top("tok.scopeAdmin")}</option><option value="catalog">${top("tok.scopeCatalog")}</option></select>
@@ -31,7 +32,7 @@ export const TOKENS_HTML = `<div class="hd"><h2>${top("tok.h2")}</h2></div>
 
 export const TOKENS_SCRIPT = /* js */ `
 async function loadTokens(){
-  try{const d=await api('/admin/api/tokens');
+  try{const d=await api('/admin/api/tokens');$('tok-need').hidden=!d.needAccount;$('tok-need').textContent=d.needAccount||'';$('tok-form').hidden=!!d.needAccount;
     table('tok-list',[topText('tok.name'),topText('tok.scope'),topText('tok.owner'),topText('tok.created'),topText('tok.lastUsed'),''],d.tokens.map((t)=>{const tr=el('tr');
       const b=btn(topText('tok.delete'),async()=>{if(!await ask(topText('tok.deleteAsk')))return;
         try{await api('/admin/api/tokens/'+t.id+'/revoke',{method:'POST',body:{}});toast(topText('tok.deleted'));loadTokens();}catch(err){toast(err.message);}},'danger');

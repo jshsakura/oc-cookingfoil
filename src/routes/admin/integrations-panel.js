@@ -83,6 +83,8 @@ ${box("keyless", top("ig.keylessTitle"), `<p class="muted">${top("ig.keylessLede
 <div class="intg-frees">${KEYLESS.map(keyless).join("\n")}</div>`, { meta: top("ig.keylessMeta") })}`;
 
 export const INTEGRATIONS_CSS = `
+/* Deleting a service's keys is not the next step after saving them: it steps aside and reads as a word. */
+form [data-clear]{margin-left:auto;background:none;border-color:transparent}
 .intg{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:16px 18px;margin-bottom:12px}
 .intg-hd{display:flex;align-items:center;gap:10px;justify-content:space-between}.intg h3{margin:0;font-size:var(--fs-md)}
 .intg-state{font-size:var(--fs-xs);font-weight:700;padding:3px 10px;border-radius:var(--r-pill);background:var(--sunk);color:var(--muted)}
@@ -106,10 +108,12 @@ async function loadIntegrations(){
       const r=c.querySelector('[data-redirect]');if(r)r.textContent=d.dropboxRedirectUri||'';});
   }catch(err){toast(err.message);}
 }
+// The server names a refused field by its key; the card knows what it calls that field.
+const intgError=(c,err)=>err.code==='integration.badField'?[...c.querySelectorAll('input[name]')].reduce((m,i)=>m.replace(i.name,i.getAttribute('aria-label')),err.message):err.message;
 document.querySelectorAll('.intg').forEach((c)=>{const svc=c.dataset.svc;const msg=c.querySelector('[data-msg]');
   c.querySelector('form').addEventListener('submit',async(e)=>{e.preventDefault();
     const body=Object.fromEntries([...c.querySelectorAll('input[name]')].map((i)=>[i.name,i.value]));
-    try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast(topText('pp.saved'));loadIntegrations();}catch(err){msg.textContent=err.message;}});
+    try{await api('/admin/api/integrations/'+svc,{method:'POST',body});msg.textContent='';toast(topText('pp.saved'));loadIntegrations();}catch(err){msg.textContent=intgError(c,err);}});
   c.querySelector('[data-test]').addEventListener('click',async()=>{msg.textContent=topText('ig.testing');
     try{const r=await api('/admin/api/integrations/'+svc+'/test',{method:'POST',body:{}});msg.textContent=r.message;}catch(err){msg.textContent=err.message;}});
   c.querySelector('[data-clear]').addEventListener('click',async()=>{if(!await ask(topText('ig.askClear'),{danger:true}))return;

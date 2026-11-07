@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // The admin page's 휴지통 tab against the real server: a file removed from the
-// library shows there with where it came from, comes back with 되돌리기, and
+// library shows there with where it came from, comes back with 되살리기, and
 // goes for good only after the person types the word to empty it.
 const GAMES = process.env.COOK_GAMES_DIR!;
 const NAME = 'Trash Game [0100000000040000][v0].nsp';
@@ -27,7 +27,7 @@ async function removeFromLibrary(page: import('@playwright/test').Page) {
   expect(fs.existsSync(FILE)).toBe(false);
 }
 
-test('a removed file is listed in the trash and comes back with 되돌리기', async ({ page }) => {
+test('a removed file is listed in the trash and comes back with 되살리기', async ({ page }) => {
   await signIn(page);
   await emptyAll(page);
   await removeFromLibrary(page);
@@ -37,7 +37,7 @@ test('a removed file is listed in the trash and comes back with 되돌리기', a
   await expect(row).toContainText('원래 자리: 게임 / ' + NAME);
   await expect(row).toContainText('파일 삭제');
   await expect(page.locator('#tr-cards')).toContainText('게임');
-  await row.getByRole('button', { name: '되돌리기' }).click();
+  await row.getByRole('button', { name: '되살리기' }).click();
   await expect(page.locator('#toast')).toContainText('1개를 되돌렸습니다');
   await expect(page.locator('#tr-list')).toContainText('휴지통이 비어 있습니다');
   expect(fs.readFileSync(FILE, 'utf8')).toBe('TRASH ME');
@@ -104,7 +104,7 @@ test('emptying everything empties what the list showed and leaves an entry that 
   expect(listed.items[0].items[0].rel).toBe(LATE);
 });
 
-test('the trash tab speaks the language the top area is set to', async ({ page }) => {
+test('the trash page speaks the language the top area is set to', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin#trash');
   await page.locator('#lang-btn').click();

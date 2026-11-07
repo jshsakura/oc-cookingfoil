@@ -24,7 +24,7 @@ import pkg from "../../app-info.js";
 import debug from "../../debug.js";
 import { isSelf } from "../../security/admin-actor.js";
 import * as envs from "../../helpers/envs.js";
-import { apiWord } from "./api-words.js";
+import { apiWord, API_WORDS } from "./api-words.js";
 import { isMetaCode, metaErrorText } from "../../meta/meta-messages.js";
 import { requestLang } from "../../meta/langs.js";
 import { sameOrigin as ownSite } from "../../security/same-origin.js";
@@ -58,7 +58,7 @@ function userError(req, res, err) {
   const status = USER_ERROR_STATUS[err.code];
   // A meta module's refusal (featured.js) carries its message key: said in the request's language, the key as `code`.
   if (status && isMetaCode(err.key)) return res.status(status).json({ error: err.code, message: metaErrorText(requestLang(req), err), code: err.key });
-  if (status) return res.status(status).json({ error: err.code, message: err.message });
+  if (status) return res.status(status).json({ error: err.code, message: API_WORDS.en[`users.${err.word}`] ? apiWord(req, `users.${err.word}`, err.vars) : err.message });
   // Disk or unexpected failures: log the detail, keep it out of the response.
   debug.error("admin: account change failed: %s", err.message);
   res.status(500).json({ error: "save-failed", message: "Could not save the change." });

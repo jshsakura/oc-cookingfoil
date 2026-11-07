@@ -13,7 +13,8 @@
  * The token and chat are stored as the "telegram" integration, so the secret
  * stays sealed in the security database and is only ever reported as set or not set.
  */
-import { LANGS } from "../../helpers/alert-messages.js";
+import { LANGS, translator } from "../../helpers/alert-messages.js";
+import { requestLang } from "../../meta/langs.js";
 import * as integrations from "../../security/integrations.js";
 import * as alerts from "../../helpers/alerts.js";
 import * as updates from "../../security/telegram-updates.js";
@@ -24,6 +25,7 @@ import { apiWord } from "./api-words.js";
 import { securityError } from "../../security/security-messages.js";
 
 const TOKEN_RE = integrations.SERVICES.telegram.fields.botToken.re;
+const CHAT_RE = integrations.SERVICES.telegram.fields.chatId.re;
 
 export function mountAlertsApi(router, requireSession) {
   const guarded = (handler) => async (req, res) => {
@@ -37,7 +39,10 @@ export function mountAlertsApi(router, requireSession) {
     }
   };
 
-  router.get("/api/alerts", guarded(async (_req, res) => {
+  router.get("/api/alerts", guarded(async (req, res) => {
+    const lang = requestLang(req);
+    const t = translator(LANGS.includes(lang) ? lang : "en");
+    const inLang = (key, fallback) => (t(key) === key ? fallback : t(key));
     const d = integrations.describe().telegram;
     const { botToken, chatId, approvers } = integrations.get("telegram");
     const on = new Set(alerts.enabledEvents());
@@ -53,12 +58,16 @@ export function mountAlertsApi(router, requireSession) {
       lang: alerts.alertLang(),
       approvers: approvers ? approvers.split(",") : [],
       users: updates.recentUsers(),
-      events: Object.entries(alerts.EVENTS).map(([id, e]) => ({ id, label: e.label, desc: e.desc, on: on.has(id) })),
-      history: alerts.recent(),
+      events: Object.entries(alerts.EVENTS).map(([id, e]) => ({ id, label: inLang(`event.${id}`, e.label), desc: inLang(`eventDesc.${id}`, e.desc), on: on.has(id) })),
+      history: alerts.recent().map((h) => alerts.historyIn(h, lang)),
     });
   }));
 
   router.post("/api/alerts", guarded((req, res) => {
+    const token = String(req.body?.botToken ?? "").trim();
+    if (token && !TOKEN_RE.test(token)) return res.status(400).json({ error: apiWord(req, "alerts.badToken") });
+    const chatId = String(req.body?.chatId ?? "").trim();
+    if (chatId && !CHAT_RE.test(chatId)) return res.status(400).json({ error: apiWord(req, "alerts.badChat") });
     const ids = Array.isArray(req.body?.events) ? req.body.events.map(String).filter((k) => k in alerts.EVENTS) : [];
     const current = integrations.get("telegram");
     const buttons = typeof req.body?.buttons === "boolean" ? req.body.buttons : alerts.buttonsOn(current);

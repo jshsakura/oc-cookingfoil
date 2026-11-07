@@ -154,7 +154,7 @@ function rcfHistory(){if(!rcf.hist.length)return el('p',topText('rcf.historyNone
   for(const e of rcf.hist){if(e.batch&&seen.has(e.batch))continue;if(e.batch)seen.add(e.batch);
     const group=e.batch?rcf.hist.filter((x)=>x.batch===e.batch):[e];const li=el('li');const left=el('div');const name=group.length>1?topFill('rcf.historyBatch',{n:group.length}):rcfFileName(e.rel);
     left.append(el('div',name),el('div',[...new Set(group.flatMap((x)=>x.changes.map(rcfChangeText)))].join(' · ')||'—','muted'));
-    left.append(el('div',fmt(e.at)+(e.by?' · '+e.by:'')+(e.restoreOf?' · '+topText('rcf.historyRestoreOf'):''),'muted'));
+    left.append(el('div',fmt(e.at)+(e.by?' · '+(e.by.name??e.by):'')+(e.restoreOf?' · '+topText('rcf.historyRestoreOf'):''),'muted'));
     const id=group.length>1?e.batch:e.id;
     li.append(left,btn(topText('rcf.historyRestore'),async()=>{if(!await ask(topFill('rcf.historyRestoreQ',{file:name})))return;
       try{await api('/admin/api/retro-config/restore',{method:'POST',body:{id}});toast(topText('rcf.undone'));}catch(err){toast(err.message);}loadRetroConfig();}));

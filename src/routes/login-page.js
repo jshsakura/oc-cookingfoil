@@ -245,7 +245,7 @@ pkBtn.addEventListener('click',async()=>{pkErr.textContent='';const why=pkReady(
   return { button, script };
 }
 
-export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null, notice = null, passwords = true, origin = null, passkey = false } = {}) {
+export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, googleState = null, googleEmail = null, error = null, notice = null, username = "", passwords = true, origin = null, passkey = false } = {}) {
   const t = textFor(lang);
   // A shared server address lands here, so the link preview card does too.
   const head = shareTags(origin, lang);
@@ -265,8 +265,8 @@ export function loginPage({ lang = "ko", next = "/", csrf = "", google = false, 
   return shell(lang, t.signinTitle, `${note}
 <form method="post" action="/login" novalidate>
 <input type="hidden" name="csrf" value="${escapeHtml(csrf)}"><input type="hidden" name="next" value="${escapeHtml(next)}">
-<div class="field"><label for="username">${escapeHtml(t.username)}</label><input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required autofocus></div>
-<div class="field"><label for="password">${escapeHtml(t.password)}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required></div>
+<div class="field"><label for="username">${escapeHtml(t.username)}</label><input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required value="${escapeHtml(username)}"${username ? "" : " autofocus"}></div>
+<div class="field"><label for="password">${escapeHtml(t.password)}</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required${username ? " autofocus" : ""}></div>
 ${errRow}<button type="submit">${icon("login")}<span>${escapeHtml(t.submit)}</span></button></form>${googleBlock}`, pk.script, { hideTitle: true, head });
 }
 

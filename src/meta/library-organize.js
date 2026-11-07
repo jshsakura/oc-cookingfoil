@@ -69,7 +69,7 @@ export const REASON_TEXT = Object.freeze({
     noName: "이름을 정할 정보가 없습니다. 관리 페이지에서 게임 이름을 정하면 옮깁니다",
     moveFailed: "옮기지 못했습니다",
     readFailed: "임시 폴더를 읽지 못했습니다",
-    undone: "휴지통 탭에서 정리를 되돌린 파일이라 그대로 둡니다. 다시 정리하려면 휴지통 탭의 작업 기록에서 다시 정리 허용을 누릅니다",
+    undone: "휴지통 페이지에서 정리를 되돌린 파일이라 그대로 둡니다. 다시 정리하려면 휴지통 페이지의 작업 기록에서 다시 정리 허용을 누릅니다",
     ...EXTRA_REASON_TEXT.ko,
   },
   en: {
@@ -88,7 +88,7 @@ export const REASON_TEXT = Object.freeze({
     noName: "There is nothing to name this game from. It moves once you set its name on the admin page",
     moveFailed: "Could not move the file",
     readFailed: "Could not read the drop box",
-    undone: "This file is left as it is because its organizing was undone in the Trash tab. To organize it again, press Allow organizing again in the Trash tab's move log",
+    undone: "This file is left as it is because its organizing was undone in the Trash page. To organize it again, press Allow organizing again in the Trash page's move log",
     ...EXTRA_REASON_TEXT.en,
   },
   ja: {
@@ -107,7 +107,7 @@ export const REASON_TEXT = Object.freeze({
     noName: "名前を決める情報がありません。管理ページでゲーム名を決めると移します",
     moveFailed: "移せませんでした",
     readFailed: "一時フォルダーを読めませんでした",
-    undone: "ごみ箱タブで整理を取り消したファイルなので、そのままにします。もう一度整理するには、ごみ箱タブの作業記録で「再整理を許可」を押します",
+    undone: "ごみ箱ページで整理を取り消したファイルなので、そのままにします。もう一度整理するには、ごみ箱ページの作業記録で「再整理を許可」を押します",
     ...EXTRA_REASON_TEXT.ja,
   },
   zh: {
@@ -126,7 +126,7 @@ export const REASON_TEXT = Object.freeze({
     noName: "没有可用于命名的信息。在管理页面设定游戏名称后即会移动",
     moveFailed: "无法移动",
     readFailed: "无法读取临时文件夹",
-    undone: "此文件已在回收站标签页中撤销整理，因此保持原样。要重新整理，请在回收站标签页的操作记录中按“允许重新整理”",
+    undone: "此文件已在回收站页面中撤销整理，因此保持原样。要重新整理，请在回收站页面的操作记录中按“允许重新整理”",
     ...EXTRA_REASON_TEXT.zh,
   },
 });

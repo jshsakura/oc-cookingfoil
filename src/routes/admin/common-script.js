@@ -77,7 +77,7 @@ const BAN='<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>';
 const STAR='<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>';
 const ROTATE='<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>';
 const ICONS={'삭제':TRASH,'줄 삭제':TRASH,'폐기':TRASH,
-  '편집':PENCIL,'이름':PENCIL,'이름 변경':PENCIL,
+  '편집':PENCIL,'이름':PENCIL,'이름 바꾸기':PENCIL,
   '승인':'<path d="M5 12.5l4.5 4.5L19 7.5"/>','거절':CROSS,'취소':CROSS,'빼기':'<path d="M5 12h14"/>',
   '접근 키 회수':BAN,'사용 중지':BAN,'해제':BAN,
   '키 재발급':'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
@@ -115,20 +115,24 @@ function btn(txt,fn,cls){const b=el('button',null,cls);b.type='button';const ico
 // Removing, revoking and the like pass {danger:true}: the message sits on the red warning card
 // and the cancel button starts focused. The message itself may be any language.
 function askDialog(msg,value,opts={}){const d=$('ask-dialog'),ok=$('ask-ok'),no=$('ask-no'),inp=$('ask-input'),sel=$('ask-select');
-  const choosing=Array.isArray(opts.choices),typing=value!==undefined&&!choosing,danger=opts.danger===true;
-  $('ask-text').textContent=msg;ok.className='primary';d.classList.toggle('warn',danger);inp.hidden=!typing;inp.value=typing?value:'';inp.type=opts.secret?'password':'text';inp.autocomplete=opts.secret?'current-password':'off';
+  const choosing=Array.isArray(opts.choices),typing=value!==undefined&&!choosing,both=choosing&&opts.line!==undefined,danger=opts.danger===true;
+  $('ask-text').textContent=msg;ok.className='primary';d.classList.toggle('warn',danger);inp.hidden=!typing&&!both;inp.placeholder=both?opts.line:'';inp.type=opts.secret?'password':opts.type||'text';inp.min=opts.min||'';inp.max=opts.max||'';inp.value=typing?value:'';inp.autocomplete=opts.secret?'current-password':'off';
   if(sel){sel.hidden=!choosing;sel.replaceChildren(...(choosing?opts.choices:[]).map((c)=>{const o=el('option',c.label);o.value=c.value;return o;}));}
   return new Promise((resolve)=>{const done=(v)=>{ok.onclick=no.onclick=d.oncancel=inp.onkeydown=null;d.close();resolve(v);};
-    const yes=()=>done(choosing?sel.value:typing?inp.value:true),nope=()=>done(choosing||typing?null:false);
+    const yes=()=>done(both?{pick:sel.value,line:inp.value}:choosing?sel.value:typing?inp.value:true),nope=()=>done(choosing||typing?null:false);
     ok.onclick=yes;no.onclick=nope;d.oncancel=(e)=>{e.preventDefault();nope();};
     inp.onkeydown=(e)=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();yes();}};
-    d.showModal();if(choosing)sel.focus();else if(typing){inp.focus();inp.select();}else(danger?no:ok).focus();});}
+    d.showModal();if(choosing)sel.focus();else if(typing){inp.focus();inp.select();if(opts.selectTo!=null)inp.setSelectionRange(0,opts.selectTo);}else(danger?no:ok).focus();});}
 const ask=(msg,opts)=>askDialog(msg,undefined,opts);
 const askText=(msg,value='',opts)=>askDialog(msg,value,opts);
 // One of [{value,label}], or null when cancelled.
 const askPick=(msg,choices)=>askDialog(msg,'',{choices});
 function pill(txt,kind){return el('span',txt,'pill'+(kind?' '+kind:''));}
-function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
+// One line says one thing and ends without a period, whichever word table it came from.
+function toast(msg){const t=$('toast');t.textContent=String(msg).replace(/[.。]$/,'');t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2400);}
+// A notice with a button that takes back what it reports.
+function toastUndo(msg,fn,ms=7000){toast(msg);const t=$('toast');const b=el('button',topText('fb.undo'),'toast-act');b.type='button';
+  b.addEventListener('click',()=>{t.classList.remove('show');fn();});t.append(b);clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),ms);}
 // table(mount,cols,rows,empty) is in grid.js.
 function pagedTable(id,cols,items,row,empty,opts={}){
   table(id,cols,opts.slice?row(items):items.map(row),empty,{search:true,label:opts.label,placeholder:opts.placeholder});}
@@ -201,11 +205,11 @@ async function api(url,opts={}){
   headers.set('Accept-Language',typeof adminLang==='string'?adminLang:'ko');
   const init={...opts,headers};
   if(opts.body!==undefined){init.headers.set('Content-Type','application/json');init.body=JSON.stringify(opts.body);}
-  const r=await fetch(url,init);
+  let r;try{r=await fetch(url,init);}catch(err){if(err.name==='AbortError')throw err;const off=new Error(topText('cm.offline'));off.offline=true;throw off;}
   // Signed out (or the first account just switched sign-in on): reload, which leads
   // to the sign-in page, but never while a new password is still on screen.
   if(r.status===401){const cred=$('cred-dialog');
-    if(cred&&cred.open)cred.addEventListener('close',()=>location.reload(),{once:true});else location.reload();throw new Error('session');}
+    if(cred&&cred.open)cred.addEventListener('close',()=>location.reload(),{once:true});else{try{sessionStorage.setItem('adm-ended','1');}catch{}location.reload();}throw new Error('session');}
   const data=await r.json().catch(()=>({}));
   // A refusal the page acts on carries a stable code; older answers put theirs in error.
   if(!r.ok){const e=new Error(data.message||data.error||('HTTP '+r.status));e.code=data.code||data.error;throw e;}

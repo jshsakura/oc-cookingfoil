@@ -477,7 +477,7 @@ test("a waiting console's address and app are shown to the admin from memory, an
   const dk = "FFFF000000000000000000000000000000000000000000000000000000006F";
   store.recordPendingDevice(dk, { quiet: true, from: { ip: "192.0.2.10", agent: "OtherClient/1.2" } });
   const p = store.devicesSnapshot().pending.find((x) => x.deviceKey === dk);
-  assert.deepEqual({ ip: p.from.ip, place: p.from.place, app: p.from.app, accounts: p.from.accounts }, { ip: "192.0.2.10", place: "집 밖", app: "OtherClient/1.2", accounts: [] });
+  assert.deepEqual({ ip: p.from.ip, place: p.from.place, app: p.from.app, accounts: p.from.accounts }, { ip: "192.0.2.10", place: "outside", app: "OtherClient/1.2", accounts: [] });
   assert.equal(JSON.stringify(readPersisted()).includes("192.0.2.10"), false, "never written to disk");
   store.revokeDevice(dk);
   assert.equal(store.devicesSnapshot().pending.some((x) => x.deviceKey === dk), false);

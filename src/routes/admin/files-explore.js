@@ -25,7 +25,8 @@ export const EXPLORE_CSS = /* css */ `
 .fb-lasso[hidden]{display:none}
 #fb-props{width:min(480px,calc(100vw - 32px))}
 #fb-props h3{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fb-props .fb-p-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 16px;margin:12px 0}
+#fb-props .fb-p-box{display:grid;gap:12px}#fb-props .fb-p-box:empty{display:none}
+#fb-props .fb-p-list{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 16px;margin:16px 0}
 #fb-props dt{color:var(--muted)}#fb-props dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 /* The icon view: the same rows laid out as tiles, the name under a large icon or the image itself. */
 #fb.grid thead{display:none}
@@ -53,9 +54,10 @@ $('fb-back').addEventListener('click',()=>{if(fb.hi>0)history.back();});
 $('fb-fwd').addEventListener('click',()=>{if(fb.hi<fb.hmax)history.forward();});
 $('fb-upb').addEventListener('click',fbParent);
 // The path turns into a text box to type a folder into; Enter goes there, Esc or leaving it puts the path back.
-function fbAddrOpen(){const a=$('fb-addr');a.value=[fbRootName(fb.root),...(fb.path?[fb.path]:[])].join('/');$('fb-crumb').hidden=true;a.hidden=false;a.focus();a.select();}
-function fbAddrClose(){$('fb-addr').hidden=true;$('fb-crumb').hidden=false;}
+function fbAddrOpen(){const a=$('fb-addr');a.value=[fbRootName(fb.root),...(fb.path?[fb.path]:[])].join('/');$('fb-crumb').hidden=true;$('fb-addr-btn').hidden=true;a.hidden=false;a.focus();a.select();}
+function fbAddrClose(){$('fb-addr').hidden=true;$('fb-crumb').hidden=false;$('fb-addr-btn').hidden=false;}
 $('fb-crumb').addEventListener('click',(e)=>{if(!e.target.closest('button'))fbAddrOpen();});
+$('fb-addr-btn').addEventListener('click',fbAddrOpen);
 $('fb-addr').addEventListener('keydown',(e)=>{if(e.key==='Escape'){e.preventDefault();fbAddrClose();}
   else if(e.key==='Enter'){e.preventDefault();const parts=$('fb-addr').value.split('/').map((p)=>p.trim()).filter(Boolean);
     // The address starts with the storage's own name; typing another one's goes there.
@@ -63,9 +65,10 @@ $('fb-addr').addEventListener('keydown',(e)=>{if(e.key==='Escape'){e.preventDefa
 $('fb-addr').addEventListener('blur',fbAddrClose);
 $('fb-deep').addEventListener('change',(e)=>{fb.deep=e.target.checked;if(fb.q){fbLoad();}});
 // Letters typed on a row go to the first name that starts with them; one letter again steps to the next such name.
+// A space once a name is under way belongs to the name; before that it picks the row.
 const fbType={buf:'',t:0};
-$('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.length!==1||e.key===' '||e.ctrlKey||e.metaKey||e.altKey)return;
-  e.preventDefault();clearTimeout(fbType.t);fbType.buf+=e.key.toLowerCase();fbType.t=setTimeout(()=>{fbType.buf='';},800);
+$('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.length!==1||(e.key===' '&&!fb.typing)||e.ctrlKey||e.metaKey||e.altKey)return;
+  e.preventDefault();clearTimeout(fbType.t);fbType.buf+=e.key.toLowerCase();fb.typing=true;fbType.t=setTimeout(()=>{fbType.buf='';fb.typing=false;},800);
   const items=fb.data?.items||[];const i=items.findIndex((f)=>f.rel===fb.focus);
   const one=[...fbType.buf].every((c)=>c===fbType.buf[0]);const want=one?fbType.buf[0]:fbType.buf;const from=one?i+1:Math.max(i,0);
   const hit=[...items.slice(from),...items.slice(0,from)].find((f)=>f.name.toLowerCase().startsWith(want));
@@ -73,15 +76,24 @@ $('fb-rows').addEventListener('keydown',(e)=>{if(e.target.tagName!=='TR'||e.key.
 // Cut, copy and paste. A cut is a move when it is pasted (the rows stay dimmed until then); a copy is made on the
 // server, checked against the original, and a name the folder has gets a number.
 const fbClipped=(rel)=>fb.clip?.mode==='cut'&&fb.clip.root===fb.root&&fb.clip.rels.includes(rel);
-function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fb.clip={mode,root:fb.root,rels};fbCmds();
-  for(const r of document.querySelectorAll('#fb-rows tr'))r.classList.toggle('fb-cut',fbClipped(r.dataset.rel));
+// What was cut or copied stays through a move to another page of this tab, or a phone could not carry it there.
+const FB_CLIP_KEY='fb.clip';
+function fbClipSet(c){fb.clip=c;try{if(c)sessionStorage.setItem(FB_CLIP_KEY,JSON.stringify(c));else sessionStorage.removeItem(FB_CLIP_KEY);}catch{}
+  fbCmds();for(const r of document.querySelectorAll('#fb-rows tr'))r.classList.toggle('fb-cut',fbClipped(r.dataset.rel));}
+try{const c=JSON.parse(sessionStorage.getItem(FB_CLIP_KEY));if(['cut','copy'].includes(c?.mode)&&typeof c.root==='string'&&Array.isArray(c.rels))fb.clip=c;}catch{}
+function fbClipDrop(){fbClipSet(null);fbPickBar();}
+function fbClip(mode){const rels=[...fb.sel];if(!rels.length)return;fbClipSet({mode,root:fb.root,rels});
   // On a phone a held pick turns taps into picks, and the next tap has to walk to where this goes.
   if(fbPhone()){fb.sel.clear();fb.anchor=null;fbPaint();}
-  toast(topFill(mode==='cut'?'fb.clipCut':'fb.clipCopy',{n:num(rels.length)}));}
+  const phone=fbPhone();toast(topFill(mode==='cut'?(phone?'fb.clipCutTap':'fb.clipCut'):(phone?'fb.clipCopyTap':'fb.clipCopy'),{n:num(rels.length)}));}
 async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,path:fb.path};
-  if(c.mode==='cut'){fb.clip=null;await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
-  try{const out=await fbCopyRun({root:c.root,paths:c.rels,toRoot:to.root,toPath:to.path});
-    if(out.copied.length){const paths=out.copied.map((x)=>x.to);fbUndoPush({trash:{root:to.root,paths},held:await fbHolds(to.root,paths).catch(()=>null)});}
+  // What was cut or copied stays through a move to another storage, so landing there is said first.
+  if(c.root!==to.root&&!await ask(topFill(c.mode==='cut'?'fb.pasteMoveAsk':'fb.pasteCopyAsk',{n:num(c.rels.length),from:fbRootName(c.root),to:fbRootName(to.root)})))return;
+  if(c.mode==='cut'){fbClipSet(null);await fbMoveTo(c.rels,to.root,to.path,c.root);return;}
+  await fbCopyTo(c.rels,c.root,to);}
+async function fbCopyTo(rels,root,to){
+  try{const out=await fbStep(()=>fbCopyRun({root,paths:rels,toRoot:to.root,toPath:to.path}),async(o)=>{const paths=o.copied.map((x)=>x.to);
+      return paths.length?{trash:{root:to.root,paths},held:await fbHolds(to.root,paths).catch(()=>null)}:null;});
     const why=fbRefusal(out.skipped);if(!out.copied.length&&why){toast(why);fbLoad();return;}
     const msg=(out.skipped.length?topFill('fb.copiedSome',{n:num(out.copied.length),s:num(out.skipped.length)}):topFill('fb.copied',{n:num(out.copied.length)}))+(why?' '+why:'');
     const note=fbNotes(out.notes);
@@ -90,18 +102,32 @@ async function fbPaste(){const c=fb.clip;if(!c)return;const to={root:fb.root,pat
 // Ctrl+Z takes back this tab's steps, newest first: a move or rename through the journal, a trash out of the
 // trash, a new folder or a copy into the trash. The trash page keeps every step, from any tab.
 const FB_UNDO_MAX=30;
-function fbUndoPush(step){const journal=(step.journal||[]).filter(Boolean);
-  if(step.journal&&!journal.length)return;if(step.restore&&!step.restore.length)return;
-  fb.undos.push({...step,journal});if(fb.undos.length>FB_UNDO_MAX)fb.undos.shift();fbCmds();}
+function fbUndoPush(step,{redoing=false}={}){const journal=(step.journal||[]).filter(Boolean);
+  if(step.journal&&!journal.length)return false;if(step.restore&&!step.restore.length)return false;
+  // Doing something new ends the line of what could be done again, as it does everywhere.
+  if(!redoing)fb.redos=[];
+  fb.undos.push({...step,journal});if(fb.undos.length>FB_UNDO_MAX)fb.undos.shift();fbCmds();return true;}
+const fbPost=(what,body)=>()=>api('/admin/api/files/'+what,{method:'POST',body});
+// One step: its call, and how the answer becomes something to undo. Keeping both is what lets Ctrl+Y make the same call again.
+async function fbStep(run,step){const out=await run();const s=await step(out);if(s)fbUndoPush({...s,again:{run,step}});return out;}
+async function fbRedo(){const again=fb.redos.pop();if(!again){toast(topText('fb.redoNone'));return;}
+  try{const s=await again.step(await again.run());toast(topText(s&&fbUndoPush({...s,again},{redoing:true})?'fb.redone':'fb.redoNone'));}
+  catch(err){toast(topFill('fb.redoFail',{msg:err.message}));}fbLoad();}
 const fbHolds=(root,paths)=>api('/admin/api/files/info',{method:'POST',body:{root,paths}}).then((r)=>r.files);
 // Every part of a step is tried even when one fails (a file changed since), and the first refusal is said.
-// A new folder or a copy goes to the trash only as it was made: uploads are not steps, so a file added since would go with it unasked.
+// A new folder, a copy or an upload goes to the trash only as it was made: a file added since would go with it unasked.
+// An upload taken back is sent up again out of the trash, where it waits, without the bytes; what it replaced goes back there first.
+function fbUpAgain(root,paths,ids,replaced){const body=(b)=>({method:'POST',body:b});
+  return {run:async()=>{const old=replaced?(await api('/admin/api/files/trash',body({root,paths}))).restore:null;await api('/admin/api/trash/restore',body({ids}));return old;},
+    step:(old)=>({trash:{root,paths},held:paths.length,redoUp:true,...(old?{restore:old}:{})})};}
 async function fbUndo(){const step=fb.undos.pop();if(!step){toast(topText('fb.undoNone'));return;}
   if(step.held!=null){let now;try{now=await fbHolds(step.trash.root,step.trash.paths);}catch(err){toast(topFill('fb.undoFail',{msg:err.message}));fbLoad();return;}
     if(now!==step.held){toast(topText('fb.undoKept'));fbLoad();return;}}
   const calls=[...[...step.journal].reverse().map((id)=>['/admin/api/trash/undo',{id}])];
-  if(step.restore)calls.push(['/admin/api/trash/restore',{ids:step.restore}]);if(step.trash)calls.push(['/admin/api/files/trash',step.trash]);
-  let fail=null;for(const [url,body] of calls){try{await api(url,{method:'POST',body});}catch(err){fail??=err;}}
+  // Trash first: a replaced file comes back to the name the upload took.
+  if(step.trash)calls.push(['/admin/api/files/trash',step.trash]);if(step.restore)calls.push(['/admin/api/trash/restore',{ids:step.restore}]);
+  let fail=null,trashed=null;for(const [url,body] of calls){try{const r=await api(url,{method:'POST',body});if(body===step.trash)trashed=r.restore;}catch(err){fail??=err;}}
+  if(!fail&&step.redoUp&&trashed?.length)fb.redos.push(fbUpAgain(step.trash.root,step.trash.paths,trashed,!!step.restore));else if(!fail&&step.again)fb.redos.push(step.again);
   toast(fail?topFill('fb.undoFail',{msg:fail.message}):topText('fb.undone'));
   // Standing inside what just went: step out of it, or the list reports the folder missing over this notice.
   const gone=!fail&&step.trash?.root===fb.root&&step.trash.paths.find((p)=>fb.path===p||fb.path.startsWith(p+'/'));
@@ -110,9 +136,11 @@ async function fbUndo(){const step=fb.undos.pop();if(!step){toast(topText('fb.un
 async function fbProps(){const rels=fb.sel.size?[...fb.sel]:null;const one=rels?.length===1?fbItem(rels[0]):null;
   const dlg=$('fb-props');const list=$('fb-p-list');const lead=rels?rels[0]:fb.path;
   const at=lead.split('/').slice(0,-1);const folderOnly=!rels||one?.type==='dir';
-  $('fb-p-title').textContent=one?one.name:rels?topFill('fb.p.many',{n:num(rels.length)}):(fb.path.split('/').pop()||fbRootName(fb.root));
+  $('fb-p-title').textContent=one?topText('fb.props'):rels?topFill('fb.p.many',{n:num(rels.length)}):(fb.path.split('/').pop()||fbRootName(fb.root));
   const base=[];if(one)base.push(['fb.p.kind',one.type==='dir'?topText('fb.p.dir'):(one.ext?one.ext.toUpperCase()+' ':'')+topText('fb.p.file')]);
-  base.push(['fb.p.where',[fbRootName(fb.root),...at].join(' / ')]);
+  base.push(['fb.p.where',[fbRootName(fb.root),...at].join(' / ')]);if(one)base.push(...fbFacts(one));
+  // One item says what it is as the details pane does, which a phone has no room for.
+  const low=$('fb-p-low');if(one){const {head,top}=fbSideTop(one);$('fb-p-top').replaceChildren(...top);low.replaceChildren(...fbWhy(one));fbSideMeta(low,one,head);}else{$('fb-p-top').replaceChildren();low.replaceChildren();}
   const put=(pairs)=>list.replaceChildren(...pairs.flatMap(([k,v])=>[el('dt',topText(k)),el('dd',v)]));
   put([...base,['fb.p.size',topText('fb.p.counting')]]);if(!dlg.open)dlg.showModal();
   try{const r=await api('/admin/api/files/info',{method:'POST',body:{root:fb.root,paths:rels||[fb.path]}});if(!dlg.open)return;
@@ -142,9 +170,11 @@ async function fbThumbLoad(tr){const f=fbItem(tr.dataset.rel);if(!f)return;const
 {let v=null;try{v=localStorage.getItem('fb.view');}catch{}if(v==='grid')fbSetView(true);}
 // A drag that starts on the list's empty space draws a box and picks the rows it touches (Ctrl or Shift adds to the
 // pick); a plain click there lets the pick go.
-{let start=null,base=null,drew=false;const box=$('fb-lasso');const wrap=document.querySelector('#fb .fb-wrap');
+{let start=null,base=null,drew=false;const box=$('fb-lasso');const wrap=$('fb-main');
   const off=(e)=>e.target.closest('#fb-rows tr,thead,button,input,a,#fb-menu');
-  wrap.addEventListener('pointerdown',(e)=>{if(e.button!==0||e.pointerType==='touch'||off(e))return;e.preventDefault();
+  wrap.addEventListener('pointerdown',(e)=>{if(e.button!==0||e.pointerType==='touch'||off(e))return;
+    // The list's own scrollbar is not empty space.
+    const r=wrap.getBoundingClientRect();if(e.clientX>=r.left+wrap.clientWidth||e.clientY>=r.top+wrap.clientHeight)return;e.preventDefault();
     start={x:e.clientX,y:e.clientY};base=e.ctrlKey||e.metaKey||e.shiftKey?new Set(fb.sel):new Set();drew=false;});
   addEventListener('pointermove',(e)=>{if(!start)return;const x=Math.min(start.x,e.clientX),y=Math.min(start.y,e.clientY),w=Math.abs(e.clientX-start.x),h=Math.abs(e.clientY-start.y);
     if(!drew&&w+h<6)return;drew=true;box.hidden=false;Object.assign(box.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px'});
@@ -153,12 +183,13 @@ async function fbThumbLoad(tr){const f=fbItem(tr.dataset.rel);if(!f)return;const
   addEventListener('pointerup',()=>{if(!start)return;start=null;box.hidden=true;
     if(!drew&&base&&!base.size&&fb.sel.size){fb.sel.clear();fb.anchor=null;fbPaint();}});}
 // The rest of the explorer keys, anywhere on the open file tab and never while typing or in a dialog.
-document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.closest('input,textarea,select,dialog'))return;
+document.addEventListener('keydown',(e)=>{if(!$('fb')?.offsetParent||e.target.closest(FB_NOT_KEYS))return;
   const mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();const texty=!getSelection().isCollapsed;
   if(mod&&k==='c'&&fb.sel.size&&!texty){e.preventDefault();fbClip('copy');}
   else if(mod&&k==='x'&&fb.sel.size&&!texty){e.preventDefault();fbClip('cut');}
   else if(mod&&k==='v'&&fb.clip){e.preventDefault();fbPaste();}
   else if(mod&&k==='z'&&!e.shiftKey){e.preventDefault();fbUndo();}
+  else if(mod&&(k==='y'||(k==='z'&&e.shiftKey))){e.preventDefault();fbRedo();}
   else if(mod&&k==='l'){e.preventDefault();fbAddrOpen();}
   else if(e.altKey&&e.key==='Enter'){e.preventDefault();fbProps();}});
 `;

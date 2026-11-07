@@ -79,7 +79,7 @@ test('/pair lays connecting and my consoles side by side on a desktop and stacks
   const row = mine.getByRole('listitem').filter({ hasText:'Desk console' });
   await expect(row).toBeVisible();
   await expect(row).toContainText(`코드 ${pending.pairCode}`);
-  await row.getByRole('button', { name:'이름 변경' }).click();
+  await row.getByRole('button', { name:'이름 바꾸기' }).click();
   await page.locator('#ask-input').fill('Den console');
   await page.locator('#ask-ok').click();
   await expect(mine.getByRole('listitem').filter({ hasText:'Den console' })).toBeVisible();

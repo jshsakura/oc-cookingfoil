@@ -38,7 +38,6 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import yazl from "yazl";
 import { createFileRoots, FileError } from "../../library/file-roots.js";
 import { actorOf } from "../../library/trash-service.js";
 import { TrashError } from "../../library/trash.js";
@@ -51,9 +50,12 @@ import debug from "../../debug.js";
 import { apiWord } from "./api-words.js";
 import { loadSystems, systemOfFolder } from "../../retro/systems.js";
 import * as chunks from "../../meta/upload-chunks.js";
+import { sendZip } from "../../library/zip-send.js";
+import { hashPassword } from "../../security/password-hash.js";
 
 const MAX_PATHS = 1000;
 const ZIP_TTL_MS = 10 * 60 * 1000;
+const SHARE_PASSWORD_MAX = 200;
 const INFO_MAX = 100000;
 const COPY_TTL_MS = 10 * 60 * 1000;
 const SIZES_MAX = 500;
@@ -106,6 +108,11 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     return v;
   };
 
+  // A move or copy names where it goes: a body that says nothing must not land in the top of the storage.
+  const target = (b) => {
+    if (typeof b.toPath !== "string") throw new FileError("bad-path");
+  };
+
   router.get("/api/files/roots", handle(async (req, res) => {
     res.json({ roots: files.roots().map((r) => ({ key: r.key })) });
   }));
@@ -118,7 +125,8 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     const root = str(req.query.root);
     const dirsOnly = str(req.query.only) === "dirs";
     const out = await files.list(root, str(req.query.path), { q: str(q).slice(0, 200), deep, sort: str(sort) || "name", order: str(order), page, perPage, label, dirsOnly });
-    const items = facts(root, out.items, lang);
+    const shared = shares.relsIn(root);
+    const items = facts(root, out.items, lang).map((i) => (shared.has(i.rel) ? { ...i, shared: true } : i));
     res.json({ ...out, items: root === "retro" ? withConsoles(items, files.roots().find((r) => r.key === "retro")?.dir, lang) : items });
   }));
 
@@ -142,6 +150,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
 
   router.post("/api/files/move", handle(async (req, res) => {
     const b = req.body ?? {};
+    target(b);
     const out = await files.move(str(b.root), paths(b.paths), str(b.toRoot) || str(b.root), str(b.toPath), { by: actorOf(req) });
     debug.log("admin: files: moved %d into %s:%s (%d skipped)", out.moved.length, b.toRoot || b.root, b.toPath ?? "", out.skipped.length);
     res.json(out);
@@ -168,6 +177,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
   };
   router.post("/api/files/copy", handle(async (req, res) => {
     const b = req.body ?? {};
+    target(b);
     if (b.background === true) {
       const now = Date.now();
       for (const [k, j] of copies) if (j.until < now) copies.delete(k);
@@ -195,9 +205,10 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
   router.post("/api/files/share", handle(async (req, res) => {
     const b = req.body ?? {};
     const root = str(b.root);
-    const f = await files.open(root, str(b.path));
     const rel = str(b.path);
-    const made = shares.create({ root, rel, name: f.name, hours: Number(b.hours), by: actorOf(req) });
+    const f = await files.kind(root, rel);
+    const password = str(b.password).slice(0, SHARE_PASSWORD_MAX);
+    const made = shares.create({ root, rel, name: f.name, dir: f.dir, hash: password ? hashPassword(password) : null, hours: Number(b.hours), by: actorOf(req) });
     debug.log("admin: files: shared %s:%s for %dh", root, rel, Number(b.hours));
     res.json({ url: `${resolveOrigin(req, publicBaseUrl)}/share/${made.token}`, id: made.id, expiresAt: made.expiresAt });
   }));
@@ -205,7 +216,8 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     res.json({ shares: shares.of(str(req.query.root), str(req.query.path)) });
   }));
   router.post("/api/files/share/end", handle(async (req, res) => {
-    if (!shares.revoke(str(req.body?.id))) throw new FileError("not-found", 404);
+    // A link already ended, here or in another window, is what was asked for.
+    shares.revoke(str(req.body?.id));
     res.json({ ok: true });
   }));
 
@@ -245,7 +257,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
   router.post("/api/files/upload/chunks", handle(async (req, res) => {
     const b = req.body ?? {};
     const root = str(b.root);
-    const t = await files.uploadTarget(root, str(b.path), str(b.rel));
+    const t = await files.uploadTarget(root, str(b.path), str(b.rel), { taken: str(b.taken) });
     const begun = await chunks.begin(dropOf(root), { account: chunks.accountOf(req), kind: chunks.DROP_PREFIX + root, name: path.basename(t.abs), size: b.size, lastModified: b.lastModified });
     res.json({ ...begun, kind: chunks.DROP_PREFIX + root });
   }));
@@ -258,11 +270,14 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     if (!items) throw new FileError("nothing");
     const placed = [];
     const skipped = [];
+    const restore = [];
     for (const item of items) {
       const rel = str(item?.rel);
       const part = await chunks.completed(dir, str(item?.id), chunks.accountOf(req));
       try {
-        placed.push((await files.place(root, str(b.path), rel, part.path)).rel);
+        const out = await files.place(root, str(b.path), rel, part.path, { taken: str(item?.taken), by: actorOf(req) });
+        placed.push(out.rel);
+        restore.push(...(out.restore ?? []));
         await chunks.discard(dir, str(item.id), chunks.accountOf(req));
       } catch (err) {
         // A name taken while the bytes went up: the old file stays, the partial waits for the sweep.
@@ -271,7 +286,7 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
       }
     }
     debug.log("admin: files: %d uploaded into %s:%s (%d skipped)", placed.length, root, str(b.path), skipped.length);
-    res.json({ placed, skipped });
+    res.json({ placed, skipped, ...(restore.length ? { restore } : {}) });
   }));
 
   // A zip is asked for with a POST (a selection can be long) and fetched by a plain link, so the browser's own
@@ -293,38 +308,14 @@ export function mountFilesApi(router, requireSession, files = createFileRoots(),
     const id = crypto.randomBytes(16).toString("hex");
     zips.set(id, { entries, name: `${rels.length === 1 ? entries[0].name : folder}.zip`, until: now + ZIP_TTL_MS });
     debug.log("admin: files: zip of %d entries from %s", entries.length, root);
-    res.json({ url: `/admin/api/files/zip/${id}` });
+    res.json({ url: `/admin/api/files/zip/${id}`, files: entries.filter((e) => !e.dir).length, bytes: entries.reduce((n, e) => n + (e.size ?? 0), 0) });
   }));
 
   router.get("/api/files/zip/:id", handle(async (req, res) => {
     purge();
     const z = zips.get(str(req.params.id));
     if (!z) throw new FileError("not-found", 404);
-    const zip = new yazl.ZipFile();
-    // The one file being read, so a download stopped halfway closes it instead of leaving it open.
-    let reading = null;
-    for (const e of z.entries) {
-      if (e.dir) zip.addEmptyDirectory(e.name, { mtime: e.mtime });
-      else zip.addReadStreamLazy(e.name, { size: e.size, mtime: e.mtime, compress: false }, (cb) => cb(null, (reading = fs.createReadStream(e.real))));
-    }
-    // Every size is known, so yazl answers the zip's length at once, before a byte is sent.
-    zip.end((total) => {
-      if (total >= 0) res.set("Content-Length", String(total));
-    });
-    // A file that changed or went away since the list cut the zip short; the browser then calls the download failed.
-    zip.on("error", (err) => {
-      debug.error("admin: files: zip: %s", err.message);
-      res.destroy(err);
-    });
-    res.on("close", () => {
-      if (res.writableFinished) return;
-      zip.outputStream.unpipe(res);
-      zip.outputStream.destroy();
-      reading?.destroy();
-    });
-    res.attachment(z.name);
-    res.type("application/zip");
-    zip.outputStream.pipe(res);
+    sendZip(res, z.entries, z.name);
   }));
 
   router.post("/api/files/trash", handle(async (req, res) => {

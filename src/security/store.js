@@ -590,11 +590,15 @@ const SAME_ADDRESS_MAX = 3;
 const AGENT_MAX = 80;
 
 /** Where an address sits, for an alert line. Pure. */
-export function addressPlace(ip, t = translator()) {
+function addressKind(ip) {
   const v4 = String(ip ?? "").replace(/^::ffff:/, "");
-  if (isLoopbackIp(v4)) return t("place.server");
-  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(v4)) return t("place.tailscale");
-  return t(isPrivateIp(v4) ? "place.home" : "place.outside");
+  if (isLoopbackIp(v4)) return "server";
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(v4)) return "tailscale";
+  return isPrivateIp(v4) ? "home" : "outside";
+}
+
+export function addressPlace(ip, t = translator()) {
+  return t(`place.${addressKind(ip)}`);
 }
 
 /**
@@ -602,17 +606,18 @@ export function addressPlace(ip, t = translator()) {
  * came from, the accounts that signed in from that address lately, and the app
  * it named itself as. A console asks before it has any account, so this is the
  * best guess the server has; the admin still checks the code on the screen.
+ * The place and a Google account are codes here: the reader names them in its own language.
  */
 export function requesterFacts({ ip = null, agent = null, version = null } = {}, now = Date.now()) {
   const names = ip
     ? Array.from(state.access.entries())
         .filter(([, v]) => (v.ips?.[ip] ?? 0) >= now - SAME_ADDRESS_MS)
         .sort(([, a], [, b]) => b.ips[ip] - a.ips[ip])
-        .map(([user]) => (user.startsWith("google:") ? "구글 계정" : user))
+        .map(([user]) => (user.startsWith("google:") ? "google:" : user))
     : [];
   return {
     ip: ip || null,
-    place: ip ? addressPlace(ip) : null,
+    place: ip ? addressKind(ip) : null,
     accounts: [...new Set(names)],
     app: String(agent ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, AGENT_MAX) || null,
     version: version || null,
@@ -623,7 +628,7 @@ export function requesterLines(from = {}, now = Date.now(), t = translator()) {
   const { ip, accounts, app, version } = requesterFacts(from, now);
   const lines = [];
   if (ip) lines.push(t("requesterFrom", { ip, place: addressPlace(ip, t) }));
-  if (accounts.length) lines.push(t("requesterAccounts", { names: accounts.slice(0, SAME_ADDRESS_MAX).join(", "), more: Math.max(0, accounts.length - SAME_ADDRESS_MAX) }));
+  if (accounts.length) lines.push(t("requesterAccounts", { names: accounts.slice(0, SAME_ADDRESS_MAX).map((a) => (a === "google:" ? t("place.google") : a)).join(", "), more: Math.max(0, accounts.length - SAME_ADDRESS_MAX) }));
   if (app || version) lines.push(t("requesterApp", { app: [app, version && `v${version}`].filter(Boolean).join(" · ") }));
   return lines;
 }

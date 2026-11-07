@@ -89,7 +89,7 @@ test("removing, disabling or re-passwording an account revokes the consoles it a
 
 test("the new-password confirmation says the account's consoles must pair again", async () => {
   const { DASHBOARD_SCRIPT } = await import("../../src/routes/admin/dashboard-script.js");
-  const ask = DASHBOARD_SCRIPT.match(/async function resetPassword\(name\)\{if\(!await ask\(([^;]*)\)\)return;/)?.[1];
+  const ask = DASHBOARD_SCRIPT.match(/async function resetPassword\(name\)\{const typed=await askDialog\(([^;]*)\);\s*if\(typed==null\)return;/)?.[1];
   assert.ok(ask, "resetPassword asks before it acts");
   assert.match(ask, /topFill\('pp.resetAsk',\{name\}\)/);
   const { TOP_WORDS } = await import("../../src/routes/admin/top-i18n.js");
