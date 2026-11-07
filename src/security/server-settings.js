@@ -2,7 +2,7 @@
  * Server behaviour the admin page can change while the server runs: device
  * approval, whether consoles may sign in with a password, uploads, the share inbox, the public address, the direct download address, where names come from,
  * titledb, the outside lookups, how many connections a console opens per
- * download, how a safe restart waits and the NSZ conversion queue. Saved in the security database (one row a setting)
+ * download, how a safe restart waits, the NSZ conversion queue and the firmware releases followed. Saved in the security database (one row a setting)
  * (0600) over what compose set; a setting with nothing saved keeps its compose
  * value, so existing compose files behave as before.
  *
@@ -112,6 +112,10 @@ export const SETTINGS = {
   clientReleaseRepo: { parse: (v) => String(v ?? "").trim(), check: (v) => v.length <= 140 && REPO_RE.test(v) },
   clientReleaseTag: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || TAG_RE.test(v) },
   clientReleaseAsset: { parse: (v) => String(v ?? "").trim(), check: (v) => ASSET_RE.test(v) },
+  // Firmware releases (firmware/service.js): the repository followed, empty for none; what is fetched ahead; how often the list is read.
+  firmwareRepo: { parse: (v) => String(v ?? "").trim(), check: (v) => v === "" || (v.length <= 140 && REPO_RE.test(v)) },
+  firmwareKeep: oneOf("latest", "all"),
+  firmwareHours: whole(1, 168),
 };
 
 let saved = {};

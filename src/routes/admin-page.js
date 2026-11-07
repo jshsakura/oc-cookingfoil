@@ -51,6 +51,7 @@ import { mountAccountsApi } from "./admin/accounts-api.js";
 import { mountAccessHistoryApi, withoutIps } from "./admin/access-history-api.js";
 import { mountClientLogsApi } from "./admin/client-logs-api.js";
 import { mountClientReleaseApi } from "./admin/client-release-api.js";
+import { mountFirmwareApi } from "./admin/firmware-api.js";
 import { mountHomebrewApi } from "./admin/homebrew-api.js";
 import { mountHomebrewAppsApi } from "./admin/homebrew-apps-api.js";
 import { mountPatchesApi } from "./admin/patches-api.js";
@@ -626,6 +627,7 @@ export default function adminPageRouter() {
   mountAccessHistoryApi(router, requireSession);
   mountClientLogsApi(router, requireSession);
   mountClientReleaseApi(router, requireSession);
+  mountFirmwareApi(router, requireSession);
   mountHomebrewApi(router, requireSession);
   mountHomebrewAppsApi(router, requireSession);
   mountPatchesApi(router, requireSession);

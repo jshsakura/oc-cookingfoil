@@ -32,7 +32,8 @@ import pkg from "../app-info.js";
 import { CLIENT_NRO, clientBuildStatus } from "./client-update.js";
 import * as libraryCache from "../meta/library-cache.js";
 import * as contentMeta from "../meta/content-meta.js";
-import { devicePairing, downloadMaxConnections, enrollPerHour, retroDir } from "../helpers/envs.js";
+import { devicePairing, downloadMaxConnections, enrollPerHour, firmwareRepo, retroDir } from "../helpers/envs.js";
+import { isSource } from "../firmware/versions.js";
 import * as integrations from "../security/integrations.js";
 import * as retroCatalog from "../retro/catalog.js";
 import { retroEnabled } from "./retro.js";
@@ -81,7 +82,7 @@ const FEATURES = [
 const CORE_FEATURES = new Set([
   ...FEATURES, "session-token", "pair-password-only", "device-pairing", "device-rebind", "enroll", "dropbox-sync",
   "retro", "retro-index", "library-saves", "saves-by-game", "user-patches", "homebrew", "homebrew-folders", "homebrew-titles",
-  "admin-edit", "client-update", "file-variants", "console-facts",
+  "admin-edit", "client-update", "file-variants", "console-facts", "firmware",
 ]);
 
 /** Retro is offered only while there is at least one ROM to play (the client hides its menu otherwise). */
@@ -171,6 +172,8 @@ export default async function libraryInfoRoute(req, res) {
       ...(adminDevice ? ["admin-edit"] : []),
       // client-update: /api/client/latest names the CookingFoil client build to update to.
       ...(fs.existsSync(CLIENT_NRO) || clientBuildStatus().published ? ["client-update"] : []),
+      // firmware: /api/firmware lists firmware releases and /api/firmware/:version/download serves them; only while a source is set.
+      ...(isSource(firmwareRepo) ? ["firmware"] : []),
     ],
     // How many connections one console may open per download (a hint, not enforced; admin setting).
     download: { maxConnections: downloadMaxConnections },

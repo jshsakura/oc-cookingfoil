@@ -86,6 +86,7 @@ import clientUpdateRouter, { clientUpdateOpenRouter } from "./routes/client-upda
 import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
 import { homebrewRouter, start as startHomebrew } from "./routes/homebrew.js";
+import { firmwareRouter, start as startFirmware } from "./routes/firmware.js";
 import * as folderSync from "./meta/folder-sync.js";
 import * as backups from "./db/backup.js";
 import * as userPatches from "./meta/user-patches.js";
@@ -315,7 +316,7 @@ expressApp.use("/assets", webAssets);
 
 // A pairing-only server must guard API content as well as the file catalog.
 // Keep admin approval and clean configuration export reachable for onboarding.
-expressApp.use(["/api/library", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/retro", "/api/saves", "/api/client", "/api/plugins", BRIDGE_PATH], deviceContentGuard());
+expressApp.use(["/api/library", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/firmware", "/api/retro", "/api/saves", "/api/client", "/api/plugins", BRIDGE_PATH], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -359,6 +360,8 @@ expressApp.use(Object.keys(downloadRouters), trackTransfers({ match: (p) => lane
 expressApp.use("/api/patches", downloadRouters["/api/patches"]);
 // Homebrew (.nro apps): hand-placed ones and the latest GitHub releases.
 expressApp.use("/api/homebrew", downloadRouters["/api/homebrew"]);
+// Firmware releases followed from GitHub (off until the firmwareRepo setting names one).
+expressApp.use("/api/firmware", firmwareRouter());
 
 // Save files the library hands out (off until COOK_SAVES_DIR exists).
 expressApp.use("/api/saves", downloadRouters["/api/saves"]);
@@ -482,6 +485,8 @@ libraryCache.init().catch((err) =>
 userPatches.start({ onChange: () => libraryCache.invalidate() });
 // Homebrew repositories: checked now, then each at most once per COOK_HOMEBREW_CHECK_HOURS.
 startHomebrew();
+// Firmware releases: the list read a few seconds after start, then every firmwareHours (nothing while no source is set).
+startFirmware();
 // The direct address: checked now, then while requests come in; a change is only told (log, Telegram).
 // The start alert waits for that first check (at most CHECK_TIMEOUT_MS) and says how it went.
 directHealth

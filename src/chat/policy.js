@@ -27,13 +27,14 @@ export const DEFAULT_TIERS = Object.freeze(Object.fromEntries([
     "retro_requirements", "retro_rom_patches", "library_storage_guide", "library_folder_guide", "library_suggestions", "library_variants", "files_list",
     "jobs_list", "server_status", "server_overview", "trash_list", "trash_journal", "plugin_list", "agent_list", "account_list",
     "device_list", "integration_list", "alerts_get", "settings_get", "games_wishlist", "game_art", "games_show", "games_recommend",
+    "firmware_status",
     ...Object.keys(AUTO_WRITES),
   ),
   ...approve(
     "game_art_set", "game_art_crop", "retro_art_sync", "retro_art_match", "retro_cover_set", "retro_ko_name_decide", "retro_ko_index",
     "retro_cores_fetch_missing", "retro_cores_update", "retro_core_fetch", "retro_config_set", "retro_config_undo", "trash_restore", "trash_undo",
     "settings_set", "integration_set", "account_set", "device_set", "sends_set", "alerts_set", "server_restart", "server_task", "library_rescan",
-    "retro_core_enabled", "retro_core_source", "retro_core_repo", "agent_order", "agent_clear",
+    "retro_core_enabled", "retro_core_source", "retro_core_repo", "agent_order", "agent_clear", "firmware_refresh",
   ),
   ...blocked("library_files_remove", "patches_remove", "game_art_remove", "trash_release", "job_cancel"),
 ]));
