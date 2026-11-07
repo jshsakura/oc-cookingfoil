@@ -1260,5 +1260,6 @@
   "Could not read the firmware list.": "Kan de firmwarelijst niet lezen.",
   "The server lists no firmware yet.": "De server biedt nog geen firmware aan.",
   "This firmware cannot be downloaded right now.": "Deze firmware kan nu niet worden gedownload.",
+  "The server is out of space for this firmware.": "De server heeft geen ruimte voor deze firmware.",
   "The server is still getting this firmware. Try again shortly.": "De server haalt deze firmware nog op. Probeer het zo opnieuw."
 }

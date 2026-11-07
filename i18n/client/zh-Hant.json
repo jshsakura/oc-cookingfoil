@@ -1260,5 +1260,6 @@
   "Could not read the firmware list.": "無法讀取韌體清單。",
   "The server lists no firmware yet.": "伺服器上還沒有韌體。",
   "This firmware cannot be downloaded right now.": "目前無法下載此韌體。",
+  "The server is out of space for this firmware.": "伺服器沒有足夠的空間儲存此韌體。",
   "The server is still getting this firmware. Try again shortly.": "伺服器仍在準備此韌體，請稍後再試。"
 }

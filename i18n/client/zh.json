@@ -1260,5 +1260,6 @@
   "Could not read the firmware list.": "无法读取固件列表。",
   "The server lists no firmware yet.": "服务器上还没有固件。",
   "This firmware cannot be downloaded right now.": "此固件目前无法下载。",
+  "The server is out of space for this firmware.": "服务器没有足够的空间保存此固件。",
   "The server is still getting this firmware. Try again shortly.": "服务器仍在准备此固件，请稍后再试。"
 }

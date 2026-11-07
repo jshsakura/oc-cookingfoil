@@ -1260,5 +1260,6 @@
   "Could not read the firmware list.": "ファームウェア一覧を読み取れませんでした。",
   "The server lists no firmware yet.": "サーバーにはまだファームウェアがありません。",
   "This firmware cannot be downloaded right now.": "このファームウェアは今はダウンロードできません。",
+  "The server is out of space for this firmware.": "サーバーにこのファームウェアを保存する空き容量がありません。",
   "The server is still getting this firmware. Try again shortly.": "サーバーがまだこのファームウェアを準備しています。しばらくしてからもう一度お試しください。"
 }
