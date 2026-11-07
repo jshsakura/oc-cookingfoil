@@ -61,7 +61,7 @@ export function buildServer(ctx) {
   }
   for (const area of areaTools()) {
     const writes = area.caps.some(gated);
-    const annotations = writes ? { readOnlyHint: false, destructiveHint: false } : { readOnlyHint: true };
+    const annotations = writes ? { readOnlyHint: false, destructiveHint: area.caps.some((c) => c.safety === "destructive") } : { readOnlyHint: true };
     server.registerTool(area.name, { description: areaDescription(area), inputSchema: compiled(`area:${area.name}`, areaInput(area)), annotations }, async ({ action, args, confirm } = {}) => {
       const cap = area.caps.find((c) => c.id === action);
       try {

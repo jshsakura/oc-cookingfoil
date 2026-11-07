@@ -82,6 +82,7 @@ for (const mode of ["auto", "legacy"]) {
       const t = tools.find((x) => x.name === area.name);
       const writes = area.caps.some(gated);
       assert.equal(t.annotations?.readOnlyHint, !writes, t.name);
+      assert.equal(Boolean(t.annotations?.destructiveHint), area.caps.some((c) => c.safety === "destructive"), `${t.name} says when it holds a permanent delete`);
       assert.equal(Boolean(t.inputSchema.properties?.confirm), writes, t.name);
       assert.deepEqual(t.inputSchema.properties.action.enum, area.caps.map((c) => c.id), t.name);
     }
@@ -90,9 +91,10 @@ for (const mode of ["auto", "legacy"]) {
   });
 }
 
-test("a write is served only with a preview of what it would change, and no destructive tool yet", () => {
-  assert.ok(servedTools().every((c) => (c.token || c.mcp) && (c.safety === "read" || (c.safety === "write" && c.preview && c.previewOutput))));
+test("a write or a destructive action is served only with a preview of what it would change", () => {
+  assert.ok(servedTools().every((c) => (c.token || c.mcp) && (c.safety === "read" || (c.preview && c.previewOutput))));
   assert.ok(registry.all.some((c) => c.safety !== "read" && (c.token || c.mcp) && !c.preview && !servedTools().includes(c)), "token writes without a preview stay off MCP");
+  assert.deepEqual(servedTools().filter((c) => c.safety === "destructive").map((c) => c.id), ["trash_empty"], "emptying the trash is the one destructive action served");
 });
 
 // tools/list goes with every request: an action costs its name and a share of its area's line, its spec waits for help.
@@ -178,6 +180,11 @@ async function conforms(cap, input) {
 test("each served tool's real result (a write's preview) matches its declared output", async () => {
   for (const cap of servedTools()) {
     if (cap.input.required?.length) continue; // checked with real arguments in mcp-outputs.test.js and below
+    // ids or all, one of them: nothing is required, and {} is refused. Its preview is checked in trash-empty-capability.test.js.
+    if (cap.id === "trash_empty") {
+      await assert.rejects(cap.preview({}, {}), (err) => err.status === 400);
+      continue;
+    }
     await conforms(cap, {});
   }
   await conforms(registry.byId("help"), { tool: "trash_list" });

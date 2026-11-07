@@ -1,7 +1,8 @@
 /**
  * The capabilities served over MCP: those an automation token may use, every read, and a write once
- * it has a preview (server.js asks for confirm='approve' after showing it). Destructive ones wait
- * until deletes go through the trash with a per-call cap.
+ * it has a preview (server.js asks for confirm='approve' after showing it). The one destructive
+ * action, emptying the trash, is served the same way: every delete goes through the trash first,
+ * and its preview names what emptying would take with it.
  *
  * They are served as one tool per area, ServiceNow MCP style: `games { action, args, confirm? }`.
  * tools/list goes with every request, so it carries only the areas and their action names; an
@@ -9,7 +10,7 @@
  */
 import { registry } from "../capabilities/registry.js";
 
-export const servedTools = () => registry.all.filter((c) => (c.token || c.mcp) && (c.safety === "read" || (c.safety === "write" && c.preview)));
+export const servedTools = () => registry.all.filter((c) => (c.token || c.mcp) && (c.safety === "read" || c.preview));
 
 /** Served as a tool of its own: the entry point an agent calls before any area. */
 export const STANDALONE = new Set(["help"]);

@@ -1,7 +1,8 @@
 /**
  * The shared trash and the move journal (library/trash-service.js), the 휴지통 tab's
- * routes as tools. Emptying is not here: it deletes for good, so only a person on
- * the admin page may (opt-out.js lists it as token-blocked).
+ * routes as tools. Emptying deletes for good, so its route refuses automation tokens
+ * (admin-page.js TOKEN_BLOCKED_RE); MCP serves it alone (mcp: true) behind a preview that
+ * names every entry and confirm='approve', and the chat puts it in the approve tier.
  *
  * ctx.by is who asks, as the trash records it ({ type, name }); a tool call
  * without one is recorded as a token.
@@ -27,13 +28,38 @@ const MOVE = obj({
 }, { description: "also by, type, size, undone, released, held" });
 
 // Checked here as the HTTP route checks it: a tool call reaches this handler without the route.
-async function restoreIds(input) {
+async function idList(input) {
   const ids = input?.ids;
   if (!Array.isArray(ids) || !ids.length || ids.length > 1000 || !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= 300)) {
     throw new (await service()).TrashError("ids is a list of 1 to 1000 item ids", 400);
   }
   return [...new Set(ids)];
 }
+
+/** English for an MCP caller: the service's refusals are worded for the admin page's language. */
+async function inEnglish(fn) {
+  const { TrashError } = await service();
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof TrashError && err.textIn) throw Object.assign(new Error(err.textIn("en")), { status: err.status ?? 409 });
+    throw err;
+  }
+}
+
+/** What trash_empty would delete: the ids given, or with all everything the trash_list at version showed. */
+async function emptyTarget(input) {
+  const { TrashError } = await service();
+  const hasIds = input?.ids !== undefined;
+  if (hasIds === (input?.all === true)) throw new TrashError("give ids (the entries to delete) or all: true, not both", 400);
+  if (hasIds) return idList(input);
+  if (typeof input.version !== "string" || !input.version) throw new TrashError("all needs version as trash_list returned it: everything means everything that list showed", 400);
+  if (input.listedAt !== undefined && typeof input.listedAt !== "number") throw new TrashError("listedAt is the number trash_list returned", 400);
+  return { all: true, version: input.version, listedAt: input.listedAt };
+}
+
+/** How many entries the preview names; the count and bytes always cover all of them. */
+const EMPTY_NAMES = 50;
 
 const MOVE_ARG = { type: "string", description: "The id of a move as trash_journal returns it; undone moves keep their id for release." };
 
@@ -42,7 +68,7 @@ export const trashCapabilities = [
     id: "trash_list",
     area: "library",
     title: "List the trash",
-    description: "Lists what waits in the library folders' trash, newest first, one line each (where from, size, age), 20 a page. Use before trash_restore.",
+    description: "Lists what waits in the library folders' trash, newest first, one line each (where from, size, age), 20 a page. Use before trash_restore and trash_empty, whose all takes its version.",
     input: {
       type: "object",
       properties: {
@@ -68,6 +94,8 @@ export const trashCapabilities = [
       noticeDays: int("age after which entries count as old"),
       old: BYTES_COUNT,
       offset: int(),
+      version: str("digest of the entries listed; trash_empty with all takes it back"),
+      listedAt: num("epoch ms the list was made; trash_empty with all takes it back"),
       unavailable: arr(obj({ root: str(), home: str() }), "trash folders on a disk that is not mounted"),
     }, { optional: ["unavailable"] }),
     safety: "read",
@@ -92,7 +120,7 @@ export const trashCapabilities = [
       failed: arr(obj({ id: str(), error: str() }), "entries that stayed in the trash, and why"),
     }),
     preview: async (ctx, input) => {
-      const ids = await restoreIds(input);
+      const ids = await idList(input);
       const byId = new Map((await (await service()).list()).items.map((e) => [e.id, e]));
       const missing = ids.filter((id) => !byId.has(id));
       if (missing.length) throw Object.assign(new Error(`not in the trash: ${missing.join(", ")}; see trash_list`), { status: 404 });
@@ -105,7 +133,49 @@ export const trashCapabilities = [
     previewOutput: obj({ entries: arr(obj({ id: str(), root: str(), name: str(), size: int("bytes") })), changes: str() }),
     safety: "write",
     http: { method: "POST", path: "/admin/api/trash/restore" },
-    handler: async (ctx, input) => (await service()).restore(await restoreIds(input), byOf(ctx), { exactName: input.exactName === true, lang: "en" }),
+    handler: async (ctx, input) => (await service()).restore(await idList(input), byOf(ctx), { exactName: input.exactName === true, lang: "en" }),
+  }),
+  defineCapability({
+    id: "trash_empty",
+    area: "library",
+    title: "Empty the trash",
+    description: "Deletes trash entries for good: the ids given, or with all everything trash_list showed (pass its version and listedAt). The preview names each entry and its size; nothing brings them back.",
+    input: {
+      type: "object",
+      properties: {
+        ids: { type: "array", items: { type: "string", minLength: 1, maxLength: 300 }, minItems: 1, maxItems: 1000, description: "The entries to delete for good, from trash_list; at most 1000 in one call. Not with all." },
+        all: { type: "boolean", description: "true deletes every entry the trash_list at version showed. Not with ids." },
+        version: { type: "string", description: "For all: the version trash_list returned; refused when the trash no longer matches what that list showed." },
+        listedAt: { type: "number", description: "For all: the listedAt trash_list returned; an entry that came in after it is left alone." },
+      },
+    },
+    output: obj({ removed: int("entries deleted"), bytes: int("bytes freed") }),
+    preview: async (_ctx, input) => inEnglish(async () => {
+      const svc = await service();
+      const ids = await svc.targetsOf(await emptyTarget(input));
+      const byId = new Map((await svc.list()).items.map((e) => [e.id, e]));
+      const missing = ids.filter((id) => !byId.has(id));
+      if (missing.length) throw Object.assign(new Error(`not in the trash: ${missing.join(", ")}; see trash_list`), { status: 404 });
+      const entries = ids.map((id) => byId.get(id));
+      const bytes = entries.reduce((n, e) => n + e.size, 0);
+      const n = entries.length;
+      return {
+        count: n,
+        bytes,
+        entries: entries.slice(0, EMPTY_NAMES).map(({ id, root, name, size, items }) => ({ id, root, name, size, files: items?.length ?? 0 })),
+        changes: `Deletes ${n} entr${n === 1 ? "y" : "ies"} (${(bytes / 1e9).toFixed(2)} GB) for good${n > EMPTY_NAMES ? `; the first ${EMPTY_NAMES} are named` : ""}. Nothing brings them back.`,
+      };
+    }),
+    previewOutput: obj({
+      count: int("entries that would be deleted"),
+      bytes: int("bytes they hold"),
+      entries: arr(obj({ id: str(), root: str(), name: str(), size: int("bytes"), files: int() }), `the entries, at most ${EMPTY_NAMES}`),
+      changes: str(),
+    }),
+    safety: "destructive",
+    mcp: true,
+    http: { method: "POST", path: "/admin/api/trash/empty" },
+    handler: async (ctx, input) => inEnglish(async () => (await service()).empty(await emptyTarget(input), byOf(ctx))),
   }),
   defineCapability({
     id: "trash_journal",
