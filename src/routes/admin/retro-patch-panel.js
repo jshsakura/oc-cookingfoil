@@ -23,7 +23,7 @@ function rptPatches(g){const c=td();for(const p of g.patch?.patches??[])c.append
 function rptRow(g){const tr=el('tr');const acts=el('div',null,'row-actions');
   if(!g.unpatchable&&!g.missing)acts.append(btn(topText('rpt.apply'),()=>{rptTarget=g;$('rpt-file').click();}));
   if(g.patch)acts.append(btn(topText('rpt.restore'),()=>rptRestore(g),'danger'));
-  tr.append(rptFile(g),td(g.systemName),raCell(rptState(g)),rptPatches(g),raCell(acts));return tr;}
+  tr.append(rptFile(g),sysCell(g.systemFolder,g.systemName),raCell(rptState(g)),rptPatches(g),raCell(acts));return tr;}
 const rptCols=()=>[topText('rpt.colFile'),topText('rpt.colSystem'),topText('rpt.colState'),topText('rpt.colPatches'),''];
 async function loadRetroPatch(){const q=$('rpt-q').value.trim();let d;
   try{d=await api('/admin/api/retro-patch?q='+encodeURIComponent(q));}catch(err){toast(err.message);return;}

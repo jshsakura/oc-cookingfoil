@@ -17,7 +17,7 @@ test('the library and patch pages open without a script error or a failed-load t
   await signIn(page);
   for (const path of ['/admin/games', '/admin/patches', '/admin/saves']) {
     await page.goto(path);
-    await expect(page.locator('#lib-patches, #lib-saves, #lib-cards').first()).toBeAttached();
+    await expect(page.locator('#lib-patches, #lib-saves, #fb-rows').first()).toBeAttached();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#toast')).not.toContainText('is not defined');
   }

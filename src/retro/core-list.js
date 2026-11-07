@@ -43,6 +43,7 @@ export function systemChoices(systems, games, cores) {
     return {
       id,
       name: s.names?.ko ?? s.names?.en ?? id,
+      folder: s.folder ?? id,
       games: counts.get(id),
       core: s.core,
       tableCore: s.tableCore ?? s.core,
@@ -90,7 +91,7 @@ export async function listCores(packDir, hashCache, games, systems) {
       name: info.name,
       extensions: info.extensions,
       ...(await entry(f, hashCache)),
-      systems: [...(users.get(core) ?? [])].map(([id, n]) => ({ id, name: systems[id]?.names?.ko ?? id, games: n })),
+      systems: [...(users.get(core) ?? [])].map(([id, n]) => ({ id, name: systems[id]?.names?.ko ?? id, folder: systems[id]?.folder ?? id, games: n })),
     });
   }
   return { official: OFFICIAL_VERSION, retroarch: nro ? await entry(nro, hashCache) : null, cores, systems: systemChoices(systems, games, cores) };

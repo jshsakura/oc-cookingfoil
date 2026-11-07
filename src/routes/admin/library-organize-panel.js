@@ -7,8 +7,7 @@
 import { top } from "./top-i18n.js";
 import { REASON_TEXT } from "../../meta/library-organize.js";
 
-export const ORGANIZE_HTML = `  <div class="hd"><h2 class="first">${top("m.organize")}</h2><div class="actions"><button type="button" class="primary" id="lo-sweep">${top("lo.sweep")}</button></div></div>
-  <p class="muted">${top("lo.lead")}</p>
+export const ORGANIZE_HTML = `  <div class="hd"><p class="muted">${top("lo.lead")}</p><div class="actions"><button type="button" class="primary" id="lo-sweep">${top("lo.sweep")}</button></div></div>
   <p class="muted">${top("lo.where")} <code id="lo-path"></code></p>
   <ul class="muted lo-rules">
     <li><b>${top("lo.gameH")}</b>: ${top("lo.game")}</li>

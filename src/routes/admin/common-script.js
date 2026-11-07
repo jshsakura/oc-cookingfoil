@@ -68,6 +68,8 @@ async function openLogins(owner,name){
       r.append(el('b',fmt(x.at)),how);return r;}));}catch(err){toast(errText(err));}}
 function whenCell(at){const c=td(agoT(at),at?'':'dim');if(at)c.title=fmt(at);return c;}
 function el(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e;}
+// A retro system in a table: its folder name as it is on disk, and what that means under it.
+function sysCell(folder,name){const c=el('td');c.append(el('div',folder||name||''));if(name&&folder&&name!==folder)c.append(el('div',name,'sys-sub'));return c;}
 function td(txt,cls){return el('td',txt,cls);}
 // Row actions show an icon; on a wide screen the label hides and stays as the tooltip and accessible name.
 const TRASH='<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>';

@@ -65,8 +65,7 @@ export const LIBRARY_CSS = /* css */ `
 /* From tablet width up the browser is one window, as on a desktop: the toolbar on top, the tree, the list and the
    details side by side, each scrolling on its own, and the status bar at the bottom, the whole filling the screen. */
 @media (min-width:900px){
-  .adm-shell>.wrap:has(#fb){max-width:none}
-  #fb{gap:0;height:calc(100dvh - var(--fb-top,220px) - var(--fb-below,24px));min-height:320px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);overflow:hidden}
+    #fb{gap:0;height:calc(100dvh - var(--fb-top,220px) - var(--fb-below,24px));min-height:320px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--panel);overflow:hidden}
   #fb .fb-bar{padding:8px 10px;gap:6px;border-bottom:1px solid var(--line)}
   /* The window takes every line the screen has: the bar wraps at most once, the trash note and the scan line
      step aside (the scan line is the rescan button's tooltip), and the chat button floats over the status bar. */
@@ -75,13 +74,8 @@ export const LIBRARY_CSS = /* css */ `
   #fb .fb-bar button{height:34px}
   #fb .fb-cmds{padding:2px 10px;border-bottom:1px solid var(--line)}
   #fb .fb-bar .ib{width:34px}
-  .adm-shell>.wrap:has(#fb){padding-top:calc(var(--adm-hdr-h) + 12px);padding-bottom:12px}
+  .adm-shell>.wrap:has(#fb){padding-bottom:12px}
   body:has(.ch-launch:not([hidden])) .adm-shell>.wrap:has(#fb){padding-bottom:12px}
-  #tab-library:has(#fb){position:relative}
-  #tab-library:has(#fb)>.hd{position:absolute;top:0;right:0;margin:0;z-index:1}
-  #tab-library:has(#fb)>.hd h2{display:none}
-  #tab-library:has(#fb)>.hd #rescan{height:34px}
-  #tab-library:has(#fb) #lib-subtabs{padding-right:150px}
   .wrap:has(#fb) .subtabs{margin-bottom:12px}
   #fb #fb-foot{padding:6px 12px;margin:0;min-height:0;border-width:1px 0 0;border-radius:0;box-shadow:none}
   /* Only the list gives way: however long it is, the toolbars and the status bar keep their height. */
@@ -119,7 +113,7 @@ const FB_ABOUT_EXT={nsp:'fb.f.nsp',nsz:'fb.f.nsz',xci:'fb.f.xci',xcz:'fb.f.xcz',
 function fbAbout(f){const parts=f.rel.split('/');const dir=f.type==='dir';
   if(f.server)return FB_ABOUT_SERVER[parts[0]]?topText(FB_ABOUT_SERVER[parts[0]]):'';
   if(fb.root==='retro'){if(f.rel==='roms')return topText('fb.a.roms');
-    if(dir&&parts[0]==='roms'&&parts.length===2&&f.title)return topFill('fb.a.romsOf',{name:f.title});
+    if(dir&&parts[0]==='roms'&&parts.length===2&&f.system)return topFill('fb.a.romsOf',{name:f.system});
     if(!dir&&f.system)return topFill('fb.a.romOf',{name:f.system});}
   if(fb.root==='games'&&dir){if(f.rel==='incoming')return topText('fb.a.incoming');
     if(/^update$/i.test(f.name))return topText('fb.a.update');if(/^dlc$/i.test(f.name))return topText('fb.a.dlc');}

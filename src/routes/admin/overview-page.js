@@ -4,7 +4,6 @@ import { top, TOP_WORDS } from "./top-i18n.js";
 const ko = (key) => `${TOP_WORDS.ko[key]}`;
 
 export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
-  <h2 class="first" data-top="ov.h">${ko("ov.h")}</h2>
   <div class="copy-row"><code id="library-url">—</code><button type="button" id="library-url-copy" data-top="ov.copy">${ko("ov.copy")}</button></div>
   <h3 class="ov-h" data-top="ov.todoH">${ko("ov.todoH")}</h3>
   <div id="warnings"></div>

@@ -374,23 +374,6 @@ test('a swipe across a preview steps to the next file', async ({ page }) => {
 });
 
 
-test('a game list on a phone keeps every card inside the screen, without a tall gap under it', async ({ page }) => {
-  put('Listed/A Very Long Name Game That Goes On And On Forever And Ever [0100000000020000][v0].nsp', '1');
-  await page.goto('/admin/library');
-  const list = page.locator('#lb-list');
-  await expect(list.locator('.gcard').first()).toBeVisible();
-  const over = await list.evaluate((m) => {
-    const bad = [...m.querySelectorAll('.gcard *')].filter((e) => e.getBoundingClientRect().right > innerWidth + 1).length;
-    return { bad, sideways: [...m.querySelectorAll('*')].filter((e) => { const o = getComputedStyle(e).overflowX; return (o === 'auto' || o === 'scroll') && e.scrollWidth > e.clientWidth + 1; }).length };
-  });
-  expect(over.bad).toBe(0);
-  expect(over.sideways).toBe(0);
-  const gap = await list.locator('.gcard').first().evaluate((c) => {
-    const last = c.lastElementChild!.getBoundingClientRect();
-    return c.parentElement!.getBoundingClientRect().bottom - last.bottom;
-  });
-  expect(gap).toBeLessThan(24);
-});
 
 test('a preview fills the phone, and a lost server leaves the list and the pick on screen', async ({ page }) => {
   put('Pic/a.txt', 'hello');

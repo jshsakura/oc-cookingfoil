@@ -6,8 +6,7 @@ import { top, topPh, topLabel } from "./top-i18n.js";
  * Talks to /admin/api/tokens (api-tokens-api.js) and /admin/api/server-settings (mcpEnabled).
  */
 
-export const TOKENS_HTML = `<div class="hd"><h2>${top("tok.h2")}</h2></div>
-<p class="muted">${top("tok.lede")}</p>
+export const TOKENS_HTML = `<div class="hd"><p class="muted">${top("tok.lede")}</p></div>
 <p class="muted" id="tok-need" hidden></p>
 <form class="add" id="tok-form" autocomplete="off">
   <input id="tok-label" ${topPh("tok.labelPh")} ${topLabel("tok.labelAria")} maxlength="64">

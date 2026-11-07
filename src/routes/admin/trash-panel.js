@@ -12,9 +12,8 @@ import { box } from "./boxes.js";
 import { top } from "./top-i18n.js";
 
 export const TRASH_HTML = `<section id="tab-trash" hidden>
-  <div class="hd"><h2 class="first">${top("s.trash")}</h2>
+  <div class="hd"><p class="muted">${top("t.lead")} ${top("t.renamedFolder")}</p>
     <div class="actions"><button type="button" class="danger" id="tr-empty-all">${top("t.emptyAll")}</button></div></div>
-  <p class="muted">${top("t.lead")} ${top("t.renamedFolder")}</p>
   <p class="tr-old" id="tr-unavail" hidden></p>
   <p class="tr-old" id="tr-old" hidden></p>
   <div class="tr-cards" id="tr-cards"></div>

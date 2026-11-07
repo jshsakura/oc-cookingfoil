@@ -10,7 +10,7 @@
 import { top, topLabel } from "./top-i18n.js";
 
 export const TRANSFERS_HTML = `
-  <div class="hd"><h2 class="first">${top("xf.h2")}</h2>
+  <div class="hd"><p class="muted">${top("xf.lede1")}<span id="xf-quiet">20</span>${top("xf.lede2")}</p>
     <div class="seg" id="xf-routes" role="group" ${topLabel("xf.routeLabel")}>
       <button type="button" data-route="" aria-pressed="true" class="active">${top("xf.kAll")}</button>
       <button type="button" data-route="tunnel" aria-pressed="false">${top("xf.kTunnel")}</button>
@@ -18,7 +18,6 @@ export const TRANSFERS_HTML = `
       <button type="button" data-route="lan" aria-pressed="false">${top("xf.kLan")}</button>
       <button type="button" data-route="other" aria-pressed="false">${top("xf.kOther")}</button>
     </div></div>
-  <p class="muted">${top("xf.lede1")}<span id="xf-quiet">20</span>${top("xf.lede2")}</p>
   <div class="cards xf-cards" id="xf-cards"></div>
   <div class="note warn" id="xf-slow" hidden></div>
   <div class="xf-table" id="xf-table" data-skel ${topLabel("xf.h2")}></div>

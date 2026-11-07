@@ -898,7 +898,8 @@ test('the retro folder says what each folder is for, marks the server\'s own, an
   if (process.env.FB_SHOTS) await page.screenshot({ path: path.join(process.env.FB_SHOTS, 'files-retro-top.png') });
 
   await page.goto('/admin/retro?tab=folder&path=roms');
-  await expect(row(page, '슈퍼 패미컴 (SNES)')).toContainText('슈퍼 패미컴 (SNES) 롬을 넣는 폴더입니다.');
+  // The console folder keeps its own name on the row; what it is for says the console.
+  await expect(row(page, 'snes')).toContainText('슈퍼 패미컴 (SNES) 롬을 넣는 폴더입니다.');
 
   await page.goto('/admin/retro?tab=folder&path=thumbnails/snes');
   if ((await page.locator('#fb-t-side').getAttribute('aria-pressed')) !== 'true') await page.locator('#fb-t-side').click();

@@ -1,6 +1,5 @@
 import { LIBRARY_HTML, LIBRARY_PAGE_SCRIPT } from "./library-page.js";
 import { LIBRARY_FILES_CSS, LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
-import { LIB_BROWSER_CSS, LIB_BROWSER_HTML, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
 import { ORGANIZE_CSS, ORGANIZE_HTML, ORGANIZE_SCRIPT } from "./library-organize-panel.js";
 import { PATCHES_SCRIPT } from "./patches-panel.js";
 import { HOMEBREW_HTML, HOMEBREW_DIALOG_HTML, HOMEBREW_SCRIPT } from "./homebrew-page.js";
@@ -98,17 +97,10 @@ const listPage = (tab, root, listHtml) => withFolder({
 export const SPLIT_PAGES = {
   "/admin/not-found": bundle({ body: `<section id="tab-not-found"><div class="hd"><h2>${top("nf.title")}</h2></div><p class="muted">${top("nf.body")}</p><p><a class="btn primary" href="/admin">${top("nf.home")}</a></p></section>`, script: "", init: "" }),
   "/admin/games": withFolder({
-    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS+LIBRARY_FILES_CSS,
+    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIBRARY_FILES_CSS,
     body: LIBRARY_HTML+CONTENT_DIALOG_HTML,
-    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT+LIB_BROWSER_SCRIPT,
+    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+LIBRARY_PAGE_SCRIPT+PATCHES_SCRIPT+LIBRARY_FILES_SCRIPT,
     init: "libShowSub(location.hash.split('/')[1]||'folder',true);loadLibrary();libOpenGame();",
-  }),
-  // Every kind the library holds in one list, not the games' own.
-  "/admin/library": bundle({
-    css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS+LIB_BROWSER_CSS,
-    body: `<section id="tab-all"><div class="hd"><h2 class="first">${top("m.allList")}</h2></div>${LIB_BROWSER_HTML}</section>${CONTENT_DIALOG_HTML}`,
-    script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+PATCHES_SCRIPT+LIB_BROWSER_SCRIPT,
-    init: "lbLoad();",
   }),
   "/admin/homebrew": withFolder({
     css: LIST_HELPERS_CSS+PATCHES_CSS+GAME_PICKER_CSS,
@@ -163,7 +155,7 @@ export const SPLIT_PAGES = {
     init: "subtabs('alerts');SUBTABS.alerts.show('history');loadAlerts();",
   }),
   "/admin/client": bundle({
-    body: `<section id="tab-client"><div class="hd"><h2 class="first">${top("m.client")}</h2></div>${CLIENT_RELEASE_HTML}</section>`,
+    body: `<section id="tab-client">${CLIENT_RELEASE_HTML}</section>`,
     script: CLIENT_RELEASE_SCRIPT,
     init: "loadClientRelease();",
   }),

@@ -56,6 +56,7 @@ function publicGroup(group, systems, lang) {
     id: group.id,
     system: group.system,
     systemName: systems[group.system]?.names?.ko ?? group.system,
+    systemFolder: systems[group.system]?.folder ?? group.system,
     kind: group.kind,
     reason: pickedNow ? retroText(lang, "variant.picked") : retroSaid(lang, group.reason),
     reasonCode: pickedNow ? "variant.picked" : group.reason?.code ?? null,

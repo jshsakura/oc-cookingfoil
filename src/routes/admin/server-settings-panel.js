@@ -7,8 +7,7 @@
 
 import { top, topLabel } from "./top-i18n.js";
 
-export const SERVER_SETTINGS_HTML = `<div class="hd"><h2 class="first" data-top="m.setServer">${top("m.setServer")}</h2></div>
-  <p class="muted">${top("ss.lede")}</p>
+export const SERVER_SETTINGS_HTML = `<div class="hd"><p class="muted">${top("ss.lede")}</p></div>
   <div class="box-jump" id="ss-jump" role="tablist" ${topLabel("ss.jumpLabel")}></div>
   <div id="ss-list" class="ss-list"></div>
   <section class="box" id="ss-about"><div class="box-h"><h3 data-top="s.settings">${top("s.settings")}</h3></div><div class="box-b"><dl class="kv" id="ss-about-kv"></dl></div></section>`;

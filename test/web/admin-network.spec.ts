@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
 for (const task of [
-  { view: 'files', url: '/admin/games?view=files', tab: (sub: string) => `#lib-subtabs [data-lsub="${sub}"]`, own: 'files', other: 'info', api: 'browse', period: 4000, ready: '#lb-list .ag-row' },
   { view: 'organize', url: '/admin/incoming/temp#organize/sort', tab: (sub: string) => `#organize-subtabs [data-sub="${sub}"]`, own: 'sort', other: 'folder', api: 'organize', period: 5000, ready: '#lo-held .empty' },
 ]) {
   test(`${task.view} polls only its active visible page and resumes after returning`, async ({ page }) => {

@@ -42,7 +42,7 @@ test('the logs tab shows download records: slow tunnel, live rows first, filters
   });
 
   await page.goto('/admin/logs/downloads');
-  await expect(page.getByRole('heading', { name: '다운로드 기록' })).toBeVisible();
+  await expect(page.locator('#adm-crumb')).toContainText('다운로드 기록');
   await expect(page.locator('#xf-cards .card')).toHaveCount(3);
   await expect(page.locator('#xf-cards .card.slow')).toContainText('터널');
   await expect(page.locator('#xf-slow')).toBeVisible();

@@ -146,8 +146,8 @@ test('on a desktop the header band holds the account top right, its menus open d
   expect(acct.y + acct.height).toBeLessThanOrEqual(band.height);
   expect(1280 - (acct.x + acct.width)).toBeLessThan(40);
   expect((await box('#lang-btn')).x).toBeLessThan(acct.x);
-  // The page title starts below the band.
-  expect((await box('body.adm-shell > .wrap h2')).y).toBeGreaterThanOrEqual(band.height);
+  // The page's lead starts below the band (the band's path names the page).
+  expect((await box('body.adm-shell > .wrap p.muted')).y).toBeGreaterThanOrEqual(band.height);
 
   await page.locator('#acct-btn').click();
   expect((await box('#acct-list')).y).toBeGreaterThan(acct.y + acct.height);
@@ -233,9 +233,9 @@ test('dictionary text keeps its links and never shows a raw key or source', asyn
   await page.goto('/admin/settings/integrations');
   await expect(page.locator('.intg-steps a').first()).toBeVisible();
   expect(await page.locator('.intg-steps').evaluateAll((ns) => ns.some((n) => (n as HTMLElement).innerText.includes('<a ')))).toBe(false);
-  await page.goto('/admin/games?view=files');
-  await expect(page.locator('#lb-list')).toContainText('Test Game');
-  await expect(page.locator('#lb-list')).not.toContainText('lb.k');
+  await page.goto('/admin/games');
+  await expect(page.locator('#fb-rows')).toContainText('Test Game');
+  await expect(page.locator('#fb')).not.toContainText('fb.col');
 });
 
 test('the addresses the menu plan retired redirect to where their job lives now', async ({ page }) => {
@@ -321,7 +321,7 @@ test('the sidebar lists each group in the agreed order, with no separate securit
   await expect(side.locator('details.adm-grp')).toHaveCount(4);
   await expect(side.locator('details.adm-grp[data-grp="sec"]')).toHaveCount(0);
   const hrefs = (sel: string) => side.locator(`${sel} a.adm-item`).evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  expect(await hrefs('details[data-grp="library"]')).toEqual(['/admin/library', '/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/featured', '/admin/trash']);
+  expect(await hrefs('details[data-grp="library"]')).toEqual(['/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/featured', '/admin/trash']);
   expect(await hrefs('details[data-grp="people"]')).toEqual(['/admin/users', '/admin/devices', '/admin/client']);
   expect(await hrefs('details[data-grp="ops"]')).toEqual(['/admin/convert', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']);
   expect(await hrefs('details[data-grp="set"]')).toEqual(['/admin/settings/server', '/admin/settings/login', '/admin/settings/admin', '/admin/settings/notifications', '/admin/settings/integrations', '/admin/settings/plugins', '/admin/settings/automation']);

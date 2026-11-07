@@ -26,7 +26,6 @@ import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-pan
 import { ALERTS_CSS, ALERTS_HTML, ALERTS_SCRIPT } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
 import { LIBRARY_FILES_SCRIPT } from "./library-files-panel.js";
-import { LIB_BROWSER_CSS, LIB_BROWSER_SCRIPT } from "./library-browser-panel.js";
 import { CONTENT_DIALOG_HTML, PATCHES_CSS, PATCHES_SCRIPT } from "./patches-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 import { INBOX_CSS, INBOX_HTML, INBOX_SCRIPT } from "./inbox-panel.js";
@@ -78,6 +77,14 @@ section[hidden]{display:none}
 .lanes{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0}
 .scroll{overflow-x:auto}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+/* The header's path names the page. A page's top row keeps its one-line lead on the left and its actions on the right;
+   a page with tabs puts them in that row, and the row draws the tabs' line. */
+.hd>p.muted{flex:1 1 320px;min-width:0;margin:0}
+.sys-sub{color:var(--muted);font-size:var(--fs-xs);margin-top:2px}
+.hd:not(:has(h2,h3,p,.subtabs)){justify-content:flex-end}
+.hd:has(>.subtabs){align-items:flex-end;border-bottom:1px solid var(--line);margin-bottom:18px}
+.hd>.subtabs{flex:1 1 auto;min-width:0;margin:0;border-bottom:0}
+.hd>.subtabs~.actions,.hd>.subtabs~button{margin-bottom:6px}
 .hd{margin:24px 0 10px}.hd:first-child{margin-top:0}.hd h2,.hd h2.first{margin:0}
 form.add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2xl);padding:14px;margin-bottom:16px}
 form.add input{flex:1;min-width:150px}
@@ -348,7 +355,7 @@ export function dashboardPage(page = ADMIN_PAGE_BY_PATH.get("/admin"), view = ""
   const current = { path: page.path, view, countId: page.count ?? "" };
   return /* html */ `<!doctype html><html lang="ko" class="adm"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="format-detection" content="telephone=no,email=no,address=no">
-${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${CHAT_WIDGET_CSS}${OVERVIEW_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${LIB_BROWSER_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
+${ADMIN_TITLE_HTML}${ADMIN_HEAD}${GRID_HEAD}<style>${ADMIN_CSS}${PAGE_CSS}${CHAT_WIDGET_CSS}${OVERVIEW_CSS}${INTEGRATIONS_CSS}${RETRO_ART_CSS}${ALERTS_CSS}${PATCHES_CSS}${GAME_PICKER_CSS}${SERVER_SETTINGS_CSS}${INBOX_CSS}${NSZ_CSS}${TRASH_CSS}${TRANSFERS_CSS}${LOGS_CSS}${ACTIVITY_CSS}${ICON_CSS}${BOX_CSS}${GRID_CSS}
 ${LIST_HELPERS_CSS}
 tr.group td{font-weight:var(--fw-bold);color:var(--muted);padding-top:14px}
 ${POLISH_CSS}${TOP_LANG_CSS}${NAV_CSS}${ADM_SHELL_CSS}</style></head>
@@ -415,5 +422,5 @@ ${HOMEBREW_DIALOG_HTML}
 ${CONTENT_DIALOG_HTML}
 ${CHAT_WIDGET_HTML}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${LIB_BROWSER_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${CHAT_WIDGET_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
+<script>${admRouterScript(page)}${TOP_I18N_SCRIPT}${GRID_SCRIPT}${GAME_PICKER_SCRIPT}${DASHBOARD_SCRIPT}${INTEGRATIONS_SCRIPT}${RETRO_ART_SCRIPT}${ALERTS_SCRIPT}${PATCHES_SCRIPT}${LIBRARY_FILES_SCRIPT}${SERVER_SETTINGS_SCRIPT}${TOKENS_SCRIPT}${INBOX_SCRIPT}${NSZ_SCRIPT}${TRASH_SCRIPT}${TRANSFERS_SCRIPT}${CHAT_WIDGET_SCRIPT}${ACTIVITY_SCRIPT}${POLISH_SCRIPT}${BOX_SCRIPT}${NAV_SCRIPT}</script></body></html>`;
 }

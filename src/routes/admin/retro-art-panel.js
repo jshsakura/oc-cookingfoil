@@ -247,7 +247,7 @@ function rcSystems(list){
     const picked=s.core!==s.tableCore?pill(topText('rc.changedFromDefault'),''):'';
     const back=s.core!==s.tableCore?tbtn('restore','rc.toDefault',()=>rcSetSystem(s,s.tableCore)):'';
     const extra=td();if(cs)extra.append(rcSource(cs.core));if(state)extra.append(state);if(swap)extra.append(swap);if(picked)extra.append(picked);if(back)extra.append(back);
-    tr.append(td(s.name),td(topFill('ss.nCount',{n:s.games})),raCell(rcPicker(s)),rcAdvice(s),extra);return tr;}),topText('rc.noSystems'));}
+    tr.append(sysCell(s.folder,s.name),td(topFill('ss.nCount',{n:s.games})),raCell(rcPicker(s)),rcAdvice(s),extra);return tr;}),topText('rc.noSystems'));}
 async function rcSetSystem(s,core,sel){
   if(!await ask(topFill('rc.setQ',{name:s.name,n:s.games,core}))){if(sel)sel.value=s.core;return;}
   try{await api('/admin/api/retro-cores/system',{method:'POST',body:{system:s.id,core}});toast(topFill('rc.setDone',{name:s.name,core}));loadRetroCores();}
@@ -304,7 +304,7 @@ async function loadRetroArt(){
   table('ra-systems',[topText('rk.colSystem'),topText('ra.colItems'),topText('ra.colArt'),topText('ra.colBorrowed'),topText('ra.colBezel'),''],raData.systems.map((s)=>{const tr=el('tr');
     const b=el('button',topText('pp.download'));b.type='button';b.setAttribute('aria-label',s.name+' '+topText('pp.download'));b.addEventListener('click',()=>raSync(s.id));
     const pct=(n)=>n+' ('+Math.round(n*100/Math.max(1,s.games))+'%)';
-    tr.append(td(s.name),td(String(s.games)),td(pct(s.boxart)),td(s.borrowed?String(s.borrowed):'—'),td(pct(s.bezel)),raCell(b));return tr;}),topText('ra.noItems'));
+    tr.append(sysCell(s.folder,s.name),td(String(s.games)),td(pct(s.boxart)),td(s.borrowed?String(s.borrowed):'—'),td(pct(s.bezel)),raCell(b));return tr;}),topText('ra.noItems'));
   raList();
 }
 // The system folders the server keeps (retro/scaffold.js) and a link to the storage guide.

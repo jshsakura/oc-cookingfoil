@@ -6,13 +6,12 @@ import { top, topLabel } from "./top-i18n.js";
  */
 
 export const INBOX_HTML = `<section id="tab-inbox" hidden>
-  <div class="hd"><h2 class="first" data-top="m.inbox">${top("m.inbox")}</h2>
+  <div class="hd"><p class="muted">${top("ib.lead")}</p>
     <div class="seg" id="ib-show" role="group" ${topLabel("ov.go")}>
       <button type="button" data-show="open" aria-pressed="true" class="active" data-top="ib.open">${top("ib.open")}</button>
       <button type="button" data-show="done" aria-pressed="false" data-top="ib.done">${top("ib.done")}</button>
       <button type="button" data-show="all" aria-pressed="false" data-top="t.total">${top("t.total")}</button>
     </div></div>
-  <p class="muted">${top("ib.lead")}</p>
   <p class="muted" id="ib-usage"></p>
   <div class="ib-list" id="ib-list"></div>
 </section>`;

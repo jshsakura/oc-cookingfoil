@@ -354,16 +354,16 @@ test('a game file is found by name and deleted from the library tab', async ({ p
   fs.writeFileSync(file, '');
   await signIn(page);
   await request.post('/admin/api/library/rescan', { headers: { Cookie: adminCookie }, data: {} });
-  await page.goto('/admin/games?view=files');
-  // The one file browser finds it across every kind, with the type filter on 전체.
-  await expect(page.locator('#lb-tab-all')).toHaveAttribute('aria-pressed', 'true');
+  await page.goto('/admin/games');
+  // The one file browser finds it by name.
+  const hit = page.locator('#fb-rows tr', { hasText: 'Throwaway' });
   await expect.poll(async () => {
-    await page.locator('#lb-q').fill('');
-    await page.locator('#lb-q').fill('Throwaway');
-    return page.locator('#lb-list .ag-row', { hasText: 'Throwaway' }).count();
+    await page.locator('#fb-q').fill('');
+    await page.locator('#fb-q').fill('Throwaway');
+    return hit.count();
   }, { timeout: 15000 }).toBe(1);
   await acceptAsks(page);
-  await page.locator('#lb-list .ag-row', { hasText: 'Throwaway' }).getByRole('button', { name: /삭제$/ }).click();
+  await hit.getByRole('button', { name: '휴지통으로' }).click();
   await expect(page.locator('#toast')).toContainText('휴지통으로 옮겼습니다');
   expect(fs.existsSync(file)).toBe(false);
   await expect.poll(async () => (await (await request.get('/admin/api/library', { headers: { Cookie: adminCookie } })).json()).files, { timeout: 15000 }).toBe(1);

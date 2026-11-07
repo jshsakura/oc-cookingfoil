@@ -4,8 +4,7 @@ import { failureKind, hasBatches, splitUnits, tally, tallyFiles, trimHistory, un
 import { TOP_WORDS, top, topLabel, topPh } from "./top-i18n.js";
 
 export const UPLOAD_HTML = /* html */ `<section id="tab-upload" hidden>
-  <div class="hd"><h2>${top("s.upload")}</h2></div>
-  <p class="muted up-lead" id="up-lead">${top("u.lead")}</p>
+  <div class="hd"><p class="muted up-lead" id="up-lead">${top("u.lead")}</p></div>
   <div class="up-drop" id="up-drop" tabindex="0" role="button" ${topLabel("u.dropAria")}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
     <b id="up-drop-t">${top("u.dropT")}</b>
