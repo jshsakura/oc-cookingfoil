@@ -172,7 +172,7 @@ const BASE_WORDS = {
     "pp.devKey": "기기 키",
     "pp.approvedOn": "승인한 날",
     "pp.revokeKey": "접근 키 회수",
-    "pp.rename": "이름 변경",
+    "pp.rename": "이름 바꾸기",
     "pp.dlWaiting": "다운로드",
     "pp.dlRevoked": "취소된 다운로드",
     "pp.dlExpired": "기한이 지난 다운로드",

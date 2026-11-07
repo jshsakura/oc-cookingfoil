@@ -66,7 +66,7 @@ export const PAIR_TEXT = {
     lastSeen: "{time} 접속",
     neverSeen: "아직 접속하지 않음",
     canSend: "게임 받기",
-    rename: "이름 변경",
+    rename: "이름 바꾸기",
     renamePrompt: "기기 이름을 입력합니다.",
     save: "저장",
     keep: "그대로 두기",

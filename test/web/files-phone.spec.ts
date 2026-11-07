@@ -240,9 +240,10 @@ test('with nothing picked the bottom edge offers upload and 파일 메뉴, which
   expect(foot.width).toBe(390);
 });
 
-test('전부 beside the count picks the whole list and lets it all go again', async ({ page }) => {
+test('모두 선택 beside the count picks the whole list and lets it all go again', async ({ page }) => {
   await row(page, 'loose.nsp').click({ position: { x: 120, y: 10 } });
   const all = page.locator('#fb-pick-all');
+  await expect(all).toHaveText('모두 선택');
   await all.click();
   await expect(page.locator('#fb-info')).toHaveText('4개를 골랐습니다');
   await all.click();

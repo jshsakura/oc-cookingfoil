@@ -77,7 +77,7 @@ const BAN='<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>';
 const STAR='<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>';
 const ROTATE='<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>';
 const ICONS={'삭제':TRASH,'줄 삭제':TRASH,'폐기':TRASH,
-  '편집':PENCIL,'이름':PENCIL,'이름 변경':PENCIL,
+  '편집':PENCIL,'이름':PENCIL,'이름 바꾸기':PENCIL,
   '승인':'<path d="M5 12.5l4.5 4.5L19 7.5"/>','거절':CROSS,'취소':CROSS,'빼기':'<path d="M5 12h14"/>',
   '접근 키 회수':BAN,'사용 중지':BAN,'해제':BAN,
   '키 재발급':'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
