@@ -28,7 +28,6 @@ export const ADMIN_PAGES = [
   { path: "/admin/incoming/temp", tab: "organize", label: "m.organize", row: "incoming", icon: "folder" },
   { path: "/admin/inbox", tab: "inbox", label: "m.inbox", row: "incoming", icon: "send", count: "inbox-count" },
   // the libraries: each page holds its own jobs as tabs
-  { path: "/admin/library", tab: "all", label: "m.allList", group: "library", icon: "log" },
   { path: "/admin/games", tab: "library", label: "m.grpGames", group: "library", icon: "grid" },
   { path: "/admin/retro", tab: "retro", label: "m.retro", group: "library", icon: "joystick" },
   { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", group: "library", icon: "package", param: "tab" },
@@ -75,7 +74,7 @@ export const PATH_FOR_TAB = {
   overview: "/admin", users: "/admin/users", devices: "/admin/devices", settings: "/admin/settings/server",
   alerts: "/admin/settings/notifications", logs: "/admin/logs/downloads", featured: "/admin/featured",
   library: "/admin/games", organize: "/admin/incoming/temp", nsz: "/admin/convert", upload: "/admin/upload", inbox: "/admin/inbox",
-  all: "/admin/library", files: "/admin/games", homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash", client: "/admin/client", patches: "/admin/patches", saves: "/admin/saves",
+  all: "/admin/games", files: "/admin/games", homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash", client: "/admin/client", patches: "/admin/patches", saves: "/admin/saves",
 };
 
 const countSpan = (id, withIds) => `<span class="count"${withIds ? ` id="${id}"` : ` data-count-id="${id}"`} hidden></span>`;

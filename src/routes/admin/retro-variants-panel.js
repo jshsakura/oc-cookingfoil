@@ -73,7 +73,7 @@ function rvShow(){
   const d=rvData.dups;if(!d){$('rv-list').replaceChildren();return;}
   const groups=d.groups.filter((g)=>rvMatch(g,q));
   $('rv-summary').textContent=topFill('rv.dupsSummary',{g:d.groups.length,n:d.groups.reduce((n,g)=>n+g.members.length,0)});
-  const rows=groups.flatMap((g)=>[rvHead(g.systemName,g.reason,7),...g.members.map((m)=>rvMemberRow(g,m,true))]);
+  const rows=groups.flatMap((g)=>[rvHead(g.systemFolder&&g.systemFolder!==g.systemName?g.systemFolder+' · '+g.systemName:g.systemName,g.reason,7),...g.members.map((m)=>rvMemberRow(g,m,true))]);
   table('rv-list',[topText('rv.colName'),topText('rv.colVerInfo'),topText('rv.colTags'),topText('rv.colKind'),topText('rv.colSize'),topText('rv.colAdded'),''],rows,topText('rv.noDups'));
 }
 async function loadRetroVariants(){

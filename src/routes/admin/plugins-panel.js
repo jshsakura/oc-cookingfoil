@@ -8,9 +8,8 @@ import { top } from "./top-i18n.js";
 import { box } from "./boxes.js";
 
 export const PLUGINS_HTML = `<section id="tab-settings">
-  <div class="hd"><h2 class="first">${top("pl.h")}</h2>
+  <div class="hd"><p class="muted">${top("pl.lead")}</p>
     <div class="actions"><button type="button" id="pl-rescan">${top("pl.rescan")}</button></div></div>
-  <p class="muted">${top("pl.lead")}</p>
   <p class="pl-safe" id="pl-safe" hidden>${top("pl.safe")}</p>
   ${box("pl-install", top("pl.installH"), `<p class="muted">${top("pl.installLead")}</p>
     <p class="pl-off" id="pl-install-off" hidden>${top("pl.installOffNote")}</p>

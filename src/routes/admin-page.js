@@ -370,7 +370,7 @@ export default function adminPageRouter() {
   // The library's jobs became tabs of the games page and the temp folder moved under "incoming":
   // old bookmarks and alert links land on the new address, with their query kept.
   const MOVED = {
-    "/titles": "/admin/games?view=info", "/integrity": "/admin/games?view=verify", "/organize": "/admin/incoming/temp",
+    "/titles": "/admin/games?view=info", "/integrity": "/admin/games?view=verify", "/organize": "/admin/incoming/temp", "/library": "/admin/games",
   };
   for (const [from, to] of Object.entries(MOVED)) router.get(from, (req, res) => redirectKeeping(res, to, req.query));
   // Alerts moved under the settings: an old bookmark lands on the new address.

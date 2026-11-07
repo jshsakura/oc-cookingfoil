@@ -24,7 +24,7 @@ test('every earlier admin hash still opens its section', async ({ page }) => {
 
 test('library sub-pages open the panel their hash names, the folder first', async ({ page }) => {
   await signIn(page);
-  for (const sub of ['folder', 'files', 'verify', 'info']) {
+  for (const sub of ['folder', 'verify', 'info']) {
     await page.goto(`/admin#library/${sub}`);
     await expect(page.locator(`[data-lib-panel="${sub}"]`), sub).toBeVisible();
   }
@@ -75,25 +75,14 @@ test('the menus are named for what they hold, in every language', async ({ page 
   await page.locator('#lang-list [data-admin-lang="ko"]').click();
 });
 
-test('on the game list the list comes first and the server numbers follow it', async ({ page }) => {
-  await signIn(page);
-  await page.goto('/admin/games?view=files');
-  await expect(page.locator('#lb-list')).toContainText('Test Game');
-  const list = await page.locator('#lb-list').boundingBox();
-  const stats = await page.locator('#lib-cards').boundingBox();
-  expect(list && stats && stats.y > list.y + list.height - 1).toBe(true);
-  // One file browser: the separate game-file search is gone, its job is the browser's search.
-  await expect(page.locator('#lf-q')).toHaveCount(0);
-});
-
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('the file list leads, the top bar keeps one row of real targets and clipped menus say so', async ({ page }) => {
     await signIn(page);
-    await page.goto('/admin/games?view=files');
-    await expect(page.locator('#lb-list')).toContainText('Test Game');
-    const top = await page.locator('#lb-list').evaluate((e) => e.getBoundingClientRect().top + scrollY);
+    await page.goto('/admin/games');
+    await expect(page.locator('#fb-rows tr').first()).toBeVisible();
+    const top = await page.locator('#fb-rows').evaluate((e) => e.getBoundingClientRect().top + scrollY);
     expect(top).toBeLessThan(844);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 

@@ -84,7 +84,7 @@ function withConsoles(items, retroDir, lang) {
     if (!id) return e;
     const names = systems[id].names;
     const name = names[lang] ?? names[short] ?? names.en ?? id;
-    return below.length || e.type !== "dir" ? { ...e, system: name } : { ...e, title: e.title ?? name };
+    return { ...e, system: name };
   });
 }
 

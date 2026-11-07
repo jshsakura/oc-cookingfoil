@@ -44,8 +44,7 @@ export const LOGS_CSS = /* css */ `
 
 /** The client-logs area: bug report ranking plus the per-console viewer. */
 export const LOGS_CLIENT_HTML = /* html */ `
-<div class="hd"><h2 class="first">${top("lg.clientH")}</h2><button type="button" id="cl-refresh">${top("lg.refresh")}</button></div>
-<p class="muted">${top("lg.clientLead")}</p>
+<div class="hd"><p class="muted">${top("lg.clientLead")}</p><button type="button" id="cl-refresh">${top("lg.refresh")}</button></div>
 ${box("bug-reports", top("lg.bugH"), `<p class="muted">${top("lg.bugLead")}</p>
 <div class="scroll" id="bug-reports" data-skel></div>`, { level: "h3", open: true })}
 <h3 class="sub-h">${top("lg.byConsole")}</h3>

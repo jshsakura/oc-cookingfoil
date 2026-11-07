@@ -45,7 +45,7 @@ test("the core list shows each file's size, hash, name and the consoles whose ga
   assert.equal(mgba.file, "cores/mgba_libretro_libnx.nro");
   assert.equal(mgba.size, "patched build".length);
   assert.equal(mgba.sha256, crypto.createHash("sha256").update("patched build").digest("hex"));
-  assert.deepEqual(mgba.systems, [{ id: "gba", name: "게임보이 어드밴스", games: 2 }, { id: "gb", name: "gb", games: 1 }]);
+  assert.deepEqual(mgba.systems, [{ id: "gba", name: "게임보이 어드밴스", folder: "gba", games: 2 }, { id: "gb", name: "gb", folder: "gb", games: 1 }]);
   assert.deepEqual(out.cores[1].systems, [], "a core no game uses");
 });
 

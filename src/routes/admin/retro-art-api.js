@@ -109,7 +109,7 @@ const ghToken = () => integrations.get("github").token;
 /** The firmware missing for the consoles that have games, with their Korean names. `files` is the system folder's listing. */
 function biosNotices(catalog, files) {
   const ids = catalog.games.map((g) => g.system);
-  return missingBios(ids, files).map((x) => ({ ...x, name: catalog.systems[x.id]?.names?.ko ?? x.id }));
+  return missingBios(ids, files).map((x) => ({ ...x, name: catalog.systems[x.id]?.names?.ko ?? x.id, folder: catalog.systems[x.id]?.folder ?? x.id }));
 }
 
 /** The core upkeep's states for the requirements view; none (the file check alone) when they cannot be read. */

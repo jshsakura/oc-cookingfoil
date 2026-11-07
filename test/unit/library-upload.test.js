@@ -399,7 +399,7 @@ test("the admin picks the core a console's games start with, kept out of systems
 
     const { coreState, advice, ...listed } = await gba();
     assert.equal(advice.pick, "mgba", "the recommended core comes with the list");
-    assert.deepEqual(listed, { id: "gba", name: "게임보이 어드밴스", games: 1, core: "mgba", tableCore: "mgba", installed: true, fits: ["vba_next"], others: ["mgba"] });
+    assert.deepEqual(listed, { id: "gba", name: "게임보이 어드밴스", folder: "gba", games: 1, core: "mgba", tableCore: "mgba", installed: true, fits: ["vba_next"], others: ["mgba"] });
     assert.deepEqual(coreState, { id: "gba", core: "mgba", state: "pinned", origin: "modified" }, "a core not from the server is the user's, pinned");
     assert.equal((await pick({ system: "gba", core: "snes9x" })).status, 400, "a core that is not installed");
     assert.equal((await pick({ system: "nope", core: "mgba" })).status, 404);

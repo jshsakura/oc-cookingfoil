@@ -4,7 +4,6 @@ import { top, TOP_WORDS } from "./top-i18n.js";
 const ko = (key) => `${TOP_WORDS.ko[key]}`;
 
 export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
-  <h2 class="first" data-top="ov.h">${ko("ov.h")}</h2>
   <div class="copy-row"><code id="library-url">—</code><button type="button" id="library-url-copy" data-top="ov.copy">${ko("ov.copy")}</button></div>
   <h3 class="ov-h" data-top="ov.todoH">${ko("ov.todoH")}</h3>
   <div id="warnings"></div>
@@ -34,6 +33,7 @@ export const OVERVIEW_CSS = /* css */ `
 .card .s{color:var(--muted);font-size:var(--fs-xs);margin-top:2px}
 .card.alert .v{color:var(--accent)}
 #ov-status .card .v{font-size:var(--fs-2xl);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ov-status .card .gbar{margin-top:12px}
 @media (max-width:760px){.ov-col-h a{display:inline-flex;align-items:center;min-height:44px}}
 .ov-recent{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden}
 .ov-recent li{display:flex;gap:12px;padding:10px 16px;border-top:1px solid var(--line);font-size:var(--fs-sm);min-width:0}
@@ -133,7 +133,8 @@ function ovBytes(b){const u=['B','KB','MB','GB','TB','PB'];let i=0;b=Number(b||0
 function renderStatus(st){const box=$('ov-status');box.replaceChildren();
   const card=(l,v,sub,alert)=>{const c=el('div',null,'card'+(alert?' alert':''));c.append(el('div',v,'v'),el('div',l,'l'));if(sub)c.append(el('div',sub,'s'));return c;};
   box.append(card(topText('ov.s.games'),topFill('ov.s.gamesV',{n:num(st.games.titles)}),topFill('ov.s.gamesSub',{files:num(st.games.files),size:ovBytes(st.games.bytes)})));
-  for(const dk of st.disk||[])box.append(card(topText(dk.key==='games'?'ov.s.diskGames':'ov.s.diskData'),ovBytes(dk.free),topFill('ov.s.diskSub',{size:ovBytes(dk.size)}),dk.size&&dk.free/dk.size<0.05));
+  for(const dk of st.disk||[]){const low=dk.size&&dk.free/dk.size<0.05;const c=card(topText(dk.key==='games'?'ov.s.diskGames':'ov.s.diskData'),ovBytes(dk.free),topFill('ov.s.diskSub',{size:ovBytes(dk.size)}),low);
+    if(dk.size)c.append(gbar([{v:dk.size-dk.free,color:low?'var(--bad)':'var(--s1)',title:topFill('ov.s.diskSub',{size:ovBytes(dk.size)})}],dk.size,'thin'));box.append(c);}
   // Damage is the headline; a modified file (a translation patch) is not damage, so it goes in the small line.
   const vc=st.verify.counts||{};const checked=topFill('ov.s.verifySub',{n:num(st.verify.total-(vc.unchecked||0))});
   box.append(card(topText('ov.s.verify'),vc.damaged?topFill('ov.s.verifyDamaged',{d:num(vc.damaged)}):topText('ov.s.verifyOk'),vc.modified?checked+' · '+topFill('ov.s.verifyModified',{m:num(vc.modified)}):checked,(vc.damaged||0)>0));

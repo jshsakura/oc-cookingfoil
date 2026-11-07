@@ -49,12 +49,12 @@ test('a folder card narrows the list to that folder, ?root opens it narrowed, an
   await removeFromLibrary(page);
   await page.goto('/admin/trash?root=retro');
   const row = page.locator('#tr-list .tr-row', { hasText: NAME });
-  await expect(page.locator('#tr-cards .card[aria-pressed=true]')).toHaveCount(1);
+  await expect(page.locator('#tr-cards button[aria-pressed=true]')).toHaveCount(1);
   await expect(row).toBeHidden();
-  await page.locator('#tr-cards .card[data-root=games]').click();
+  await page.locator('#tr-cards button[data-root=games]').click();
   await expect(row).toBeVisible();
   await expect(page).toHaveURL(/root=games/);
-  await page.locator('#tr-cards .card[data-root=""]').click();
+  await page.locator('#tr-cards button[data-root=""]').click();
   await expect(row).toBeVisible();
   await expect(page).not.toHaveURL(/root=/);
 });
@@ -109,9 +109,10 @@ test('the trash page speaks the language the top area is set to', async ({ page 
   await page.goto('/admin#trash');
   await page.locator('#lang-btn').click();
   await page.locator('[data-admin-lang="en"]').click();
-  await expect(page.locator('#tab-trash h2').first()).toHaveText('Trash');
+  // The breadcrumb is the page's title since the admin tidy; the tab has no heading of its own.
+  await expect(page.locator('#adm-crumb')).toContainText('Trash');
   await expect(page.locator('#tr-empty-all')).toHaveText('Empty trash');
   await page.locator('#lang-btn').click();
   await page.locator('[data-admin-lang="ko"]').click();
-  await expect(page.locator('#tab-trash h2').first()).toHaveText('휴지통');
+  await expect(page.locator('#adm-crumb')).toContainText('휴지통');
 });

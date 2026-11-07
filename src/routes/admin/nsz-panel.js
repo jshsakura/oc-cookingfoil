@@ -20,9 +20,8 @@ import { TOP_WORDS, top } from "./top-i18n.js";
 const ko = (key) => `${TOP_WORDS.ko[key]}`;
 
 export const NSZ_HTML = `<section id="tab-nsz" hidden>
-  <div class="hd"><h2 class="first">${top("nz.title")}</h2>
+  <div class="hd"><p class="muted">${top("nz.lede")}</p>
     <div class="actions"><button type="button" id="nz-scan">${top("nz.scan")}</button><button type="button" class="primary" id="nz-toggle" disabled>${top("nz.start")}</button></div></div>
-  <p class="muted">${top("nz.lede")}</p>
   <div class="nz-head">
     <div class="nz-state"><span class="pill nz-sk" id="nz-state">${top("loading")}</span><span class="muted" id="nz-note"></span></div>
     <div class="bar nz-overall" aria-hidden="true"><i id="nz-overall"></i></div>
@@ -32,12 +31,12 @@ export const NSZ_HTML = `<section id="tab-nsz" hidden>
   <div class="nz-cards" id="nz-cards">${`<div class="card nz-sk"><div class="v">0</div><div class="l">${top("loading")}</div></div>`.repeat(5)}</div>
   <div class="nz-active" id="nz-active"></div>
   <div class="hd nz-tools">
-    <div class="subtabs hide-bar" id="nz-filter" role="tablist" data-top-label="nz.filterAria" aria-label="${ko("nz.filterAria")}">
-      <button type="button" data-filter="all" role="tab" aria-selected="true">${top("t.total")}</button>
-      <button type="button" data-filter="waiting" role="tab" aria-selected="false">${top("pp.waiting")}</button>
-      <button type="button" data-filter="running" role="tab" aria-selected="false">${top("nz.running")}</button>
-      <button type="button" data-filter="done" role="tab" aria-selected="false">${top("nz.done")}</button>
-      <button type="button" data-filter="failed" role="tab" aria-selected="false">${top("ss.fail")}</button>
+    <div class="seg" id="nz-filter" role="group" data-top-label="nz.filterAria" aria-label="${ko("nz.filterAria")}">
+      <button type="button" data-filter="all" aria-pressed="true">${top("t.total")}</button>
+      <button type="button" data-filter="waiting" aria-pressed="false">${top("pp.waiting")}</button>
+      <button type="button" data-filter="running" aria-pressed="false">${top("nz.running")}</button>
+      <button type="button" data-filter="done" aria-pressed="false">${top("nz.done")}</button>
+      <button type="button" data-filter="failed" aria-pressed="false">${top("ss.fail")}</button>
     </div>
     <div class="actions"><button type="button" id="nz-clear">${top("nz.clearDone")}</button><button type="button" class="primary" id="nz-run-sel" disabled>${top("nz.runPick")}</button></div>
   </div>
@@ -272,7 +271,7 @@ $('nz-purge').addEventListener('click',async()=>{if(!await ask(topText('t.nz.ask
   nzAct('/admin/api/nsz/purge-kept',{method:'POST',body:{}},(d)=>topFill('t.nz.purged',{n:d.removed,size:nzSize(d.bytes)}));});
 $('nz-log-q').addEventListener('input',()=>{clearTimeout(nzLogTimer);nzLogTimer=setTimeout(()=>{nzLogQ=$('nz-log-q').value.trim();nzLogOff=0;loadNszLog();},250);});
 $('nz-filter').addEventListener('click',(e)=>{const b=e.target.closest('[data-filter]');if(!b)return;nzFilter=b.dataset.filter;nzOffset=0;nzSel.clear();
-  for(const x of $('nz-filter').querySelectorAll('button'))x.setAttribute('aria-selected',String(x===b));
+  for(const x of $('nz-filter').querySelectorAll('button'))x.setAttribute('aria-pressed',String(x===b));
   // Until the new rows arrive there is nothing to pick or run: a 모두 선택 click would untick itself and the run button would ask with the old tab's count.
   $('nz-list').replaceChildren();$('nz-pick').hidden=true;nzTabCount=0;nzSelUpdate();loadNsz();});
 `;

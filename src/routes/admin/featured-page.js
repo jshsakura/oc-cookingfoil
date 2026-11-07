@@ -2,10 +2,9 @@
 import { top } from "./top-i18n.js";
 
 export const FEATURED_HTML = /* html */ `<section id="tab-featured" hidden>
-  <div class="hd"><h2>${top("m.featured")}</h2>
+  <div class="hd"><p class="muted" data-top="fp.lead">${top("fp.lead")}</p>
     <div class="actions"><button type="button" id="f-add" data-top="fp.addRow">${top("fp.addRow")}</button>
     <button type="button" class="primary" id="f-save">${top("fp.save")}</button></div></div>
-  <p class="muted" data-top="fp.lead">${top("fp.lead")}</p>
   <div id="f-list"></div>
 </section>`;
 

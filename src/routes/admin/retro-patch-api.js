@@ -38,7 +38,7 @@ const patchFields = (record) => (record ? { patch: { patches: record.patches, ba
 function row(g, systems, lang) {
   const why = unpatchable(g);
   return {
-    id: g.id, system: g.system, systemName: systemName(systems, g.system, lang), name: g.name, file: g.file, size: g.size,
+    id: g.id, system: g.system, systemName: systemName(systems, g.system, lang), systemFolder: systems[g.system]?.folder ?? g.system, name: g.name, file: g.file, size: g.size,
     ...(why ? { unpatchable: why } : {}), ...patchFields(patchOf(g.id)),
   };
 }
@@ -46,7 +46,7 @@ function row(g, systems, lang) {
 /** A patched game the catalog no longer lists (moved or trashed), from its record alone. */
 function missingRow(id, record, systems, lang) {
   return {
-    id, system: record.system, systemName: systemName(systems, record.system, lang), name: path.parse(record.file).name, file: record.file,
+    id, system: record.system, systemName: systemName(systems, record.system, lang), systemFolder: systems[record.system]?.folder ?? record.system, name: path.parse(record.file).name, file: record.file,
     size: null, missing: true, ...patchFields(record),
   };
 }

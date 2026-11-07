@@ -29,8 +29,6 @@ export const NAV_CSS = /* css */ `
 .subtabs.fade-l.fade-r{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%)}
 .subtabs{scroll-behavior:smooth}
 @media (prefers-reduced-motion:reduce){.subtabs{scroll-behavior:auto}}
-.lib-ops{margin-top:28px}
-.lib-ops .sub-h{margin-top:0}
 `;
 
 export const NAV_SCRIPT = /* js */ `

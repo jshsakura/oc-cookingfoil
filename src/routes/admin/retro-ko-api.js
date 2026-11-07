@@ -24,7 +24,7 @@ import { apiWord } from "./api-words.js";
 const LIST_MAX = 1000;
 
 const row = (g, systems, hit, lang) => ({
-  id: g.id, system: g.system, systemName: systems[g.system]?.names?.[lang] ?? systems[g.system]?.names?.en ?? systems[g.system]?.name ?? g.system,
+  id: g.id, system: g.system, systemName: systems[g.system]?.names?.[lang] ?? systems[g.system]?.names?.en ?? systems[g.system]?.name ?? g.system, systemFolder: systems[g.system]?.folder ?? g.system,
   name: g.name, file: g.file, ko: hit.ko, en: hit.en ?? null, by: hit.by,
 });
 

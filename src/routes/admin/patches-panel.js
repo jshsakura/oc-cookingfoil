@@ -13,8 +13,7 @@ import { CONTENT_EDITOR_SCRIPT } from "./content-editor.js";
  */
 import { TOP_WORDS, top, topLabel, topPh } from "./top-i18n.js";
 
-export const PATCHES_HTML = `<h2 class="first">${top("m.patches")}</h2>
-  <p class="muted" data-top="pt.intro">${top("pt.intro")}</p>
+export const PATCHES_HTML = `<p class="muted" data-top="pt.intro">${top("pt.intro")}</p>
   <div class="pt-tools">
     <input id="pt-q" type="search" autocomplete="off" spellcheck="false" ${topPh("pc.search")} ${topLabel("pc.findAria")}>
     <button type="button" id="pt-only" aria-pressed="false" data-top="pc.onlyReq">${top("pc.onlyReq")}</button>
@@ -23,8 +22,7 @@ export const PATCHES_HTML = `<h2 class="first">${top("m.patches")}</h2>
   <p class="muted" id="pt-count"></p>
   <div id="lib-patches" data-skel></div>`;
 
-export const SAVES_HTML = `  <h2 class="first">${top("m.saves")}</h2>
-  <p class="muted" data-top="sv.intro">${top("sv.intro")}</p>
+export const SAVES_HTML = `  <p class="muted" data-top="sv.intro">${top("sv.intro")}</p>
   <div id="lib-saves" data-skel></div>`;
 
 export const GAME_PATCHES_HTML = `<h3>${top("pc.gameTitle")}</h3>

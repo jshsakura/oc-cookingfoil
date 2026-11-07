@@ -11,7 +11,7 @@ export function overview(catalog) {
   const systems = {};
   const missing = [];
   for (const g of catalog.games) {
-    const s = (systems[g.system] ??= { id: g.system, name: catalog.systems[g.system]?.names?.ko ?? g.system, games: 0, boxart: 0, borrowed: 0, bezel: 0 });
+    const s = (systems[g.system] ??= { id: g.system, name: catalog.systems[g.system]?.names?.ko ?? g.system, folder: catalog.systems[g.system]?.folder ?? g.system, games: 0, boxart: 0, borrowed: 0, bezel: 0 });
     s.games++;
     if (g.icon) {
       s.boxart++;
