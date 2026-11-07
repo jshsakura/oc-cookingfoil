@@ -108,10 +108,19 @@ export const THEMES = [
 const byId = Object.fromEntries(THEMES.map((t) => [t.id, t]));
 const rgb = (hex) => hexToRgb(hex).join(", ");
 
+// The admin's chart colours: seven categorical hues in a fixed order (one per library folder), each
+// stepped for its surface. Checked with the dataviz palette validator on #ffffff and #1f1f24: colour-vision
+// separation above the floor on every adjacent pair, and 3:1 contrast on the dark surface.
+const SERIES = {
+  light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6"],
+  dark: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9"],
+};
+const seriesVars = (t) => SERIES[t.scheme === "dark" ? "dark" : "light"].map((c, i) => `--s${i + 1}:${c}`).join(";");
+
 /** The admin pages' tokens (src/routes/admin/styles.js) for one theme. */
 export const adminVars = (t) => `--bg:${t.ground};--panel:${t.surface};--sunk:${t.sunk};--line:${t.line};--line2:${t.line2};
 --text:${t.ink};--muted:${t.secondary};--faint:${t.faint};--warn:${t.pending};--bad:${t.bad};--good:${t.good};--accent:${BUTTER};--accent-ink:${ON_BUTTER};
---warn-rgb:${rgb(t.pending)};--bad-rgb:${rgb(t.bad)};--good-rgb:${rgb(t.good)};--accent-rgb:${rgb(BUTTER)};--shadow:${t.shadow};--warn-card:${t.warnCard};color-scheme:${t.scheme}`;
+--warn-rgb:${rgb(t.pending)};--bad-rgb:${rgb(t.bad)};--good-rgb:${rgb(t.good)};--accent-rgb:${rgb(BUTTER)};--shadow:${t.shadow};--warn-card:${t.warnCard};${seriesVars(t)};color-scheme:${t.scheme}`;
 
 /** The web page's tokens (src/views/landing.html) for one theme. */
 export const siteVars = (t) => `--ground: ${t.ground}; --surface: ${t.surface}; --sunk: ${t.sunk}; --ink: ${t.ink};

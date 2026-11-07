@@ -74,6 +74,18 @@ section[hidden]{display:none}
 .card .v{font-size:var(--fs-3xl);font-weight:var(--fw-bold);letter-spacing:-.02em}
 .card .l{color:var(--muted);font-size:var(--fs-xs)}
 .card.alert{border-color:rgba(var(--bad-rgb),.45)}.card.alert .v{color:var(--bad)}
+.gbar{display:flex;gap:2px;height:10px;border-radius:var(--r-pill);overflow:hidden;background:var(--sunk)}
+.gbar i{display:block;height:100%;min-width:3px;border-radius:var(--r-xs);transition:width .3s}
+.gbar.thin{height:6px}.gbar.thin i{border-radius:var(--r-xs)}
+.gleg{display:flex;flex-wrap:wrap;gap:6px}
+.gleg button{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:6px 12px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel);color:inherit;font:inherit;font-size:var(--fs-sm);cursor:pointer}
+.gleg button:hover{background:var(--sunk)}
+.gleg button[aria-pressed=true]{background:var(--text);color:var(--bg);border-color:var(--text)}.gleg button[aria-pressed=true] .ico,.gleg button[aria-pressed=true] small{color:inherit}
+.gleg button.zero{opacity:.55}
+.gleg .sw{width:10px;height:10px;border-radius:var(--r-xs);flex:none}
+.gleg .ico{width:16px;height:16px;flex:none;color:var(--muted)}
+.gleg b{font-weight:var(--fw-bold);font-variant-numeric:tabular-nums}
+.gleg small{color:var(--muted);font-size:var(--fs-xs)}
 .lanes{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0}
 .scroll{overflow-x:auto}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}

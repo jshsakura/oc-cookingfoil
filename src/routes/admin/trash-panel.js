@@ -10,13 +10,18 @@
 
 import { box } from "./boxes.js";
 import { top } from "./top-i18n.js";
+import { icon } from "../../views/icons.js";
+
+// Each library folder's icon in the legend; the total takes the trash's.
+const TR_ICONS = ["trash", "grid", "folder", "puzzle", "save", "package", "joystick", "layers"];
 
 export const TRASH_HTML = `<section id="tab-trash" hidden>
   <div class="hd"><p class="muted">${top("t.lead")} ${top("t.renamedFolder")}</p>
     <div class="actions"><button type="button" class="danger" id="tr-empty-all">${top("t.emptyAll")}</button></div></div>
   <p class="tr-old" id="tr-unavail" hidden></p>
   <p class="tr-old" id="tr-old" hidden></p>
-  <div class="tr-cards" id="tr-cards"></div>
+  <div class="tr-graph"><div class="gbar" id="tr-bar"></div><div class="gleg" id="tr-cards"></div></div>
+  <template id="tr-icons">${TR_ICONS.map((n) => `<span data-ico="${n}">${icon(n)}</span>`).join("")}</template>
   <div class="hd tr-tools">
     <label class="tr-chk"><input type="checkbox" id="tr-pick-all">${top("t.selectAll")}</label>
     <div class="actions"><button type="button" id="tr-restore-sel" disabled>${top("t.restoreSel")}</button><button type="button" class="danger" id="tr-empty-sel" disabled>${top("t.emptySel")}</button></div>
@@ -27,9 +32,8 @@ export const TRASH_HTML = `<section id="tab-trash" hidden>
 
 export const TRASH_CSS = `
 .tr-old{background:rgba(var(--accent-rgb),.1);border:1px solid rgba(var(--accent-rgb),.4);border-radius:var(--r-xl);padding:10px 14px;margin:6px 0 12px}
-.tr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:8px 0 14px}
-.tr-cards .card{padding:12px 14px;cursor:pointer;text-align:left;font:inherit;color:inherit}.tr-cards .card .v{font-size:var(--fs-xl)}
-.tr-cards .card[aria-pressed=true]{background:rgba(var(--accent-rgb),.14)}
+.tr-graph{display:grid;gap:10px;margin:8px 0 16px}
+.tr-graph .gbar{height:14px}.tr-graph .gbar i{border-radius:var(--r-xs)}
 .tr-tools{align-items:center;margin-bottom:8px}
 .tr-chk{display:inline-flex;align-items:center;gap:8px;font-weight:var(--fw-bold)}
 .tr-list{display:grid;gap:10px}
@@ -44,8 +48,7 @@ export const TRASH_CSS = `
 .tr-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:640px){.tr-row{grid-template-columns:auto 1fr}.tr-act{grid-column:1/-1;justify-content:flex-start}
   /* One line of folders that slides, so the list starts on the first screen. */
-  .tr-cards{display:flex;overflow-x:auto;gap:6px;margin:6px 0 10px;scrollbar-width:none}
-  .tr-cards .card{flex:none;display:flex;align-items:baseline;gap:6px;min-height:44px;padding:8px 12px;box-sizing:border-box;white-space:nowrap}.tr-cards .card .v{font-size:var(--fs-md)}}
+  .tr-graph{margin:6px 0 10px}.tr-graph .gleg{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.tr-graph .gleg button{flex:none;min-height:44px;white-space:nowrap}}
 `;
 
 export const TRASH_SCRIPT = /* js */ `
@@ -74,11 +77,17 @@ function trRow(e){const r=el('div',null,'tr-row'+(trData&&e.ageDays>=trData.noti
   if(e.incomplete)main.append(el('span',trT('incomplete',{n:e.incomplete}),'err'));
   const act=el('div',null,'tr-act');act.append(btn(trT('restore'),()=>trRestore([e.id])),btn(trT('emptyOne'),()=>trEmpty([e.id]),'danger'));
   r.append(c,main,act);return r;}
+// The folders in a fixed order, each with its icon and its colour (--s1 to --s7), so a folder keeps its colour whatever the others hold.
+const TR_ROOTS=[['games','grid'],['incoming','folder'],['patches','puzzle'],['saves','save'],['homebrew','package'],['retro','joystick'],['data','layers']];
+const trIco=(n)=>{const s=$('tr-icons').content.querySelector('[data-ico="'+n+'"] svg');return s?s.cloneNode(true):el('span');};
 function trCards(d){const roots={...d.roots};if(trFilter&&!roots[trFilter])roots[trFilter]={bytes:0,count:0};
-  const cards=[['',trT('total'),trSize(d.total.bytes),trT('count',{n:num(d.total.count)})],
-    ...Object.entries(roots).map(([k,v])=>[k,trRoot(k),trSize(v.bytes),trT('count',{n:num(v.count)})])];
-  $('tr-cards').replaceChildren(...cards.map(([k,l,v,sub])=>{const c=el('button',null,'card');c.type='button';c.dataset.root=k;c.setAttribute('aria-pressed',String(k===trFilter));
-    c.append(el('div',v,'v'),el('div',l+' · '+sub,'l'));
+  const known=TR_ROOTS.map(([k])=>k);const order=[...TR_ROOTS,...Object.keys(roots).filter((k)=>!known.includes(k)).map((k)=>[k,'folder'])];
+  const at=(k)=>roots[k]||{bytes:0,count:0};const color=(i)=>'var(--s'+(i%7+1)+')';
+  const bar=gbar(order.map(([k],i)=>({v:at(k).bytes,color:color(i),title:trRoot(k)+' · '+trSize(at(k).bytes)})),d.total.bytes);bar.id='tr-bar';$('tr-bar').replaceWith(bar);
+  const rows=[['',null,'trash',d.total.bytes,d.total.count,trT('total')],...order.map(([k,ic],i)=>[k,color(i),ic,at(k).bytes,at(k).count,trRoot(k)])];
+  $('tr-cards').replaceChildren(...rows.map(([k,col,ic,bytes,count,label])=>{const c=el('button',null,count?'':'zero');c.type='button';c.dataset.root=k;c.setAttribute('aria-pressed',String(k===trFilter));
+    if(col){const sw=el('i',null,'sw');sw.style.background=col;c.append(sw);}
+    c.append(trIco(ic),el('span',label),el('b',trSize(bytes)),el('small',trT('count',{n:num(count)})));
     c.addEventListener('click',()=>{trFilter=k;trSel.clear();const u=new URL(location.href);if(k)u.searchParams.set('root',k);else u.searchParams.delete('root');history.replaceState(history.state,'',u);trRender();});return c;}));}
 function trRender(){if(!trData)return;const d=trData;trCards(d);
   const un=d.unavailable||[];const u=$('tr-unavail');u.hidden=!un.length;
