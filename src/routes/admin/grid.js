@@ -33,6 +33,10 @@ export function sendVendor(req, res) {
 export const GRID_HEAD = `<script src="/admin/vendor/ag-grid.min.js"></script>`;
 
 export const GRID_CSS = /* css */ `
+/* Three steps so a row's buttons never melt into it: the row's hover sits halfway to the buttons' fill,
+   a hovered row lifts its buttons one step (line), and the button under the pointer one more (line2). */
+.ag-row-hover .gc button:not(.primary):not(.danger):not(:disabled){background:var(--line)}
+.gc button:not(.primary):not(.danger):not(:disabled):hover{background:var(--line2)}
 .grid-mount{min-width:0;max-width:100%;margin:0 0 20px}
 /* A list that has not arrived yet: rows that shimmer in its place. Anything rendered into it (rows, a card,
    an empty note) replaces them. */
@@ -96,7 +100,7 @@ if(window.agGrid&&agGrid.ModuleRegistry&&agGrid.AllCommunityModule)agGrid.Module
 const GRID_ROW=52,GRID_PAGE=20;
 const GRID_THEME=window.agGrid?agGrid.themeQuartz.withParams({
   backgroundColor:'var(--panel)',foregroundColor:'var(--text)',headerBackgroundColor:'var(--panel)',headerTextColor:'var(--muted)',headerColumnResizeHandleColor:'transparent',headerRowBorder:{color:'var(--line)'},
-  borderColor:'var(--line)',rowHoverColor:'var(--sunk)',oddRowBackgroundColor:'var(--panel)',accentColor:'var(--accent)',
+  borderColor:'var(--line)',rowHoverColor:'color-mix(in srgb,var(--sunk) 50%,var(--panel))',oddRowBackgroundColor:'var(--panel)',accentColor:'var(--accent)',
   chromeBackgroundColor:'var(--panel)',fontFamily:'inherit',fontSize:13,headerFontSize:12.5,headerFontWeight:600,
   wrapperBorderRadius:14,spacing:6,cellHorizontalPadding:12,rowBorder:{color:'var(--line)'},columnBorder:false,
   inputBackgroundColor:'var(--sunk)',inputBorder:false}):undefined;
