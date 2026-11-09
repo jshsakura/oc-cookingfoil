@@ -1,11 +1,13 @@
 /** Administration overview: status summaries and links to task owners. */
 import { top, TOP_WORDS } from "./top-i18n.js";
+import { icon } from "../../views/icons.js";
 
 const ko = (key) => `${TOP_WORDS.ko[key]}`;
 
 export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
   <div class="copy-row"><code id="library-url">—</code><button type="button" id="library-url-copy" data-top="ov.copy">${ko("ov.copy")}</button></div>
   <h3 class="ov-h" data-top="ov.todoH">${ko("ov.todoH")}</h3>
+  <nav class="ov-board" id="ov-board" data-top-label="ov.todoH"></nav>
   <div id="warnings"></div>
   <h3 class="ov-h" data-top="ov.addedH">${ko("ov.addedH")}</h3>
   <div class="ov-added">
@@ -30,6 +32,19 @@ export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
 
 export const OVERVIEW_CSS = /* css */ `
 .ov-h{margin:26px 0 10px;font-size:var(--fs-md)}
+/* The to-do board: one card per kind of job, always there, each a link to the page where it is done.
+   Nothing to do reads quieter, so the cards with work stand out. */
+.ov-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:10px;margin:0 0 12px}
+.ov-todo{display:grid;gap:4px;align-content:start;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);color:var(--text);text-decoration:none;min-width:0}
+.ov-todo:hover{border-color:var(--text)}
+.ov-todo:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.ov-todo b{display:flex;align-items:center;gap:8px;font-size:var(--fs-md)}
+.ov-todo b .ico{flex:none;width:18px;height:18px}
+.ov-todo span{color:var(--muted);font-size:var(--fs-xs);line-height:1.5}
+.ov-todo.warn b{color:var(--bad)}
+.ov-todo.done{background:none;color:var(--muted)}
+.ov-todo.done span{display:none}
+@media (max-width:640px){.ov-board{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ov-todo{padding:10px 12px}.ov-todo b{font-size:var(--fs-sm);align-items:flex-start}}
 .card .s{color:var(--muted);font-size:var(--fs-xs);margin-top:2px}
 .card.alert .v{color:var(--accent)}
 #ov-status .card .v{font-size:var(--fs-2xl);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -83,26 +98,35 @@ const WARNINGS={
   'both-lanes':{t:'ov.w.bothLanesT',d:'ov.w.bothLanesD'},
   'client-build-rejected':{t:'ov.w.buildT',df:(w)=>topFill('ov.w.buildLead',{code:topWords.en['ov.w.buildR.'+w.reason]?topText('ov.w.buildR.'+w.reason):w.reason,msg:w.message})+' '+(w.version?topFill('ov.w.buildKept',{v:w.version}):topText('ov.w.buildNone'))},
 };
-// Counted to-dos: where the button goes and the words; the config warnings above keep their own.
+// Counted to-dos, in the board's order: the card's icon, words and the page where the job is done.
+// The config warnings above keep their own notes.
 const TODO={
-  damaged:{t:'ov.t.damaged',d:'ov.t.damagedD',go:'/admin/games?view=verify&check=damaged#library/verify'},
-  'pending-devices':{t:'ov.t.pendingDevices',d:'ov.t.pendingDevicesD',go:'/admin/devices'},
-  'pending-accounts':{t:'ov.t.pendingAccounts',d:'ov.t.pendingAccountsD',go:'/admin/users'},
-  inbox:{t:'ov.t.inbox',d:'ov.t.inboxD',go:'/admin/inbox'},
-  'plugins-failing':{t:'ov.t.pluginsFailing',d:'ov.t.pluginsFailingD',go:'/admin/settings/plugins'},
-  lockouts:{t:'ov.t.lockouts',d:'ov.t.lockoutsD',go:'/admin/logs/security'},
-  'no-names-plugin':{t:'ov.t.noNames',d:'ov.t.noNamesD',go:'/admin/settings/plugins'},
+  'pending-accounts':{t:'ov.t.pendingAccounts',d:'ov.t.pendingAccountsD',go:'/admin/users',icon:'users'},
+  'pending-devices':{t:'ov.t.pendingDevices',d:'ov.t.pendingDevicesD',go:'/admin/devices',icon:'device'},
+  inbox:{t:'ov.t.inbox',d:'ov.t.inboxD',go:'/admin/inbox',icon:'send'},
+  damaged:{t:'ov.t.damaged',d:'ov.t.damagedD',go:'/admin/games?view=verify&check=damaged#library/verify',icon:'file',warn:true},
+  'plugins-failing':{t:'ov.t.pluginsFailing',d:'ov.t.pluginsFailingD',go:'/admin/settings/plugins',icon:'puzzle',warn:true},
+  lockouts:{t:'ov.t.lockouts',d:'ov.t.lockoutsD',go:'/admin/logs/security',icon:'lock'},
 };
+const OV_ICONS=${JSON.stringify(Object.fromEntries(["users", "device", "send", "file", "puzzle", "lock", "check"].map((n) => [n, icon(n)])))};
+// Every counted job has its card, at zero too, so the board always reads the same and a card never jumps.
+function renderBoard(list){const n=Object.fromEntries(list.filter((w)=>TODO[w.code]).map((w)=>[w.code,w]));
+  $('ov-board').replaceChildren(...Object.entries(TODO).map(([code,c])=>{const w=n[code],k=w?.n||0;
+    const a=el('a',null,'ov-todo'+(k?(c.warn?' warn':''):' done'));a.href=c.go;
+    const b=el('b');b.insertAdjacentHTML('beforeend',OV_ICONS[k?c.icon:'check']);b.append(topFill(c.t,{n:num(k)}));
+    a.append(b,el('span',topFill(c.d,{ids:(w?.ids||[]).join(', ')})));return a;}));}
 function ovNote(title,detail,warn,go){const n=el('div',null,'note'+(warn?' warn':''));
   n.append(el('div',title,'t'),el('div',detail,'d'));
   if(go){const b=btn(go[0],()=>{location.href=go[1];});b.classList.add('note-go');n.append(b);}
   return n;}
+// The setup warnings and the one hint that is not a count: notes under the board, each with its way there.
+const NOTE_TODO={'no-names-plugin':{t:'ov.t.noNames',d:'ov.t.noNamesD',go:['ov.go','/admin/settings/plugins']}};
 function renderWarnings(list){const box=$('warnings');box.replaceChildren();
-  for(const w of list){const c=TODO[w.code];
-    if(c){box.append(ovNote(topFill(c.t,{n:num(w.n)}),topFill(c.d,{ids:(w.ids||[]).join(', ')}),w.code==='damaged'||w.code==='plugins-failing',[topText('ov.go'),c.go]));continue;}
-    const k=WARNINGS[w.code];
+  renderBoard(list);
+  const notes=list.filter((w)=>!TODO[w.code]);
+  for(const w of notes){const k=WARNINGS[w.code]||NOTE_TODO[w.code];
     box.append(ovNote(k?topText(k.t):w.title,k?(k.df?k.df(w):topText(k.d)):w.detail,w.severity==='warn',k?.go?[topText(k.go[0]),k.go[1]]:null));}
-  if(!list.length)box.append(el('p',topText('ov.todoNone'),'muted'));}
+  if(!list.some((w)=>TODO[w.code]?w.n>0:true))box.append(el('p',topText('ov.todoNone'),'muted'));}
 // Every status string in every language reads "label: value" (or "titledb 12"), so one row splits it there.
 function ovFact(text,state,go){const m=/^(.*?)\\s?[:：]\\s?(.*)$/.exec(text)||/^(\\S+)\\s(.*)$/.exec(text)||[text,text,''];
   const row=el('div',null,'ov-fact'+(state?' '+state:''));row.append(el('dt',m[1]),el('dd',m[2]));
