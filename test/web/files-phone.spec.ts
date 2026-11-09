@@ -62,6 +62,9 @@ test('a pick shows what it allows in words at the bottom, and 파일 메뉴 hold
   for (const b of await bar.getByRole('button').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await page.locator('#fb-clear').click();
   await expect(bar.getByRole('button')).toHaveText(['올리기', '파일 메뉴']);
+  // With nothing picked the bar is icons only: the names are the buttons' accessible names, not words on the screen.
+  await expect(bar.getByRole('button', { name: '올리기', exact: true })).toBeVisible();
+  for (const label of await bar.locator('button span').all()) await expect(label).toBeHidden();
 
   await row(page, 'loose.nsp').click({ position: { x: 120, y: 10 } });
   await expect(bar.getByRole('button')).toHaveText(['내려받기', '이름 바꾸기', '이동', '휴지통으로', '파일 메뉴']);
@@ -261,10 +264,12 @@ test('a cut speaks in taps, shows its count, survives leaving the page and can b
   await page.locator('#fb-menu').getByRole('menuitem', { name: '잘라내기' }).click();
   await expect(page.locator('#toast')).toContainText('붙여넣기를 누릅니다');
   await expect(page.locator('#toast')).not.toContainText('Ctrl');
-  await expect(bar.getByRole('button')).toHaveText(['붙여넣기 1', '파일 메뉴']);
+  await expect(bar.getByRole('button', { name: '붙여넣기 1', exact: true }).locator('b')).toHaveText('1');
+  await expect(bar.getByRole('button')).toHaveCount(2);
   await page.reload();
   await expect(row(page, 'loose.nsp')).toHaveClass(/fb-cut/);
-  await expect(bar.getByRole('button')).toHaveText(['붙여넣기 1', '파일 메뉴']);
+  await expect(bar.getByRole('button', { name: '붙여넣기 1', exact: true }).locator('b')).toHaveText('1');
+  await expect(bar.getByRole('button')).toHaveCount(2);
   await bar.getByRole('button', { name: '파일 메뉴' }).click();
   await page.locator('#fb-menu').getByRole('menuitem', { name: '붙여넣기 취소' }).click();
   await expect(bar.getByRole('button')).toHaveText(['올리기', '파일 메뉴']);
