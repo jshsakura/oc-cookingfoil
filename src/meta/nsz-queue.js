@@ -840,7 +840,8 @@ export function createNszQueue({
       t[i.state] = (t[i.state] ?? 0) + 1;
       if (i.state === "waiting" || i.state === "busy") t.waitingBytes += i.size;
     }
-    return { ...t, converted: state.stats.converted, savedBytes: state.stats.savedBytes };
+    const { converted, savedBytes, inBytes, outBytes } = state.stats;
+    return { ...t, converted, savedBytes, inBytes: inBytes ?? 0, outBytes: outBytes ?? 0 };
   }
 
   /** The page's view: state, totals, the running files, and one page of the list. */

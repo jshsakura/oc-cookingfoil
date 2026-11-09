@@ -73,6 +73,8 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb-menu .fb-m-head{margin:4px 12px 2px;font-size:var(--fs-xs)}
 #fb .c-sel{width:44px;text-align:center}#fb .c-size{width:110px;text-align:right}#fb .c-mtime{width:180px}#fb .c-act{width:132px}
 #fb .c-size,#fb .c-mtime{font-variant-numeric:tabular-nums;color:var(--muted)}
+/* Longhands only: the row's hover and selection fill stays under the bar. */
+#fb .c-size.fb-share{background-image:linear-gradient(var(--s1),var(--s1));background-repeat:no-repeat;background-origin:content-box;background-position:right 0 bottom 9px;background-size:var(--share) 3px}
 #fb .fb-shared{flex:none;display:inline-flex;color:var(--accent,var(--text))}#fb .fb-shared svg{width:15px;height:15px}
 #fb-rows[aria-busy=true]:not(:has(.fb-skel)){opacity:.55;transition:opacity .15s .25s}
 #fb th.c-size button{margin-left:auto}
