@@ -216,7 +216,8 @@ body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32p
   #fb .fb-foot[data-sel] .fb-pick-acts{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;flex:1 1 100%}
   #fb .fb-foot:not([data-sel]) .fb-pick-acts{display:flex;gap:4px;margin-left:auto}
   #fb .fb-foot:not([data-sel]) .fb-info{flex:1 1 0;min-width:0;font-size:var(--fs-xs)}
-  #fb .fb-foot:not([data-sel]) .fb-pick-acts button{flex-direction:row;gap:6px;min-height:44px;padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
+  #fb .fb-foot:not([data-sel]) .fb-pick-acts button{flex-direction:row;justify-content:center;align-items:center;gap:4px;min-width:44px;min-height:44px;padding:0 10px;font-size:var(--fs-sm);white-space:nowrap}
+  #fb .fb-foot:not([data-sel]) .fb-pick-acts button span{display:none}
   #fb #fb-pick-all{display:inline-flex}
   #fb .fb-pick-acts button{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;height:auto;min-height:52px;padding:6px 2px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-size:var(--fs-xs);font-weight:var(--fw-bold);line-height:1.2;white-space:normal;overflow-wrap:anywhere}
   #fb .fb-pick-acts .ico{width:20px;height:20px;flex:none}
@@ -805,7 +806,10 @@ const FB_IDLE=['fb.paste','fb.upload'];
 function fbPickBar(){const bar=$('fb-pick-acts');if(!fbPhone()){bar.replaceChildren();return;}
   const all=fbActions();const top=fb.sel.size?[...FB_BAR.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,3),all.find((a)=>a.key==='fb.trash')]:FB_IDLE.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,1).map((a)=>a.key==='fb.paste'?{...a,label:topText(a.key)+' '+num(fb.clip.rels.length)}:a);
   bar.replaceChildren(...[...top,{key:'fb.menu',ic:'more',fn:()=>fbMenu(0,0)}].map((it)=>{
-    const b=el('button');b.type='button';b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',it.label||topText(it.key)));if(it.danger)b.dataset.danger='';b.addEventListener('click',it.fn);return b;}));}
+    const b=el('button');b.type='button';b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',it.label||topText(it.key)));if(it.danger)b.dataset.danger='';
+    // With nothing picked the bar shows icons only; the name stays as the tooltip and the accessible name, and a paste keeps its count.
+    if(!fb.sel.size){b.setAttribute('aria-label',it.label||topText(it.key));b.title=it.label||topText(it.key);if(it.key==='fb.paste')b.append(el('b',num(fb.clip.rels.length)));}
+    b.addEventListener('click',it.fn);return b;}));}
 matchMedia('(max-width:760px)').addEventListener('change',()=>{fbPickBar();for(const r of document.querySelectorAll('#fb-rows tr'))r.draggable=!fbPhone();});
 function fbMenu(x,y){const m=$('fb-menu');const rels=[...fb.sel];const items=fbActions();
   const back=document.activeElement;
