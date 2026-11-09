@@ -1,5 +1,7 @@
 /** Shared patch/save editor. Callers own the list refresh callback. */
-export const CONTENT_EDITOR_SCRIPT = /* js */ `
+import { PIC_SLOT_SCRIPT } from "./picture-slot.js";
+
+export const CONTENT_EDITOR_SCRIPT = /* js */ `${PIC_SLOT_SCRIPT}
 // One dialog edits a patch or a save: its text, its game, or deletes it.
 // A homebrew app's patch (x.homebrew) gets its text only; onDone reloads the tab that opened it.
 let ctItem=null,ctKind='',ctAfter=null;
@@ -14,6 +16,7 @@ function ctOpen(kind,x,onDone){ctKind=kind;ctItem=x;ctAfter=onDone||null;const h
   $('ct-source-name').value=x.source?.name||'';$('ct-source-url').value=x.source?.url||'';$('ct-move').value='';
   $('ct-p-game-version').value=x.game_version||'';
   if(kind==='patch'&&!hb)ctUpdates(x);
+  if(kind==='patch')picSlot($('ct-pic'),'patch',x.id);
   $('ct-json').hidden=true;ctJson=null;if(kind==='patch')ctPatchJson(x);
   $('ct-edit').showModal();}
 // A patch.json the folder holds now (kpatch writes one when it updates a patch) is offered, never taken in unasked.

@@ -12,6 +12,7 @@ import { CONTENT_EDITOR_SCRIPT } from "./content-editor.js";
  * Each row has the homebrew tab's 검수됨 pill (POST /admin/api/content/:kind/verified).
  */
 import { TOP_WORDS, top, topLabel, topPh } from "./top-i18n.js";
+import { PIC_SLOT_CSS, picSlotHtml } from "./picture-slot.js";
 
 export const PATCHES_HTML = `<p class="muted" data-top="pt.intro">${top("pt.intro")}</p>
   <div class="pt-tools">
@@ -33,6 +34,7 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
   <p class="muted" id="ct-where"></p>
   <div class="note" id="ct-json" hidden><span id="ct-json-msg"></span> <button type="button" id="ct-json-go">${top("pc.jsonGo")}</button></div>
   <form class="desc-form" id="ct-form" method="dialog" autocomplete="off">
+    <div data-for="patch">${picSlotHtml("ct-pic")}</div>
     <label>${top("pc.name")}<input id="ct-name" maxlength="120" required></label>
     <label>${top("pc.nameKo")}<input id="ct-name-ko" maxlength="120"></label>
     <label>${top("pc.desc")}<textarea id="ct-desc" maxlength="2000"></textarea></label>
@@ -53,7 +55,7 @@ export const CONTENT_DIALOG_HTML = `<dialog id="ct-edit" aria-labelledby="ct-tit
   </form>
 </dialog>`;
 
-export const PATCHES_CSS = `
+export const PATCHES_CSS = PIC_SLOT_CSS + `
 .pt-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}.pt-tools input{flex:1 1 240px;min-width:0}
 .pt-tools button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 .pt-game{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-xl);padding:6px 14px;margin:0 0 10px}
