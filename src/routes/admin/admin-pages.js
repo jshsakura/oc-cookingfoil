@@ -16,56 +16,52 @@ import { top } from "./top-i18n.js";
 
 /**
  * A page: the section (tab) it opens, the sub-view inside it when there is one, and its sidebar icon.
- * A page with no group or row is a sidebar row of its own. A `row` puts pages under one sidebar row,
- * linked as tabs at the top of each page; a `group` puts them in a folding list.
+ * A page with no row is a sidebar row of its own. A `row` puts pages under one sidebar row, linked as
+ * tabs at the top of each page, so the sidebar holds eight entries and each one's jobs are its tabs.
  */
 export const ADMIN_PAGES = [
   { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
   { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat" },
   // incoming: what reached the server and waits for a place
-  // Reached from the header's upload button; the menu has no entry for it.
-  { path: "/admin/upload", tab: "upload", label: "m.upload", menu: false, icon: "upload" },
+  { path: "/admin/upload", tab: "upload", label: "m.upload", row: "incoming", icon: "upload" },
   { path: "/admin/incoming/temp", tab: "organize", label: "m.organize", row: "incoming", icon: "folder" },
   { path: "/admin/inbox", tab: "inbox", label: "m.inbox", row: "incoming", icon: "send", count: "inbox-count" },
   // the libraries: each page holds its own jobs as tabs
-  { path: "/admin/games", tab: "library", label: "m.grpGames", group: "library", icon: "grid" },
-  { path: "/admin/retro", tab: "retro", label: "m.retro", group: "library", icon: "joystick" },
-  { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", group: "library", icon: "package", param: "tab" },
-  { path: "/admin/patches", tab: "patches", label: "m.patches", group: "library", icon: "puzzle", param: "tab" },
-  { path: "/admin/saves", tab: "saves", label: "m.saves", group: "library", icon: "save", param: "tab" },
-  { path: "/admin/featured", tab: "featured", label: "m.featured", group: "library", icon: "star" },
-  { path: "/admin/trash", tab: "trash", label: "m.trash", group: "library", icon: "trash" },
+  { path: "/admin/games", tab: "library", label: "m.grpGames", row: "library", icon: "grid" },
+  { path: "/admin/retro", tab: "retro", label: "m.retro", row: "library", icon: "joystick" },
+  { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", row: "library", icon: "package", param: "tab" },
+  { path: "/admin/patches", tab: "patches", label: "m.patches", row: "library", icon: "puzzle", param: "tab" },
+  { path: "/admin/saves", tab: "saves", label: "m.saves", row: "library", icon: "save", param: "tab" },
+  { path: "/admin/trash", tab: "trash", label: "m.trash", row: "library", icon: "trash" },
+  { path: "/admin/featured", tab: "featured", label: "m.featured", icon: "star" },
   // people
-  { path: "/admin/users", tab: "users", label: "s.users", group: "people", icon: "users", count: "account-count" },
-  { path: "/admin/devices", tab: "devices", label: "s.devices", group: "people", icon: "device", count: "pending-count" },
-  { path: "/admin/client", tab: "client", label: "m.client", group: "people", icon: "download" },
+  { path: "/admin/users", tab: "users", label: "s.users", row: "people", icon: "users", count: "account-count" },
+  { path: "/admin/devices", tab: "devices", label: "s.devices", row: "people", icon: "device", count: "pending-count" },
+  { path: "/admin/client", tab: "client", label: "m.client", row: "people", icon: "download" },
   // jobs and records
-  { path: "/admin/convert", tab: "nsz", label: "m.nsz", group: "ops", icon: "shrink" },
-  { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", group: "ops", icon: "download" },
-  { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", group: "ops", icon: "device" },
-  { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", group: "ops", icon: "lock", count: "lock-count" },
-  { path: "/admin/logs/alerts", tab: "alerts", sub: "history", label: "m.alertLog", group: "ops", icon: "bell" },
+  { path: "/admin/convert", tab: "nsz", label: "m.nsz", row: "ops", icon: "shrink" },
+  { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", row: "ops", icon: "download" },
+  { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", row: "ops", icon: "device" },
+  { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", row: "ops", icon: "lock", count: "lock-count" },
+  { path: "/admin/logs/alerts", tab: "alerts", sub: "history", label: "m.alertLog", row: "ops", icon: "bell" },
   // settings: how the server runs, who may sign in, how the admin signs in, the tokens automation uses.
   // Login and admin security still share the old "security" area until Stage B splits it.
-  { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", group: "set", icon: "sliders" },
-  { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", group: "set", icon: "login", shared: true },
-  { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", group: "set", icon: "lock", shared: true },
-  { path: "/admin/settings/notifications", tab: "alerts", label: "m.alerts", group: "set", icon: "bell" },
-  { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", group: "set", icon: "package" },
-  { path: "/admin/settings/plugins", tab: "settings", sub: "plugins", label: "m.setPlugins", group: "set", icon: "puzzle" },
-  { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", group: "set", icon: "key" },
+  { path: "/admin/settings/server", tab: "settings", sub: "server", label: "m.setServer", row: "set", icon: "sliders" },
+  { path: "/admin/settings/login", tab: "settings", sub: "security", label: "m.setLogin", row: "set", icon: "login", shared: true },
+  { path: "/admin/settings/admin", tab: "settings", sub: "security", label: "m.setAdmin", row: "set", icon: "lock", shared: true },
+  { path: "/admin/settings/notifications", tab: "alerts", label: "m.alerts", row: "set", icon: "bell" },
+  { path: "/admin/settings/integrations", tab: "settings", sub: "integrations", label: "m.setIntegrations", row: "set", icon: "package" },
+  { path: "/admin/settings/plugins", tab: "settings", sub: "plugins", label: "m.setPlugins", row: "set", icon: "puzzle" },
+  { path: "/admin/settings/automation", tab: "settings", sub: "tokens", label: "m.setAuto", row: "set", icon: "key" },
 ];
 
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 
 const ROWS = {
   incoming: { label: "m.incoming", icon: "inbox" },
-};
-
-const GROUPS = {
-  library: { label: "m.library", icon: "layers", always: true },
-  people: { label: "m.people", sum: "people", icon: "users" },
-  ops: { label: "m.grpOps", sum: "ops", icon: "log" },
+  library: { label: "m.library", icon: "layers" },
+  people: { label: "m.people", icon: "users" },
+  ops: { label: "m.grpOps", icon: "log" },
   set: { label: "m.grpSet", icon: "sliders" },
 };
 
@@ -90,44 +86,33 @@ const rowItem = (key, pages, current, withIds) => {
   const r = ROWS[key];
   const on = pages.some((p) => p.path === current?.path);
   const counts = pages.filter((p) => p.count).map((p) => countSpan(p.count, withIds)).join("");
-  return `<a class="adm-item" href="${pages[0].path}" data-paths="${pages.map((p) => p.path).join(" ")}"${on ? ' aria-current="page"' : ""}>${icon(r.icon)}${top(r.label)}${counts}</a>`;
+  // The panels show and hide their own count spans; inside the hidden holder they only feed the row's sum.
+  const sum = counts ? `<span class="adm-srcs" hidden>${counts}</span><span class="count" data-sum hidden></span>` : "";
+  return `<a class="adm-item" href="${pages[0].path}" data-paths="${pages.map((p) => p.path).join(" ")}"${on ? ' aria-current="page"' : ""}>${icon(r.icon)}${top(r.label)}${sum}</a>`;
 };
 
 /** The tabs over a page that shares a sidebar row with others: one link per page, the open one marked. */
 export function rowTabsHtml(page) {
   if (!page.row) return "";
   const pages = ADMIN_PAGES.filter((p) => p.row === page.row);
-  const links = pages.map((p) => `<a href="${p.path}"${p.path === page.path ? ' aria-current="page"' : ""}>${icon(p.icon)}${top(p.label)}</a>`).join("");
+  const links = pages.map((p) => `<a href="${p.path}"${p.path === page.path ? ' aria-current="page"' : ""}>${icon(p.icon)}${top(p.label)}${p.count ? countSpan(p.count, false) : ""}</a>`).join("");
   return `<nav class="subtabs adm-rowtabs hide-bar" data-top-label="${ROWS[page.row].label}">${links}</nav>`;
 }
 
 /**
- * The sidebar tree. One list per group; the current group is the open one, and
- * the current item carries aria-current. Rendered once for the desktop aside
- * (withIds, the count spans the panels fill by id) and once for the phone
- * drawer (mirrors, so the ids stay unique in the document).
+ * The sidebar: one link per entry, a row standing for all its pages. Rendered once for the desktop aside
+ * (withIds, the count spans the panels fill by id) and once for the phone drawer (mirrors, so the ids
+ * stay unique in the document).
  */
 export function sidebarNav(current, withIds = true) {
   const rows = [];
-  const grouped = new Map(Object.keys(GROUPS).map((g) => [g, []]));
   const seen = new Set();
   for (const page of ADMIN_PAGES) {
-    if (page.menu === false) continue;
-    if (page.group) grouped.get(page.group).push(page);
-    else if (!page.row) rows.push(item(page, current, withIds));
+    if (!page.row) rows.push(item(page, current, withIds));
     else if (!seen.has(page.row)) {
       seen.add(page.row);
       rows.push(rowItem(page.row, ADMIN_PAGES.filter((p) => p.row === page.row), current, withIds));
     }
-  }
-  for (const [key, pages] of grouped) {
-    if (!pages.length) continue;
-    const g = GROUPS[key];
-    const open = g.always || pages.some((p) => p.path === current?.path) ? " open" : "";
-    const sum = g.sum ? `<span class="count" data-sum="${g.sum}" hidden></span>` : "";
-    rows.push(`<details class="adm-grp" data-grp="${key}"${open}><summary>${icon(g.icon)}${top(g.label)}${sum}${CHEV}</summary><div class="adm-grp-in">`);
-    for (const page of pages) rows.push(item(page, current, withIds));
-    rows.push(`</div></details>`);
   }
   return rows.join("");
 }
@@ -142,9 +127,6 @@ export function drawerHtml(current) {
 
 /** The button that opens the drawer; the header shows it below the desktop width. */
 export const MENU_BUTTON_HTML = `<button class="icon-btn" id="adm-menu" type="button" aria-haspopup="dialog" aria-expanded="false" data-top-label="m.menu"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>`;
-
-/** The little chevron a group summary carries: it says the group opens. */
-const CHEV = `<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
 
 export const ADM_SHELL_CSS = /* css */ `
 body.adm-shell{padding:0}
@@ -191,25 +173,14 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
   display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 24px 0 32px;background:var(--panel);border-bottom:1px solid var(--line)}
 .adm-side .adm-crumb{margin-right:auto;font-size:var(--fs-lg)}
 .adm-shell>.wrap{padding-top:calc(var(--adm-hdr-h) + 24px)}}
-.adm-grp{border:0}
-.adm-grp summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;padding:11px 14px;border-radius:var(--r-lg);
-  color:var(--text);font-weight:700;font-size:var(--fs-md)}
-/* Icons on the top rows, as in the console client's menu; the rows inside a group line up with the label. */
+/* Icons on every entry, as in the console client's menu. */
 .adm-side-in .ico{width:20px;height:20px}
-.adm-grp summary::-webkit-details-marker{display:none}
-.adm-grp summary:hover{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
-.adm-grp summary:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
-.adm-grp summary .chev{width:14px;height:14px;margin-left:auto;flex:none;fill:none;stroke:currentColor;stroke-width:2;
-  stroke-linecap:round;stroke-linejoin:round;color:var(--muted);transition:transform .15s}
-.adm-grp[open] summary .chev{transform:rotate(180deg)}
 .adm-item:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
-.adm-grp summary .count{margin-left:auto}
-.adm-grp-in{display:grid;gap:2px;margin:4px 0 8px;padding-left:20px}
-.adm-grp-in .ico{width:17px;height:17px}
 .adm-item{display:flex;align-items:center;gap:12px;min-width:0;padding:9px 14px;border-radius:var(--r-lg);position:relative;
   color:var(--text);font-weight:var(--fw-bold);font-size:var(--fs-sm);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adm-item:not([aria-current]):hover{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
 .adm-side-in>.adm-item{font-size:var(--fs-md);font-weight:700}
+.adm-rowtabs .count{margin-left:2px}
 .adm-item[aria-current="page"]{background:var(--text);color:var(--bg)}
 .adm-item[aria-current="page"] .count{background:var(--bg);color:var(--text)}
 .adm-item .count{margin-left:auto}
@@ -223,7 +194,6 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
   padding:12px 12px calc(32px + env(safe-area-inset-bottom, 0px));box-sizing:border-box}
 /* Phone menu rows keep a real touch height without stretching to fill. */
 .adm-drawer .adm-item{min-height:44px}
-.adm-drawer .adm-grp summary{min-height:44px;box-sizing:border-box}
 .adm-drawer-hd{flex:none;display:flex;align-items:center;gap:10px;padding:max(18px, env(safe-area-inset-top, 0px)) 16px 16px;border-bottom:1px solid var(--line);font-weight:var(--fw-bold)}
 .adm-drawer-hd .wm{flex:1;font-family:'Baloo 2',system-ui,sans-serif;font-size:var(--fs-xl);font-weight:var(--fw-bold);letter-spacing:-.02em;line-height:1}
 .adm-drawer-hd .wm .dot{color:var(--accent)}
@@ -240,7 +210,7 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
  * matching path, answers back and forward between paths, and marks the sidebar.
  */
 export function admRouterScript(page) {
-  const conf = { path: page.path, tab: page.tab, sub: page.sub ?? "", param: page.param ?? "", anchor: page.anchor ?? "", ...(page.menu === false ? { own: top(page.label) } : {}) };
+  const conf = { path: page.path, tab: page.tab, sub: page.sub ?? "", param: page.param ?? "", anchor: page.anchor ?? "" };
   return /* js */ `
 (function(){
 const PAGE=${JSON.stringify(conf)};
@@ -269,27 +239,25 @@ function activePath(){let p=location.pathname;
   return p;}
 function mark(){const p=activePath();
   for(const a of document.querySelectorAll('.adm-item')){const on=a.dataset.paths?a.dataset.paths.split(' ').includes(p):new URL(a.href,location.origin).pathname===p;
-    if(on){a.setAttribute('aria-current','page');const g=a.closest('details.adm-grp');if(g)g.open=true;}
+    if(on)a.setAttribute('aria-current','page');
     else a.removeAttribute('aria-current');}
   crumb();}
-// The header names the page by its menu path, from the sidebar's current item: "group > item" in a group,
-// "row > tab" on a page that holds its jobs as tabs, and the open in-page tab as the last crumb. A phone keeps
+// The header names the page by its menu path, from the sidebar's current item: "row > tab" on a page that
+// shares its entry with others, and the open in-page tab as the last crumb. A phone keeps
 // the last two, because 파일 alone does not say whose files. The label spans are copies, so the language switch
 // relabels them with the rest.
 function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySelector('.adm-side .adm-item[aria-current="page"]');
   if(!c)return;c.replaceChildren();
-  // A page with no menu entry (업로드, from the header) names only itself.
-  if(!a){if(PAGE.own){c.insertAdjacentHTML('beforeend',PAGE.own);c.lastElementChild?.classList.add('adm-crumb-i');}return;}
+  if(!a)return;
   const label=(n)=>{const s=n&&n.querySelector(':scope>[data-top]');return s?s.cloneNode(true):null;};
   const plain=(n)=>{const s=n.querySelector('[data-top]');if(s)return s.cloneNode(true);const t=document.createElement('span');
     t.textContent=[...n.childNodes].filter((x)=>x.nodeType===3||(x.nodeType===1&&!x.classList.contains('count')&&!x.querySelector('svg')&&x.tagName!=='svg')).map((x)=>x.textContent).join('').trim();return t;};
-  const grp=a.closest('details.adm-grp');
-  const rowTab=grp?null:document.querySelector('main .adm-rowtabs [aria-current="page"]');
+  const rowTab=document.querySelector('main .adm-rowtabs [aria-current="page"]');
   const sec=document.querySelector('main .subtabs:not(.adm-rowtabs):not([hidden]) :is([data-sub],[data-lsub])[aria-selected="true"]');
   const parts=[];
   // A tab whose name is already in the page's says nothing more: 알림 설정 is not also 알림 설정 › 설정.
   const said=(p)=>parts[parts.length-1]?.textContent.trim().toLowerCase().includes(p?.textContent.trim().toLowerCase());
-  if(rowTab){parts.push(label(a),plain(rowTab));}else{parts.push(label(grp?.querySelector('summary')),label(a));}
+  parts.push(label(a));if(rowTab)parts.push(plain(rowTab));
   if(sec&&!said(plain(sec)))parts.push(plain(sec));
   const shown=parts.filter(Boolean);
   shown.forEach((p,k)=>{const last=k===shown.length-1;
@@ -297,22 +265,22 @@ function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySe
     if(!last){p.classList.add('adm-crumb-g');if(far)p.classList.add('adm-crumb-far');c.append(p);
       c.insertAdjacentHTML('beforeend','<svg class="adm-crumb-sep'+far+'" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');}
     else{p.classList.add('adm-crumb-i');c.append(p);}});
-  // Short of room the page's own name wins, whole, rather than a group cut to one syllable.
+  // Short of room the page's own name wins, whole, rather than its entry cut to one syllable.
   c.classList.remove('adm-crumb-tight');const i=c.querySelector('.adm-crumb-i');if(i&&i.scrollWidth>i.clientWidth)c.classList.add('adm-crumb-tight');}
 window.__admMark=mark;
 function sums(){
-  // The group sums sit inside the observed tree, so every write is made only
+  // The row sums sit inside the observed tree, so every write is made only
   // when the value really changes; an unconditional write would reissue the
-  // observer and spin the page.
-  for(const g of document.querySelectorAll('.adm-grp')){let n=0;
-    for(const c of g.querySelectorAll('.adm-item>.count'))n+=c.hidden?0:(Number(c.textContent)||0);
-    const s=g.querySelector('summary .count');
-    if(s){const t=String(n),h=!n;
-      if(s.textContent!==t)s.textContent=t;
-      if(s.hidden!==h)s.hidden=h;}}
+  // observer and spin the page. The mirrors are filled first, so a drawer row sums what its spans copied.
   for(const d of document.querySelectorAll('[data-count-id]')){const s=document.getElementById(d.dataset.countId);
     if(s){if(d.textContent!==s.textContent)d.textContent=s.textContent;
-      if(d.hidden!==s.hidden)d.hidden=s.hidden;}}}
+      if(d.hidden!==s.hidden)d.hidden=s.hidden;}}
+  for(const g of document.querySelectorAll('.adm-item[data-paths]')){let n=0;
+    for(const c of g.querySelectorAll('.adm-srcs>.count'))n+=c.hidden?0:(Number(c.textContent)||0);
+    const s=g.querySelector('.count[data-sum]');
+    if(s){const t=String(n),h=!n;
+      if(s.textContent!==t)s.textContent=t;
+      if(s.hidden!==h)s.hidden=h;}}}
 window.__admSums=sums;
 (function(){if(!H2P[PAGE.tab])return;const q=new URLSearchParams(location.search);let tab=PAGE.tab,sub=PAGE.sub;
   if(!sub){if(tab==='library'&&q.get('view'))sub=q.get('view');

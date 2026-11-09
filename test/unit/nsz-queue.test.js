@@ -95,6 +95,8 @@ test("a file is compressed, verified, swapped next to the original, and the byte
   assert.equal(i.state, "done");
   assert.equal(i.savedBytes, MIB);
   assert.equal(q.totals().savedBytes, MIB);
+  // The page draws the saved space against the size before: before is after plus saved.
+  assert.equal(q.totals().inBytes, q.totals().outBytes + MIB);
   assert.deepEqual(swaps.map((s) => s.op), ["remove", "upsert"]);
   const args = JSON.parse(fs.readFileSync(process.env.NSZ_STUB_ARGS, "utf8"));
   assert.equal(args[0], "--keys");

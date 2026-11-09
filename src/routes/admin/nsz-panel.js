@@ -56,6 +56,7 @@ export const NSZ_CSS = `
 .nz-head p{margin:0}
 .nz-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}
 .nz-cards .card{padding:14px 16px}.nz-cards .card .v{font-size:var(--fs-2xl)}
+.nz-cards .card .gbar{margin-top:10px}.nz-cards .card .s{margin-top:4px;color:var(--muted);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
 .nz-cards .card.bad .v{color:var(--bad)}.nz-cards .card.good .v{color:var(--good)}
 .nz-active{display:grid;gap:10px;margin-bottom:6px}
 .nz-run{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;background:var(--panel);border:1px solid rgba(var(--accent-rgb),.6);border-radius:var(--r-2xl);padding:14px 16px}
@@ -178,7 +179,11 @@ function nzRenderActive(active){const box=$('nz-active');const keep=new Map([...
       el('span',p==null?topFill('nz.wrote',{size:nzSize(it.outBytes)}):topFill('nz.pctEta',{p:Math.round(p*100),size:nzSize(it.expectedBytes)})));}
   for(const c of keep.values())c.remove();}
 function nzCards(t){const cards=[[topText('pp.waiting'),num(t.waiting+t.busy),nzSize(t.waitingBytes)],[topText('nz.running'),num(t.running),''],[topText('nz.done'),num(t.done),'',t.done?'good':''],[topText('ss.fail'),num(t.failed+t.skipped),'',t.failed?'bad':''],[topText('nz.savedSpace'),nzSize(t.savedBytes),topFill('nz.convertedN',{n:num(t.converted)}),t.savedBytes?'good':'']];
-  $('nz-cards').replaceChildren(...cards.map(([l,v,sub,cls])=>{const c=el('div',null,'card'+(cls?' '+cls:''));c.append(el('div',v,'v'),el('div',l+(sub?' · '+sub:''),'l'));return c;}));}
+  $('nz-cards').replaceChildren(...cards.map(([l,v,sub,cls])=>{const c=el('div',null,'card'+(cls?' '+cls:''));c.append(el('div',v,'v'),el('div',l+(sub?' · '+sub:''),'l'));return c;}));
+  // The saved space against what the converted files weighed before: what they weigh now, then what went.
+  if(t.inBytes&&t.savedBytes){const before=topText('rpt.original')+' '+nzSize(t.inBytes)+' → '+nzSize(t.outBytes)+' (-'+Math.round(t.savedBytes/t.inBytes*100)+'%)';
+    const c=$('nz-cards').lastElementChild;c.title=before;
+    c.append(gbar([{v:t.outBytes,color:'var(--s1)',title:nzSize(t.outBytes)},{v:t.savedBytes,color:'var(--s3)',title:topText('nz.savedSpace')+' '+nzSize(t.savedBytes)}],t.inBytes,'thin'),el('div',before,'s'));}}
 function nzHeader(d){const st=$('nz-state');st.classList.remove('nz-sk');
   const [label,kind]=d.status==='off'?[topText('ov.off'),'']:d.status==='running'?[()=>topText('nz.stRun'),'on']:d.status==='idle'?[()=>topText('nz.stIdle'),'']:[()=>topText('nz.pause'),'warn'];st.textContent=nzWord(label);st.className='pill'+(kind?' '+kind:'');
   const tb=d.trash&&d.trash.bytes||0,kb=d.kept&&d.kept.bytes||0;

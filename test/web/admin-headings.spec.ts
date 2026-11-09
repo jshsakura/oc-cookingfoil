@@ -1,17 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
-// One thing, one name: a page's heading reads like the sidebar item that opens it, a tab's section heading
-// reads like the tab, and the header breadcrumb ends with the tab that is open.
+// One thing, one name: the header breadcrumb (the page's title since the headings left the pages) names
+// the menu item or tab that opens the page, a tab's section heading reads like the tab, and the breadcrumb
+// ends with the tab that is open.
 
 // The visible words of an element, counts and icons left out.
 const words = (e: Element) => { const c = e.cloneNode(true) as Element; c.querySelectorAll('.count,svg').forEach((n) => n.remove()); return (c.textContent ?? '').replace(/\s+/g, ' ').trim(); };
 const text = (loc: ReturnType<Page['locator']>) => loc.first().evaluate(words);
 
-// Pages whose heading is not renamed yet: the owner has not given the new word.
-const PENDING = new Set(['/admin', '/admin/settings/login', '/admin/settings/admin']);
-// Pages that hold their jobs as tabs and have no heading of their own: only the tab headings are checked.
-const TABS_ONLY = new Set(['/admin/retro', '/admin/homebrew']);
 
 async function pickLang(page: Page, lang: string) {
   await page.locator('#lang-btn').click();
@@ -21,8 +18,11 @@ async function pickLang(page: Page, lang: string) {
 async function pagePaths(page: Page): Promise<string[]> {
   await page.goto('/admin');
   const side = await page.locator('aside.adm-side > nav a.adm-item').evaluateAll((as) => as.map((a) => a.getAttribute('href')!));
-  await page.goto('/admin/upload');
-  const rows = await page.locator('.adm-rowtabs a').evaluateAll((as) => as.map((a) => a.getAttribute('href')!));
+  const rows: string[] = [];
+  for (const path of side) {
+    await page.goto(path);
+    rows.push(...await page.locator('.adm-rowtabs a').evaluateAll((as) => as.map((a) => a.getAttribute('href')!)));
+  }
   return [...new Set([...side, ...rows])];
 }
 
@@ -38,8 +38,8 @@ for (const lang of ['ko', 'en']) {
       await expect(page.locator('#adm-crumb .adm-crumb-i')).toBeVisible();
       const rowTab = page.locator('.adm-rowtabs [aria-current="page"]');
       const label = await text((await rowTab.count()) ? rowTab : page.locator('aside.adm-side > nav a[aria-current="page"]'));
-      const h2s = await page.locator('main h2, .wrap h2').evaluateAll((hs) => hs.filter((h) => (h as HTMLElement).offsetParent).map((h) => (h.textContent ?? '').replace(/\s+/g, ' ').trim()));
-      if (h2s.length && !PENDING.has(path) && !TABS_ONLY.has(path) && !h2s.includes(label)) problems.push(`${path}: heading ${JSON.stringify(h2s.slice(0, 2))} vs menu ${JSON.stringify(label)}`);
+      const crumb = await text(page.locator('#adm-crumb'));
+      if (!crumb.includes(label)) problems.push(`${path}: crumb ${JSON.stringify(crumb)} vs menu ${JSON.stringify(label)}`);
       const tabs = page.locator('.wrap .subtabs:not(.adm-rowtabs) :is([data-sub],[data-lsub]):visible');
       const n = await tabs.count();
       for (let i = 0; i < n; i++) {

@@ -23,12 +23,13 @@ test("every section keeps its id and every job keeps its page address", () => {
   for (const tab of ["overview", "users", "devices", "settings", "alerts", "logs", "featured", "library", "nsz", "upload", "inbox", "homebrew", "retro"]) {
     assert.match(html, new RegExp(`<section id="tab-${tab}"`), `tab-${tab}`);
   }
-  // The page each of those sections now lives behind (admin-pages.js). The
-  // incoming row opens its first page and stands for the others it lists.
+  // The page each of those sections now lives behind (admin-pages.js): a sidebar link of its own, or one of
+  // the pages a sidebar entry stands for and opens as tabs.
   for (const path of ["/admin", "/admin/games", "/admin/retro", "/admin/homebrew", "/admin/upload", "/admin/convert", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/settings/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
-    assert.match(html, new RegExp(`href="${path.replace(/\//g, "\\/")}"`), `sidebar link for ${path}`);
+    const listed = [...html.matchAll(/data-paths="([^"]+)"/g)].some((m) => m[1].split(" ").includes(path));
+    assert.ok(listed || html.includes(`href="${path}"`), `sidebar entry for ${path}`);
   }
-  assert.match(html, /data-paths="\/admin\/incoming\/temp \/admin\/inbox"/, "the incoming row stands for its two pages; upload is the header's");
+  assert.match(html, /data-paths="\/admin\/upload \/admin\/incoming\/temp \/admin\/inbox"/, "들어온 파일 stands for upload, the temp folder and the temp share");
 });
 
 test("the look-alike folder notice names both folders and the system, and says the art follows the folder", () => {

@@ -103,5 +103,5 @@ test('overview security warnings open the administrator security task directly',
   await page.goto('/admin');
   await page.locator('#warnings .note-go').click();
   await expect(page).toHaveURL(/\/admin\/settings\/admin(?:#settings\/security)?$/);
-  await expect(page.locator('aside.adm-side > nav [aria-current="page"]')).toHaveText('관리자 보안');
+  await expect(page.locator('main .adm-rowtabs [aria-current="page"]')).toHaveText('관리자 보안');
 });

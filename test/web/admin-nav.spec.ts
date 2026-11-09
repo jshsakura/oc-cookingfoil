@@ -60,8 +60,8 @@ test('the menus are named for what they hold, in every language', async ({ page 
   await signIn(page);
   await page.goto('/admin/games');
   const group = (name: string) => name === 'games'
-    ? page.locator('aside.adm-side a[href="/admin/games"] [data-top]')
-    : page.locator(`aside.adm-side .adm-grp[data-grp="${name}"] summary [data-top]`);
+    ? page.locator('main .adm-rowtabs a[href="/admin/games"] [data-top]')
+    : page.locator('aside.adm-side a[href="/admin/users"] [data-top]');
   await expect(group('games')).toHaveText('게임');
   await expect(group('people')).toHaveText('계정과 기기');
   for (const [lang, games, people] of [['en', 'Games', 'Accounts and devices'], ['ja', 'ゲーム', 'アカウントとデバイス'], ['zh', '游戏', '账户与设备']]) {

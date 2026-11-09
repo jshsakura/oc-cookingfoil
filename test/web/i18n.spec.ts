@@ -53,13 +53,13 @@ test('switched to ja, en or zh, the landing shows no Korean on any tab, the clie
 test('the admin top area follows the language picked on the web, and its account menu changes it', async ({ page }) => {
   await signIn(page);
   const games = page.locator('aside.adm-side a[href="/admin/games"] [data-top]');
-  await expect(games).toHaveText('게임');
+  await expect(games).toHaveText('라이브러리');
 
   await page.goto('/');
   await pickLang(page, 'ja');
   await page.goto('/admin');
-  await expect(games).toHaveText('ゲーム');
-  await expect(page.locator('aside.adm-side .adm-grp[data-grp="ops"] summary [data-top]')).toHaveText('作業と記録');
+  await expect(games).toHaveText('ライブラリ');
+  await expect(page.locator('aside.adm-side a[href="/admin/convert"] [data-top]')).toHaveText('作業と記録');
   await expect(page.locator('h1.brand')).toHaveAttribute('aria-label', 'CookingFoil サーバー管理');
   await expect(page).toHaveTitle('CookingFoil サーバー管理');
 
@@ -77,12 +77,12 @@ test('the admin top area follows the language picked on the web, and its account
   await expect(page.locator('#acct-list #logout')).toHaveText('ログアウト');
   await page.keyboard.press('Escape');
   await pick('en');
-  await expect(games).toHaveText('Games');
+  await expect(games).toHaveText('Library');
   await expect(page.locator('#lang-current')).toHaveText('EN');
   await expect(page.locator('#lang-list')).toBeHidden();
   await expect(page.locator('#lang-list [data-admin-lang="en"]')).toHaveAttribute('aria-checked', 'true');
   await pick('zh');
-  await expect(games).toHaveText('游戏');
+  await expect(games).toHaveText('资料库');
   await expect(page.locator('#act-heading')).toHaveText('正在运行');
   expect(await page.evaluate(() => localStorage.getItem('cookingfoil:lang'))).toBe('zh');
   const topText = await page.evaluate(() => [...document.querySelectorAll('aside.adm-side, #adm-drawer')].map((n) => (n as HTMLElement).innerText).join('\n'));
@@ -90,5 +90,5 @@ test('the admin top area follows the language picked on the web, and its account
 
   // Back to Korean for the specs that follow and read the admin by its Korean labels.
   await pick('ko');
-  await expect(games).toHaveText('게임');
+  await expect(games).toHaveText('라이브러리');
 });

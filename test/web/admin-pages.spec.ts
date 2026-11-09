@@ -9,11 +9,11 @@ import { freshCode, signIn } from './admin-sign-in';
 const PAGES: [string, string, string][] = [
   ['/admin', 'tab-overview', '서버 현황'],
   ['/admin/games', 'tab-library', '게임'],
-  ['/admin/incoming/temp', 'tab-organize', '주고받기'],
-  ['/admin/upload', 'tab-upload', ''],
+  ['/admin/incoming/temp', 'tab-organize', '임시 폴더'],
+  ['/admin/upload', 'tab-upload', '업로드'],
   // Stage B first bundle: these pages carry only their own panel.
   ['/admin/convert', 'tab-nsz', '파일 압축'],
-  ['/admin/inbox', 'tab-inbox', '주고받기'],
+  ['/admin/inbox', 'tab-inbox', '임시 공유'],
   ['/admin/featured', 'tab-featured', '홈 화면 구성'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
@@ -38,8 +38,10 @@ test('every page opens its own section, marks the sidebar and keeps its address 
     await page.goto(path);
     const sel = section.startsWith('h2:') ? section : `#${section}`;
     await expect(page.locator(sel), path).toBeVisible();
-    if (label) await expect(page.locator(`aside.adm-side > nav a[aria-current="page"]`), path).toContainText(label);
-    else await expect(page.locator(`aside.adm-side > nav a[href="${path}"]`), `${path} has no menu entry`).toHaveCount(0);
+    // A page that shares its menu entry is marked in the tabs over it; one of its own, in the sidebar.
+    await expect(page.locator('aside.adm-side > nav a[aria-current="page"]'), path).toHaveCount(1);
+    const tab = page.locator('main .adm-rowtabs a[aria-current="page"]');
+    await expect((await tab.count()) ? tab : page.locator('aside.adm-side > nav a[aria-current="page"]'), path).toContainText(label);
     expect(page.url().replace(/#.*$/, ''), path).toContain(path);
     await page.reload();
     await expect(page.locator(`#${section}`), `${path} after reload`).toBeVisible();
@@ -50,7 +52,8 @@ test('the retro page lists its nine jobs as tabs, the files first, and keeps the
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
-  await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('레트로 게임');
+  await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('라이브러리');
+  await expect(page.locator('main .adm-rowtabs a[aria-current="page"]')).toHaveText('레트로 게임');
   await expect(page.locator('#retro-subtabs [data-sub="cores"]')).toHaveAttribute('aria-selected', 'true');
   const items = page.locator('#retro-subtabs [data-sub]');
   await expect(items).toHaveCount(9);
@@ -153,8 +156,8 @@ test('on a desktop the header band holds the account top right, its menus open d
   expect((await box('#acct-list')).y).toBeGreaterThan(acct.y + acct.height);
   await page.keyboard.press('Escape');
 
-  // Opening every group makes the menu longer than the screen: it scrolls, the brand does not move.
-  for (const g of await page.locator('aside.adm-side details.adm-grp').all()) await g.evaluate((d) => { (d as HTMLDetailsElement).open = true; });
+  // On a short window the menu is longer than the screen: it scrolls, the brand does not move.
+  await page.setViewportSize({ width: 1280, height: 320 });
   const moved = await page.locator('aside.adm-side > nav').evaluate((nav) => {
     nav.scrollTop = nav.scrollHeight;
     return { scrolled: nav.scrollTop > 0, page: document.scrollingElement!.scrollTop };
@@ -188,7 +191,6 @@ test.describe('on a phone', () => {
     await page.locator('#adm-menu').click();
     const drawer = page.locator('#adm-drawer');
     await expect(drawer).toBeVisible();
-    for (const g of await drawer.locator('details.adm-grp').all()) await g.evaluate((d) => { (d as HTMLDetailsElement).open = true; });
     const fit = await drawer.evaluate((d) => {
       const nav = d.querySelector('nav') as HTMLElement;
       nav.scrollTop = nav.scrollHeight;
@@ -314,27 +316,36 @@ for (const [path, root, tab] of FOLDER_PAGES) {
   });
 }
 
-test('the sidebar lists each group in the agreed order, with no separate security group', async ({ page }) => {
+test('the sidebar holds eight entries in the agreed order, and each entry opens its jobs as tabs over its pages', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin');
   const side = page.locator('aside.adm-side > nav');
-  await expect(side.locator('details.adm-grp')).toHaveCount(4);
-  await expect(side.locator('details.adm-grp[data-grp="sec"]')).toHaveCount(0);
-  const hrefs = (sel: string) => side.locator(`${sel} a.adm-item`).evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  expect(await hrefs('details[data-grp="library"]')).toEqual(['/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/featured', '/admin/trash']);
-  expect(await hrefs('details[data-grp="people"]')).toEqual(['/admin/users', '/admin/devices', '/admin/client']);
-  expect(await hrefs('details[data-grp="ops"]')).toEqual(['/admin/convert', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']);
-  expect(await hrefs('details[data-grp="set"]')).toEqual(['/admin/settings/server', '/admin/settings/login', '/admin/settings/admin', '/admin/settings/notifications', '/admin/settings/integrations', '/admin/settings/plugins', '/admin/settings/automation']);
-  await expect(side.locator('details[data-grp="ops"] summary [data-top]')).toHaveText('작업과 기록');
-  await expect(side.locator('a.adm-item[href="/admin/settings/login"]')).toHaveText('구글 로그인');
-  await expect(side.locator('a.adm-item[href="/admin/settings/automation"]')).toHaveText('자동화 토큰');
+  const hrefs = (loc: ReturnType<typeof page.locator>) => loc.evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+  expect(await hrefs(side.locator('a.adm-item'))).toEqual(['/admin', '/admin/chat', '/admin/upload', '/admin/games', '/admin/featured', '/admin/users', '/admin/convert', '/admin/settings/server']);
+  await expect(side.locator('a.adm-item[href="/admin/upload"] [data-top]')).toHaveText('들어온 파일');
+  await expect(side.locator('a.adm-item[href="/admin/convert"] [data-top]')).toHaveText('작업과 기록');
+  const tabs: [string, string[]][] = [
+    ['/admin/upload', ['/admin/upload', '/admin/incoming/temp', '/admin/inbox']],
+    ['/admin/games', ['/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/trash']],
+    ['/admin/users', ['/admin/users', '/admin/devices', '/admin/client']],
+    ['/admin/convert', ['/admin/convert', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']],
+    ['/admin/settings/server', ['/admin/settings/server', '/admin/settings/login', '/admin/settings/admin', '/admin/settings/notifications', '/admin/settings/integrations', '/admin/settings/plugins', '/admin/settings/automation']],
+  ];
+  for (const [path, want] of tabs) {
+    await page.goto(path);
+    expect(await hrefs(page.locator('main .adm-rowtabs a')), path).toEqual(want);
+  }
+  await expect(page.locator('main .adm-rowtabs a[href="/admin/settings/login"]')).toHaveText('구글 로그인');
+  await expect(page.locator('main .adm-rowtabs a[href="/admin/settings/automation"]')).toHaveText('자동화 토큰');
+  await page.goto('/admin/featured');
+  await expect(page.locator('main .adm-rowtabs')).toHaveCount(0);
 });
 
-test('the upload page is called 업로드 in the header and the breadcrumb, and has no menu entry or tab', async ({ page }) => {
+test('the upload page is the first tab of 들어온 파일, and the header entry still leads to it', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/upload');
   await expect(page.locator('#up-entry .up-entry-t')).toHaveText('업로드');
-  await expect(page.locator('a[href="/admin/upload"]:not(#up-entry)')).toHaveCount(0);
+  await expect(page.locator('#adm-crumb')).toHaveText(/들어온 파일\s*업로드/);
   await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('업로드');
 });
 

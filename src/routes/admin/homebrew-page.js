@@ -3,6 +3,7 @@ import { icon } from "../../views/icons.js";
 import { box } from "./boxes.js";
 import { top, topLabel, topPh } from "./top-i18n.js";
 import { FOLDER_MARK } from "./files-panel.js";
+import { picSlotHtml } from "./picture-slot.js";
 export const HOMEBREW_HTML = /* html */ `<section id="tab-homebrew" hidden>
   <div class="subtabs hide-bar" id="homebrew-subtabs" role="tablist" ${topLabel("hp.areaAria")}>
     <button type="button" role="tab" data-sub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
@@ -39,6 +40,7 @@ export const HOMEBREW_HTML = /* html */ `<section id="tab-homebrew" hidden>
 export const HOMEBREW_DIALOG_HTML = /* html */ `<dialog id="hb-banner" class="hb-banner" aria-labelledby="hb-banner-title">
   <h3 id="hb-banner-title"></h3>
   <p class="muted">${top("hb.bannerLede")}</p>
+  ${picSlotHtml("hb-pic")}
   <h4>${top("hb.bgTitle")}</h4>
   <div class="hb-banner-now" id="hb-banner-now"><img id="hb-banner-img" alt="" ${topLabel("hb.nowImg")}><p class="muted" id="hb-banner-none">${top("hb.noImg")}</p></div>
   <form class="add" id="hb-banner-search"><input id="hb-banner-q" ${topLabel("ra.query")} ${topPh("hb.qPh")}><button class="primary">${top("ra.findSgdb")}</button></form>
@@ -189,7 +191,7 @@ async function hbMediaReload(){const d=await api('/admin/api/homebrew/apps');con
   if(a){hbBannerApp=a;hbBannerShow(a.banner_url);hbShotsShow(a.screenshots);}}
 async function hbShotRemove(n){if(!await ask(topFill('hb.askShotRemove',{n}),{danger:true}))return;
   try{await api('/admin/api/homebrew/shots/remove',{method:'POST',body:{id:hbBannerApp.id,n}});await hbMediaReload();}catch(err){toast(err.message);}}
-function openHbBanner(a){hbBannerApp=a;$('hb-banner-title').textContent=topFill('hb.bannerTitle',{name:a.name||a.app});hbBannerShow(a.banner_url);hbShotsShow(a.screenshots);$('hb-shots-state').textContent='';
+function openHbBanner(a){hbBannerApp=a;picSlot($('hb-pic'),'homebrew',a.id);$('hb-banner-title').textContent=topFill('hb.bannerTitle',{name:a.name||a.app});hbBannerShow(a.banner_url);hbShotsShow(a.screenshots);$('hb-shots-state').textContent='';
   $('hb-banner-q').value='';$('hb-banner-results').replaceChildren();$('hb-banner-state').textContent='';$('hb-banner').showModal();hbBannerSearch();}
 async function hbBannerSearch(){const st=$('hb-banner-state');st.textContent=topText('ra.searching');$('hb-banner-results').replaceChildren();
   try{const d=await api('/admin/api/homebrew/banner/candidates?id='+encodeURIComponent(hbBannerApp.id)+'&q='+encodeURIComponent($('hb-banner-q').value.trim()));

@@ -303,12 +303,18 @@ window.addEventListener('resize',fbFit);{const fit=new ResizeObserver(fbFit);fit
 // A size seen once shows at once when the folder lists again, and is then brought up to date.
 const fbSizes=new Map();
 function fbDirSize(f){const s=fbSizes.get(fb.root+'|'+f.rel);if(s)f.holds=s;return s?fbSize(s.bytes):'';}
-async function fbSizeRows(items){const dirs=items.filter((f)=>f.type==='dir');if(!dirs.length)return;const root=fb.root;
+// Each row's share of what the listed rows hold, as a thin bar under its size, so the big ones stand out.
+function fbSizeBars(){const items=fb.data?.items||[];const bytes=(f)=>f.type==='dir'?(fbSizes.get(fb.root+'|'+f.rel)?.bytes??0):(f.size||0);
+  const by=new Map(items.map((f)=>[f.rel,f]));const total=items.reduce((n,f)=>n+bytes(f),0);
+  for(const tr of document.querySelectorAll('#fb-rows tr')){const f=by.get(tr.dataset.rel),c=tr.querySelector('.c-size');if(!f||!c)continue;
+    const p=total?Math.round(bytes(f)*1000/total)/10:0;c.classList.toggle('fb-share',p>=1);c.style.setProperty('--share',p+'%');}}
+async function fbSizeRows(items){fbSizeBars();const dirs=items.filter((f)=>f.type==='dir');if(!dirs.length)return;const root=fb.root;
   let r;try{r=await api('/admin/api/files/sizes',{method:'POST',body:{root,paths:dirs.map((f)=>f.rel)}});}catch{return;}
   if(root!==fb.root)return;
   for(const f of dirs){const s=r.sizes[f.rel];if(!s)continue;fbSizes.set(root+'|'+f.rel,s);f.holds=s;
     for(const tr of document.querySelectorAll('#fb-rows tr'))if(tr.dataset.rel===f.rel){const c=tr.querySelector('.c-size');
       c.textContent=fbSize(s.bytes);c.title=topFill('fb.p.holdsVal',{files:num(s.files),dirs:num(s.dirs)});}}
+  fbSizeBars();
   if(fb.sel.size===1&&dirs.some((f)=>fb.sel.has(f.rel)))fbSide();}
 
 // ── a copy's progress ───────────────────────────────────────────────
