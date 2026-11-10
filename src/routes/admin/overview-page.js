@@ -103,7 +103,7 @@ const WARNINGS={
 const TODO={
   'pending-accounts':{t:'ov.t.pendingAccounts',d:'ov.t.pendingAccountsD',go:'/admin/users',icon:'users'},
   'pending-devices':{t:'ov.t.pendingDevices',d:'ov.t.pendingDevicesD',go:'/admin/devices',icon:'device'},
-  inbox:{t:'ov.t.inbox',d:'ov.t.inboxD',go:'/admin/inbox',icon:'send'},
+  inbox:{t:'ov.t.inbox',d:'ov.t.inboxD',go:'/admin/incoming#inbox',icon:'send'},
   damaged:{t:'ov.t.damaged',d:'ov.t.damagedD',go:'/admin/games?view=verify&check=damaged#library/verify',icon:'file',warn:true},
   'plugins-failing':{t:'ov.t.pluginsFailing',d:'ov.t.pluginsFailingD',go:'/admin/settings/plugins',icon:'puzzle',warn:true},
   lockouts:{t:'ov.t.lockouts',d:'ov.t.lockoutsD',go:'/admin/logs/security',icon:'lock'},

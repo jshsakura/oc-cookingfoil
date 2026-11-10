@@ -22,10 +22,8 @@ import { top } from "./top-i18n.js";
 export const ADMIN_PAGES = [
   { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
   { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat" },
-  // incoming: what reached the server and waits for a place
-  { path: "/admin/upload", tab: "upload", label: "m.upload", row: "incoming", icon: "upload" },
-  { path: "/admin/incoming/temp", tab: "organize", label: "m.organize", row: "incoming", icon: "folder" },
-  { path: "/admin/inbox", tab: "inbox", label: "m.inbox", row: "incoming", icon: "send", count: "inbox-count" },
+  // The holding area: uploading, the temp share and the temp folder, on one page.
+  { path: "/admin/incoming", tab: "incoming", label: "m.incoming", icon: "inbox", count: "inbox-count" },
   // the libraries: each page holds its own jobs as tabs
   { path: "/admin/games", tab: "library", label: "m.grpGames", row: "library", icon: "grid" },
   { path: "/admin/retro", tab: "retro", label: "m.retro", row: "library", icon: "joystick" },
@@ -58,7 +56,6 @@ export const ADMIN_PAGES = [
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 
 const ROWS = {
-  incoming: { label: "m.incoming", icon: "inbox" },
   library: { label: "m.library", icon: "layers" },
   people: { label: "m.people", icon: "users" },
   ops: { label: "m.grpOps", icon: "log" },
@@ -69,7 +66,7 @@ const ROWS = {
 export const PATH_FOR_TAB = {
   overview: "/admin", users: "/admin/users", devices: "/admin/devices", settings: "/admin/settings/server",
   alerts: "/admin/settings/notifications", logs: "/admin/logs/downloads", featured: "/admin/featured",
-  library: "/admin/games", organize: "/admin/incoming/temp", nsz: "/admin/convert", upload: "/admin/upload", inbox: "/admin/inbox",
+  library: "/admin/games", organize: "/admin/incoming", nsz: "/admin/convert", upload: "/admin/incoming", inbox: "/admin/incoming", incoming: "/admin/incoming",
   all: "/admin/games", files: "/admin/games", homebrew: "/admin/homebrew", retro: "/admin/retro", trash: "/admin/trash", client: "/admin/client", patches: "/admin/patches", saves: "/admin/saves",
 };
 
@@ -222,12 +219,12 @@ function pathForHash(parts){const [tab,sub]=parts;
   if(tab==='logs')return ({client:'/admin/logs/clients',deny:'/admin/logs/security'})[sub]||'/admin/logs/downloads';
   return H2P[tab]||'/admin';}
 // The temp folder, patches and saves were tabs of the games page; each is a page of its own now.
-if(PAGE.path==='/admin/games'){const gone={organize:'/admin/incoming/temp',patches:'/admin/patches',saves:'/admin/saves',server:'/admin/settings/server'};
+if(PAGE.path==='/admin/games'){const gone={organize:'/admin/incoming',patches:'/admin/patches',saves:'/admin/saves',server:'/admin/settings/server'};
   const q=new URLSearchParams(location.search);
   const was=q.get('view')||location.hash.split('/')[1],to=gone[was];
   if(to&&(q.get('view')||location.hash.startsWith('#library/'))){q.delete('view');if(was==='patches'||was==='saves')q.set('tab','list');const s=q.toString();location.replace(to+(s?'?'+s:''));return;}}
 const legacy=location.hash.slice(1).split('/');
-if(H2P[legacy[0]]&&(legacy[0]!==PAGE.tab||(['settings','logs'].includes(legacy[0])&&legacy[1]&&pathForHash(legacy)!==PAGE.path))){
+if(H2P[legacy[0]]&&(legacy[0]!==PAGE.tab||(['settings','logs'].includes(legacy[0])&&legacy[1]))&&pathForHash(legacy)!==PAGE.path){
   location.replace(pathForHash(legacy)+location.search+location.hash);return;}
 function activePath(){let p=location.pathname;
   const parts=location.hash.slice(1).split('/');
@@ -253,7 +250,8 @@ function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySe
   const plain=(n)=>{const s=n.querySelector('[data-top]');if(s)return s.cloneNode(true);const t=document.createElement('span');
     t.textContent=[...n.childNodes].filter((x)=>x.nodeType===3||(x.nodeType===1&&!x.classList.contains('count')&&!x.querySelector('svg')&&x.tagName!=='svg')).map((x)=>x.textContent).join('').trim();return t;};
   const rowTab=document.querySelector('main .adm-rowtabs [aria-current="page"]');
-  const sec=document.querySelector('main .subtabs:not(.adm-rowtabs):not([hidden]) :is([data-sub],[data-lsub])[aria-selected="true"]');
+  // The holding area's parts each carry their heading, so its temp folder tabs do not name the page.
+  const sec=document.querySelector('main .subtabs:not(.adm-rowtabs):not(.inc-sub):not([hidden]) :is([data-sub],[data-lsub])[aria-selected="true"]');
   const parts=[];
   // A tab whose name is already in the page's says nothing more: 알림 설정 is not also 알림 설정 › 설정.
   const said=(p)=>parts[parts.length-1]?.textContent.trim().toLowerCase().includes(p?.textContent.trim().toLowerCase());

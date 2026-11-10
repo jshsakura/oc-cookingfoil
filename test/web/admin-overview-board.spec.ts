@@ -14,7 +14,7 @@ test('the to-do board shows every counted job as a card that leads to its page',
   const cards = page.locator('#ov-board a.ov-todo');
   await expect(cards).toHaveCount(6);
   expect(await cards.evaluateAll((as) => as.map((a) => a.getAttribute('href')))).toEqual([
-    '/admin/users', '/admin/devices', '/admin/inbox', '/admin/games?view=verify&check=damaged#library/verify', '/admin/settings/plugins', '/admin/logs/security',
+    '/admin/users', '/admin/devices', '/admin/incoming#inbox', '/admin/games?view=verify&check=damaged#library/verify', '/admin/settings/plugins', '/admin/logs/security',
   ]);
   await expect(page.locator('#ov-board a[href="/admin/devices"]')).toContainText('승인을 기다리는 기기 2대');
   await expect(page.locator('#ov-board a[href="/admin/devices"]')).not.toHaveClass(/done/);

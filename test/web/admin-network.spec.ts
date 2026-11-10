@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { signIn } from './admin-sign-in';
 
 for (const task of [
-  { view: 'organize', url: '/admin/incoming/temp#organize/sort', tab: (sub: string) => `#organize-subtabs [data-sub="${sub}"]`, own: 'sort', other: 'folder', api: 'organize', period: 5000, ready: '#lo-held .empty' },
+  { view: 'organize', url: '/admin/incoming#organize/sort', tab: (sub: string) => `#organize-subtabs [data-sub="${sub}"]`, own: 'sort', other: 'folder', api: 'organize', period: 5000, ready: '#lo-held .empty' },
 ]) {
   test(`${task.view} polls only its active visible page and resumes after returning`, async ({ page }) => {
     await page.clock.install();

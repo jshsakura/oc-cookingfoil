@@ -7,7 +7,7 @@ test('the patches page lists the game patches, and its upload button starts a pa
   await expect(page.locator('#patches-subtabs [data-sub="list"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#lib-patches .pt-row', { hasText: '게임 데이터' })).toBeVisible();
   await page.getByRole('button', { name: '패치 올리기' }).click();
-  await expect(page).toHaveURL(/\/admin\/upload\?kind=patch/);
+  await expect(page).toHaveURL(/\/admin\/incoming\?kind=patch/);
   await expect(page.locator('#up-hint')).toContainText('atmosphere/contents');
 });
 

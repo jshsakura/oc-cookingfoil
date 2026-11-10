@@ -38,7 +38,7 @@ const KEYS = [
 
 const ROWS = {
   ko: [
-    "파일", "저장 위치", "게임", "들어온 파일", "레트로 게임", "홈브류", "패치", "세이브",
+    "파일", "저장 위치", "게임", "임시 폴더", "레트로 게임", "홈브류", "패치", "세이브",
     "이 폴더에서 이름 찾기", "새 폴더", "새 폴더 이름을 적습니다", "이름 바꾸기", "새 이름을 적습니다", "이동", "휴지통으로", "내려받기", "선택 해제",
     "{n}개를 골랐습니다", "폴더 {dirs}개 · 파일 {files}개", "이름", "크기", "수정한 날짜", "이 페이지를 전부 고릅니다", "{name} 고르기", "상위 폴더", "폴더 경로",
     "빈 폴더입니다", "찾는 이름이 이 폴더에 없습니다", "고른 {n}개를 휴지통으로 옮길까요? 휴지통에서 되살릴 수 있습니다.", "{n}개를 휴지통으로 옮겼습니다", "{n}개를 옮겼습니다", "{moved}개를 옮겼습니다. {skipped}개는 같은 이름이 있거나 옮길 수 없어 그대로 뒀습니다", "이름을 바꿨습니다", "폴더를 만들었습니다",
@@ -73,7 +73,7 @@ const ROWS = {
     "폴더는 자기 안으로 옮기거나 복사할 수 없습니다.", "정렬",
   ],
   en: [
-    "Files", "Storage", "Games", "Incoming", "Retro games", "Homebrew", "Patches", "Saves",
+    "Files", "Storage", "Games", "Temp folder", "Retro games", "Homebrew", "Patches", "Saves",
     "Find a name in this folder", "New folder", "Name the new folder", "Rename", "Type the new name", "Move", "Move to trash", "Download", "Clear selection",
     "{n} selected", "{dirs} folders · {files} files", "Name", "Size", "Modified", "Selects everything on this page", "Select {name}", "Parent folder", "Folder path",
     "This folder is empty", "No name in this folder matches", "Move the {n} selected items to the trash? You can restore them from the trash.", "Moved {n} to the trash", "Moved {n}", "Moved {moved}. {skipped} stayed where they were because the name was taken or they could not be moved", "Renamed", "Folder created",
@@ -108,7 +108,7 @@ const ROWS = {
     "A folder cannot go into itself.", "Sort",
   ],
   ja: [
-    "ファイル", "保存場所", "ゲーム", "受け取ったファイル", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
+    "ファイル", "保存場所", "ゲーム", "一時フォルダー", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
     "このフォルダーで名前を探す", "新しいフォルダー", "新しいフォルダーの名前を入力します", "名前を変更", "新しい名前を入力します", "移動", "ごみ箱へ", "ダウンロード", "選択を解除",
     "{n}個を選択しました", "フォルダー {dirs}個 · ファイル {files}個", "名前", "サイズ", "更新日時", "このページをすべて選択します", "{name}を選択", "親フォルダー", "フォルダーのパス",
     "空のフォルダーです", "このフォルダーに一致する名前はありません", "選んだ{n}個をごみ箱に移動しますか？ごみ箱から元に戻せます。", "{n}個をごみ箱に移動しました", "{n}個を移動しました", "{moved}個を移動しました。{skipped}個は同じ名前があるか移動できないため、そのままにしました", "名前を変更しました", "フォルダーを作成しました",
@@ -143,7 +143,7 @@ const ROWS = {
     "フォルダーをそれ自身の中へ移動やコピーはできません。", "並べ替え",
   ],
   zh: [
-    "文件", "存储位置", "游戏", "收到的文件", "复古游戏", "自制软件", "补丁", "存档",
+    "文件", "存储位置", "游戏", "临时文件夹", "复古游戏", "自制软件", "补丁", "存档",
     "在此文件夹中查找名称", "新建文件夹", "输入新文件夹的名称", "重命名", "输入新名称", "移动", "移到回收站", "下载", "取消选择",
     "已选择 {n} 项", "{dirs} 个文件夹 · {files} 个文件", "名称", "大小", "修改时间", "选择本页全部项目", "选择 {name}", "上级文件夹", "文件夹路径",
     "这是一个空文件夹", "此文件夹中没有匹配的名称", "要将选中的 {n} 项移到回收站吗？可以从回收站恢复。", "已将 {n} 项移到回收站", "已移动 {n} 项", "已移动 {moved} 项。{skipped} 项因名称已存在或无法移动而保留原位", "已重命名", "已创建文件夹",
@@ -178,7 +178,7 @@ const ROWS = {
     "文件夹不能移入或复制到它自身里面。", "排序",
   ],
   "zh-Hant": [
-    "檔案", "儲存位置", "遊戲", "收到的檔案", "復古遊戲", "自製軟體", "修補檔", "存檔",
+    "檔案", "儲存位置", "遊戲", "暫存資料夾", "復古遊戲", "自製軟體", "修補檔", "存檔",
     "在此資料夾中尋找名稱", "新增資料夾", "輸入新資料夾的名稱", "重新命名", "輸入新名稱", "移動", "移至垃圾桶", "下載", "取消選取",
     "已選取 {n} 項", "{dirs} 個資料夾 · {files} 個檔案", "名稱", "大小", "修改時間", "選取本頁全部項目", "選取 {name}", "上層資料夾", "資料夾路徑",
     "這是空的資料夾", "此資料夾中沒有符合的名稱", "要將選取的 {n} 項移至垃圾桶嗎？可以從垃圾桶還原。", "已將 {n} 項移至垃圾桶", "已移動 {n} 項", "已移動 {moved} 項。{skipped} 項因名稱已存在或無法移動而保留原處", "已重新命名", "已建立資料夾",
@@ -213,7 +213,7 @@ const ROWS = {
     "資料夾不能移入或複製到它自身裡面。", "排序",
   ],
   es: [
-    "Archivos", "Almacenamiento", "Juegos", "Recibidos", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
+    "Archivos", "Almacenamiento", "Juegos", "Carpeta temporal", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
     "Buscar un nombre en esta carpeta", "Nueva carpeta", "Escribe el nombre de la nueva carpeta", "Cambiar nombre", "Escribe el nuevo nombre", "Mover", "Mover a la papelera", "Descargar", "Quitar selección",
     "{n} seleccionados", "{dirs} carpetas · {files} archivos", "Nombre", "Tamaño", "Modificado", "Selecciona todo en esta página", "Seleccionar {name}", "Carpeta superior", "Ruta de la carpeta",
     "Esta carpeta está vacía", "Ningún nombre de esta carpeta coincide", "¿Mover los {n} elementos seleccionados a la papelera? Puedes restaurarlos desde la papelera.", "{n} movidos a la papelera", "{n} movidos", "{moved} movidos. {skipped} se quedaron donde estaban porque el nombre ya existía o no se podían mover", "Nombre cambiado", "Carpeta creada",
@@ -248,7 +248,7 @@ const ROWS = {
     "Una carpeta no puede ir dentro de sí misma.", "Ordenar",
   ],
   fr: [
-    "Fichiers", "Stockage", "Jeux", "Reçus", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
+    "Fichiers", "Stockage", "Jeux", "Dossier temporaire", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
     "Chercher un nom dans ce dossier", "Nouveau dossier", "Saisissez le nom du nouveau dossier", "Renommer", "Saisissez le nouveau nom", "Déplacer", "Mettre à la corbeille", "Télécharger", "Désélectionner",
     "{n} sélectionnés", "{dirs} dossiers · {files} fichiers", "Nom", "Taille", "Modifié", "Sélectionne tout sur cette page", "Sélectionner {name}", "Dossier parent", "Chemin du dossier",
     "Ce dossier est vide", "Aucun nom de ce dossier ne correspond", "Mettre les {n} éléments sélectionnés à la corbeille ? Vous pourrez les restaurer depuis la corbeille.", "{n} mis à la corbeille", "{n} déplacés", "{moved} déplacés. {skipped} sont restés en place, car le nom existait déjà ou ils ne pouvaient pas être déplacés", "Renommé", "Dossier créé",
@@ -283,7 +283,7 @@ const ROWS = {
     "Un dossier ne peut pas aller dans lui-même.", "Trier",
   ],
   de: [
-    "Dateien", "Speicherort", "Spiele", "Eingang", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
+    "Dateien", "Speicherort", "Spiele", "Temporärer Ordner", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
     "Namen in diesem Ordner suchen", "Neuer Ordner", "Gib den Namen des neuen Ordners ein", "Umbenennen", "Gib den neuen Namen ein", "Verschieben", "In den Papierkorb", "Herunterladen", "Auswahl aufheben",
     "{n} ausgewählt", "{dirs} Ordner · {files} Dateien", "Name", "Größe", "Geändert", "Wählt alles auf dieser Seite aus", "{name} auswählen", "Übergeordneter Ordner", "Ordnerpfad",
     "Dieser Ordner ist leer", "Kein Name in diesem Ordner passt", "Die {n} ausgewählten Einträge in den Papierkorb verschieben? Du kannst sie aus dem Papierkorb wiederherstellen.", "{n} in den Papierkorb verschoben", "{n} verschoben", "{moved} verschoben. {skipped} blieben, wo sie waren, weil der Name schon vergeben war oder sie nicht verschoben werden konnten", "Umbenannt", "Ordner erstellt",
@@ -318,7 +318,7 @@ const ROWS = {
     "Ein Ordner kann nicht in sich selbst.", "Sortieren",
   ],
   it: [
-    "File", "Archivio", "Giochi", "In arrivo", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
+    "File", "Archivio", "Giochi", "Cartella temporanea", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
     "Cerca un nome in questa cartella", "Nuova cartella", "Scrivi il nome della nuova cartella", "Rinomina", "Scrivi il nuovo nome", "Sposta", "Sposta nel cestino", "Scarica", "Deseleziona",
     "{n} selezionati", "{dirs} cartelle · {files} file", "Nome", "Dimensione", "Modificato", "Seleziona tutto in questa pagina", "Seleziona {name}", "Cartella superiore", "Percorso della cartella",
     "Questa cartella è vuota", "Nessun nome in questa cartella corrisponde", "Spostare nel cestino i {n} elementi selezionati? Potrai ripristinarli dal cestino.", "{n} spostati nel cestino", "{n} spostati", "{moved} spostati. {skipped} sono rimasti al loro posto perché il nome esisteva già o non potevano essere spostati", "Rinominato", "Cartella creata",
@@ -353,7 +353,7 @@ const ROWS = {
     "Una cartella non può andare dentro se stessa.", "Ordina",
   ],
   pt: [
-    "Arquivos", "Armazenamento", "Jogos", "Recebidos", "Jogos retrô", "Homebrew", "Patches", "Saves",
+    "Arquivos", "Armazenamento", "Jogos", "Pasta temporária", "Jogos retrô", "Homebrew", "Patches", "Saves",
     "Buscar um nome nesta pasta", "Nova pasta", "Digite o nome da nova pasta", "Renomear", "Digite o novo nome", "Mover", "Mover para a lixeira", "Baixar", "Limpar seleção",
     "{n} selecionados", "{dirs} pastas · {files} arquivos", "Nome", "Tamanho", "Modificado", "Seleciona tudo nesta página", "Selecionar {name}", "Pasta acima", "Caminho da pasta",
     "Esta pasta está vazia", "Nenhum nome nesta pasta corresponde", "Mover os {n} itens selecionados para a lixeira? Você pode restaurá-los pela lixeira.", "{n} movidos para a lixeira", "{n} movidos", "{moved} movidos. {skipped} ficaram onde estavam porque o nome já existia ou não puderam ser movidos", "Renomeado", "Pasta criada",
@@ -388,7 +388,7 @@ const ROWS = {
     "Uma pasta não pode ir para dentro de si mesma.", "Ordenar",
   ],
   nl: [
-    "Bestanden", "Opslag", "Games", "Binnengekomen", "Retrogames", "Homebrew", "Patches", "Saves",
+    "Bestanden", "Opslag", "Games", "Tijdelijke map", "Retrogames", "Homebrew", "Patches", "Saves",
     "Een naam in deze map zoeken", "Nieuwe map", "Typ de naam van de nieuwe map", "Naam wijzigen", "Typ de nieuwe naam", "Verplaatsen", "Naar de prullenbak", "Downloaden", "Selectie wissen",
     "{n} geselecteerd", "{dirs} mappen · {files} bestanden", "Naam", "Grootte", "Gewijzigd", "Selecteert alles op deze pagina", "{name} selecteren", "Bovenliggende map", "Mappad",
     "Deze map is leeg", "Geen naam in deze map komt overeen", "De {n} geselecteerde items naar de prullenbak verplaatsen? Je kunt ze uit de prullenbak terugzetten.", "{n} naar de prullenbak verplaatst", "{n} verplaatst", "{moved} verplaatst. {skipped} bleven staan omdat de naam al bestond of ze niet verplaatst konden worden", "Naam gewijzigd", "Map gemaakt",
@@ -423,7 +423,7 @@ const ROWS = {
     "Een map kan niet in zichzelf.", "Sorteren",
   ],
   ru: [
-    "Файлы", "Хранилище", "Игры", "Входящие", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
+    "Файлы", "Хранилище", "Игры", "Временная папка", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
     "Найти имя в этой папке", "Новая папка", "Введите имя новой папки", "Переименовать", "Введите новое имя", "Переместить", "В корзину", "Скачать", "Снять выделение",
     "Выбрано: {n}", "Папок: {dirs} · Файлов: {files}", "Имя", "Размер", "Изменён", "Выбирает всё на этой странице", "Выбрать {name}", "Родительская папка", "Путь к папке",
     "Папка пуста", "В этой папке нет подходящих имён", "Переместить выбранные элементы ({n}) в корзину? Их можно восстановить из корзины.", "Перемещено в корзину: {n}", "Перемещено: {n}", "Перемещено: {moved}. Остались на месте: {skipped}, потому что имя уже занято или их нельзя переместить", "Переименовано", "Папка создана",

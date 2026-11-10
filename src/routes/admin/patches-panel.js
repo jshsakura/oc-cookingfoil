@@ -139,7 +139,7 @@ function ptGame(){const m=$('gd-patches');if(!m)return;
 async function loadPatches(){let p,s;try{[p,s]=await Promise.all([api('/admin/api/patches'),api('/admin/api/saves')]);}catch(err){toast(err.message);return;}
   ptData=p.patches||[];svData=s.saves||[];ptRender();svRender();ptGame();}
 $('pt-q')?.addEventListener('input',ptRender);
-$('pt-upload')?.addEventListener('click',()=>{location.href='/admin/upload?kind=patch';});
+$('pt-upload')?.addEventListener('click',()=>{location.href='/admin/incoming?kind=patch#upload';});
 $('pt-only')?.addEventListener('click',(e)=>{const b=e.currentTarget;b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));ptRender();});
 
 ${CONTENT_EDITOR_SCRIPT}

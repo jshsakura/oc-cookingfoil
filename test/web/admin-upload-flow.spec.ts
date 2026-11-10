@@ -59,7 +59,7 @@ test('a quick file pick shares the initial target request and keeps the selected
     release();
   }
   await expect(page.locator('#up-chosen')).toContainText('E2E Flow Quick');
-  await expect(page.getByRole('button', { name: '올리기', exact: true })).toBeVisible();
+  await expect(page.locator('#up-go')).toBeVisible();
 });
 
 test.afterEach(() => {
@@ -130,7 +130,7 @@ test('a duplicate is refused with its reason, the others go up, and the retry se
   const seen = await posts(page);
   await page.locator('#up-file').setInputFiles(names.map(pkg));
   await expect(page.locator('#up-hint')).toContainText('3개를 하나씩');
-  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await page.locator('#up-go').click();
   await expect(page.locator('#up-log .note:not(.warn)')).toHaveCount(2);
   const failed = page.locator('#up-log .note.warn');
   await expect(failed).toHaveCount(1);
@@ -176,7 +176,7 @@ test('a lost connection is told apart from a refusal, and the row retries by its
     await route.continue();
   });
   await page.locator('#up-file').setInputFiles(names.map(pkg));
-  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await page.locator('#up-go').click();
   const failed = page.locator('#up-log .note.warn');
   await expect(failed).toHaveCount(1);
   await expect(failed).toContainText('서버에 닿지 못했습니다');
@@ -211,7 +211,7 @@ test('a folder is one request with its own result, and the language switch repai
     await page.locator('#lang-btn').click();
     await page.locator('[data-admin-lang="ko"]').click();
     await expect(page.locator('#up-guess-t')).toContainText('읽은 종류: 세이브');
-    await page.getByRole('button', { name: '올리기', exact: true }).click();
+    await page.locator('#up-go').click();
     await expect(page.locator('#up-log .note:not(.warn)')).toHaveCount(1);
     await expect(page.locator('#up-log .note')).toContainText('파일 2개');
     expect(await seen()).toHaveLength(1);
@@ -232,7 +232,7 @@ test('51 packages with the first refused keep the failed row on screen next to t
     else await route.fulfill(created('x'));
   });
   await page.locator('#up-file').setInputFiles(names.map(pkg));
-  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await page.locator('#up-go').click();
   await expect(page.locator('#up-sum')).toContainText('성공 50개 · 실패 1개');
   await expect(page.locator('#up-log .note.warn')).toHaveCount(1);
   await expect(page.locator('#up-log .note.warn')).toContainText(names[0]);
@@ -254,7 +254,7 @@ test('while files are going up the kind, console and target cannot be changed, a
     await route.fulfill(created('x'));
   });
   await page.locator('#up-file').setInputFiles(names.map(pkg));
-  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await page.locator('#up-go').click();
   await expect(page.locator('#up-change')).toBeDisabled();
   await expect(page.locator('#up-file-btn')).toBeDisabled();
   await expect(page.locator('#up-dir-btn')).toBeDisabled();
@@ -289,7 +289,7 @@ test('a folder is not guessed as a save without a reason, a folder of packages r
     await page.locator('#up-dir').setInputFiles(`${dir}/Flow save`);
     await page.locator('#up-game').fill('Test Game [0100000000010000]');
     await page.locator('#up-game').dispatchEvent('input');
-    await page.getByRole('button', { name: '올리기', exact: true }).click();
+    await page.locator('#up-go').click();
     await expect(page.locator('#up-sum')).toContainText('성공 1묶음(파일 2개) · 실패 0묶음(파일 0개)');
     await expect(page.locator('#up-log .note details summary')).toContainText('묶음 안의 파일 2개');
     // The finished summary survives a language switch.
@@ -310,7 +310,7 @@ test('80 packages that all go up keep all 80 rows', async ({ page }) => {
   await page.route('**/admin/api/upload/game/finish', (route) => route.fulfill(created('x')));
   const names = Array.from({ length: 80 }, (_, i) => `E2E Flow M${String(i).padStart(2, '0')} [0100000000${70 + (i % 20)}0000][v0].nsp`);
   await page.locator('#up-file').setInputFiles(names.map(pkg));
-  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await page.locator('#up-go').click();
   await expect(page.locator('#up-sum')).toContainText('성공 80개 · 실패 0개');
   await expect(page.locator('#up-log .note')).toHaveCount(80);
 });
@@ -322,7 +322,7 @@ test('an app-card entry while files are going up waits, then opens with the app 
   const gate = new Promise<void>((r) => { release = r; });
   await page.route('**/admin/api/upload/game/finish', async (route) => { await gate; await route.fulfill(created('x')); });
   await page.locator('#up-file').setInputFiles([pkg(nsp('A'))]);
-  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await page.locator('#up-go').click();
   await expect(page.locator('#up-change')).toBeDisabled();
   await page.evaluate(() => (window as unknown as { uploadFor: (k: string, a: string) => void }).uploadFor('patch', 'handapp'));
   // Still the package batch: nothing of the entry was applied yet.
@@ -354,7 +354,7 @@ test('a file goes up in several pieces and a lost piece is picked up again from 
     await route.continue();
   });
   await page.locator('#up-file').setInputFiles({ name, mimeType: 'application/octet-stream', buffer: Buffer.alloc(size, 7) });
-  await page.getByRole('button', { name: '올리기', exact: true }).click();
+  await page.locator('#up-go').click();
   await expect(page.locator('#up-sum')).toContainText('성공 1개 · 실패 0개');
   expect(lost).toBe(true);
   // The piece the page never heard about was told apart by a 409 that carried the real offset.

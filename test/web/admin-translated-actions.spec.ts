@@ -35,12 +35,12 @@ test('homebrew upload and removal actions render icons and work in all twelve la
   }
   const upload = page.locator('#hb-apps .hb-app').first().locator('.hb-up');
   await upload.nth(0).click();
-  await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/upload');
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/incoming');
   expect(new URL(page.url()).searchParams.get('kind')).toBe('patch');
   expect(new URL(page.url()).searchParams.get('app')).toBe('example');
   await page.goto('/admin/homebrew?tab=apps');
   await page.locator('#hb-apps .hb-app').first().locator('.hb-up').nth(1).click();
-  await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/upload');
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/admin/incoming');
   expect(new URL(page.url()).searchParams.get('kind')).toBe('save');
   expect(new URL(page.url()).searchParams.get('app')).toBe('example');
   expect(errors).toEqual([]);

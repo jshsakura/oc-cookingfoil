@@ -9,11 +9,9 @@ import { freshCode, signIn } from './admin-sign-in';
 const PAGES: [string, string, string][] = [
   ['/admin', 'tab-overview', '서버 현황'],
   ['/admin/games', 'tab-library', '게임'],
-  ['/admin/incoming/temp', 'tab-organize', '임시 폴더'],
-  ['/admin/upload', 'tab-upload', '업로드'],
+  ['/admin/incoming', 'tab-upload', '임시 보관함'],
   // Stage B first bundle: these pages carry only their own panel.
   ['/admin/convert', 'tab-nsz', '파일 압축'],
-  ['/admin/inbox', 'tab-inbox', '임시 공유'],
   ['/admin/featured', 'tab-featured', '홈 화면 구성'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
@@ -244,7 +242,8 @@ test('the addresses the menu plan retired redirect to where their job lives now'
   await signIn(page);
   const moved: [string, string][] = [
     ['/admin/titles', '/admin/games?view=info'],
-    ['/admin/integrity', '/admin/games?view=verify'], ['/admin/organize', '/admin/incoming/temp'],
+    ['/admin/integrity', '/admin/games?view=verify'], ['/admin/organize', '/admin/incoming#organize'],
+    ['/admin/upload?kind=patch', '/admin/incoming?kind=patch#upload'], ['/admin/inbox', '/admin/incoming#inbox'], ['/admin/incoming/temp', '/admin/incoming#organize'],
   ];
   for (const [from, to] of moved) {
     const res = await page.request.get(from, { maxRedirects: 0 });
@@ -276,7 +275,7 @@ test('the addresses the menu plan retired redirect to where their job lives now'
     ['/admin/files', '/admin/games?tab=folder'], ['/admin/files?tab=folder&path=fb-old', '/admin/games?tab=folder&path=fb-old'],
     ['/admin/files?root=retro', '/admin/retro?tab=folder'],
     ['/admin/files?root=homebrew', '/admin/homebrew?tab=folder'], ['/admin/files?root=patches', '/admin/patches?tab=folder'],
-    ['/admin/files?root=saves', '/admin/saves?tab=folder'], ['/admin/files?root=incoming', '/admin/incoming/temp'],
+    ['/admin/files?root=saves', '/admin/saves?tab=folder'], ['/admin/files?root=incoming', '/admin/incoming#organize'],
   ];
   for (const [from, to] of files) {
     const res = await page.request.get(from, { maxRedirects: 0 });
@@ -321,11 +320,10 @@ test('the sidebar holds eight entries in the agreed order, and each entry opens 
   await page.goto('/admin');
   const side = page.locator('aside.adm-side > nav');
   const hrefs = (loc: ReturnType<typeof page.locator>) => loc.evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  expect(await hrefs(side.locator('a.adm-item'))).toEqual(['/admin', '/admin/chat', '/admin/upload', '/admin/games', '/admin/featured', '/admin/users', '/admin/convert', '/admin/settings/server']);
-  await expect(side.locator('a.adm-item[href="/admin/upload"] [data-top]')).toHaveText('들어온 파일');
+  expect(await hrefs(side.locator('a.adm-item'))).toEqual(['/admin', '/admin/chat', '/admin/incoming', '/admin/games', '/admin/featured', '/admin/users', '/admin/convert', '/admin/settings/server']);
+  await expect(side.locator('a.adm-item[href="/admin/incoming"] [data-top]')).toHaveText('임시 보관함');
   await expect(side.locator('a.adm-item[href="/admin/convert"] [data-top]')).toHaveText('작업과 기록');
   const tabs: [string, string[]][] = [
-    ['/admin/upload', ['/admin/upload', '/admin/incoming/temp', '/admin/inbox']],
     ['/admin/games', ['/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/trash']],
     ['/admin/users', ['/admin/users', '/admin/devices', '/admin/client']],
     ['/admin/convert', ['/admin/convert', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']],
@@ -337,16 +335,29 @@ test('the sidebar holds eight entries in the agreed order, and each entry opens 
   }
   await expect(page.locator('main .adm-rowtabs a[href="/admin/settings/login"]')).toHaveText('구글 로그인');
   await expect(page.locator('main .adm-rowtabs a[href="/admin/settings/automation"]')).toHaveText('자동화 토큰');
-  await page.goto('/admin/featured');
-  await expect(page.locator('main .adm-rowtabs')).toHaveCount(0);
+  for (const alone of ['/admin/featured', '/admin/incoming']) {
+    await page.goto(alone);
+    await expect(page.locator('main .adm-rowtabs'), alone).toHaveCount(0);
+  }
 });
 
-test('the upload page is the first tab of 들어온 파일, and the header entry still leads to it', async ({ page }) => {
+test('임시 보관함 holds uploading, the temp share and the temp folder on one page, and the old addresses open their part', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/upload');
+  await page.goto('/admin/incoming');
   await expect(page.locator('#up-entry .up-entry-t')).toHaveText('업로드');
-  await expect(page.locator('#adm-crumb')).toHaveText(/들어온 파일\s*업로드/);
-  await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('업로드');
+  await expect(page.locator('#adm-crumb')).toHaveText('임시 보관함');
+  await expect(page.locator('.inc-h')).toHaveText(['업로드', '임시 공유', '임시 폴더']);
+  for (const part of ['#up-drop', '#ib-list', '#fb-rows']) await expect(page.locator(part)).toBeAttached();
+  await expect(page.locator('#tab-upload')).toBeVisible();
+  await expect(page.locator('#tab-inbox')).toBeVisible();
+  await expect(page.locator('#tab-organize')).toBeVisible();
+  // An old address lands on the same page, scrolled to its part.
+  await page.goto('/admin/inbox');
+  await expect(page).toHaveURL(/\/admin\/incoming(\?[^#]*)?#inbox$/);
+  await expect(page.locator('#inc-inbox .inc-h')).toBeInViewport();
+  await page.goto('/admin/incoming/temp');
+  await expect(page).toHaveURL(/\/admin\/incoming(\?[^#]*)?#organize/);
+  await expect(page.locator('#inc-organize .inc-h')).toBeInViewport();
 });
 
 test('the client page stands alone and the games server tab moved to the server settings', async ({ page }) => {
