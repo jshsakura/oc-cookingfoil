@@ -68,7 +68,8 @@ export async function placeHomebrew(items, work, { port = false, by = null } = {
   const zip = items.length === 1 && /\.zip$/i.test(items[0].rel) ? items[0] : null;
   const repoName = path.posix.basename((zip ?? items.find((i) => /\.nro$/i.test(i.rel)) ?? items[0]).rel).replace(/\.(zip|nro)$/i, "");
   const entries = zip ? await zipEntries(zip.abs) : items.map((i) => ({ name: i.rel, size: 0, dir: false, link: false }));
-  const layout = normalizeLayout(entries, { repoName });
+  // The 500-file cap guards releases fetched from the web; what the admin hands over goes in whole.
+  const layout = normalizeLayout(entries, { repoName, maxFiles: Infinity });
   if (layout.reason === "console-path") {
     throw uploadError("homebrew.badNames", { list: (lang) => describeProblems(layout.problems, 20, lang) });
   }

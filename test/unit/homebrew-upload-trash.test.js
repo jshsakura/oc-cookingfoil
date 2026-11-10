@@ -87,3 +87,14 @@ test("when the trash cannot take the old app the upload is refused and the old a
     fs.renameSync(moved, tr);
   }
 });
+
+test("an admin's own folder goes in whole however many files it holds, not as the .nro alone", async () => {
+  // The 500-file cap is for releases fetched from the web; an 877-file game folder once landed as its .nro only.
+  const files = { "big.nro": fakeNro("Big") };
+  for (let i = 0; i < 600; i++) files[`Data/part${i}.bin`] = String(i);
+  const { work, items } = upload("big", files);
+  const placed = await placeHomebrew(items, work);
+  fs.rmSync(work, { recursive: true, force: true });
+  assert.equal(placed.files, 601);
+  assert.equal(fs.readdirSync(path.join(dirs.homebrew, "big/Data")).length, 600);
+});
