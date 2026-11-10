@@ -345,6 +345,12 @@ export default function adminPageRouter() {
     await serveAdminPage(req, res, ADMIN_PAGE_BY_PATH.get("/admin"));
   });
 
+  // Upload, the temp share and the temp folder were pages of their own; now they are parts of the holding area,
+  // and an old address opens it on its part, query kept (an upload's ?kind=patch).
+  const toHolding = (res, part, query) => {
+    const extra = new URLSearchParams(query).toString();
+    res.redirect(302, `/admin/incoming${extra ? `?${extra}` : ""}#${part}`);
+  };
   const redirectKeeping = (res, to, query) => {
     const extra = new URLSearchParams(query).toString();
     res.redirect(302, extra ? `${to}${to.includes("?") ? "&" : "?"}${extra}` : to);
@@ -354,7 +360,7 @@ export default function adminPageRouter() {
   const FILES_TAB = { games: "/admin/games", retro: "/admin/retro", homebrew: "/admin/homebrew", patches: "/admin/patches", saves: "/admin/saves" };
   router.get("/files", (req, res) => {
     const { root, tab: _tab, ...rest } = req.query;
-    if (root === "incoming") return redirectKeeping(res, "/admin/incoming/temp", rest);
+    if (root === "incoming") return toHolding(res, "organize", rest);
     redirectKeeping(res, `${FILES_TAB[root] ?? FILES_TAB.games}?tab=folder`, rest);
   });
   // The router is mounted at /admin, so each page registers by its path with
@@ -370,9 +376,12 @@ export default function adminPageRouter() {
   // The library's jobs became tabs of the games page and the temp folder moved under "incoming":
   // old bookmarks and alert links land on the new address, with their query kept.
   const MOVED = {
-    "/titles": "/admin/games?view=info", "/integrity": "/admin/games?view=verify", "/organize": "/admin/incoming/temp", "/library": "/admin/games",
+    "/titles": "/admin/games?view=info", "/integrity": "/admin/games?view=verify", "/library": "/admin/games",
   };
   for (const [from, to] of Object.entries(MOVED)) router.get(from, (req, res) => redirectKeeping(res, to, req.query));
+  for (const [from, part] of Object.entries({ "/upload": "upload", "/inbox": "inbox", "/incoming/temp": "organize", "/organize": "organize" })) {
+    router.get(from, (req, res) => toHolding(res, part, req.query));
+  }
   // Alerts moved under the settings: an old bookmark lands on the new address.
   router.get("/notifications", (req, res) => res.redirect(301, "/admin/settings/notifications"));
 

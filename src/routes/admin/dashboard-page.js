@@ -345,7 +345,7 @@ export const ADMIN_HEADER_HTML = /* html */ `<header class="adm-hdr">
   <div class="hdr-right">
   ${MENU_BUTTON_HTML}
   <p class="adm-crumb" id="adm-crumb"></p>
-  <a class="up-entry" id="up-entry" href="/admin/upload" ${topLabel("up.entry")}>${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
+  <a class="up-entry" id="up-entry" href="/admin/incoming#upload" ${topLabel("up.entry")}>${icon("upload")}<span class="up-entry-t">${top("s.upload")}</span></a>
   ${TOP_LANG_HTML}
   <div class="acct-menu activity-account">
     <button class="icon-btn act-btn" id="acct-btn" type="button" aria-haspopup="dialog" aria-expanded="false" ${topLabel("acct.menu")} title="${TOP_WORDS.ko["acct.menu"]}">${ACTIVITY_BUTTON_HTML}</button>

@@ -12,10 +12,10 @@ test("every data-top key the admin page uses has a label", () => {
   for (const key of used) assert.ok(key in TOP_WORDS.ko, `${key} is missing from TOP_WORDS`);
 });
 
-test("the header carries one upload entry that points at the upload page", () => {
+test("the header carries one upload entry that opens the holding area on its upload part", () => {
   const html = dashboardPage();
   assert.equal([...html.matchAll(/id="up-entry"/g)].length, 1);
-  assert.match(html, /<a class="up-entry" id="up-entry" href="\/admin\/upload"/);
+  assert.match(html, /<a class="up-entry" id="up-entry" href="\/admin\/incoming#upload"/);
 });
 
 test("every section keeps its id and every job keeps its page address", () => {
@@ -25,11 +25,12 @@ test("every section keeps its id and every job keeps its page address", () => {
   }
   // The page each of those sections now lives behind (admin-pages.js): a sidebar link of its own, or one of
   // the pages a sidebar entry stands for and opens as tabs.
-  for (const path of ["/admin", "/admin/games", "/admin/retro", "/admin/homebrew", "/admin/upload", "/admin/convert", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/settings/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
+  for (const path of ["/admin", "/admin/games", "/admin/retro", "/admin/homebrew", "/admin/incoming", "/admin/convert", "/admin/featured", "/admin/trash", "/admin/users", "/admin/devices", "/admin/logs/downloads", "/admin/logs/clients", "/admin/logs/security", "/admin/settings/notifications", "/admin/client", "/admin/settings/server", "/admin/settings/integrations", "/admin/settings/login", "/admin/settings/admin", "/admin/settings/automation"]) {
     const listed = [...html.matchAll(/data-paths="([^"]+)"/g)].some((m) => m[1].split(" ").includes(path));
     assert.ok(listed || html.includes(`href="${path}"`), `sidebar entry for ${path}`);
   }
-  assert.match(html, /data-paths="\/admin\/upload \/admin\/incoming\/temp \/admin\/inbox"/, "들어온 파일 stands for upload, the temp folder and the temp share");
+  // Upload, the temp share and the temp folder are one page now, not tabs of one entry.
+  assert.doesNotMatch(html, /data-paths="[^"]*\/admin\/upload/);
 });
 
 test("the look-alike folder notice names both folders and the system, and says the art follows the folder", () => {

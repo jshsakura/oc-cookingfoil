@@ -79,6 +79,14 @@ ${page.path === "/admin/chat" ? "" : CHAT_WIDGET_HTML}
 
 const bundle = (extra) => extra;
 
+/** One part of the holding area: its heading, then the panel's section opened (each ships hidden for tab switching). */
+const incomingPart = (key, ic, label, html) => `<div class="inc-part" id="inc-${key}"><h2 class="inc-h">${icon(ic)}${top(label)}</h2>${html.replace(/(<section id="tab-[a-z-]+") hidden>/, "$1>")}</div>`;
+const INCOMING_CSS = ".inc{display:grid;gap:36px}.inc-part{min-width:0;scroll-margin-top:72px}.inc-h{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:var(--fs-lg)}.inc-h .ico{width:20px;height:20px;color:var(--muted)}"
+  // The explorer here sits under two other parts, so it takes a window's height of its own instead of the rest of
+  // the window; on a phone its count bar stays at its foot, and only a pick's actions take the screen's bottom edge.
+  + "@media (min-width:900px){.inc #fb{height:calc(100dvh - 150px)}}"
+  + "@media (max-width:760px){.inc #fb .fb-foot:not([data-sel]){position:static;padding:8px 0;background:none}.inc #fb:not(:has(#fb-foot[data-sel])){padding-bottom:0}}";
+
 /** The pages whose "파일" tab is the file browser of their own folder: each bundle adds its CSS and script. */
 const withFolder = (extra) => ({ ...extra, css: (extra.css ?? "") + FILES_CSS, script: FILES_SCRIPT + (extra.script ?? "") });
 
@@ -116,24 +124,25 @@ export const SPLIT_PAGES = {
     script: GAME_PICKER_SCRIPT+LIST_HELPERS_SCRIPT+OVERVIEW_SCRIPT+CONTENT_EDITOR_SCRIPT,
     init: "admInterval(loadOverview,15000);",
   }),
-  "/admin/upload": bundle({ css: GAME_PICKER_CSS, body: UPLOAD_HTML, script: GAME_PICKER_SCRIPT+UPLOAD_SCRIPT, init: "loadUpload();" }),
   "/admin/settings/login": bundle({ body: '<section id="tab-settings">'+GOOGLE_SETTINGS_HTML+'</section>', script: GOOGLE_SETTINGS_SCRIPT, init: "loadGoogleSettings();" }),
   "/admin/settings/admin": bundle({ css: ADMIN_PASSKEY_CSS, body: '<section id="tab-settings">'+ADMIN_SECURITY_HTML+'</section>', script: ADMIN_SECURITY_SCRIPT, init: "loadTfa();loadPasskeys();" }),
   "/admin/chat": bundle({ css: CHAT_CSS, body: CHAT_HTML, script: CHAT_SCRIPT, init: "loadChat();" }),
   "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
-  // The drop box is a folder like the others: its files open in the browser, what the sorter did is the second tab.
-  "/admin/incoming/temp": withFolder({
-    css: ORGANIZE_CSS,
-    body: `<section id="tab-organize"><nav class="subtabs hide-bar" id="organize-subtabs" role="tablist" data-top-label="m.organize">
+  // The holding area: what is being uploaded, what people left in the temp share, and the temp folder the sorter
+  // empties, one under the other. An old address or "#upload", "#inbox", "#organize" lands on its part.
+  "/admin/incoming": withFolder({
+    css: GAME_PICKER_CSS + INBOX_CSS + ORGANIZE_CSS + INCOMING_CSS,
+    body: () => `<div class="inc">${incomingPart("upload", "upload", "m.upload", UPLOAD_HTML)}${incomingPart("inbox", "send", "m.inbox", INBOX_HTML)}
+  ${incomingPart("organize", "folder", "m.organize", `<section id="tab-organize"><nav class="subtabs hide-bar inc-sub" id="organize-subtabs" role="tablist" data-top-label="m.organize">
     <button type="button" role="tab" data-sub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
-    <button type="button" role="tab" data-sub="sort" aria-selected="false">${icon("inbox")}${top("m.organize")}</button></nav>
-  <div data-sub-panel="folder">${FOLDER_MARK}</div><div data-sub-panel="sort" hidden>${ORGANIZE_HTML}</div></section>`,
-    script: ORGANIZE_SCRIPT,
-    init: "fbTabs('organize','incoming');{const st=SUBTABS.organize,show=st.show;st.show=(sub)=>{show(sub);if(sub==='sort')loLoad();};}loLoad();",
+    <button type="button" role="tab" data-sub="sort" aria-selected="false">${icon("sparkles")}${top("fb.tidy")}</button></nav>
+  <div data-sub-panel="folder">${FOLDER_MARK}</div><div data-sub-panel="sort" hidden>${ORGANIZE_HTML}</div></section>`)}</div>`,
+    script: GAME_PICKER_SCRIPT + UPLOAD_SCRIPT + INBOX_SCRIPT + ORGANIZE_SCRIPT,
+    init: "fbTabs('organize','incoming');{const st=SUBTABS.organize,show=st.show;st.show=(sub)=>{show(sub);if(sub==='sort')loLoad();};}loadUpload();loadInbox();loLoad();"
+      + "{const part=document.getElementById('inc-'+location.hash.slice(1).split('/')[0]);if(part&&part!==document.getElementById('inc-upload'))part.scrollIntoView({block:'start'});}",
   }),
-  "/admin/inbox": bundle({ css: INBOX_CSS, body: INBOX_HTML, script: INBOX_SCRIPT, init: "loadInbox();" }),
   "/admin/convert": bundle({ css: NSZ_CSS, body: NSZ_HTML, script: NSZ_SCRIPT, init: "loadNsz();" }),
   "/admin/logs/downloads": bundle({ css: TRANSFERS_CSS + LOGS_CSS, body: TRANSFERS_HTML, script: TRANSFERS_SCRIPT, init: "setTimeout(xfOpen);" }),
   "/admin/logs/clients": bundle({

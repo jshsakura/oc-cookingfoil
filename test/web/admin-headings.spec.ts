@@ -40,7 +40,8 @@ for (const lang of ['ko', 'en']) {
       const label = await text((await rowTab.count()) ? rowTab : page.locator('aside.adm-side > nav a[aria-current="page"]'));
       const crumb = await text(page.locator('#adm-crumb'));
       if (!crumb.includes(label)) problems.push(`${path}: crumb ${JSON.stringify(crumb)} vs menu ${JSON.stringify(label)}`);
-      const tabs = page.locator('.wrap .subtabs:not(.adm-rowtabs) :is([data-sub],[data-lsub]):visible');
+      // The holding area's temp folder tabs sit under that part's own heading and leave the crumb alone.
+      const tabs = page.locator('.wrap .subtabs:not(.adm-rowtabs):not(.inc-sub) :is([data-sub],[data-lsub]):visible');
       const n = await tabs.count();
       for (let i = 0; i < n; i++) {
         const tab = tabs.nth(i);

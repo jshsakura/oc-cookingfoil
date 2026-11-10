@@ -263,7 +263,7 @@ function tbtn(action,key,fn,cls){const icon=ACTION_ICONS[action]||ICONS[action];
 // Cross-page upload entry; on the upload page an in-flight batch finishes first.
 function uploadFor(kind,app){
   if($('up-form')){upPending={kind,app};if(!upBusy)loadUpload();}
-  else location.href='/admin/upload?'+new URLSearchParams({kind,app});}
+  else location.href='/admin/incoming?'+new URLSearchParams({kind,app})+'#upload';}
 
 // Sub-tab bars inside a section: one area at a time, the address carries the
 // choice. Works on the whole-page dashboard and on the split pages alike.

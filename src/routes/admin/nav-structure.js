@@ -34,9 +34,9 @@ export const NAV_CSS = /* css */ `
 export const NAV_SCRIPT = /* js */ `
 (function(){
   var entry=document.getElementById('up-entry');
-  // The upload entry is a real page now: /admin/upload.
+  // The upload entry opens the holding area, whose first part is uploading.
   function syncEntry(){if(!entry)return;
-    if(location.pathname==='/admin/upload')entry.setAttribute('aria-current','page');else entry.removeAttribute('aria-current');}
+    if(location.pathname==='/admin/incoming')entry.setAttribute('aria-current','page');else entry.removeAttribute('aria-current');}
   addEventListener('hashchange',syncEntry);addEventListener('popstate',syncEntry);syncEntry();
 
   // A row that scrolls sideways fades at the edge that still hides something.
