@@ -347,6 +347,7 @@ test('임시 보관함 holds uploading, the temp share and the temp folder on on
   await expect(page.locator('#up-entry .up-entry-t')).toHaveText('업로드');
   await expect(page.locator('#adm-crumb')).toHaveText('임시 보관함');
   await expect(page.locator('.inc-h')).toHaveText(['업로드', '임시 공유', '임시 폴더']);
+  await expect(page.locator('#organize-subtabs [role="tab"]')).toHaveText(['파일', '정리']);
   for (const part of ['#up-drop', '#ib-list', '#fb-rows']) await expect(page.locator(part)).toBeAttached();
   await expect(page.locator('#tab-upload')).toBeVisible();
   await expect(page.locator('#tab-inbox')).toBeVisible();

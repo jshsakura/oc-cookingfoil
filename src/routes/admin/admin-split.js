@@ -137,7 +137,7 @@ export const SPLIT_PAGES = {
     body: () => `<div class="inc">${incomingPart("upload", "upload", "m.upload", UPLOAD_HTML)}${incomingPart("inbox", "send", "m.inbox", INBOX_HTML)}
   ${incomingPart("organize", "folder", "m.organize", `<section id="tab-organize"><nav class="subtabs hide-bar inc-sub" id="organize-subtabs" role="tablist" data-top-label="m.organize">
     <button type="button" role="tab" data-sub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
-    <button type="button" role="tab" data-sub="sort" aria-selected="false">${icon("inbox")}${top("m.organize")}</button></nav>
+    <button type="button" role="tab" data-sub="sort" aria-selected="false">${icon("sparkles")}${top("fb.tidy")}</button></nav>
   <div data-sub-panel="folder">${FOLDER_MARK}</div><div data-sub-panel="sort" hidden>${ORGANIZE_HTML}</div></section>`)}</div>`,
     script: GAME_PICKER_SCRIPT + UPLOAD_SCRIPT + INBOX_SCRIPT + ORGANIZE_SCRIPT,
     init: "fbTabs('organize','incoming');{const st=SUBTABS.organize,show=st.show;st.show=(sub)=>{show(sub);if(sub==='sort')loLoad();};}loadUpload();loadInbox();loLoad();"
