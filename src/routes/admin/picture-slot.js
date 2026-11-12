@@ -1,6 +1,6 @@
 /**
- * The icon slot of a homebrew app or a patch: its icon now, a button to choose another and a drop target,
- * saved through /api/art/:kind/:id/icon into the item folder's metadata/ (meta/art-sidecar.js), where a
+ * The icon slot of a game, a homebrew app or a patch: its icon now, a button to choose another and a drop target,
+ * saved through /api/art/:kind/:id/icon (a game's /api/art/:id/icon) into the item folder's metadata/ (meta/art-sidecar.js), where a
  * picture put by hand is read too. Before this the web page's art editor was the only way in.
  */
 import { icon } from "../../views/icons.js";
@@ -27,10 +27,13 @@ export const PIC_SLOT_CSS = /* css */ `
 
 export const PIC_SLOT_SCRIPT = /* js */ `
 const picBound=new WeakSet();
-const picBase=(box)=>'/api/art/'+box.dataset.kind+'/'+encodeURIComponent(box.dataset.id);
+// A game's art sits at /api/art/<title id>; a homebrew app's or a patch's under its kind.
+const picBase=(box)=>'/api/art/'+(box.dataset.kind==='game'?'':box.dataset.kind+'/')+encodeURIComponent(box.dataset.id);
 async function picShow(box){const img=box.querySelector('img'),rm=box.querySelector('[data-pic="remove"]');
   let d=null;try{d=await api(picBase(box));}catch{}
-  const url=d&&d.icon;img.hidden=!url;rm.hidden=!url;box.classList.toggle('has',Boolean(url));
+  // A game always has an icon to show (titledb's or the file's); only one set here can be removed.
+  const game=box.dataset.kind==='game',url=game?d&&d.urls&&d.urls.icon:d&&d.icon;
+  img.hidden=!url;rm.hidden=game?!(d&&d.icon===true):!url;box.classList.toggle('has',Boolean(url));
   img.alt=url?'':topText('pic.none');
   if(url)img.src=url+(url.includes('?')?'&':'?')+'t='+Date.now();else img.removeAttribute('src');}
 async function picSend(box,file){if(!file)return;

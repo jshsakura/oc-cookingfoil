@@ -20,27 +20,33 @@ import { top } from "./top-i18n.js";
  * tabs at the top of each page, so the sidebar holds eight entries and each one's jobs are its tabs.
  */
 export const ADMIN_PAGES = [
-  { path: "/admin", tab: "overview", label: "m.overview", icon: "home" },
-  { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat" },
-  // The holding area: uploading, the temp share and the temp folder, on one page.
-  { path: "/admin/incoming", tab: "incoming", label: "m.incoming", icon: "inbox", count: "inbox-count" },
+  { path: "/admin", tab: "overview", label: "mn.dashboard", icon: "dashboard" },
+  // The chat opens from the widget on every page, so it keeps its address without a sidebar row.
+  { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat", offMenu: true },
+  // Uploading, the temp share and the temp folder, on one page.
+  { path: "/admin/incoming", tab: "incoming", label: "mn.upload", icon: "upload", count: "inbox-count" },
   // the libraries: each page holds its own jobs as tabs
   { path: "/admin/games", tab: "library", label: "m.grpGames", row: "library", icon: "grid" },
-  { path: "/admin/retro", tab: "retro", label: "m.retro", row: "library", icon: "joystick" },
+  { path: "/admin/retro", tab: "retro", label: "mn.retro", row: "library", icon: "joystick" },
   { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", row: "library", icon: "package", param: "tab" },
   { path: "/admin/patches", tab: "patches", label: "m.patches", row: "library", icon: "puzzle", param: "tab" },
   { path: "/admin/saves", tab: "saves", label: "m.saves", row: "library", icon: "save", param: "tab" },
   { path: "/admin/trash", tab: "trash", label: "m.trash", row: "library", icon: "trash" },
-  { path: "/admin/featured", tab: "featured", label: "m.featured", icon: "star" },
-  // people
+  // metadata: what the library shows about its items, the kind chosen with a filter on each page
+  { path: "/admin/metadata/review", tab: "metaReview", label: "mn.review", row: "meta", icon: "check" },
+  { path: "/admin/metadata/artwork", tab: "metaArt", label: "mn.artwork", row: "meta", icon: "image" },
+  { path: "/admin/metadata/titles", tab: "metaTitles", label: "mn.titles", row: "meta", icon: "tag" },
+  // users
   { path: "/admin/users", tab: "users", label: "s.users", row: "people", icon: "users", count: "account-count" },
   { path: "/admin/devices", tab: "devices", label: "s.devices", row: "people", icon: "device", count: "pending-count" },
-  { path: "/admin/client", tab: "client", label: "m.client", row: "people", icon: "download" },
-  // jobs and records
-  { path: "/admin/convert", tab: "nsz", label: "m.nsz", row: "ops", icon: "shrink" },
-  { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "m.xfer", row: "ops", icon: "download" },
-  { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "m.clients", row: "ops", icon: "device" },
-  { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "m.deny", row: "ops", icon: "lock", count: "lock-count" },
+  { path: "/admin/client", tab: "client", label: "mn.client", row: "people", icon: "download" },
+  { path: "/admin/featured", tab: "featured", label: "mn.home", icon: "star" },
+  // system: the jobs the server runs and what it recorded
+  { path: "/admin/convert", tab: "nsz", label: "mn.compress", row: "ops", icon: "shrink" },
+  { path: "/admin/system/requirements", tab: "requirements", label: "mn.reqFiles", row: "ops", icon: "package" },
+  { path: "/admin/logs/downloads", tab: "logs", sub: "xfer", label: "mn.xfer", row: "ops", icon: "download" },
+  { path: "/admin/logs/clients", tab: "logs", sub: "client", label: "mn.clientLog", row: "ops", icon: "device" },
+  { path: "/admin/logs/security", tab: "logs", sub: "deny", label: "mn.secLog", row: "ops", icon: "lock", count: "lock-count" },
   { path: "/admin/logs/alerts", tab: "alerts", sub: "history", label: "m.alertLog", row: "ops", icon: "bell" },
   // settings: how the server runs, who may sign in, how the admin signs in, the tokens automation uses.
   // Login and admin security still share the old "security" area until Stage B splits it.
@@ -57,8 +63,9 @@ export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 
 const ROWS = {
   library: { label: "m.library", icon: "layers" },
-  people: { label: "m.people", icon: "users" },
-  ops: { label: "m.grpOps", icon: "log" },
+  meta: { label: "mn.meta", icon: "image" },
+  people: { label: "mn.users", icon: "users" },
+  ops: { label: "mn.system", icon: "monitor" },
   set: { label: "m.grpSet", icon: "sliders" },
 };
 
@@ -105,6 +112,7 @@ export function sidebarNav(current, withIds = true) {
   const rows = [];
   const seen = new Set();
   for (const page of ADMIN_PAGES) {
+    if (page.offMenu) continue;
     if (!page.row) rows.push(item(page, current, withIds));
     else if (!seen.has(page.row)) {
       seen.add(page.row);
@@ -207,7 +215,7 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
  * matching path, answers back and forward between paths, and marks the sidebar.
  */
 export function admRouterScript(page) {
-  const conf = { path: page.path, tab: page.tab, sub: page.sub ?? "", param: page.param ?? "", anchor: page.anchor ?? "" };
+  const conf = { path: page.path, tab: page.tab, sub: page.sub ?? "", param: page.param ?? "", anchor: page.anchor ?? "", name: page.offMenu ? top(page.label) : "" };
   return /* js */ `
 (function(){
 const PAGE=${JSON.stringify(conf)};
@@ -245,7 +253,8 @@ function mark(){const p=activePath();
 // relabels them with the rest.
 function crumb(){const c=document.getElementById('adm-crumb'),a=document.querySelector('.adm-side .adm-item[aria-current="page"]');
   if(!c)return;c.replaceChildren();
-  if(!a)return;
+  // A page with no sidebar row is named by itself.
+  if(!a){if(PAGE.name){c.insertAdjacentHTML('beforeend',PAGE.name);c.lastElementChild.classList.add('adm-crumb-i');}return;}
   const label=(n)=>{const s=n&&n.querySelector(':scope>[data-top]');return s?s.cloneNode(true):null;};
   const plain=(n)=>{const s=n.querySelector('[data-top]');if(s)return s.cloneNode(true);const t=document.createElement('span');
     t.textContent=[...n.childNodes].filter((x)=>x.nodeType===3||(x.nodeType===1&&!x.classList.contains('count')&&!x.querySelector('svg')&&x.tagName!=='svg')).map((x)=>x.textContent).join('').trim();return t;};

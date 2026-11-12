@@ -117,7 +117,9 @@ test('the admin retro tab lists the versions of a game, picks the one shown and 
   await expect(page.locator('#tab-retro [data-sub-panel="art"]')).toBeHidden();
   // Retro has no trash of its own: the shared one, narrowed to the retro folder, takes old links.
   await expect(page.locator('aside.adm-side a[href*="view=trash"]')).toHaveCount(0);
-  await page.locator('#retro-subtabs [data-sub="art"]').click();
+  // The box art view moved to 메타데이터 › 아트워크; its old address lands there.
+  await page.goto('/admin/retro?view=art');
+  await expect(page).toHaveURL(/\/admin\/metadata\/artwork\?kind=retro/);
   await expect(page.locator('#ra-systems')).toBeVisible();
   await expect(page.locator('#ra-bios')).toContainText('roms/ 안의 My Hacks 폴더는 어느 기종인지 몰라 읽지 않습니다');
   // A look-alike of a known system is held back by the system's own folder, not unknown.

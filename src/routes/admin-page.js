@@ -69,6 +69,7 @@ import { watchRetroArt } from "../retro/art/auto.js";
 import { mountStorageGuideApi } from "./admin/storage-guide-api.js";
 import { mountRetroVariantsApi } from "./admin/retro-variants-api.js";
 import { mountRetroKoApi } from "./admin/retro-ko-api.js";
+import { mountMetadataApi } from "./admin/metadata-api.js";
 import { mountRetroPatchApi } from "./admin/retro-patch-api.js";
 import { mountRetroCoresApi } from "./admin/retro-cores-api.js";
 import { mountRetroConfigApi } from "./admin/retro-config-api.js";
@@ -652,6 +653,7 @@ export default function adminPageRouter() {
   mountStorageGuideApi(router, requireSession);
   mountRetroVariantsApi(router, requireSession);
   mountRetroKoApi(router, requireSession);
+  mountMetadataApi(router, requireSession);
   mountRetroPatchApi(router, requireSession);
   mountRetroCoresApi(router, requireSession);
   mountRetroConfigApi(router, requireSession);

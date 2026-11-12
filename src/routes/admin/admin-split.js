@@ -52,6 +52,9 @@ import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } fro
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
 import { TOKENS_HTML, TOKENS_SCRIPT } from "./tokens-panel.js";
 import { RETRO_ART_CSS, RETRO_ART_HTML, RETRO_ART_SCRIPT } from "./retro-art-panel.js";
+import { METADATA_CSS, METADATA_REVIEW_HTML, METADATA_REVIEW_SCRIPT, METADATA_ART_HTML, METADATA_ART_SCRIPT, METADATA_TITLES_HTML, METADATA_TITLES_SCRIPT } from "./metadata-panel.js";
+import { PIC_SLOT_CSS } from "./picture-slot.js";
+import { RQ_CSS, RQ_PAGE_HTML, RQ_PAGE_SCRIPT, RQ_SCRIPT } from "./retro-requirements-panel.js";
 import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-panel.js";
 
 /** One split page: its own styles, body and scripts around the shared shell. */
@@ -186,6 +189,18 @@ export const SPLIT_PAGES = {
     css: RETRO_ART_CSS, body: RETRO_ART_HTML, script: RETRO_ART_SCRIPT,
     init: "setTimeout(retroOpen,0);",
   }),
+  // 메타데이터: one job a page, the kind of item a filter over it. Box art and Korean names of retro games moved here.
+  "/admin/metadata/review": bundle({ css: METADATA_CSS, body: METADATA_REVIEW_HTML, script: METADATA_REVIEW_SCRIPT, init: "loadMetadataReview();" }),
+  "/admin/metadata/artwork": bundle({
+    css: RETRO_ART_CSS + PIC_SLOT_CSS + METADATA_CSS, body: METADATA_ART_HTML, script: METADATA_ART_SCRIPT,
+    init: "mtKind(new URLSearchParams(location.search).get('kind'));",
+  }),
+  "/admin/metadata/titles": bundle({
+    css: RETRO_ART_CSS + METADATA_CSS, body: METADATA_TITLES_HTML, script: METADATA_TITLES_SCRIPT,
+    init: "mtKind(new URLSearchParams(location.search).get('kind'));",
+  }),
+  // 시스템 › 필수 파일: the BIOS and cores the retro games need, which the retro page's art view used to carry.
+  "/admin/system/requirements": bundle({ css: RQ_CSS, body: RQ_PAGE_HTML, script: RQ_SCRIPT + RQ_PAGE_SCRIPT, init: "loadRequirements();" }),
   // Second bundle: the people pages carry their own credential and IP dialogs.
   "/admin/users": bundle({
     body: USERS_HTML + CRED_DIALOG_HTML + IP_DIALOG_HTML, script: PEOPLE_SCRIPT,
