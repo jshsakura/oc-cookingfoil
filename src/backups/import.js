@@ -4,6 +4,7 @@
  * made exactly as a console's upload makes them, and a unit whose newest version has the same manifest is left
  * as it is, so running it again adds nothing. What it reports is counts and bytes: no title, path or hash.
  */
+import zlib from "node:zlib";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -23,9 +24,11 @@ async function takeBody(accountId, file) {
   await fsp.mkdir(tmpDir, { recursive: true });
   const tmp = path.join(tmpDir, crypto.randomBytes(8).toString("hex"));
   const hash = crypto.createHash("sha256");
+  let crc = 0;
   await pipeline(fs.createReadStream(file, { highWaterMark: 4 * 1024 ** 2 }), async function* (source) {
     for await (const chunk of source) {
       hash.update(chunk);
+      crc = zlib.crc32(chunk, crc);
       yield chunk;
     }
   }, fs.createWriteStream(tmp));
@@ -36,6 +39,8 @@ async function takeBody(accountId, file) {
     await fsp.mkdir(path.dirname(blob), { recursive: true });
     await fsp.rename(tmp, blob);
   }
+  // Noted for a body the account had too: one kept before CRCs were gets its CRC from this same read.
+  await store.noteBlobCrc(accountId, sha256, crc);
   return sha256;
 }
 

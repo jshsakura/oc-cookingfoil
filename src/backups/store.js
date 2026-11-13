@@ -2,6 +2,7 @@
  * Consoles' own backups on disk, under COOK_BACKUPS_DIR (off while that folder does not exist):
  *
  *   <account>/blobs/<sha256 two>/<sha256>                       file bodies, one copy per account
+ *   <account>/blobs/<sha256 two>/<sha256>.crc32                 its CRC-32 (8 hex), for a zip of it
  *   <account>/<platform>/units/<unit>/next                      the next version number of a unit
  *   <account>/<platform>/units/<unit>/<version>.json            { key, version, createdAt, bytes, by, manifest }
  *   <account>/<platform>/secrets/<unit>/<version>/<path id>     sealed secret files (backups/secrets.js)
@@ -13,6 +14,7 @@
  * a body no version, removed version or upload refers to any more is swept. Secret files are never stored by a
  * hash of what is in them.
  */
+import zlib from "node:zlib";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -136,6 +138,25 @@ export function blobPath(accountId, sha256) {
 }
 
 export const hasBlob = (accountId, sha256) => fs.existsSync(blobPath(accountId, sha256));
+
+// A body's CRC-32 sits beside it as 8 hex digits: what a zip of it needs, kept so a zip is never read twice to make.
+const CRC_SUFFIX = ".crc32";
+const crcPath = (accountId, sha256) => `${blobPath(accountId, sha256)}${CRC_SUFFIX}`;
+
+/** Notes the CRC-32 of the body with `sha256`, as worked out while it was read in. */
+export async function noteBlobCrc(accountId, sha256, crc) {
+  await writeAtomic(crcPath(accountId, sha256), crc.toString(16).padStart(8, "0"));
+}
+
+/** The CRC-32 of a body: the one noted beside it, or, for a body kept before CRCs were, read once now and noted. */
+export async function blobCrc(accountId, sha256) {
+  const noted = await fsp.readFile(crcPath(accountId, sha256), "utf8").catch(() => null);
+  if (/^[0-9a-f]{8}$/.test(noted ?? "")) return parseInt(noted, 16);
+  let crc = 0;
+  for await (const chunk of fs.createReadStream(blobPath(accountId, sha256), { highWaterMark: 4 * 1024 ** 2 })) crc = zlib.crc32(chunk, crc);
+  await noteBlobCrc(accountId, sha256, crc);
+  return crc;
+}
 
 // One change at a time per account folder: versions, removals and the sweep of unused bodies.
 const queues = new Map();
@@ -303,7 +324,8 @@ export function sweepFolder(folder, now = Date.now()) {
     const blobs = path.join(dir, "blobs");
     for (const two of await fsp.readdir(blobs).catch(() => [])) {
       for (const sha of await fsp.readdir(path.join(blobs, two)).catch(() => [])) {
-        if (used.has(sha)) continue;
+        // A body's CRC goes with it.
+        if (used.has(sha.endsWith(CRC_SUFFIX) ? sha.slice(0, -CRC_SUFFIX.length) : sha)) continue;
         const file = path.join(blobs, two, sha);
         const st = await fsp.stat(file).catch(() => null);
         if (!st?.isFile()) continue;

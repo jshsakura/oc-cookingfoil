@@ -7,6 +7,7 @@
  * moment they arrive and touch the disk only sealed. They are never stored by, or compared with, a hash of what
  * is in them.
  */
+import zlib from "node:zlib";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -180,10 +181,15 @@ export async function put({ accountId, platform, id, file, offset, req }) {
   return sizeOf(part);
 }
 
-async function sha256Of(file) {
+// A piece's sha256 and CRC-32, from one read.
+async function digestOf(file) {
   const hash = crypto.createHash("sha256");
-  for await (const chunk of fs.createReadStream(file, { highWaterMark: 4 * 1024 ** 2 })) hash.update(chunk);
-  return hash.digest("hex");
+  let crc = 0;
+  for await (const chunk of fs.createReadStream(file, { highWaterMark: 4 * 1024 ** 2 })) {
+    hash.update(chunk);
+    crc = zlib.crc32(chunk, crc);
+  }
+  return { sha256: hash.digest("hex"), crc };
 }
 
 /**
@@ -201,13 +207,15 @@ export async function finish({ accountId, platform, id }) {
       await fsp.rm(part, { force: true });
       continue;
     }
-    if ((await sizeOf(part)) !== f.size || (await sha256Of(part)) !== f.sha256) {
+    const digest = (await sizeOf(part)) === f.size ? await digestOf(part) : null;
+    if (digest?.sha256 !== f.sha256) {
       await fsp.rm(part, { force: true });
       bad.push(n.path);
       continue;
     }
     const blob = store.blobPath(accountId, f.sha256);
     await fsp.mkdir(path.dirname(blob), { recursive: true });
+    await store.noteBlobCrc(accountId, f.sha256, digest.crc);
     await fsp.rename(part, blob);
   }
   const lost = meta.manifest.files.filter((f) => !store.hasBlob(accountId, f.sha256) && !meta.need.some((n) => n.path === f.path));
