@@ -19,6 +19,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import * as envs from "../helpers/envs.js";
 import { accountFolder } from "./account.js";
+import { backupKeyId } from "../security/secret-box.js";
 import debug from "../debug.js";
 
 export const REMOVED_KEEP_MS = 30 * 24 * 3600_000;
@@ -36,20 +37,49 @@ export class BackupError extends Error {
 const inside = (dir, root) => dir === root || dir.startsWith(root + path.sep);
 let warned = false;
 
+// The check value of the key secrets are sealed with, kept beside the backups. The server writes it the first
+// time backups are on and turns backups off when its key is another; the import tool only compares
+// (compareKeyOnly), so a tool run with a stray key can never set the value.
+const CHECK_FILE = ".key-check";
+let writeKeyCheck = true;
+const checked = new Map();
+
+/** For the import tool: the key check is read and compared, never written. */
+export function compareKeyOnly() {
+  writeKeyCheck = false;
+  checked.clear();
+}
+
+function keyState(root) {
+  const file = path.join(root, CHECK_FILE);
+  const id = backupKeyId();
+  let kept = "";
+  try {
+    kept = fs.readFileSync(file, "utf8").trim();
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+  if (kept) return kept === id ? "ok" : "key-mismatch";
+  if (!writeKeyCheck) return "key-missing";
+  fs.writeFileSync(file, `${id}\n`, { mode: 0o600, flag: "wx" });
+  return "ok";
+}
+
 /**
- * The backups folder, or null while backups are off: no setting, the folder is missing, or it lies in one of
- * the server's own folders (the library, the data folder). There it would show in the file explorer, the trash
- * and the server's own backup, so the server refuses it.
+ * Whether backups are on: { root } when they are, else { root: null, reason }. Off when there is no setting
+ * ("unset"), the folder is missing ("missing"), it lies in one of the server's own folders, the library or the
+ * data folder, where the file explorer, the trash and the server's own backup would show it ("inside"), or
+ * the server's key is not the one the backups were sealed with ("key-mismatch"; "key-missing" for the tool).
  */
-export function backupsRoot() {
+export function backupsCheck() {
   const dir = envs.backupsDir;
-  if (!dir) return null;
+  if (!dir) return { root: null, reason: "unset" };
   let real;
   try {
     real = fs.realpathSync(dir);
-    if (!fs.statSync(real).isDirectory()) return null;
+    if (!fs.statSync(real).isDirectory()) return { root: null, reason: "missing" };
   } catch {
-    return null;
+    return { root: null, reason: "missing" };
   }
   const clash = Object.values(envs.layout.dirs).filter(Boolean).some((d) => {
     let r = path.resolve(d);
@@ -61,10 +91,25 @@ export function backupsRoot() {
   if (clash) {
     if (!warned) debug.error("backups: COOK_BACKUPS_DIR lies inside one of the server's own folders; backups stay off");
     warned = true;
-    return null;
+    return { root: null, reason: "inside" };
   }
-  return real;
+  if (!checked.has(real)) {
+    let state;
+    try {
+      state = keyState(real);
+    } catch (err) {
+      debug.error("backups: the key check could not be read or written (%s); backups stay off", err.code ?? err.name);
+      state = "key-unreadable";
+    }
+    if (state === "key-mismatch") debug.error("backups: COOK_SECRET_KEY is not the key these backups were sealed with; backups stay off");
+    checked.set(real, state);
+  }
+  const state = checked.get(real);
+  return state === "ok" ? { root: real } : { root: null, reason: state };
 }
+
+/** The backups folder, or null while backups are off (backupsCheck says why). */
+export const backupsRoot = () => backupsCheck().root;
 
 function requireRoot() {
   const root = backupsRoot();

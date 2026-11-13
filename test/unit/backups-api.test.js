@@ -210,6 +210,31 @@ test("a secret on the way up is on the disk sealed only", async () => {
   await call(ALICE_VITA, "POST", "/api/backups/finish", { upload: begun.upload });
 });
 
+test("another account's sign-in with a victim Vita's device key reaches none of the victim's backups", async () => {
+  const version = await backup(ALICE_VITA, [file("eboot.bin", "eboot-body")], [WORK], { "eboot.bin": "eboot-body" });
+  const victimKey = ALICE_VITA["X-Device-Key"];
+  // The device key is no secret: it travels in a plain header. Bob signs in with his own password and names it.
+  const tries = [];
+  for (const how of [{ Authorization: basic("bob") }, await webSession("bob")]) {
+    const r = await fetch(`${base}/api/session`, { headers: { ...how, "X-Device-Key": victimKey } });
+    if (r.status === 200) tries.push({ "X-Device-Key": victimKey, Authorization: `Bearer ${(await r.json()).token}` });
+    tries.push({ ...how, "X-Device-Key": victimKey });
+  }
+  const q = `key=${KEY}&version=${version}`;
+  for (const headers of tries) {
+    for (const [method, url, body] of [["GET", "/api/backups"], ["GET", `/api/backups/unit?key=${KEY}`], ["GET", `/api/backups/file?${q}&path=eboot.bin`],
+      ["GET", `/api/backups/secret?${q}&path=${encodeURIComponent(WORK.path)}`], ["POST", "/api/backups/remove", { key: KEY }]]) {
+      const r = await call(headers, method, url, body);
+      const text = await r.text();
+      assert.notEqual(r.status, 200, `${method} ${url} with ${Object.keys(headers).join("+")}`);
+      assert.equal(text.includes(FAKE_WORK) || text.includes("eboot"), false, url);
+    }
+  }
+  assert.ok((await versions(ALICE_VITA)).includes(version), "nothing was removed");
+  const mine = await call(ALICE_VITA, "GET", `/api/backups/secret?${q}&path=${encodeURIComponent(WORK.path)}`);
+  assert.equal(await mine.text(), FAKE_WORK, "the owner's own Vita still gets it");
+});
+
 test("a Switch has no backups of its own and cannot send a secret", async () => {
   assert.deepEqual(await (await call(ALICE_SWITCH, "GET", "/api/backups")).json(), { units: [] });
   const r = await call(ALICE_SWITCH, "POST", "/api/backups/begin", { key: KEY, manifest: manifest([], [WORK]) });

@@ -96,15 +96,36 @@ function bodyOf(req, max) {
   return new Promise((resolve, reject) => {
     const parts = [];
     let n = 0;
+    let settled = false;
+    // What came in is wiped once it is copied out or given up, so no stray copy of a secret stays in memory.
+    const wipe = () => {
+      for (const p of parts) p.fill(0);
+      parts.length = 0;
+    };
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      wipe();
+      reject(err);
+    };
     req.on("data", (c) => {
+      if (settled) return c.fill(0);
       n += c.length;
       if (n > max) {
+        c.fill(0);
         req.destroy();
-        reject(new BackupError(413, "size"));
+        fail(new BackupError(413, "size"));
       } else parts.push(c);
     });
-    req.on("end", () => resolve(Buffer.concat(parts, n)));
-    req.on("error", reject);
+    req.on("end", () => {
+      if (settled) return;
+      settled = true;
+      const body = Buffer.concat(parts, n);
+      wipe();
+      resolve(body);
+    });
+    req.on("error", fail);
+    req.on("close", () => fail(new BackupError(400, "size")));
   });
 }
 

@@ -84,3 +84,21 @@ test("the tool stops on a key other than the server's", () => {
     env: { ...process.env, ...env, COOK_IMPORT_SOURCE: ux0, COOK_SECRET_KEY: Buffer.alloc(32, 7).toString("base64") },
   }), (err) => /not the key the server seals backups with/.test(String(err.stderr)));
 });
+
+test("the server sets the key check and turns backups off for another key; the tool never sets it", () => {
+  const fresh = path.join(root, "fresh-backups");
+  mkdirSync(fresh);
+  const run = (extra) => execFileSync(process.execPath, ["scripts/import-backup.mjs", "--platform", "vita", "--account", "alice"], {
+    cwd: path.join(import.meta.dirname, "../.."), stdio: "pipe", encoding: "utf8",
+    env: { ...process.env, ...env, COOK_IMPORT_SOURCE: ux0, COOK_BACKUPS_DIR: fresh, ...extra },
+  });
+  assert.throws(() => run({}), (err) => /has not turned backups on with its key yet/.test(String(err.stderr)));
+  assert.equal(readdirSync(fresh).length, 0, "the tool wrote nothing, not even the check");
+  const state = (extra) => execFileSync(process.execPath, ["--input-type=module", "-e",
+    `const { backupsCheck } = await import(${JSON.stringify(path.resolve("src/backups/store.js"))}); process.stdout.write(JSON.stringify(backupsCheck()));`], {
+    env: { ...process.env, ...env, COOK_BACKUPS_DIR: fresh, ...extra }, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"],
+  });
+  assert.ok(JSON.parse(state({})).root, "the server's first look sets the check");
+  assert.deepEqual(JSON.parse(state({ COOK_SECRET_KEY: Buffer.alloc(32, 7).toString("base64") })), { root: null, reason: "key-mismatch" });
+  assert.match(run({}), /imported: units 17/);
+});

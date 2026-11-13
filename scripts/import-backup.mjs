@@ -23,18 +23,26 @@ if (!values.account) fail("--account names whose backups these are");
 const source = process.env.COOK_IMPORT_SOURCE;
 if (!source) fail("COOK_IMPORT_SOURCE names the card copy to read");
 
-const { backupsRoot } = await import("../src/backups/store.js");
+const { backupsCheck, compareKeyOnly } = await import("../src/backups/store.js");
 const { accountNamed } = await import("../src/backups/account.js");
-const { keyMatches } = await import("../src/backups/secrets.js");
 const { importUx0 } = await import("../src/backups/import.js");
 const vita = (await import("../src/platforms/vita.js")).default;
 
-if (!backupsRoot()) fail("backups are off: COOK_BACKUPS_DIR is unset, missing, or inside one of the server's own folders");
+compareKeyOnly();
+const check = backupsCheck();
+const OFF = {
+  unset: "backups are off: COOK_BACKUPS_DIR is not set",
+  missing: "backups are off: COOK_BACKUPS_DIR is not a folder",
+  inside: "backups are off: COOK_BACKUPS_DIR lies inside one of the server's own folders",
+  "key-missing": "the server has not turned backups on with its key yet: start the server with COOK_BACKUPS_DIR set, then import; nothing was imported",
+  "key-mismatch": "COOK_SECRET_KEY is not the key the server seals backups with; nothing was imported",
+  "key-unreadable": "the backups' key check could not be read; nothing was imported",
+};
+if (!check.root && (!values.dry || !check.reason.startsWith("key-"))) fail(OFF[check.reason] ?? "backups are off");
 const account = accountNamed(values.account);
 if (!account) fail("no such account");
 const kinds = values.kinds ? values.kinds.split(",").map((k) => k.trim()).filter(Boolean) : null;
 if (kinds?.some((k) => !vita.backupKinds.includes(k))) fail("--kinds names a kind the Vita does not have");
-if (!values.dry && !(await keyMatches())) fail("COOK_SECRET_KEY is not the key the server seals backups with; nothing was imported");
 
 const gib = (n) => `${(n / 1024 ** 3).toFixed(2)} GiB`;
 let shown = 0;

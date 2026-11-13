@@ -18,7 +18,8 @@ import express from "express";
 import crypto from "node:crypto";
 import { PLATFORMS } from "../platforms/index.js";
 import { requestPlatform } from "../platforms/switch-only.js";
-import { accountOfDevice } from "../backups/account.js";
+import { accountOfDevice, accountOfOwner } from "../backups/account.js";
+import { accountOf } from "../security/link-identity.js";
 import { parseUnitKey } from "../backups/manifest.js";
 import * as store from "../backups/store.js";
 import * as uploads from "../backups/uploads.js";
@@ -58,14 +59,32 @@ const handle = (fn) => async (req, res, next) => {
   }
 };
 
-// The console and its account, or a refusal: backups off, not a console, a console no account holds.
+/**
+ * The console and its account, from what the request proved only. A console that proved itself with its access
+ * key (or a session made from it) is req.pairedDevice, and its account is the one it is bound to. A session made
+ * from an account's sign-in names a console only by a header anyone can send, so there the account is the
+ * signed-in one and the console must be bound to that same account. { deviceKey, account } or { deviceKey } when
+ * the console is not that account's, or null when no console is named.
+ */
+function principal(req) {
+  if (req.pairedDevice) return { deviceKey: req.pairedDevice, account: accountOfDevice(req.pairedDevice) };
+  const deviceKey = req.sessionLane ? req.sessionDevice : null;
+  if (!deviceKey) return null;
+  const signedIn = accountOfOwner(accountOf(req));
+  const bound = accountOfDevice(deviceKey);
+  return { deviceKey, account: signedIn && bound?.id === signedIn.id ? bound : null };
+}
+
+// What the logs call a console: its name, never its key.
+const shown = (deviceKey) => devices.deviceLabel(deviceKey) || "a console";
+
+// The console and its account, or a refusal: backups off, not a console, a console the account does not hold.
 function who(req) {
   if (!store.backupsRoot()) throw new BackupError(404, "backups-off");
-  const deviceKey = req.pairedDevice ?? req.sessionDevice;
-  if (!deviceKey) throw new BackupError(403, "device");
-  const account = accountOfDevice(deviceKey);
-  if (!account) throw new BackupError(403, "account");
-  return { deviceKey, accountId: account.id, platform: requestPlatform(req), label: devices.deviceLabel(deviceKey) };
+  const p = principal(req);
+  if (!p) throw new BackupError(403, "device");
+  if (!p.account) throw new BackupError(req.pairedDevice ? 403 : 404, req.pairedDevice ? "account" : "unit");
+  return { deviceKey: p.deviceKey, accountId: p.account.id, platform: requestPlatform(req), label: devices.deviceLabel(p.deviceKey) };
 }
 
 const unitKey = (platform, key) => {
@@ -109,7 +128,7 @@ export default function backupsRouter() {
     if (!key) throw new BackupError(400, "manifest");
     if (req.body?.manifest?.secrets?.length && c.platform !== "vita") throw new BackupError(400, "manifest");
     const out = await uploads.begin({ accountId: c.accountId, platform: c.platform, key, manifest: req.body?.manifest, by: { label: c.label } });
-    debug.log("backups: begin %s… %d files to send, %d secret files", c.deviceKey.slice(0, 12), out.need.length, out.needSecrets.length);
+    debug.log("backups: begin from %s, %d files to send, %d secret files", shown(c.deviceKey), out.need.length, out.needSecrets.length);
     res.json(out);
   }));
 
@@ -136,7 +155,7 @@ export default function backupsRouter() {
   router.post("/finish", json, handle(async (req, res) => {
     const c = who(req);
     const out = await uploads.finish({ accountId: c.accountId, platform: c.platform, id: req.body?.upload });
-    debug.log("backups: %s… made version %d", c.deviceKey.slice(0, 12), out.version);
+    debug.log("backups: %s made version %d", shown(c.deviceKey), out.version);
     res.json(out);
   }));
 
@@ -161,9 +180,9 @@ export default function backupsRouter() {
     res.set("Cache-Control", "no-store");
     const unit = () => res.status(404).json({ error: MESSAGES.unit, code: "unit" });
     try {
-      const deviceKey = req.pairedDevice ?? req.sessionDevice;
-      if (!store.backupsRoot() || !deviceKey || requestPlatform(req) !== "vita") return unit();
-      const account = accountOfDevice(deviceKey);
+      const p = principal(req);
+      if (!store.backupsRoot() || !p?.account || requestPlatform(req) !== "vita") return unit();
+      const { deviceKey, account } = p;
       const key = parseUnitKey("vita", req.query.key)?.key;
       const version = versionOf(req.query.version);
       if (!account || !key || version == null || typeof req.query.path !== "string") return unit();
@@ -174,7 +193,7 @@ export default function backupsRouter() {
         plain = await readSecret(account.id, "vita", key, version, req.query.path);
       } catch (err) {
         if (!(err instanceof SecretLostError)) throw err;
-        debug.log("backups: a secret file of %s… no longer opens", deviceKey.slice(0, 12));
+        debug.log("backups: a secret file %s asked for no longer opens", shown(deviceKey));
         return res.status(410).json({ error: MESSAGES["secret-lost"], code: "secret-lost" });
       }
       if (!plain) return unit();
