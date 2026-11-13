@@ -25,7 +25,7 @@ export const DEFAULT_TIERS = Object.freeze(Object.fromEntries([
     "help", "games_search", "game_get", "game_art_search", "retro_games_search", "retro_game_get", "retro_art_status",
     "retro_art_candidates", "retro_sgdb_search", "retro_sgdb_covers", "retro_ko_names", "retro_cores", "retro_core_files", "retro_config",
     "retro_requirements", "retro_rom_patches", "library_storage_guide", "library_folder_guide", "library_suggestions", "library_variants", "files_list",
-    "jobs_list", "server_status", "server_overview", "trash_list", "trash_journal", "plugin_list", "agent_list", "account_list",
+    "jobs_list", "server_status", "server_overview", "trash_list", "trash_journal", "plugin_list", "agent_list", "account_list", "backup_stats",
     "device_list", "integration_list", "alerts_get", "settings_get", "games_wishlist", "game_art", "games_show", "games_recommend",
     "firmware_status",
     ...Object.keys(AUTO_WRITES),

@@ -6,6 +6,8 @@
  *   names       labels in the four library languages
  *   extensions  ROM files listed for the system (lower case, with the dot)
  *   core        the Switch core file, retroarch/cores/<core>_libretro_libnx.nro
+ *   cores       the core on each platform: { switch, vita }. switch is always `core`; a
+ *               system whose vita is null is not listed to a Vita.
  *   coreName    the core's own name, which RetroArch uses for per-game
  *               configs: retroarch/config/<coreName>/<game>.cfg
  *   bezelDir    The Bezel Project's folder: overlays/GameBezels/<bezelDir>/
@@ -26,7 +28,7 @@
  * roms/ is reported unread on the admin page.
  *
  * An operator can change any of this, or add a system, with
- * <retro dir>/systems.json: { "<id>": { core, coreName, extensions, names, bezelDir, folder, libretro } }.
+ * <retro dir>/systems.json: { "<id>": { core, coreName, extensions, names, bezelDir, folder, libretro, cores: { vita } } }.
  */
 import fs from "fs";
 import path from "path";
@@ -246,7 +248,20 @@ const SYSTEMS = {
 
 // A built-in system's folder is its id unless it names one; without a Bezel
 // Project folder its SD overlay folder is the id too.
-export const DEFAULT_SYSTEMS = Object.fromEntries(Object.entries(SYSTEMS).map(([id, s]) => [id, { ...s, bezelDir: s.bezelDir ?? id, folder: s.folder ?? id }]));
+// The Vita's RetroArch core for each system it runs, as named in libretro's Vita nightly builds. A system left
+// out has no Vita core or is too heavy for the Vita (PSP games run on the Vita itself).
+const VITA_CORES = {
+  nes: "fceumm", snes: "snes9x2005", gb: "gambatte", gbc: "gambatte", gba: "mgba", md: "genesis_plus_gx", sms: "genesis_plus_gx",
+  gg: "genesis_plus_gx", sg: "genesis_plus_gx", segacd: "genesis_plus_gx", "32x": "picodrive", pce: "mednafen_pce_fast",
+  pcecd: "mednafen_pce_fast", ps1: "pcsx_rearmed", ngp: "mednafen_ngp", ws: "mednafen_wswan", vb: "mednafen_vb", arcade: "fbneo",
+  a2600: "stella2014", a7800: "prosystem", lynx: "handy", videopac: "o2em", msx: "bluemsx", amstrad: "cap32", c64: "vice_x64",
+  zxs: "fuse", wsv: "potator", mini: "pokemini", gw: "gw", pico8: "retro8", scummvm: "scummvm", neocd: "neocd",
+  col: "gearcoleco", chip8: "jaxe", tama: "tamalibretro",
+};
+
+const withCores = (s, vita) => ({ ...s, cores: { switch: s.core, vita: vita ?? null } });
+
+export const DEFAULT_SYSTEMS = Object.fromEntries(Object.entries(SYSTEMS).map(([id, s]) => [id, withCores({ ...s, bezelDir: s.bezelDir ?? id, folder: s.folder ?? id }, VITA_CORES[id])]));
 
 const ID_RE = /^[a-z0-9_-]{1,24}$/;
 
@@ -360,12 +375,13 @@ export function loadSystems(retroDir) {
   }
   for (const [id, raw] of Object.entries(custom ?? {})) {
     if (!ID_RE.test(id) || typeof raw !== "object" || raw === null) continue;
-    const base = out[id] ?? { names: { en: id }, extensions: [], core: "", coreName: "", bezelDir: id, folder: id, libretro: id };
+    const base = out[id] ?? { names: { en: id }, extensions: [], core: "", coreName: "", bezelDir: id, folder: id, libretro: id, cores: { vita: null } };
     const extensions = Array.isArray(raw.extensions)
       ? raw.extensions.filter((e) => typeof e === "string").map((e) => (e.startsWith(".") ? e : `.${e}`).toLowerCase())
       : base.extensions;
     const text = (v, fallback) => (typeof v === "string" && v.trim() ? v.trim() : fallback);
-    out[id] = {
+    const vita = raw.cores && typeof raw.cores === "object" && Object.hasOwn(raw.cores, "vita") ? text(raw.cores.vita, null) : base.cores.vita;
+    out[id] = withCores({
       names: { ...base.names, ...(typeof raw.names === "object" && raw.names ? raw.names : {}) },
       extensions,
       core: text(raw.core, base.core),
@@ -373,7 +389,7 @@ export function loadSystems(retroDir) {
       bezelDir: text(raw.bezelDir, base.bezelDir),
       folder: folderName(raw.folder) ?? base.folder,
       libretro: text(raw.libretro, base.libretro),
-    };
+    }, vita);
   }
   const named = new Set(Object.keys(custom ?? {}).filter((id) => folderName(custom[id]?.folder)));
   return withFoundFolders(out, romFolders(retroDir), named, (f) => hasEntries(retroDir, f));

@@ -38,6 +38,9 @@ export const USERS_HTML = /* html */ `<section id="tab-users" hidden>
   <p class="muted" id="accounthint"></p>
   <div class="scroll" id="accounts" data-skel></div>
   </div>
+  <h3 data-top="pp.backupsTitle">${ko("pp.backupsTitle")}</h3>
+  <p class="muted" id="backupshint" data-top="pp.backupsLead">${ko("pp.backupsLead")}</p>
+  <div class="scroll" id="backups" data-skel></div>
 </section>`;
 
 /** The devices section: pending, approved and issued-clients areas. */

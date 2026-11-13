@@ -25,6 +25,7 @@
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
  * anything" is no longer a reachable state.
  */
+import { backupStats } from "../backups/stats.js";
 import { bindingOf, giveToAccount, ownerChoices, suspension } from "../security/device-owner.js";
 import { pluginEvents } from "../plugins/instance.js";
 import { gravatarUrl } from "../helpers/gravatar.js";
@@ -493,6 +494,16 @@ export default function adminPageRouter() {
     if (!requireSession(req, res)) return;
     store.clearDenials();
     res.json({ ok: true });
+  });
+
+  // What each account keeps in console backups: counts only (backups/stats.js).
+  router.get("/api/backups", async (req, res, next) => {
+    if (!requireSession(req, res)) return;
+    try {
+      res.set("Cache-Control", "no-store").json(await backupStats());
+    } catch (err) {
+      next(err);
+    }
   });
 
   // ── Device pairing ──────────────────────────────────────────────────────

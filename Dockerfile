@@ -104,6 +104,7 @@ RUN apk add --no-cache python3 py3-pip unzip su-exec 7zip xdelta3 && \
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
+COPY scripts/import-backup.mjs ./scripts/import-backup.mjs
 COPY i18n ./i18n
 # Box art and bezel fetchers, run for a console after a retro ROM is uploaded.
 COPY scripts/retro-art.mjs scripts/retro-art-match.mjs scripts/retro-ratings.mjs ./scripts/

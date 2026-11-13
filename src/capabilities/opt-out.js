@@ -16,6 +16,7 @@ export const OPT_OUT_REASONS = {
   "binary-upload": "takes a file upload, which a tool call cannot carry",
   "mcp-transport": "the MCP endpoint itself, through which the capabilities are served as tools",
   "console-ui": "the console client's own interface data, read by the client and of no use as a tool",
+  "console-backup": "a console's own backups and their secret files, sent and read by that console only; never a tool",
   "legacy-unregistered": "predates the registry; only LEGACY_UNREGISTERED may use it",
 };
 
@@ -29,6 +30,21 @@ export const OPT_OUT = {
   "GET /api/client/strings": "console-ui",
   // Firmware releases for the console (routes/firmware.js): the list is firmware_status in the console's shape.
   "GET /api/firmware/": "console-ui",
+  // A console's own backups (routes/backups.js): the console sends and reads them; the admin sees counts only.
+  "GET /api/backups/": "console-backup",
+  "GET /api/backups/unit": "console-backup",
+  "POST /api/backups/begin": "console-backup",
+  "HEAD /api/backups/upload/:id": "console-backup",
+  "PUT /api/backups/upload/:id": "console-backup",
+  "POST /api/backups/finish": "console-backup",
+  "GET /api/backups/file": "console-backup",
+  "GET /api/backups/secret": "console-backup",
+  "POST /api/backups/remove": "console-backup",
+  // The Vita client's build itself, as the Switch's .nro: a binary for the console, never a tool's.
+  "GET /api/client/cookingfoil.vpk": "token-blocked",
+  // The firmware a Vita needs and its files (retro/vita-firmware.js); the admin's view is retro_requirements.
+  "GET /api/retro/requirements": "console-ui",
+  "GET /api/retro/requirements/file": "console-ui",
   // The console's own queue of downloads sent to it: read and acked by the paired console only.
   "GET /api/device/sends/": "console-ui",
   "POST /api/device/sends/ack": "console-ui",

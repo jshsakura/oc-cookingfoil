@@ -231,7 +231,7 @@ test("approveDevice on a brand-new device stores label/addedBy/hash and audits i
   const approved = store.devicesSnapshot().approved.find((d) => d.deviceKey === DK1);
   assert.equal(approved.label, "kid console");
   assert.equal(approved.addedBy, "admin");
-  assert.deepEqual(Object.keys(approved).sort(), ["activeDays30", "addedAt", "addedBy", "admin", "days", "deviceKey", "idleSince", "label", "lastIp", "lastSeenAt"], "no client version");
+  assert.deepEqual(Object.keys(approved).sort(), ["activeDays30", "addedAt", "addedBy", "admin", "days", "deviceKey", "idleSince", "label", "lastIp", "lastSeenAt", "platform"], "no client version");
   assert.equal(approved.lastSeenAt, null, "not seen yet");
 
   const kinds = store.snapshot().audit.map((a) => a.kind);
@@ -309,7 +309,7 @@ test("recordPendingDevice keeps only when a console asked: no IP, no version", (
   const dk = "DDDD000000000000000000000000000000000000000000000000000000004D";
   store.recordPendingDevice(dk);
   const p = store.devicesSnapshot().pending.find((x) => x.deviceKey === dk);
-  assert.deepEqual(Object.keys(p).sort(), ["deviceKey", "firstSeenAt", "lastSeenAt"]);
+  assert.deepEqual(Object.keys(p).sort(), ["deviceKey", "firstSeenAt", "lastSeenAt", "platform"]);
   assert.equal(p.firstSeenAt, p.lastSeenAt);
   store.revokeDevice(dk); // also clears the pending entry; keep the pool clean
 });
