@@ -124,6 +124,7 @@ import { dropRepair, keepRepair, repairVerdict } from "../security/pairing-repai
 import { tooManyRequests } from "../security/retry-after.js";
 import { recordDeny, DENY } from "../security/deny.js";
 import { passwordOwnerOk } from "../security/password-policy.js";
+import { parsePlatform } from "../platforms/index.js";
 
 
 /** Whether the account behind an approval may still sign in: "admin", a library account, or "google:<sub>". */
@@ -251,6 +252,22 @@ function tooManyConsoles(req, res, deviceKey, retryAfterSec) {
   tooManyRequests(res, retryAfterSec).json({ error: "too many new devices from this address; try again later" });
 }
 
+// The platform a console asks as (none said is a Switch). One the server does not know is refused, and so is
+// another platform for a console already approved: a device key serves one platform for good.
+function acceptPlatform(req, res, deviceKey) {
+  const platform = parsePlatform(req.body?.platform);
+  if (platform === null) {
+    res.status(400).json({ error: "unknown platform", code: "platform" });
+    return false;
+  }
+  if (platform && store.isDeviceApproved(deviceKey) && store.devicePlatform(deviceKey) !== platform) {
+    res.status(409).json({ error: "this console is paired as another platform", code: "platform-mismatch" });
+    return false;
+  }
+  store.claimPlatform(deviceKey, platform);
+  return true;
+}
+
 export default function pairRouter() {
   const router = express.Router();
   router.use(express.json({ limit: "8kb" }));
@@ -279,6 +296,7 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
     }
+    if (!acceptPlatform(req, res, deviceKey)) return;
     // Checked first, kept only once the console is accepted (approved here, or queued within the
     // pending limit), so a console approved right here is held to it and a refused one leaves nothing.
     const secret = checkPairSecret(deviceKey, pairSecretOf(req, req.body?.pairSecret));
@@ -364,6 +382,7 @@ export default function pairRouter() {
       res.status(400).json({ error: "invalid deviceKey" });
       return;
     }
+    if (!acceptPlatform(req, res, deviceKey)) return;
     // A console the system let in (admin, automatic approval, Telegram) belongs to no account yet, so a
     // download alone proves nothing about it: it must show its current access key too, or a stranger who
     // knows its device id would get its key and could bind it. The one exception is the same download
@@ -465,6 +484,10 @@ export default function pairRouter() {
     const toFree = !store.isDevicePending(to) && (!store.isDeviceApproved(to) || (who && toBy === who.name && !SYSTEM_APPROVERS.has(toBy)));
     if (!toFree) {
       res.status(409).json({ error: "the new device key is already in use" });
+      return;
+    }
+    if (store.isDeviceApproved(from) && store.isDeviceApproved(to) && store.devicePlatform(from) !== store.devicePlatform(to)) {
+      res.status(409).json({ error: "this console is paired as another platform", code: "platform-mismatch" });
       return;
     }
     const moved = store.rebindDevice(from, to);

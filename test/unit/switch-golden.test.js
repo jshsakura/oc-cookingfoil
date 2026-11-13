@@ -44,6 +44,8 @@ const base = `http://127.0.0.1:${server.address().port}`;
 after(async () => {
   await new Promise((r) => server.close(r));
   rmSync(root, { recursive: true, force: true });
+  // The whole server runs in this process and keeps its timers: the file ends here once its tests are done.
+  setTimeout(() => process.exit(), 100);
 });
 
 const ALICE = "Basic " + Buffer.from("alice:alice-password").toString("base64");
@@ -101,7 +103,7 @@ test("a Switch console reads the same answers, byte for byte, as before platform
   ];
   for (const url of reads) out.push(await record(url, url, { headers: device }));
   out.push(await record("/api/library/variants", "/api/library/variants", json(device, { files: ["Test Game [0100000000010000][v0].nsp"] })));
-  for (const key of [KEY, ENROLLED]) assert.equal(store.getDevicePlatform?.(key) ?? "switch", "switch");
+  for (const key of [KEY, ENROLLED]) assert.equal(store.devicePlatform(key), "switch");
 
   const text = JSON.stringify(out, null, 1) + "\n";
   if (process.env.GOLDEN_UPDATE === "1") writeFileSync(GOLDEN, text);

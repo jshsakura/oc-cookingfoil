@@ -24,6 +24,7 @@ import path from "node:path";
 import { securityDb, transaction } from "../db/database.js";
 import { migrateGoogleOwners } from "./google-owner-migration.js";
 import { dataDir } from "../helpers/envs.js";
+import { DEFAULT_PLATFORM } from "../platforms/index.js";
 import * as deviceSends from "./device-sends.js";
 
 const FLUSH_DEBOUNCE_MS = 500;
@@ -42,7 +43,7 @@ const state = {
   lockouts: new Map(), // ip → { lockedAt, until, reason }
   access: new Map(),   // user → { firstAt, lastAt, count, lastIp, ips:{ip:lastAt} }
   // Consoles keep only what approval needs; when and from where they connect is `activity`.
-  devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash, admin? }
+  devices: new Map(),  // deviceKey → { label, addedAt, addedBy, accessKeyHash, admin?, platform? }
   // Approved consoles only. Each day counts its requests, the addresses they came from (up to
   // IPS_PER_DAY, each with its count) and the requests from any further address as `other`.
   activity: new Map(), // deviceKey → { lastSeenAt, lastIp, days: { "YYYY-MM-DD": { n, ips: { ip: n }, other } } }
@@ -123,20 +124,23 @@ function scheduleFlush() {
 // Earlier versions also kept each console's IP, last-seen time and client
 // version; dropping them here clears them from disk at the next save.
 // `admin` (an admin device, see device-admin.js) is kept only while it is on.
-const deviceRecord = ({ label = "", addedAt = null, addedBy = null, accessKeyHash = null, admin = false } = {}) =>
-  ({ label, addedAt, addedBy, accessKeyHash, ...(admin === true ? { admin: true } : {}) });
+// A Switch, the platform every console was before platforms came in, is kept as no `platform` at all.
+const platformField = (platform) => (typeof platform === "string" && platform && platform !== DEFAULT_PLATFORM ? { platform } : {});
+const deviceRecord = ({ label = "", addedAt = null, addedBy = null, accessKeyHash = null, admin = false, platform } = {}) =>
+  ({ label, addedAt, addedBy, accessKeyHash, ...(admin === true ? { admin: true } : {}), ...platformField(platform) });
 const DOWNLOAD_STATES = new Set(["waiting", "used", "expired", "revoked"]);
 const pendingDownloadRecord = (d) =>
   d && typeof d.owner === "string" && d.owner && DOWNLOAD_STATES.has(d.state)
     ? { owner: d.owner.slice(0, 200), id: String(d.id ?? "").slice(0, 16), state: d.state }
     : null;
-const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null, message = null, name = null, download = null } = {}) => {
+const pendingRecord = ({ firstSeenAt = null, lastSeenAt = null, message = null, name = null, download = null, platform } = {}) => {
   const owned = pendingDownloadRecord(download);
   return {
     firstSeenAt, lastSeenAt,
     ...(typeof message === "string" && message ? { message: message.slice(0, 100) } : {}),
     ...(typeof name === "string" && name ? { name: name.slice(0, 64) } : {}),
     ...(owned ? { download: owned } : {}),
+    ...platformField(platform),
   };
 };
 const isSecretHash = (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
@@ -424,6 +428,23 @@ export function isDeviceApproved(deviceKey) {
   return state.devices.has(deviceKey);
 }
 
+// The platform a console said it is, held from its request until the approval or the queue keeps it.
+const platformClaims = new Map(); // deviceKey → platform id
+
+/** The platform of an approved console, or of a waiting one; null for a key the server does not know. */
+export function devicePlatform(deviceKey) {
+  const known = state.devices.get(deviceKey) ?? state.pending.get(deviceKey);
+  if (known) return known.platform ?? DEFAULT_PLATFORM;
+  return platformClaims.get(deviceKey) ?? null;
+}
+
+/** Note the platform a console asks as, before whatever approves or queues it. A known console's stays as it is. */
+export function claimPlatform(deviceKey, platform) {
+  if (!platform || state.devices.has(deviceKey)) return;
+  platformClaims.set(deviceKey, platform);
+  if (platformClaims.size > PENDING_MAX) platformClaims.delete(platformClaims.keys().next().value);
+}
+
 /** How many approved consoles `owner` approved (their addedBy). */
 export function countDevicesAddedBy(owner) {
   let n = 0;
@@ -438,6 +459,8 @@ export function getDeviceAccessKeyHash(deviceKey) {
 export function approveDevice(deviceKey, { label, addedBy, accessKeyHash, admin, version }) {
   const now = Date.now();
   const prev = state.devices.get(deviceKey);
+  // An approved console keeps its platform; a new one is what it said it is when it asked.
+  const platform = prev ? prev.platform : platformClaims.get(deviceKey) ?? state.pending.get(deviceKey)?.platform;
   // Approved from the admin page, the version is the one the console sent when it asked.
   const client = version ?? pendingFrom.get(deviceKey)?.version ?? null;
   // A new key for the same console keeps it an admin device unless `admin` says otherwise.
@@ -447,7 +470,9 @@ export function approveDevice(deviceKey, { label, addedBy, accessKeyHash, admin,
     addedBy: addedBy ?? prev?.addedBy ?? null,
     accessKeyHash,
     admin: admin ?? prev?.admin,
+    platform,
   }));
+  platformClaims.delete(deviceKey);
   dropPending(deviceKey);
   appendAudit({ kind: "device-approve", deviceKey, label: label ?? null, addedBy: addedBy ?? null, version: client, at: now });
   scheduleFlush();
@@ -582,6 +607,7 @@ export function clearPairSecret(deviceKey) {
 const pendingFrom = new Map();
 function dropPending(deviceKey) {
   pendingFrom.delete(deviceKey);
+  platformClaims.delete(deviceKey);
   return state.pending.delete(deviceKey);
 }
 
@@ -660,7 +686,7 @@ export function recordPendingDevice(deviceKey, { message, name, download, quiet 
   const prev = state.pending.get(deviceKey);
   const note = message === undefined ? prev?.message ?? null : message;
   const next = pendingRecord({ firstSeenAt: prev?.firstSeenAt ?? now, lastSeenAt: now, message: note,
-    name: name || prev?.name, download: download ?? prev?.download });
+    name: name || prev?.name, download: download ?? prev?.download, platform: platformClaims.get(deviceKey) ?? prev?.platform });
   state.pending.set(deviceKey, next);
   if (from.ip || from.agent || from.version) pendingFrom.set(deviceKey, { ip: from.ip ?? null, agent: from.agent ?? null, version: from.version ?? null });
   if (state.pending.size > PENDING_MAX) evictOldestPending();
