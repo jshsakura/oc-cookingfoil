@@ -111,6 +111,24 @@ test("the client finds its newest build, downloads it and sees a replaced one", 
   }
 });
 
+test("a Range header counts the bytes it takes against the hour, so pieces are capped like whole builds", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-"));
+  const server = await boot(data);
+  try {
+    const nro = path.join(data, "client", "cookingfoil.nro");
+    fs.mkdirSync(path.dirname(nro));
+    const build = fakeNro("0.2.2");
+    fs.writeFileSync(nro, build);
+    const quarter = Math.floor(build.length / 4);
+    const piece = (range) => fetch(`${BASE}/api/client/cookingfoil.nro`, { headers: { Range: range } }).then((r) => (r.body?.cancel(), r));
+    for (let i = 0; i < 80; i++) assert.equal((await piece(`bytes=0-${quarter - 1}`)).status, 206, `piece ${i}`);
+    assert.equal((await piece(`bytes=0-${quarter - 1}`)).status, 429, "twenty builds' worth of pieces is the hour's share");
+    assert.equal((await piece("bytes=0-")).status, 429, "a whole-file Range is no way around it");
+  } finally {
+    await stop(server);
+  }
+});
+
 test("the update needs only the server's address: no key, a wrong or suspended key, each address capped per hour", async () => {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-"));
   const server = await boot(data);

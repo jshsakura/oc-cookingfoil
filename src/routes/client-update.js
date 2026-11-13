@@ -317,29 +317,47 @@ async function serveVpk(req, res, next) {
   }
 }
 
-// Before the sign-in the build is a few MB anyone may ask for, so each address gets a handful an hour.
+// Before the sign-in the build is a few MB anyone may ask for, so each address gets a handful an hour: counted in
+// bytes, so a console that takes the build in pieces (a Vita asks 4 MB at a time) pays for what it takes and a
+// Range header is no way around the cap.
 const OPEN_BUILDS_PER_HOUR = 20;
 const HOUR_MS = 60 * 60_000;
+
+// The bytes an answer to this request sends of a build `size` long: the ranges asked for, or all of it.
+function askedBytes(req, size) {
+  if (!req.get("Range") || req.get("If-Range")) return size;
+  const ranges = req.range(size);
+  if (ranges === -1) return 0;
+  if (!Array.isArray(ranges)) return size;
+  return ranges.reduce((n, r) => n + r.end - r.start + 1, 0);
+}
 
 /** /latest and the build, mounted ahead of the sign-in; a key, even a suspended one, is not looked at. */
 export function clientUpdateOpenRouter({ perHour = OPEN_BUILDS_PER_HOUR, now = Date.now } = {}) {
   const router = express.Router();
-  const taken = new Map(); // ip → { since, count }
+  const taken = new Map(); // ip → { since, bytes }
   router.get("/latest", serveLatest);
-  const limited = (serve) => (req, res, next) => {
-    if (req.fresh || req.get("Range")) return serve(req, res, next);
+  const limited = (serve, build) => async (req, res, next) => {
+    if (req.fresh) return serve(req, res, next);
+    let size;
+    try {
+      size = (await build())?.size;
+    } catch (err) {
+      return next(err);
+    }
+    if (!size) return serve(req, res, next);
     const ip = clientIp(req);
     const t = now();
     for (const [k, v] of taken) if (t - v.since >= HOUR_MS) taken.delete(k);
-    const mine = taken.get(ip) ?? { since: t, count: 0 };
-    if (mine.count >= perHour) {
+    const mine = taken.get(ip) ?? { since: t, bytes: 0 };
+    if (mine.bytes >= perHour * size) {
       return tooManyRequests(res, Math.ceil((mine.since + HOUR_MS - t) / 1000)).json({ error: "too many client downloads from this address; try again later" });
     }
-    taken.set(ip, { ...mine, count: mine.count + 1 });
+    taken.set(ip, { ...mine, bytes: mine.bytes + askedBytes(req, size) });
     serve(req, res, next);
   };
-  router.get("/cookingfoil.nro", limited(serveBuild));
-  router.get("/cookingfoil.vpk", limited(serveVpk));
+  router.get("/cookingfoil.nro", limited(serveBuild, latestBuild));
+  router.get("/cookingfoil.vpk", limited(serveVpk, latestVitaBuild));
   return router;
 }
 
