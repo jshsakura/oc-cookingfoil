@@ -60,10 +60,12 @@ test("a Vita sees only the systems with a Vita core, and their games and home ro
   const vita = await json(VITA, "/api/retro/systems");
   assert.deepEqual(vita.systems.map((s) => s.id).sort(), ["gba", "pcecd", "snes"]);
   assert.equal(vita.systems.find((s) => s.id === "snes").core.id, "snes9x2005");
+  assert.ok(vita.systems.every((s) => !("coreName" in s)), "no Switch core name on a Vita's rows");
   assert.equal(vita.retroarch, undefined, "the Switch's RetroArch pack is not the Vita's");
   const sw = await json(SWITCH, "/api/retro/systems");
   assert.ok(sw.systems.some((s) => s.id === "n64"), "a Switch still sees every system");
   assert.equal(sw.systems.find((s) => s.id === "snes").core.id, "snes9x");
+  assert.equal(sw.systems.find((s) => s.id === "snes").coreName, "Snes9x");
 
   const games = await json(VITA, "/api/retro/games");
   assert.equal(games.total, 3);

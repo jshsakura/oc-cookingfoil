@@ -631,6 +631,7 @@ export default function retroRouter() {
   });
 
   // A Vita is shown the systems it has a core for, and only their games; the files are the same as the Switch's.
+  // Its systems name the Vita core only: coreName is the Switch core's, so a Vita's rows leave it out.
   const onVita = (req) => requestPlatform(req) === "vita";
   const forPlatform = (req, cat, games) => (onVita(req) ? games.filter((g) => cat.systems[g.system]?.cores?.vita) : games);
 
@@ -640,7 +641,7 @@ export default function retroRouter() {
       res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
       return res.json({
         systems: catalog.visibleSystems(cat, forPlatform(req, cat, listedGames(cat))).map((s) => ({
-          ...s, ...systemIconUrls(s.id, cat.systems[s.id]), defaultCore: cat.systems[s.id].cores.vita, core: { id: cat.systems[s.id].cores.vita },
+          ...s, coreName: undefined, ...systemIconUrls(s.id, cat.systems[s.id]), defaultCore: cat.systems[s.id].cores.vita, core: { id: cat.systems[s.id].cores.vita },
         })),
       });
     }

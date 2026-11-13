@@ -6,6 +6,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { CONSOLE, CONSOLE_KEY, seedConsole } from "../support/console.js";
+import { zipStore } from "../../src/helpers/zip-store.js";
+import { platformStrings } from "../../src/meta/client-strings.js";
+import { sfo } from "./fixtures/vita-card.js";
 
 const PORT = 16900 + (process.pid % 500);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -302,6 +305,59 @@ test("a console reads one language's strings, never a locked key, and asks again
     const info = await (await fetch(`${BASE}/api/library/info`, { headers: AUTH })).json();
     assert.ok(info.features.includes("client-strings"));
     assert.deepEqual(info.client_strings.languages.find((l) => l.code === "ko"), { code: "ko", name: "한국어", base: null });
+  } finally {
+    await stop(server);
+  }
+});
+
+/** A minimal .vpk: a zip with the param.sfo the Vita reads its version from. */
+const fakeVpk = (version) => zipStore([
+  { name: "eboot.bin", data: Buffer.from("not a real eboot") },
+  { name: "sce_sys/param.sfo", data: sfo([["TITLE", "CookingFoil"], ["TITLE_ID", "CKFL00001"], ["APP_VER", version]]) },
+], new Date(2024, 0, 1), { deflate: true });
+
+test("a Vita asks for its own build with ?platform=vita; a Switch's answer stays as it was", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-"));
+  const server = await boot(data);
+  try {
+    const latest = (q = "") => fetch(`${BASE}/api/client/latest${q}`);
+    assert.equal((await latest("?platform=vita")).status, 404, "no Vita build yet");
+    assert.equal((await latest("?platform=psp")).status, 400);
+    fs.mkdirSync(path.join(data, "client"), { recursive: true });
+    fs.writeFileSync(path.join(data, "client", "cookingfoil.vpk"), Buffer.from("not a zip"));
+    assert.equal((await latest("?platform=vita")).status, 404, "a file that is no .vpk is not offered");
+    const vpk = fakeVpk("01.05");
+    fs.writeFileSync(path.join(data, "client", "cookingfoil.vpk"), vpk);
+    const vita = await (await latest("?platform=vita")).json();
+    assert.deepEqual(vita, { version: "01.05", size: vpk.length, sha256: crypto.createHash("sha256").update(vpk).digest("hex"), url: "/api/client/cookingfoil.vpk" });
+    const got = await fetch(`${BASE}${vita.url}`);
+    assert.equal(got.headers.get("etag"), `"${vita.sha256}"`);
+    assert.deepEqual(Buffer.from(await got.arrayBuffer()), vpk);
+    assert.equal((await latest()).status, 404, "a Switch is offered no .vpk");
+    assert.equal((await latest("?platform=switch")).status, 404);
+  } finally {
+    await stop(server);
+  }
+});
+
+test("a key starting vita. goes to a Vita only; a Switch gets the rest", () => {
+  const table = { "menu.home": "홈", "vita.backup": "백업", "vitality": "활력" };
+  assert.deepEqual(platformStrings(table, "switch"), { "menu.home": "홈", "vitality": "활력" });
+  assert.deepEqual(platformStrings(table, "vita"), table);
+});
+
+test("strings take ?platform=vita, refuse a platform the server does not know, and are a Switch's without one", async () => {
+  const data = fs.mkdtempSync(path.join(os.tmpdir(), "cf-client-"));
+  const server = await boot(data);
+  try {
+    const plain = await fetch(`${BASE}/api/client/strings?lang=ko`, { headers: AUTH });
+    const vita = await fetch(`${BASE}/api/client/strings?lang=ko&platform=vita`, { headers: AUTH });
+    assert.equal(vita.status, 200);
+    const keys = (body) => Object.keys(body.strings);
+    const [p, v] = [await plain.json(), await vita.json()];
+    assert.deepEqual(keys(p).filter((k) => !k.startsWith("vita.")), keys(p), "a Switch never gets a vita. key");
+    assert.deepEqual(keys(v).filter((k) => !k.startsWith("vita.")), keys(p), "a Vita gets the rest of the same table");
+    assert.equal((await fetch(`${BASE}/api/client/strings?lang=ko&platform=psp`, { headers: AUTH })).status, 400);
   } finally {
     await stop(server);
   }

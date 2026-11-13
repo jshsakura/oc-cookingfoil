@@ -40,6 +40,8 @@ export const OPT_OUT = {
   "GET /api/backups/file": "console-backup",
   "GET /api/backups/secret": "console-backup",
   "POST /api/backups/remove": "console-backup",
+  // The Vita client's build itself, as the Switch's .nro: a binary for the console, never a tool's.
+  "GET /api/client/cookingfoil.vpk": "token-blocked",
   // The firmware a Vita needs and its files (retro/vita-firmware.js); the admin's view is retro_requirements.
   "GET /api/retro/requirements": "console-ui",
   "GET /api/retro/requirements/file": "console-ui",
