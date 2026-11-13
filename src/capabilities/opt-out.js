@@ -40,6 +40,9 @@ export const OPT_OUT = {
   "GET /api/backups/file": "console-backup",
   "GET /api/backups/secret": "console-backup",
   "POST /api/backups/remove": "console-backup",
+  // The firmware a Vita needs and its files (retro/vita-firmware.js); the admin's view is retro_requirements.
+  "GET /api/retro/requirements": "console-ui",
+  "GET /api/retro/requirements/file": "console-ui",
   // The console's own queue of downloads sent to it: read and acked by the paired console only.
   "GET /api/device/sends/": "console-ui",
   "POST /api/device/sends/ack": "console-ui",
