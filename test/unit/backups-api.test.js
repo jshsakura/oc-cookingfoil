@@ -262,3 +262,22 @@ test("with the backups folder gone, every address says backups are off", async (
     renameSync(`${backups}-away`, backups);
   }
 });
+
+test("the admin sees each account's backups as counts only, and each console's platform", async () => {
+  const { backupStats } = await import("../../src/backups/stats.js");
+  const stats = await backupStats();
+  assert.equal(stats.on, true);
+  const alice = stats.accounts.find((a) => a.name === "alice");
+  assert.equal(alice.platforms.length, 1);
+  const [vita] = alice.platforms;
+  assert.equal(vita.platform, "vita");
+  assert.equal(vita.units, 1);
+  assert.ok(vita.versions >= 1 && vita.secrets === 1 && vita.bytes > 0 && alice.bytes > 0);
+  const text = JSON.stringify(stats);
+  for (const word of ["work.bin", "eboot", "PCSE00001", "Example", FAKE_WORK]) assert.equal(text.includes(word), false, word);
+
+  const devices = await import("../../src/security/store.js");
+  const platformOf = (key) => devices.devicesSnapshot().approved.find((d) => d.deviceKey === key).platform;
+  assert.equal(platformOf(ALICE_VITA["X-Device-Key"]), "vita");
+  assert.equal(platformOf(ALICE_SWITCH["X-Device-Key"]), "switch");
+});

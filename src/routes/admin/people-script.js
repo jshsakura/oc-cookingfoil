@@ -94,6 +94,20 @@ async function removeUser(name){
 // ── Google accounts ─────────────────────────────────────────────────
 const ACCOUNT_STATUS={pending:[topText('pp.devWait'),'warn'],approved:[topText('pp.devApproved'),'on'],disabled:[topText('pp.devDisabled'),'off']};
 let accountsLoaded=false;
+// A console's kind, by its product name in every language.
+const PLATFORM_NAMES={switch:'Switch',vita:'PS Vita'};
+const platformName=(p)=>PLATFORM_NAMES[p||'switch']||p;
+const sizeText=(n)=>n>=1073741824?(n/1073741824).toFixed(1)+' GB':n>=1048576?(n/1048576).toFixed(1)+' MB':Math.ceil(n/1024)+' KB';
+// What each account keeps in console backups: counts only, secret files as a number.
+async function loadBackups(){
+  if(!$('backups'))return;
+  const d=await api('/admin/api/backups');
+  $('backupshint').textContent=d.on?topText('pp.backupsLead'):topText('pp.backupsOff');
+  const rows=[];
+  for(const a of d.accounts||[])for(const p of a.platforms){const tr=el('tr');
+    const who=td(String(a.name));who.append(el('div',topFill('pp.bkTotal',{size:sizeText(a.bytes)}),'dim'));
+    tr.append(who,td(platformName(p.platform)),td(String(p.units)),td(String(p.versions)),td(sizeText(p.bytes)),td(topFill('pp.bkSecretsN',{n:p.secrets}),p.secrets?'':'dim'));rows.push(tr);}
+  table('backups',[topText('pp.bkAccount'),topText('pp.bkPlatform'),topText('pp.bkUnits'),topText('pp.bkVersions'),topText('pp.bkBytes'),topText('pp.bkSecrets')],rows,d.on?topText('pp.backupsNone'):'');}
 async function loadAccounts(){
   const d=await api('/admin/api/accounts');accountsLoaded=true;const list=d.accounts||[];
   const hint=$('accounthint');if(hint)hint.textContent=d.enabled?topText('pp.googleLead')
@@ -143,7 +157,8 @@ function renderApproved(){const d=devicesShown;if(!d)return;
   for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+topFill('pp.count',{n:counts[group]})+(a.suspended?' · '+topText(a.suspended==='account-gone'?'pp.suspendedGone':a.suspended==='no-account'?'pp.suspendedNone':'pp.suspendedOff'):''));c.colSpan=8;h.append(c);rows.push(h);}
     const tr=el('tr');
     const ipc=td(a.lastIp?null:'—',a.lastIp?'':'dim');if(a.lastIp)ipc.append(ipButton(a.lastIp,'acc.ipHistory',()=>openDeviceIps(a)));
-    tr.append(td(a.label||'—'),seenCell(a),ipc,td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));
+    const name=td(a.label||'—');name.append(el('div',platformName(a.platform),'dim'));
+    tr.append(name,seenCell(a),ipc,td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     // An admin device may change item settings from the console; off by default.
     const adm=td();const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=a.admin===true;b.setAttribute('aria-label',(a.label||a.code||topText('pp.device'))+' '+topText('pp.adminDevice'));
@@ -167,7 +182,7 @@ async function loadDevices(force){
   table('pending',[topText('pp.devCode'),topText('pp.devNameMsg'),topText('pp.requestedFrom'),topText('pp.devKey'),topText('pp.requestedAt'),''],pending.map((p)=>{const tr=el('tr');
     const k=td(p.deviceKey.slice(0,16)+'…','ip');k.title=p.deviceKey;const f=p.from,who=td('');if(f){who.append(el('div',f.ip+(f.place?' ('+topText('pp.place.'+f.place)+')':''),'ip'));if(f.accounts&&f.accounts.length)who.append(el('div',topText('pp.sameAddrAcct')+f.accounts.slice(0,3).map((a)=>a==='google:'?topText('pp.googleAcct'):a).join(', ')+(f.accounts.length>3?topText('pp.otherCount')+(f.accounts.length-3)+topText('pp.countUnit'):''),'dim'));if(f.app)who.append(el('div',topText('pp.appLabel')+f.app,'dim'));}else{who.textContent='—';who.className='dim';who.title=topText('pp.notAfterRestart');}
     if(p.download){const w=who.textContent==='—';if(w){who.textContent='';who.className='';}who.prepend(el('div',topText('pp.receivedBy')+p.download.owner+' ('+(DOWNLOAD_WORDS[p.download.state]||topText('pp.download'))+')'));}
-    const said=td('');if(p.name)said.append(el('div',p.name));if(p.message)said.append(el('div',p.message,p.name?'dim':''));if(!p.name&&!p.message){said.textContent='—';said.className='dim';}
+    const said=td('');said.append(el('div',platformName(p.platform),'dim'));if(p.name)said.append(el('div',p.name));if(p.message)said.append(el('div',p.message,p.name?'dim':''));if(!p.name&&!p.message)said.append(el('div','—','dim'));
     tr.append(td(p.code||'—','ip'),said,who,k,td(fmt(p.lastSeenAt)));
     const act=td();const box=el('div',null,'row-actions');
     box.append(tbtn('approve','pp.approve',()=>approve(p.deviceKey),'primary'),tbtn('reject','pp.reject',()=>dismissDevice(p.deviceKey,p.code),'danger'));act.append(box);tr.append(act);return tr;}),topText('pp.noPending'));
@@ -187,7 +202,7 @@ async function loadDevices(force){
   table('clients-ended',COLS,ended.map(clientRow),'');}
 if($('dev-idle'))$('dev-idle').addEventListener('change',renderApproved);
 // A new language redraws the tables whose words come from top-i18n.js.
-function accRelabel(){if(usersShown)renderUsers(usersShown);loadDevices(true).catch(()=>{});if(accountsLoaded)loadAccounts().catch(()=>{});}
+function accRelabel(){if(usersShown)renderUsers(usersShown);loadDevices(true).catch(()=>{});if(accountsLoaded)loadAccounts().catch(()=>{});loadBackups().catch(()=>{});}
 async function cancelClient(id){if(!await ask(topText('pp.cancelClientAsk'),{danger:true}))return;
   try{await api('/admin/api/clients/'+id+'/revoke',{method:'POST'});toast(topText('pp.cancelled'));loadDevices();}catch(err){toast(err.message);}}
 if($('approve-code'))$('approve-code').addEventListener('submit',async(e)=>{e.preventDefault();
@@ -226,7 +241,7 @@ async function loadPeople(){
     const d=await api('/admin/api/stats');
     me=d.me||null;
     // The accounts page: the local-user table and the Google approval list.
-    if($('users')){renderUsers(d.users||[]);await loadAccounts();}
+    if($('users')){renderUsers(d.users||[]);await loadAccounts();loadBackups().catch(()=>{});}
     // The devices page: the pending, approved and issued-clients areas.
     if($('devices')||$('pending'))await loadDevices();
   }catch(err){if(err.message!=='session')toast(errText(err));}}

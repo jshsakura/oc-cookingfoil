@@ -874,10 +874,12 @@ export function devicesSnapshot(now = Date.now()) {
     activitySince,
     approved: Array.from(state.devices.entries())
       .map(([deviceKey, v]) => ({ deviceKey, label: v.label ?? "", addedAt: v.addedAt ?? null, addedBy: v.addedBy ?? null, admin: v.admin === true,
+        platform: v.platform ?? DEFAULT_PLATFORM,
         ...deviceActivity(state.activity.get(deviceKey), v.addedAt ?? null, activitySince, now) }))
       .sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)),
     pending: Array.from(state.pending.entries())
-      .map(([deviceKey, v]) => ({ deviceKey, ...(v.message ? { message: v.message } : {}), ...(v.name ? { name: v.name } : {}),
+      .map(([deviceKey, v]) => ({ deviceKey, platform: platformClaims.get(deviceKey) ?? v.platform ?? DEFAULT_PLATFORM,
+        ...(v.message ? { message: v.message } : {}), ...(v.name ? { name: v.name } : {}),
         ...(v.download ? { download: { ...v.download, owner: ownerName(v.download.owner) } } : {}), firstSeenAt: v.firstSeenAt ?? null, lastSeenAt: v.lastSeenAt ?? null,
         ...(pendingFrom.has(deviceKey) ? { from: requesterFacts(pendingFrom.get(deviceKey)) } : {}) }))
       .sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0)),
