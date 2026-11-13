@@ -4,6 +4,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, utimesSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { zipStore } from "../../src/helpers/zip-store.js";
+import { sfo } from "./fixtures/vita-card.js";
 
 // What a Switch console reads from the server, recorded before platforms (Switch, Vita) came in, so no stage of
 // that work changes a byte a Switch client gets. Each answer keeps its status, ETag, Content-Type and body.
@@ -25,6 +27,11 @@ const files = {
 };
 files[path.join(dir("data/client"), "cookingfoil.nro")] = "NRO0 not a real build";
 files[path.join(dir("data"), "server-id")] = "00000000-0000-4000-8000-000000000000\n";
+// A Vita app in the homebrew folder: a Switch's list and everything else it reads stay as they were.
+files[path.join(dir("homebrew/freetv"), "FreeTV.vpk")] = zipStore([
+  { name: "sce_sys/param.sfo", data: sfo([["TITLE", "Free TV"], ["TITLE_ID", "FREETV001"], ["APP_VER", "02.02"]]) },
+], new Date(2024, 0, 1));
+files[path.join(root, "homebrew/freetv/.cookingfoil.json")] = JSON.stringify({ platform: "vita" });
 for (const [file, body] of Object.entries(files)) {
   writeFileSync(file, body);
   utimesSync(file, STAMP, STAMP);
@@ -41,6 +48,7 @@ const enroll = await import("../../src/security/enroll-tokens.js");
 const store = await import("../../src/security/store.js");
 const { default: server } = await import("../../src/index.js");
 if (!server.listening) await new Promise((r) => server.once("listening", r));
+await (await import("../../src/routes/homebrew.js")).refreshManual();
 const base = `http://127.0.0.1:${server.address().port}`;
 after(async () => {
   await new Promise((r) => server.close(r));

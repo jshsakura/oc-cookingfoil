@@ -86,7 +86,7 @@ test("a Vita enrolled by a download is a Vita", async () => {
 test("a Vita is refused on the Switch library's addresses, and a Switch is not", async () => {
   const vita = await approve("D1".repeat(32), "vita");
   const nx = await approve("D2".repeat(32));
-  for (const url of ["/api/library/sections", "/api/homebrew", "/api/patches", "/api/saves", "/api/title/0100000000010000",
+  for (const url of ["/api/library/sections", "/api/patches", "/api/saves", "/api/title/0100000000010000",
     "/api/device/sends", "/api/firmware", "/api/retro/achievements/x", "/games.json", "/Test%20Game%20%5B0100000000010000%5D%5Bv0%5D.nsp"]) {
     const r = await fetch(base + url, { headers: vita });
     assert.equal(r.status, 404, url);
