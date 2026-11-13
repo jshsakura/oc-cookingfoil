@@ -144,7 +144,7 @@
   "status": 404,
   "etag": "<express weak of body>",
   "type": "application/json; charset=utf-8",
-  "body": "{\"error\":\"not-found\"}"
+  "body": "{\"error\":\"backups are off on this server\",\"code\":\"backups-off\"}"
  },
  {
   "name": "/api/library/variants",

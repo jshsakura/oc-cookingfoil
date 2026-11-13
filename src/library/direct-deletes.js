@@ -9,6 +9,9 @@
  * file uses discard().
  */
 export const DIRECT_DELETES = Object.freeze({
+  "src/backups/import.js": { count: 2, why: "the import's own work copies of a file the account already has; the card copy is only read" },
+  "src/backups/store.js": { count: 2, why: "console backup versions past their 30 days in removed/, and bodies no version uses; backups never go to the library's trash" },
+  "src/backups/uploads.js": { count: 4, why: "half-sent backup uploads: their parts, a body cut past its size, and an upload once finished or abandoned" },
   "src/chat/session-store.js": { count: 1, why: "a chat log, when its owner deletes that conversation" },
   "src/db/backup.js": { count: 4, why: "backup rotation and its work folders" },
   "src/db/database.js": { count: 1, why: "the database's own files" },

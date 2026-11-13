@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 // that work changes a byte a Switch client gets. Each answer keeps its status, ETag, Content-Type and body.
 // Values a run makes up (access keys, the port, the time) are replaced by names before comparing.
 // GOLDEN_UPDATE=1 rewrites test/golden/switch-responses.json, only for a change meant to alter an answer.
+// GOLDEN_ACTUAL=<file> writes what was read there, to see a difference whole.
 
 const GOLDEN = path.join(import.meta.dirname, "..", "golden", "switch-responses.json");
 const STAMP = 1728000000;
@@ -107,5 +108,6 @@ test("a Switch console reads the same answers, byte for byte, as before platform
 
   const text = JSON.stringify(out, null, 1) + "\n";
   if (process.env.GOLDEN_UPDATE === "1") writeFileSync(GOLDEN, text);
+  if (process.env.GOLDEN_ACTUAL) writeFileSync(process.env.GOLDEN_ACTUAL, text);
   assert.equal(text, readFileSync(GOLDEN, "utf8"));
 });

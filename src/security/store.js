@@ -452,6 +452,9 @@ export function countDevicesAddedBy(owner) {
   return n;
 }
 
+/** The name an approved console goes by, or "". */
+export const deviceLabel = (deviceKey) => state.devices.get(deviceKey)?.label ?? "";
+
 export function getDeviceAccessKeyHash(deviceKey) {
   return state.devices.get(deviceKey)?.accessKeyHash ?? null;
 }

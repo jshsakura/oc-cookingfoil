@@ -118,6 +118,8 @@ import { pluginRegistry, pluginRouter, pluginVariants, startPlugins } from "./pl
 import { trustProxy } from "./helpers/trust-proxy.js";
 import { onListening } from "./after-start.js";
 import switchOnly, { SWITCH_ONLY_PATHS } from "./platforms/switch-only.js";
+import backupsRouter from "./routes/backups.js";
+import { sweepBackups } from "./backups/sweep.js";
 import { alert } from "./helpers/alerts.js";
 import * as securityWatch from "./security/security-watch.js";
 import * as telegramUpdates from "./security/telegram-updates.js";
@@ -390,6 +392,8 @@ expressApp.use("/pair", devicePairRouter());
 // A console reads and acks the downloads queued for it (routes/device-sends.js).
 expressApp.use("/api/device/sends", consoleSendsRouter());
 expressApp.use("/api/device/wishlist", consoleWishlistRouter());
+// A console's own backups, for its account (off until COOK_BACKUPS_DIR exists).
+expressApp.use("/api/backups", backupsRouter());
 
 // 2FA-gated operator dashboard (behind the web sign-in). 404s when
 // COOK_ADMIN_TOTP_SECRET is unset.
@@ -513,6 +517,8 @@ startNszQueue();
 startVerifyQueue();
 // The drop box (helpers/storage-layout.js): sorted into the library every minute.
 defaultOrganizer.start();
+// Consoles' backups: uploads left a day, removed versions past a month and unused bodies go, hourly.
+setInterval(() => sweepBackups().catch((err) => debug.error("backups: sweep failed: %s", err.message)), 3600_000).unref();
 
 // The saves folder holds tens of thousands of files: read it once now, not on the first request.
 if (savesEnabled()) {

@@ -52,6 +52,9 @@ export const SETTINGS = {
   inboxEnabled: bool,
   inboxMaxBytes: bytes,
   inboxQuotaBytes: bytes,
+  // Versions kept of each unit a console backs up, and what one account's backups may take (0: no limit).
+  consoleBackupKeep: whole(1, 20),
+  consoleBackupQuotaBytes: { ...bytes, check: (v) => v === 0 || bytes.check(v) },
   publicBaseUrl: { parse: (v) => String(v ?? "").trim().replace(/\/+$/, ""), check: (v) => v === "" || URL_RE.test(v) },
   extractIcons: oneOf("missing", "all", "off"),
   langPriority: { ...list(LANG_RE, 10), check: (v) => list(LANG_RE, 10).check(v) && v.length > 0 },
