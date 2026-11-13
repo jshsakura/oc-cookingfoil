@@ -7,26 +7,30 @@ import { freshCode, signIn } from './admin-sign-in';
 // keep working by landing on the page that section now lives on.
 
 const PAGES: [string, string, string][] = [
-  ['/admin', 'tab-overview', '서버 현황'],
+  ['/admin', 'tab-overview', '대시보드'],
   ['/admin/games', 'tab-library', '게임'],
-  ['/admin/incoming', 'tab-upload', '임시 보관함'],
+  ['/admin/incoming', 'tab-upload', '업로드'],
   // Stage B first bundle: these pages carry only their own panel.
-  ['/admin/convert', 'tab-nsz', '파일 압축'],
-  ['/admin/featured', 'tab-featured', '홈 화면 구성'],
+  ['/admin/convert', 'tab-nsz', '압축'],
+  ['/admin/featured', 'tab-featured', '홈 화면'],
   ['/admin/trash', 'tab-trash', '휴지통'],
   ['/admin/users', 'tab-users', '계정'],
   ['/admin/devices', 'tab-devices', '기기'],
-  ['/admin/logs/downloads', 'xf-cards', '다운로드 기록'],
-  ['/admin/logs/clients', 'cl-list', '클라이언트 로그'],
-  ['/admin/logs/security', 'lockouts', '차단과 거부'],
+  ['/admin/logs/downloads', 'xf-cards', '전송 기록'],
+  ['/admin/logs/clients', 'cl-list', '클라이언트 기록'],
+  ['/admin/logs/security', 'lockouts', '보안 기록'],
   ['/admin/settings/notifications', 'tab-alerts', '알림 설정'],
   ['/admin/logs/alerts', 'al-history', '알림 기록'],
-  ['/admin/client', 'tab-client', '클라이언트 배포'],
+  ['/admin/client', 'tab-client', '클라이언트'],
   ['/admin/settings/server', 'ss-list', '서버 동작'],
   ['/admin/settings/integrations', 'intg-h', '외부 서비스'],
   ['/admin/settings/login', 'tab-settings', '구글 로그인'],
   ['/admin/settings/admin', 'tab-settings', '관리자 보안'],
   ['/admin/settings/automation', 'mcp-on', '자동화 토큰'],
+  ['/admin/metadata/review', 'tab-meta-review', '검토 필요'],
+  ['/admin/metadata/artwork', 'tab-meta-art', '아트워크'],
+  ['/admin/metadata/titles', 'tab-meta-titles', '제목'],
+  ['/admin/system/requirements', 'tab-requirements', '필수 파일'],
 ];
 
 test('every page opens its own section, marks the sidebar and keeps its address on reload', async ({ page }) => {
@@ -46,15 +50,15 @@ test('every page opens its own section, marks the sidebar and keeps its address 
   }
 });
 
-test('the retro page lists its nine jobs as tabs, the files first, and keeps the chosen one in its address', async ({ page }) => {
+test('the retro page lists its seven jobs as tabs, the files first, and keeps the chosen one in its address', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/retro?view=cores');
   await expect(page.locator('#tab-retro')).toBeVisible();
   await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('라이브러리');
-  await expect(page.locator('main .adm-rowtabs a[aria-current="page"]')).toHaveText('레트로 게임');
+  await expect(page.locator('main .adm-rowtabs a[aria-current="page"]')).toHaveText('레트로');
   await expect(page.locator('#retro-subtabs [data-sub="cores"]')).toHaveAttribute('aria-selected', 'true');
   const items = page.locator('#retro-subtabs [data-sub]');
-  await expect(items).toHaveCount(9);
+  await expect(items).toHaveCount(7);
   await expect(items.first()).toHaveAttribute('data-sub', 'folder');
   await expect(items.last()).toHaveAttribute('data-sub', 'sets');
 });
@@ -211,16 +215,16 @@ test('the header names every page by its menu path', async ({ page }) => {
   await signIn(page);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/admin/retro?view=ratings');
-  await expect(page.locator('#adm-crumb')).toHaveText(/라이브러리\s*레트로 게임/);
+  await expect(page.locator('#adm-crumb')).toHaveText(/라이브러리\s*레트로\s*평점/);
   await page.goto('/admin/devices');
-  await expect(page.locator('#adm-crumb')).toHaveText(/계정과 기기\s*기기\s*승인 대기/);
+  await expect(page.locator('#adm-crumb')).toHaveText(/사용자\s*기기\s*승인 대기/);
   await expect(page.locator('#adm-crumb .adm-crumb-i')).toHaveText('승인 대기');
   await page.goto('/admin');
-  await expect(page.locator('#adm-crumb')).toHaveText('서버 현황');
+  await expect(page.locator('#adm-crumb')).toHaveText('대시보드');
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto('/admin/retro?view=ratings');
   await expect(page.locator('#adm-crumb .adm-crumb-i')).toBeVisible();
-  await expect(page.locator('#adm-crumb').filter({ hasText: '레트로 게임' })).toBeVisible();
+  await expect(page.locator('#adm-crumb').filter({ hasText: '레트로' })).toBeVisible();
   await expect(page.locator('#adm-crumb .adm-crumb-far').first()).toBeHidden();
 });
 
@@ -315,18 +319,20 @@ for (const [path, root, tab] of FOLDER_PAGES) {
   });
 }
 
-test('the sidebar holds eight entries in the agreed order, and each entry opens its jobs as tabs over its pages', async ({ page }) => {
+test('the sidebar holds its entries in the agreed order, and each entry opens its jobs as tabs over its pages', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin');
   const side = page.locator('aside.adm-side > nav');
   const hrefs = (loc: ReturnType<typeof page.locator>) => loc.evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  expect(await hrefs(side.locator('a.adm-item'))).toEqual(['/admin', '/admin/chat', '/admin/incoming', '/admin/games', '/admin/featured', '/admin/users', '/admin/convert', '/admin/settings/server']);
-  await expect(side.locator('a.adm-item[href="/admin/incoming"] [data-top]')).toHaveText('임시 보관함');
-  await expect(side.locator('a.adm-item[href="/admin/convert"] [data-top]')).toHaveText('작업과 기록');
+  expect(await hrefs(side.locator('a.adm-item'))).toEqual(['/admin', '/admin/incoming', '/admin/games', '/admin/metadata/review', '/admin/users', '/admin/featured', '/admin/convert', '/admin/settings/server']);
+  await expect(side.locator('a.adm-item[href="/admin/incoming"] [data-top]')).toHaveText('업로드');
+  await expect(side.locator('a.adm-item[href="/admin/convert"] [data-top]')).toHaveText('시스템');
+  await expect(side.locator('a.adm-item[href="/admin/metadata/review"] [data-top]')).toHaveText('메타데이터');
   const tabs: [string, string[]][] = [
     ['/admin/games', ['/admin/games', '/admin/retro', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/trash']],
+    ['/admin/metadata/review', ['/admin/metadata/review', '/admin/metadata/artwork', '/admin/metadata/titles']],
     ['/admin/users', ['/admin/users', '/admin/devices', '/admin/client']],
-    ['/admin/convert', ['/admin/convert', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']],
+    ['/admin/convert', ['/admin/convert', '/admin/system/requirements', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']],
     ['/admin/settings/server', ['/admin/settings/server', '/admin/settings/login', '/admin/settings/admin', '/admin/settings/notifications', '/admin/settings/integrations', '/admin/settings/plugins', '/admin/settings/automation']],
   ];
   for (const [path, want] of tabs) {
@@ -341,11 +347,11 @@ test('the sidebar holds eight entries in the agreed order, and each entry opens 
   }
 });
 
-test('임시 보관함 holds uploading, the temp share and the temp folder on one page, and the old addresses open their part', async ({ page }) => {
+test('업로드 holds uploading, the temp share and the temp folder on one page, and the old addresses open their part', async ({ page }) => {
   await signIn(page);
   await page.goto('/admin/incoming');
   await expect(page.locator('#up-entry .up-entry-t')).toHaveText('업로드');
-  await expect(page.locator('#adm-crumb')).toHaveText('임시 보관함');
+  await expect(page.locator('#adm-crumb')).toHaveText('업로드');
   await expect(page.locator('.inc-h')).toHaveText(['업로드', '임시 공유', '임시 폴더']);
   await expect(page.locator('#organize-subtabs [role="tab"]')).toHaveText(['파일', '정리']);
   for (const part of ['#up-drop', '#ib-list', '#fb-rows']) await expect(page.locator(part)).toBeAttached();

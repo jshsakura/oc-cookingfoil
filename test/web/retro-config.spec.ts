@@ -38,7 +38,7 @@ async function settingRow(page: Page, key: string) {
 }
 
 async function openSettings(page: Page) {
-  await page.goto('/admin/retro?view=art');
+  await page.goto('/admin/retro');
   await page.locator('[data-sub="raconf"]').click();
   await expect(page.locator('#rcf-advice')).not.toBeEmpty();
 }
