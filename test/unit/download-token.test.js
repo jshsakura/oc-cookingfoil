@@ -50,6 +50,10 @@ after(() => { for (const s of servers) { s.closeAllConnections?.(); s.close(); }
 
 users.add("alice", "alice-password-1");
 users.add("bob", "bob-password-12");
+// Alice's two consoles: a device key beside an account names a console only when that account holds it.
+const { hashAccessKey } = await import("../../src/security/pairing.js");
+store.approveDevice(KEY_A, { label: "alice a", addedBy: "alice", accessKeyHash: hashAccessKey("alice-a-key") });
+store.approveDevice(KEY_B, { label: "alice b", addedBy: "alice", accessKeyHash: hashAccessKey("alice-b-key") });
 setGatewaysForTests(["172.17.0.1"]);
 const fakeService = {
   list: async () => [{ id: "gh-0123456789ab", name: "App", file_name: "app.nro", files: [{ path: "switch/app/app.nro", size: 8, sha256: "x" }] }],
@@ -241,7 +245,10 @@ test("a token is stable inside a quarter of its lifetime, lives at least the ful
   assert.notEqual(tokens.issue(links.forRequest(listReq({ dev: KEY_B })).who, now * 1000, ttl), a, "another console");
   assert.match(a, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/);
   const payload = JSON.parse(Buffer.from(a.split(".")[0], "base64url").toString());
-  assert.deepEqual(payload, { v: 1, sub: { acct: { kind: "user", id: "alice" }, dev: KEY_A, agent: null, paired: false, stamp: users.sessionStamp("alice"), dstamp: null }, iat, exp });
+  assert.match(payload.sub.dstamp, /^[A-Za-z0-9_-]{16}$/, "her own console, so its access key is stamped in");
+  assert.deepEqual(payload, { v: 1, sub: { acct: { kind: "user", id: "alice" }, dev: KEY_A, agent: null, paired: true, stamp: users.sessionStamp("alice"), dstamp: payload.sub.dstamp }, iat, exp });
+  // Bob sending alice's console key is not on her console: his token names none.
+  assert.equal(links.forRequest(listReq({ user: "bob" })).who.dev, null);
   assert.equal(tokens.verify(a, now * 1000).verdict, "ok");
   assert.equal(tokens.verify(a, exp * 1000).verdict, "expired");
   // A changed payload or MAC on a token shaped like ours: stale (a replaced key), never ok.
