@@ -19,7 +19,7 @@ const store = await import("../../src/security/store.js");
 const users = await import("../../src/security/users.js");
 const session = await import("../../src/security/session-token.js");
 const { hashAccessKey } = await import("../../src/security/pairing.js");
-const { stillAllowed } = await import("../../src/security/link-identity.js");
+const { stillAllowed, requester } = await import("../../src/security/link-identity.js");
 const { default: sessionGate } = await import("../../src/security/session-gate.js");
 const { consoleSendsRouter } = await import("../../src/routes/device-sends.js");
 const { consoleWishlistRouter } = await import("../../src/routes/wishlist.js");
@@ -29,6 +29,12 @@ const { default: votesRouter } = await import("../../src/routes/votes.js");
 const CONSOLE = "B2".repeat(32);
 store.approveDevice(CONSOLE, { label: "alice console", addedBy: "alice", accessKeyHash: hashAccessKey("alice-console-key") });
 store.setDeviceAdmin(CONSOLE, true);
+// Consoles no account holds: approved by the admin, one of them an admin device.
+const ADMIN_APPROVED = "C3".repeat(32);
+const ADMIN_DEVICE = "D4".repeat(32);
+store.approveDevice(ADMIN_APPROVED, { label: "admin approved", addedBy: "admin", accessKeyHash: hashAccessKey("admin-approved-key") });
+store.approveDevice(ADMIN_DEVICE, { label: "admin device", addedBy: "admin", accessKeyHash: hashAccessKey("admin-device-key") });
+store.setDeviceAdmin(ADMIN_DEVICE, true);
 
 const app = express();
 app.use(sessionGate());
@@ -73,4 +79,37 @@ test("alice's own token on her console still reaches her console's addresses", a
   assert.equal((await call("GET", "/api/device/wishlist", lane("alice"))).status, 200);
   assert.equal((await call("GET", "/api/device/sends", lane("alice"))).status, 200);
   assert.notEqual((await call("GET", "/api/admin/items/homebrew/m-0123456789ab/fields", lane("alice"))).status, 401);
+});
+
+/** A request as the gates leave it: a console proven by its access key, and an account signed in beside it. */
+const proven = (deviceKey, user) => ({ pairedDevice: deviceKey, auth: user ? { user } : undefined, get: () => undefined });
+
+test("a console proven by its access key keeps its identity when an account that does not hold it comes along", () => {
+  for (const key of [ADMIN_APPROVED, ADMIN_DEVICE]) {
+    const who = requester(proven(key, "alice"));
+    assert.deepEqual({ acct: who.acct, dev: who.dev, paired: who.paired }, { acct: null, dev: key, paired: true });
+    assert.equal(stillAllowed(who), true);
+    assert.equal(stillAllowed(requester(proven(key))), true);
+  }
+  const own = requester(proven(CONSOLE, "alice"));
+  assert.deepEqual({ acct: own.acct, dev: own.dev, paired: own.paired }, { acct: { kind: "user", id: "alice" }, dev: CONSOLE, paired: true });
+  assert.equal(stillAllowed(own), true);
+});
+
+test("consoles no account holds answer as before: suspended for no account, never revoked by the holder check", async () => {
+  // On a server with accounts such a console is held back by suspension() whatever its token says; the holder
+  // check must not turn that into "revoked", which tells the console to pair again.
+  for (const [key, withAccount] of [[ADMIN_APPROVED, false], [ADMIN_DEVICE, false], [ADMIN_DEVICE, true]]) {
+    const headers = { "X-Device-Key": key, Authorization: `Bearer ${session.issue(requester(proven(key, withAccount ? "alice" : null))).token}` };
+    const r = await call("GET", "/api/device/sends", headers);
+    assert.equal(r.status, 403);
+    assert.deepEqual(await r.json(), { error: "suspended", reason: "no-account" });
+  }
+});
+
+test("alice's admin device: her own session, made with her account beside its access key, keeps its admin rights", async () => {
+  const headers = { "X-Device-Key": CONSOLE, Authorization: `Bearer ${session.issue(requester(proven(CONSOLE, "alice"))).token}` };
+  assert.equal((await call("GET", "/api/device/sends", headers)).status, 200);
+  const items = await call("GET", "/api/admin/items/homebrew/m-0123456789ab/fields", headers);
+  assert.ok(![401, 403].includes(items.status), String(items.status));
 });

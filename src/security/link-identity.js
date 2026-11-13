@@ -59,10 +59,13 @@ function deviceStamp(dev) {
  * `paired` is whether the console is approved now; the token then requires it.
  */
 export function requester(req) {
-  const acct = accountOf(req);
-  if (!acct && !req.pairedDevice) return null;
-  // A device key in a header proves nothing: beside an account it names a console only when that account holds it,
-  // or anyone signed in could borrow another account's console by sending its key.
+  const signedIn = accountOf(req);
+  if (!signedIn && !req.pairedDevice) return null;
+  // A token never pairs an account with a console the account does not hold (stillAllowed relies on it).
+  // A console that proved itself with its access key stays the identity, and an account that does not hold it is
+  // left out. A device key in a header proves nothing: beside an account it names a console only when that
+  // account holds it, or anyone signed in could borrow another account's console by sending its key.
+  const acct = signedIn && (!req.pairedDevice || holdsConsole(signedIn, req.pairedDevice)) ? signedIn : null;
   const header = req.pairedDevice ? null : deviceKeyFromHeaders(req);
   const dev = req.pairedDevice ?? (header && acct && holdsConsole(acct, header) ? header : null);
   const agent = dev ? null : crypto.createHash("sha256").update(String(req.get("user-agent") ?? "")).digest("base64url").slice(0, AGENT_CHARS);
