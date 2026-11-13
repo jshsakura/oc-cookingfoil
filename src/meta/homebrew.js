@@ -37,6 +37,7 @@ import * as activity from "../tasks/activity.js";
 import { firmwareString } from "./cnmt-parse.js";
 import { fileKey } from "../helpers/hash-cache.js";
 import { isTrashName } from "../library/trash.js";
+import { readVpk } from "./homebrew-vpk.js";
 
 /** How often a healthy repository is asked again, unless the server sets COOK_HOMEBREW_CHECK_HOURS. */
 export const CHECK_INTERVAL_MS = 30 * 60 * 1000;
@@ -582,9 +583,48 @@ async function metadataEntries(dir) {
   return names.map((n) => `${META_DIR}/${n}`);
 }
 
+/**
+ * A folder whose manifest says platform "vita": its .vpk (the manifest's `vpk`, else the first), listed for Vita
+ * consoles only, by the title id, name and APP_VER of its param.sfo. A .vpk that is no Vita app is left out.
+ */
+async function readManualVpk(dir, folder, names, manifest, seen) {
+  const file = manifest.vpk && names.includes(manifest.vpk) ? manifest.vpk : names.filter((f) => /\.vpk$/i.test(f)).sort()[0];
+  if (!file) return null;
+  const abs = path.join(dir, file);
+  const sfo = await readVpk(abs);
+  if (!sfo) {
+    debug.error("homebrew: %s is not a Vita app", abs);
+    return null;
+  }
+  const st = await fsp.stat(abs);
+  const hash = await cachedSha256(abs, st, seen);
+  return {
+    install: null,
+    install_type: "vpk",
+    platform: "vita",
+    title_id: sfo.titleId,
+    install_path: null,
+    id: idFor("manual", folder),
+    name: sfo.name ?? folder,
+    version: sfo.version,
+    nacp_version: null,
+    author: null,
+    size: st.size,
+    hash,
+    file_name: `${sfo.titleId}.vpk`,
+    source: "manual",
+    released_at: new Date(st.mtimeMs).toISOString(),
+    repo_url: null,
+    path: abs,
+    sha256: hash,
+    key: fileKey(st),
+  };
+}
+
 async function readManual(root, folder, seen = null, held = null) {
   const dir = path.join(root, folder);
   const manifest = await withOwnMetadata(dir, await fsp.readFile(path.join(dir, MANIFEST), "utf8").then(JSON.parse).catch(() => null));
+  if (manifest?.platform === "vita") return readManualVpk(dir, folder, await fsp.readdir(dir), manifest, seen);
   // A folder dropped in without a manifest says nothing; a metadata/ holding anything the server never writes is the app's.
   const own = manifest ? manifest.own_metadata : hasOwnMetadata(await metadataEntries(dir));
   manualHomes.set(idFor("manual", folder), own ? null : dir);

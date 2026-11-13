@@ -30,6 +30,11 @@
  * app out as a game: a wide picture behind its header, screenshots under its
  * description (meta/homebrew-media.js).
 
+ * The list is the asking console's platform's: a Vita gets the apps whose folder manifest says platform "vita"
+ * (install_type "vpk": title_id, name and version from the .vpk's param.sfo, size and hash of the .vpk, the
+ * Switch's install fields null), with or without ?with=titles; a Switch, and the web with no console, get the
+ * rest. An app of the other platform answers 404 on every address under it.
+ *
  * `install_type` is "file" (copied to the card at install_path) or "title": an
  * app built as an installable NSP (nx.js apps and the like), installed from
  * download_url as the games folder's files are, with `title_id` from its cnmt.
@@ -109,6 +114,13 @@ import { iconVariant } from "../meta/icon-variant.js";
 import { ART_PIPELINE } from "../meta/artwork-version.js";
 import { IMMUTABLE, UNVERSIONED } from "../meta/image-cache.js";
 import { mountPictures } from "../helpers/send-picture.js";
+import { requestPlatform } from "../platforms/switch-only.js";
+import { vpkIcon } from "../meta/homebrew-vpk.js";
+
+/** The platform an app is for: a .vpk is a Vita's, everything else a Switch's. Pure. */
+export const platformOfApp = (e) => (e.install_type === "vpk" ? "vita" : "switch");
+/** Whose apps a request sees: a console its own platform's, the web and every request with no console a Switch's. */
+const viewerPlatform = (platform) => platform ?? "switch";
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
@@ -142,7 +154,7 @@ let manualScan = null;
  * scan of the hand-placed folder, which start() keeps fresh.
  */
 export function homebrewEnabled() {
-  return manual.entries.length > 0 || githubTracker().entries().length > 0;
+  return manual.entries.some((e) => platformOfApp(e) === "switch") || githubTracker().entries().length > 0;
 }
 
 let rescan = null;
@@ -286,7 +298,7 @@ async function iconNro(id) {
   const version = media.iconVersion(id);
   if (!version || !fs.existsSync(media.iconPath(id))) return null;
   const src = await nroSource(id);
-  if (!src) return null;
+  if (!src || /\.vpk$/i.test(src.path)) return null;
   let st;
   try {
     st = fs.statSync(src.path);
@@ -303,7 +315,7 @@ async function iconNro(id) {
 
 /** An entry as listed, its .nro's size and sha256 (and `hash`) those of the copy with the uploaded icon. */
 async function withIconNro(e) {
-  if (e.install_type === "title" || e.archive) return e;
+  if (e.install_type === "title" || e.install_type === "vpk" || e.archive) return e;
   const copy = await iconNro(e.id);
   if (!copy) return e;
   if (copy.rel) {
@@ -346,6 +358,7 @@ export const defaultService = {
   },
   /** forwarder_title_id and forwarder_key. */
   shortcutInfo(e) {
+    if (e.install_type === "vpk") return NO_SHORTCUT;
     const spec = shortcutSpec(shortcutApp(e));
     return spec ? { forwarder_title_id: spec.titleId, forwarder_key: spec.key } : NO_SHORTCUT;
   },
@@ -355,6 +368,7 @@ export const defaultService = {
       : githubTracker().cachedPath(id);
     if (!file) return null;
     if (/\.nsp$/i.test(file)) return manualNspIcon(file).catch(() => null);
+    if (/\.vpk$/i.test(file)) return vpkIcon(file);
     return (await parseAssets(file).catch(() => null))?.icon ?? null;
   },
   async download(id) {
@@ -496,7 +510,24 @@ function changedSinceScan(res, id) {
   return res.status(503).json({ error: "the files changed since they were listed; list again in a few seconds" });
 }
 
-export function homebrewRouter({ service = defaultService } = {}) {
+/** A Vita app as the list gives it: what a Vita installs it by, the Switch's install fields null. */
+const vpkRow = (e, link, voter) => ({
+  description: null,
+  ...e,
+  install_dir: null,
+  install_path: null,
+  app: null,
+  files: null,
+  archive: null,
+  bundle_url: null,
+  icon_url: iconUrlOf(e),
+  ...pictures(e.id),
+  ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
+  ...NO_SHORTCUT,
+  ...votes.fields("homebrew", e.id, voter),
+});
+
+export function homebrewRouter({ service = defaultService, platformOf = requestPlatform } = {}) {
   const router = express.Router();
 
   router.get("/", wrap(async (req, res) => {
@@ -506,7 +537,10 @@ export function homebrewRouter({ service = defaultService } = {}) {
     const titles = String(req.query.with ?? "").split(",").includes("titles");
     const lazy = readsFilesUrl(req.get("user-agent"));
     const voter = votes.voterOf(req);
-    const list = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && (titles || e.install_type !== "title")).map(({ enabled: _on, ...e }) => ({ ...(e.install_type === "title" ? {
+    const viewer = viewerPlatform(platformOf(req));
+    const apps = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && platformOfApp(e) === viewer);
+    // A Vita's list is its .vpk apps, with or without ?with=titles.
+    const list = viewer === "vita" ? apps.map(({ enabled: _on, ...e }) => vpkRow(e, link, voter)) : apps.filter((e) => titles || e.install_type !== "title").map(({ enabled: _on, ...e }) => ({ ...(e.install_type === "title" ? {
       description: null,
       install_dir: null,
       ...e,
@@ -551,7 +585,12 @@ export function homebrewRouter({ service = defaultService } = {}) {
   router.param("id", (req, res, next, id) => {
     if (!ID_RE.test(id)) return res.status(400).json({ error: "invalid homebrew id" });
     if (disabled.isDisabled(id)) return res.status(404).json({ error: "no such homebrew" });
-    next();
+    // An app of another platform is not there for this console: a Vita never gets a .nro, nor a Switch a .vpk.
+    service.list().then((list) => {
+      const e = list.find((x) => x.id === id);
+      if (e && platformOfApp(e) !== viewerPlatform(platformOf(req))) return res.status(404).json({ error: "no such homebrew" });
+      next();
+    }, next);
   });
 
   router.get("/:id/icon", wrap(async (req, res) => {

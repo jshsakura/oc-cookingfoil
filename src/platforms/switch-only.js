@@ -4,7 +4,7 @@ import * as store from "../security/store.js";
 import { DEFAULT_PLATFORM } from "./index.js";
 
 export const SWITCH_ONLY_PATHS = [
-  "/api/library", "/api/homebrew", "/api/patches", "/api/saves", "/api/title", "/api/device/sends", "/api/firmware",
+  "/api/library", "/api/patches", "/api/saves", "/api/title", "/api/device/sends", "/api/firmware",
   "/api/retro/achievements", "/games.json",
 ];
 
