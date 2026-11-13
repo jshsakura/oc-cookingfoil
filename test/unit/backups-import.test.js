@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import zlib from "node:zlib";
+import { writeFileSync } from "node:fs";
 import { makeCard, fixtureLines, FAKE_WORK, FAKE_RIF, FAKE_DB } from "./fixtures/vita-card.js";
 
 // The import tool takes the first backup of a Vita from a card copy on the server. What it stores is what the
@@ -23,7 +25,8 @@ Object.assign(process.env, env);
 const { importUx0 } = await import("../../src/backups/import.js");
 const { accountNamed } = await import("../../src/backups/account.js");
 const store = await import("../../src/backups/store.js");
-const { readSecret } = await import("../../src/backups/secrets.js");
+const { readSecret, secretCrc, secretPlace, secretName } = await import("../../src/backups/secrets.js");
+const { sealBackupSecret } = await import("../../src/security/secret-box.js");
 const { scanUx0 } = await import("../../src/backups/vita-scan.js");
 after(() => rmSync(root, { recursive: true, force: true }));
 
@@ -101,4 +104,55 @@ test("the server sets the key check and turns backups off for another key; the t
   assert.ok(JSON.parse(state({})).root, "the server's first look sets the check");
   assert.deepEqual(JSON.parse(state({ COOK_SECRET_KEY: Buffer.alloc(32, 7).toString("base64") })), { root: null, reason: "key-mismatch" });
   assert.match(run({}), /imported: units 17/);
+});
+
+test("an import notes each body's CRC-32 from the read that hashed it, and seals each secret's inside its seal", async () => {
+  const bodies = new Set();
+  for (const unit of await scanUx0(ux0)) {
+    const [latest] = await store.unitVersions(alice().id, "vita", `${unit.kind}:${unit.id}`);
+    for (const f of latest.manifest.files) bodies.add(f.sha256);
+  }
+  for (const sha of bodies) {
+    const noted = readFileSync(`${store.blobPath(alice().id, sha)}.crc32`, "utf8");
+    assert.equal(parseInt(noted, 16), zlib.crc32(readFileSync(store.blobPath(alice().id, sha))));
+  }
+  const crcs = files(backups).filter((f) => f.endsWith(".crc32"));
+  assert.equal(crcs.length, bodies.size, "one CRC a body, none for a secret");
+  assert.equal(await secretCrc(alice().id, "vita", "app:PCSE00001", 1, "sce_sys/package/work.bin"), zlib.crc32(FAKE_WORK));
+  const everything = Buffer.concat(files(backups).map((f) => readFileSync(f)));
+  for (const fake of [FAKE_WORK, FAKE_RIF, FAKE_DB]) {
+    assert.equal(everything.includes(zlib.crc32(fake).toString(16).padStart(8, "0")), false, "no secret's CRC outside its seal");
+  }
+});
+
+test("a body or a secret kept before CRCs were gets its CRC the first time one is asked for", async () => {
+  const [sha] = (await store.unitVersions(alice().id, "vita", "app:PCSE00001"))[0].manifest.files.map((f) => f.sha256);
+  const noted = `${store.blobPath(alice().id, sha)}.crc32`;
+  rmSync(noted);
+  const crc = zlib.crc32(readFileSync(store.blobPath(alice().id, sha)));
+  assert.equal(await store.blobCrc(alice().id, sha), crc);
+  assert.equal(parseInt(readFileSync(noted, "utf8"), 16), crc, "noted again for the next time");
+
+  const place = secretPlace(alice().id, "vita", "app:PCSE00001", 1, "sce_sys/package/work.bin");
+  const at = path.join(store.secretDir(alice().id, "vita", "app:PCSE00001", 1), secretName("sce_sys/package/work.bin"));
+  writeFileSync(at, sealBackupSecret(Buffer.from(FAKE_WORK), place));
+  assert.equal(await secretCrc(alice().id, "vita", "app:PCSE00001", 1, "sce_sys/package/work.bin"), zlib.crc32(FAKE_WORK));
+  const resealed = readFileSync(at);
+  assert.equal(await secretCrc(alice().id, "vita", "app:PCSE00001", 1, "sce_sys/package/work.bin"), zlib.crc32(FAKE_WORK));
+  assert.ok(readFileSync(at).equals(resealed), "sealed again with its CRC once, then read as it is");
+  assert.equal((await readSecret(alice().id, "vita", "app:PCSE00001", 1, "sce_sys/package/work.bin")).toString(), FAKE_WORK);
+});
+
+test("the sweep of unused bodies keeps a used body's CRC and takes an unused one's with it", async () => {
+  const folder = path.basename(store.accountDir(alice().id));
+  const orphan = "f".repeat(64);
+  const blob = store.blobPath(alice().id, orphan);
+  mkdirSync(path.dirname(blob), { recursive: true });
+  writeFileSync(blob, "unused");
+  await store.noteBlobCrc(alice().id, orphan, 1);
+  const before = files(backups).filter((f) => f.endsWith(".crc32")).length;
+  await store.sweepFolder(folder);
+  assert.equal(statSync(blob, { throwIfNoEntry: false }), undefined);
+  assert.equal(statSync(`${blob}.crc32`, { throwIfNoEntry: false }), undefined);
+  assert.equal(files(backups).filter((f) => f.endsWith(".crc32")).length, before - 1);
 });

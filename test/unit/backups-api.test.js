@@ -281,3 +281,21 @@ test("the admin sees each account's backups as counts only, and each console's p
   assert.equal(platformOf(ALICE_VITA["X-Device-Key"]), "vita");
   assert.equal(platformOf(ALICE_SWITCH["X-Device-Key"]), "switch");
 });
+
+test("an upload notes each body's CRC-32 beside it and seals a secret's inside its seal", async () => {
+  const zlib = await import("node:zlib");
+  const { accountNamed } = await import("../../src/backups/account.js");
+  const store = await import("../../src/backups/store.js");
+  const { secretCrc } = await import("../../src/backups/secrets.js");
+  const body = "a body to check its crc";
+  const version = await backup(ALICE_VITA, [file("crc-check.bin", body)], [WORK], { "crc-check.bin": body });
+  const alice = accountNamed("alice").id;
+  const noted = readFileSync(`${store.blobPath(alice, sha(body))}.crc32`, "utf8");
+  assert.equal(parseInt(noted, 16), zlib.crc32(body));
+  assert.equal(await store.blobCrc(alice, sha(body)), zlib.crc32(body));
+  assert.equal(await secretCrc(alice, "vita", KEY, version, WORK.path), zlib.crc32(FAKE_WORK));
+  const workCrc = zlib.crc32(FAKE_WORK).toString(16).padStart(8, "0");
+  for (const f of readdirSync(backups, { recursive: true, withFileTypes: true }).filter((e) => e.isFile())) {
+    assert.equal(readFileSync(path.join(f.parentPath, f.name), "latin1").includes(workCrc), false, "a secret's CRC is in no file outside its seal");
+  }
+});
