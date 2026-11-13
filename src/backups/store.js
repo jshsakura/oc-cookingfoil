@@ -61,7 +61,13 @@ function keyState(root) {
   }
   if (kept) return kept === id ? "ok" : "key-mismatch";
   if (!writeKeyCheck) return "key-missing";
-  fs.writeFileSync(file, `${id}\n`, { mode: 0o600, flag: "wx" });
+  try {
+    fs.writeFileSync(file, `${id}\n`, { mode: 0o600, flag: "wx" });
+  } catch (err) {
+    // Another process wrote it first: its value is the one to agree with.
+    if (err.code !== "EEXIST") throw err;
+    return fs.readFileSync(file, "utf8").trim() === id ? "ok" : "key-mismatch";
+  }
   return "ok";
 }
 
