@@ -67,6 +67,9 @@ export function makeCard(at) {
   put(p("pspemu/ISO/readme.txt"), "skipped");
   put(p("pspemu/PSP/GAME/SLPM00001/EBOOT.PBP"), "pbp");
   put(p("pspemu/PSP/SAVEDATA/ULJS00001/DATA.BIN"), "psp-save");
+  put(p("pspemu/PSP/SAVEDATA/ULJS00001DATA00/DATA.BIN"), "psp-save-0");
+  put(p("pspemu/PSP/SAVEDATA/ULJS00001SYS/PARAM.SFO"), "psp-sfo");
+  put(p("pspemu/PSP/SAVEDATA/SYSDIR/x.bin"), "skipped");
   put(p("pspemu/seplugins/POPS.txt"), "pops");
   put(p("data/retroarch/retroarch.cfg"), "cfg");
   put(p("data/retroarch/config/Snes9x/Game.cfg"), "core cfg");
