@@ -42,7 +42,7 @@ test("a console an account approves by QR, or a sign-in approves, is told; the a
   assert.equal(told().length, 2, "the admin is not told of their own approval");
 });
 
-test("the approved page offers a way home in every language", () => {
+test("the approved page offers a way back to the dashboard in every language", () => {
   for (const lang of ["ko", "en", "ja", "zh"]) assert.match(devicePage({ lang, view: "done" }), /<a class="button" href="\/">/, lang);
-  assert.match(devicePage({ lang: "ko", view: "done" }), /홈으로 갑니다/);
+  assert.match(devicePage({ lang: "ko", view: "done" }), /대시보드로 돌아가기/);
 });
