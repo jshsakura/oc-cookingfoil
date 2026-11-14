@@ -40,6 +40,12 @@ const VPK = zipStore([
 put("tool/tool.nro", fakeNro("Tool", "1.4.0"));
 put("freetv/FreeTV.vpk", VPK);
 put("freetv/.cookingfoil.json", JSON.stringify({ platform: "vita" }));
+const RETRO = zipStore([
+  { name: "eboot.bin", data: Buffer.from("retro") },
+  { name: "sce_sys/param.sfo", data: sfo([["TITLE", "RetroArch"], ["TITLE_ID", "RETROVITA"], ["APP_VER", "00.00"], ["CATEGORY", "gd"]]) },
+], new Date(2024, 0, 1), { deflate: true });
+put("retroarch/RetroArch.vpk", RETRO);
+put("retroarch/.cookingfoil.json", JSON.stringify({ platform: "vita", display_version: " 1.22.2 " }));
 put("broken/broken.vpk", "not a zip");
 put("broken/.cookingfoil.json", JSON.stringify({ platform: "vita" }));
 
@@ -77,8 +83,9 @@ const list = async (headers, query = "") => (await (await fetch(`${base}/api/hom
 
 test("a Vita gets its .vpk apps only, with what it installs them by, and without ?with=titles", async () => {
   const rows = await list(VITA);
-  assert.equal(rows.length, 1, "the Switch .nro and the .vpk that is no Vita app are left out");
-  const [app] = rows;
+  assert.deepEqual(rows.map((r) => r.title_id).sort(), ["FREETV001", "RETROVITA"], "the Switch .nro and the .vpk that is no Vita app are left out");
+  const app = rows.find((r) => r.title_id === "FREETV001");
+  assert.equal(app.display_version, null, "no display version unless the folder gives one");
   assert.equal(app.install_type, "vpk");
   assert.equal(app.title_id, "FREETV001");
   assert.equal(app.name, "Free TV");
@@ -91,8 +98,15 @@ test("a Vita gets its .vpk apps only, with what it installs them by, and without
   assert.deepEqual(await list(VITA, "?with=titles"), rows);
 });
 
+test("an app whose APP_VER says nothing shows the folder's display version, and is still installed by APP_VER", async () => {
+  const retro = (await list(VITA)).find((r) => r.title_id === "RETROVITA");
+  assert.equal(retro.version, "00.00");
+  assert.equal(retro.display_version, "1.22.2");
+  assert.equal(retro.hash, crypto.createHash("sha256").update(RETRO).digest("hex"));
+});
+
 test("a Vita takes its .vpk whole or in pieces, under the ETag of its hash, and its icon", async () => {
-  const [app] = await list(VITA);
+  const app = (await list(VITA)).find((r) => r.title_id === "FREETV001");
   const whole = await fetch(base + app.download_url, { headers: VITA });
   assert.equal(whole.status, 200);
   assert.equal(whole.headers.get("etag"), `"${app.hash}"`);
@@ -104,7 +118,7 @@ test("a Vita takes its .vpk whole or in pieces, under the ETag of its hash, and 
 });
 
 test("a Switch, and the web with no console, get the Switch apps only, and no .vpk to fetch", async () => {
-  const [vpk] = await list(VITA);
+  const vpk = (await list(VITA)).find((r) => r.title_id === "FREETV001");
   for (const [who, headers] of [["a Switch", SWITCH], ["the web", WEB]]) {
     const res = await fetch(`${base}/api/homebrew?with=titles`, { headers });
     assert.equal(res.status, 200, `${who}: ${await res.clone().text()}`);
