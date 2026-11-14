@@ -48,6 +48,7 @@ const TEXT = {
     optional: "(선택)",
     approve: "연결을 승인합니다",
     doneTitle: "연결을 승인했습니다",
+    home: "홈으로 갑니다",
     doneLead: "기기가 곧 자동으로 서버에 연결합니다. 이 창은 닫아도 됩니다.",
     expiredTitle: "연결 시간이 지났습니다",
     expiredLead: "기기에서 새 QR을 띄워 다시 찍습니다.",
@@ -87,6 +88,7 @@ const TEXT = {
     optional: "(optional)",
     approve: "Approve the connection",
     doneTitle: "Connection approved",
+    home: "Go to home",
     doneLead: "The console connects on its own in a moment. You can close this page.",
     expiredTitle: "This link has expired",
     expiredLead: "Show a new QR on the console and scan it again.",
@@ -126,6 +128,7 @@ const TEXT = {
     optional: "（任意）",
     approve: "接続を承認します",
     doneTitle: "接続を承認しました",
+    home: "ホームへ移動します",
     doneLead: "本体はまもなく自動でサーバーに接続します。このページは閉じてかまいません。",
     expiredTitle: "接続の期限が切れました",
     expiredLead: "本体に新しい QR を表示して、もう一度読み取ります。",
@@ -165,6 +168,7 @@ const TEXT = {
     optional: "（可选）",
     approve: "批准连接",
     doneTitle: "已批准连接",
+    home: "前往首页",
     doneLead: "主机很快会自动连接到服务器。可以关闭此页面。",
     expiredTitle: "连接已过期",
     expiredLead: "请在主机上显示新的二维码并重新扫描。",
@@ -284,7 +288,7 @@ catch{error.textContent=E.net;}finally{button.disabled=false;}});${SIGN_OUT_SCRI
 export function devicePage({ lang = "ko", view = "code", code = "", token = "", user = "", csrf = "", repair = null } = {}) {
   const t = textFor(lang);
   if (view === "expired") return shell(lang, t.expiredTitle, `<p>${escapeHtml(t.expiredLead)}</p>`);
-  if (view === "done") return shell(lang, t.doneTitle, `<p>${escapeHtml(t.doneLead)}</p>${whoBar(t, user, csrf)}`, SIGN_OUT_SCRIPT);
+  if (view === "done") return shell(lang, t.doneTitle, `<p>${escapeHtml(t.doneLead)}</p><a class="button" href="/">${icon("home")}<span>${escapeHtml(t.home)}</span></a>${whoBar(t, user, csrf)}`, SIGN_OUT_SCRIPT);
   const name = `<div class="field"><label for="label">${escapeHtml(t.nameLabel)} <span>${escapeHtml(t.optional)}</span></label><input id="label" maxlength="64" placeholder="${escapeHtml(t.namePlaceholder)}" autocomplete="off"></div>`;
   const approve = `<button type="submit">${icon("check")}<span>${escapeHtml(t.approve)}</span></button>`;
   const body = view === "confirm"
