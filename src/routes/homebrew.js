@@ -195,9 +195,11 @@ export async function refreshManualApp(folder) {
 
 /**
  * Whether a kept list predates what the server now serves, so it is read again on start: file keys
- * without ctime (a same-size overwrite could keep an old hash) or no nacp_version. Hashes stay cached. Pure.
+ * without ctime (a same-size overwrite could keep an old hash), no nacp_version, or a Vita app with no
+ * display_version (listed before the server read it). Hashes stay cached. Pure.
  */
 export const keptListOutdated = (entries) => entries.some((e) => !("nacp_version" in e)
+  || (e.install_type === "vpk" && !("display_version" in e))
   || [e.key, ...(e.files ?? []).map((f) => f.key)].some((k) => k && k.split(":").length === 3));
 
 /** The ids of the apps in `after` whose files differ from what `before` listed. Pure. */
