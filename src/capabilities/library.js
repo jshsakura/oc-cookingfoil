@@ -36,6 +36,24 @@ const GUIDE = obj({
 
 export const libraryCapabilities = [
   defineCapability({
+    id: "metadata_review",
+    area: "library",
+    title: "Metadata to review",
+    description: "Library games whose name is garbled, missing or has no Korean name, patches for a game the server does not know, and how many retro games lack box art or wait for a Korean name decision.",
+    input: { type: "object", properties: {} },
+    output: obj({
+      game: obj({ total: int(), items: arr(obj({ titleId: str(), name: str(), reasons: arr(oneOf(["garbled", "noName", "noKo"])) }), "at most 500") }),
+      retro: obj({ missingArt: int("retro games without box art"), guesses: int("Korean names waiting for retro_ko_name_decide") }),
+      patch: obj({ total: int(), items: arr(obj({ id: str(), titleId: str(), name: str() }), "at most 500") }),
+    }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/metadata/review" },
+    handler: async () => {
+      const { metadataReview } = await import("../routes/admin/metadata-api.js");
+      return metadataReview();
+    },
+  }),
+  defineCapability({
     id: "library_storage_guide",
     area: "library",
     title: "Storage guide",

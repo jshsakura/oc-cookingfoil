@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { shot } from './shots';
 
-// The retro tab's "what the library needs": BIOS chips go grey, amber, green with the files the
+// 시스템 › 필수 파일, "what the library needs": BIOS chips go grey, amber, green with the files the
 // operator puts in retroarch/system/; cores are a quiet line, since the server supplies them.
 // The web server's retro folder (test/web/server.mjs) holds Mega Drive games and Gunbird.
 
@@ -14,8 +14,8 @@ const placed = path.join(system, 'BIOS_MD.BIN');
 async function openRetro(page: Page, lang = 'ko') {
   await page.evaluate((l) => { localStorage.setItem('cookingfoil:lang', l); }, lang);
   await page.reload();
-  await page.goto('/admin/retro?view=art');
-  await expect(page.locator('#ra-bios .rq-note')).toBeVisible();
+  await page.goto('/admin/system/requirements');
+  await expect(page.locator('#rq-page .rq-note')).toBeVisible();
 }
 
 test.afterEach(() => fs.rmSync(placed, { force: true }));
@@ -24,7 +24,7 @@ test('an optional BIOS chip turns from grey to amber when a file with its name b
   fs.rmSync(placed, { force: true });
   await signIn(page);
   await openRetro(page);
-  const bios = page.locator('#ra-bios');
+  const bios = page.locator('#rq-page');
   await expect(bios.locator('.rq-note')).toContainText('.nro');
   await expect(bios.locator('.rq-ok')).toHaveText('✓ 라이브러리의 게임에 필요한 BIOS 가 모두 있습니다.');
   const done = bios.locator('#rq-done');
@@ -43,7 +43,7 @@ test('an optional BIOS chip turns from grey to amber when a file with its name b
   await expect(placedChip).toHaveClass(/\bmismatch\b/);
   await expect(placedChip).toContainText('BIOS_MD.BIN');
   await expect(placedChip).toHaveAttribute('aria-label', 'BIOS_MD.BIN, 해시가 다릅니다, 선택');
-  await shot(page.locator('#ra-bios'), { path: 'out/web/admin-retro-requirements.png' });
+  await shot(page.locator('#rq-page'), { path: 'out/web/admin-retro-requirements.png' });
 });
 
 const NEEDS = {
@@ -69,10 +69,7 @@ const NEEDS = {
 };
 
 test('the needs show in all four languages, missing systems first, a failed core warned, the rest folded', async ({ page }) => {
-  await page.route('**/admin/api/retro-art', async (route) => {
-    const body = await (await route.fetch()).json();
-    await route.fulfill({ json: { ...body, requirements: NEEDS, unread: [], shadowed: [] } });
-  });
+  await page.route('**/admin/api/retro/requirements', (route) => route.fulfill({ json: NEEDS }));
   await signIn(page);
   const words: Record<string, { nro: RegExp; core: string; parents: string }> = {
     ko: { nro: /PC용 RetroArch/, core: '서버가 자동으로 설치합니다', parents: '부모 세트 1개 없음' },
@@ -82,7 +79,7 @@ test('the needs show in all four languages, missing systems first, a failed core
   };
   for (const [lang, w] of Object.entries(words)) {
     await openRetro(page, lang);
-    const bios = page.locator('#ra-bios');
+    const bios = page.locator('#rq-page');
     await expect(bios.locator('.rq-note')).toHaveText(w.nro);
     const need = bios.locator('#rq-need .rq-card');
     await expect(need).toHaveCount(2);
@@ -105,7 +102,7 @@ test('the needs show in all four languages, missing systems first, a failed core
     if (lang === 'en') await shot(bios, { path: 'out/web/admin-retro-requirements-en.png' });
   }
   // Nothing here offers a firmware or core download.
-  await expect(page.locator('#ra-bios a')).toHaveCount(0);
+  await expect(page.locator('#rq-page a')).toHaveCount(0);
 });
 
 const core = (name: string, state: string, extra: Record<string, unknown> = {}) => ({
@@ -125,14 +122,11 @@ test('every core state reads as words, a new one too, and a BIOS of another dump
       ...states.map((state, i) => sys(`s${i}`, [core(`c${i}`, state, state === 'failed' ? { reason: 'download', message: 'HTTP 500' } : state === 'missing' ? { reason: 'a-code-nobody-knows' } : {})])),
     ],
   };
-  await page.route('**/admin/api/retro-art', async (route) => {
-    const body = await (await route.fetch()).json();
-    await route.fulfill({ json: { ...body, requirements: needs, unread: [], shadowed: [] } });
-  });
+  await page.route('**/admin/api/retro/requirements', (route) => route.fulfill({ json: needs }));
   await signIn(page);
   for (const lang of ['ko', 'en', 'ja', 'zh']) {
     await openRetro(page, lang);
-    const bios = page.locator('#ra-bios');
+    const bios = page.locator('#rq-page');
     await bios.locator('#rq-done summary').click();
     const text = await bios.innerText();
     expect(text).not.toMatch(/\b(cs|reason)\.[a-z-]+/);

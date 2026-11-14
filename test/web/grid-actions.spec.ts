@@ -7,7 +7,7 @@ test('admin table buttons fit their cells on a narrow screen', async ({ page }) 
   await page.setViewportSize({ width: 820, height: 900 });
   await signIn(page);
   let checked = 0;
-  for (const at of ['#devices', '#users', '/homebrew?tab=apps', '/retro?view=art', '#nsz', '/patches?tab=list', '#logs']) {
+  for (const at of ['#devices', '#users', '/homebrew?tab=apps', '/metadata/artwork?kind=retro', '#nsz', '/patches?tab=list', '#logs']) {
     await page.goto('/admin' + at);
     await page.waitForTimeout(900);
     const report = await page.evaluate(() => {

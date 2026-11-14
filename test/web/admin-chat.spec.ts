@@ -25,7 +25,9 @@ test('the chat is a full-height chat screen: off state, settings sheet, greeting
   await page.request.post('/admin/api/server-settings', { data: { chatEnabled: false } });
   await page.request.post('/admin/api/integrations/chat/clear');
   await page.goto('/admin/chat');
-  await expect(page.locator('a.adm-item[href="/admin/chat"]').first()).toHaveAttribute('aria-current', 'page');
+  // The chat has no sidebar row; the header still names it.
+  await expect(page.locator('aside.adm-side a.adm-item[href="/admin/chat"]')).toHaveCount(0);
+  await expect(page.locator('#adm-crumb')).toHaveText('AI 채팅');
 
   // Off: a centered note with a way to the settings, no message box, no accordion or button row.
   await expect(page.locator('#ch-col .ch-hello')).toContainText('채팅이 꺼져 있습니다');
