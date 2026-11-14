@@ -49,6 +49,7 @@
  * per run with every such file): `alerted` marks it, and it is told again only
  * after a check that found it not damaged.
  */
+import { timerDelay } from "../helpers/timer-delay.js";
 import fsp from "fs/promises";
 import path from "path";
 import debug from "../debug.js";
@@ -287,7 +288,7 @@ export function createVerifyQueue({
     if (wakeTimer && wakeAt <= at) return;
     clearTimeout(wakeTimer);
     wakeAt = at;
-    wakeTimer = setTimeout(() => { wakeTimer = null; pump(); }, Math.max(0, ms));
+    wakeTimer = setTimeout(() => { wakeTimer = null; pump(); }, timerDelay(ms));
     wakeTimer.unref?.();
   }
 
@@ -384,8 +385,10 @@ export function createVerifyQueue({
     const st = await stat(abs(rel)).catch(() => null);
     if (!st?.isFile()) { pending.delete(rel); return; }
     if (fileInUse(rel)) { later.set(rel, now() + busyRetryMs); return; }
+    // A file being written has a time near now; one dated far ahead (a copy that kept a bogus time) is checked,
+    // not held back until that day comes.
     const age = now() - st.mtimeMs;
-    if (age < recentWriteMs) { later.set(rel, now() + (recentWriteMs - age)); return; }
+    if (Math.abs(age) < recentWriteMs) { later.set(rel, now() + (recentWriteMs - Math.max(0, age))); return; }
     later.delete(rel);
     const base = row.mtimeMs == null ? { ...row, size: st.size, mtimeMs: st.mtimeMs } : restat(row, st);
     const hash = Boolean(base.wantHash && !base.hashDone);
