@@ -4,6 +4,8 @@
  *
  *   GET  /                 the account's units on this console's platform (ETag)
  *   GET  /unit?key=        a unit's versions with their manifests
+ *   GET  /games            a Vita's account's games, told from its backups (backups/games.js; ETag)
+ *   GET  /games/:id/:art   a game's icon, cover or background, as a shrunk jpg (ETag)
  *   POST /begin            { key, manifest } → { upload, need, needSecrets }
  *   PUT  /upload/:id       ?path=&offset=  a file's bytes from offset (a secret whole, at offset 0)
  *   HEAD /upload/:id       ?path=          X-Received: how much of it the server holds
@@ -23,6 +25,7 @@ import { accountOf } from "../security/link-identity.js";
 import { parseUnitKey } from "../backups/manifest.js";
 import * as store from "../backups/store.js";
 import * as uploads from "../backups/uploads.js";
+import { ART_SIZES, artPath, listGames, noteUnitQuietly, gameRow, sendArt } from "../backups/games.js";
 import { readSecret, SecretLostError } from "../backups/secrets.js";
 import * as devices from "../security/store.js";
 import debug from "../debug.js";
@@ -112,6 +115,23 @@ export default function backupsRouter() {
     res.set({ "Cache-Control": "private, no-cache", ETag: etag });
     if (req.get("if-none-match") === etag) return res.status(304).end();
     res.type("application/json").send(body);
+  }));
+
+  router.get("/games", handle(async (req, res) => {
+    const c = who(req);
+    const games = c.platform === "vita" ? (await listGames(c.accountId)).map((g) => gameRow(g)) : [];
+    const body = JSON.stringify({ games });
+    const etag = `"${crypto.createHash("sha1").update(body).digest("base64url")}"`;
+    res.set({ "Cache-Control": "private, no-cache", ETag: etag });
+    if (req.get("if-none-match") === etag) return res.status(304).end();
+    res.type("application/json").send(body);
+  }));
+
+  router.get("/games/:id/:art", handle(async (req, res) => {
+    const c = who(req);
+    if (c.platform !== "vita" || !(req.params.art in ART_SIZES)) throw new BackupError(404, "unit");
+    const game = (await listGames(c.accountId)).find((g) => g.id === req.params.id);
+    sendArt(req, res, game && artPath(c.accountId, game.art[req.params.art]));
   }));
 
   router.get("/unit", handle(async (req, res) => {
@@ -209,6 +229,7 @@ export default function backupsRouter() {
     const version = req.body?.version == null ? null : versionOf(req.body.version);
     if (req.body?.version != null && version == null) throw new BackupError(404, "unit");
     if (!(await store.removeUnit(c.accountId, c.platform, key, version))) throw new BackupError(404, "unit");
+    await noteUnitQuietly(c.accountId, c.platform, key);
     res.json({ ok: true });
   }));
 

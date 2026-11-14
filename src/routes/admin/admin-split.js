@@ -46,7 +46,7 @@ import { PLUGINS_CSS, PLUGINS_HTML, PLUGINS_SCRIPT } from "./plugins-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SCRIPT, LOGS_SECURITY_HTML } from "./logs-pages.js";
 import { PEOPLE_SCRIPT } from "./people-script.js";
-import { CRED_DIALOG_HTML, devicesHtml, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
+import { BACKUP_GAMES_CSS, CRED_DIALOG_HTML, devicesHtml, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
 import { ALERTS_CSS, ALERTS_SCRIPT, ALERTS_HTML } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
@@ -188,6 +188,7 @@ export const SPLIT_PAGES = {
   }),
   // Second bundle: the people pages carry their own credential and IP dialogs.
   "/admin/users": bundle({
+    css: BACKUP_GAMES_CSS,
     body: USERS_HTML + CRED_DIALOG_HTML + IP_DIALOG_HTML, script: PEOPLE_SCRIPT,
     init: "admInterval(loadPeople,15000);",
   }),

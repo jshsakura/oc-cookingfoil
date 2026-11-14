@@ -17,6 +17,7 @@ import * as envs from "../helpers/envs.js";
 import { normalizeManifest } from "./manifest.js";
 import * as store from "./store.js";
 import { sealSecret, secretName, secretPlace } from "./secrets.js";
+import { noteUnitQuietly } from "./games.js";
 
 const { BackupError } = store;
 export const UPLOAD_MAX_AGE_MS = 24 * 3600_000;
@@ -229,6 +230,7 @@ export async function finish({ accountId, platform, id }) {
   if (meta.manifest.secrets.length) await fsp.mkdir(into, { recursive: true });
   for (const f of meta.manifest.secrets) await fsp.rename(sealedFile(accountId, id, f.path), path.join(into, secretName(f.path)));
   const version = await store.commitVersion(accountId, platform, meta.key, meta.version, meta.manifest, meta.by);
+  await noteUnitQuietly(accountId, platform, meta.key);
   await fsp.rm(path.dirname(metaFile(accountId, id)), { recursive: true, force: true });
   return { key: meta.key, version };
 }

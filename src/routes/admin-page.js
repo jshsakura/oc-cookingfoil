@@ -25,7 +25,8 @@
  * operator hasn't supplied one, so "I can't get into /admin, so I can't approve
  * anything" is no longer a reachable state.
  */
-import { backupStats } from "../backups/stats.js";
+import { backupGameArt, backupGames, backupStats } from "../backups/stats.js";
+import { sendArt } from "../backups/games.js";
 import { bindingOf, giveToAccount, ownerChoices, suspension } from "../security/device-owner.js";
 import { pluginEvents } from "../plugins/instance.js";
 import { gravatarUrl } from "../helpers/gravatar.js";
@@ -501,6 +502,24 @@ export default function adminPageRouter() {
     if (!requireSession(req, res)) return;
     try {
       res.set("Cache-Control", "no-store").json(await backupStats());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Each account's Vita and PSP games, told from its backups, with their pictures (backups/games.js).
+  router.get("/api/backups/games", async (req, res, next) => {
+    if (!requireSession(req, res)) return;
+    try {
+      res.set("Cache-Control", "no-store").json(await backupGames());
+    } catch (err) {
+      next(err);
+    }
+  });
+  router.get("/api/backups/games/:folder/:id/:art", async (req, res, next) => {
+    if (!requireSession(req, res)) return;
+    try {
+      sendArt(req, res, await backupGameArt(req.params.folder, req.params.id, req.params.art));
     } catch (err) {
       next(err);
     }
