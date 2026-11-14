@@ -21,6 +21,7 @@ import * as users from "./users.js";
 import * as googleAccounts from "./google-accounts.js";
 import { deviceKeyFromHeaders } from "./pairing.js";
 import { passwordOwnerOk } from "./password-policy.js";
+import { deviceOwner } from "./device-owner.js";
 
 const AGENT_CHARS = 12;
 
@@ -58,9 +59,15 @@ function deviceStamp(dev) {
  * `paired` is whether the console is approved now; the token then requires it.
  */
 export function requester(req) {
-  const acct = accountOf(req);
-  if (!acct && !req.pairedDevice) return null;
-  const dev = req.pairedDevice ?? deviceKeyFromHeaders(req);
+  const signedIn = accountOf(req);
+  if (!signedIn && !req.pairedDevice) return null;
+  // A token never pairs an account with a console the account does not hold (stillAllowed relies on it).
+  // A console that proved itself with its access key stays the identity, and an account that does not hold it is
+  // left out. A device key in a header proves nothing: beside an account it names a console only when that
+  // account holds it, or anyone signed in could borrow another account's console by sending its key.
+  const acct = signedIn && (!req.pairedDevice || holdsConsole(signedIn, req.pairedDevice)) ? signedIn : null;
+  const header = req.pairedDevice ? null : deviceKeyFromHeaders(req);
+  const dev = req.pairedDevice ?? (header && acct && holdsConsole(acct, header) ? header : null);
   const agent = dev ? null : crypto.createHash("sha256").update(String(req.get("user-agent") ?? "")).digest("base64url").slice(0, AGENT_CHARS);
   const paired = Boolean(dev && store.isDeviceApproved(dev));
   return { acct, dev: dev ?? null, agent, paired, stamp: acct ? accountStamp(acct) : null, dstamp: paired ? deviceStamp(dev) : null };
@@ -83,9 +90,17 @@ export function keyReplaced(who) {
   return stillAllowed({ ...who, dstamp: deviceStamp(who.dev) });
 }
 
+/** Whether the account `acct` ({ kind, id }) holds the approved console `dev`. */
+function holdsConsole(acct, dev) {
+  const o = deviceOwner(dev);
+  return o?.state === "bound" && o.owner.kind === acct.kind && o.owner.id === acct.id;
+}
+
 /** Whether tokens made for `who` may still be used. */
 export function stillAllowed(who) {
   if (!who || (!who.acct && !who.paired)) return false;
   if (who.acct && (!accountAllowed(who.acct) || accountStamp(who.acct) !== (who.stamp ?? null))) return false;
+  // An account's token made on a console stays good only while that account holds the console.
+  if (who.acct && who.dev && !holdsConsole(who.acct, who.dev)) return false;
   return !who.paired || (store.isDeviceApproved(who.dev) && deviceStamp(who.dev) === (who.dstamp ?? null));
 }

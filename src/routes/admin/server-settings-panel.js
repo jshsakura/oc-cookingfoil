@@ -26,7 +26,7 @@ export const SERVER_SETTINGS_CSS = `
 `;
 
 export const SERVER_SETTINGS_SCRIPT = /* js */ `
-const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLogin'),dashboard:()=>topText('ss.grpDashboard'),'prod.keys':'prod.keys',gameinfo:()=>topText('ss.grpGameinfo'),download:()=>topText('ss.grpDownload'),restart:()=>topText('ss.grpRestart'),sync:()=>topText('ss.grpSync'),inbox:()=>topText('ss.grpInbox'),names:()=>topText('ss.grpNames'),lookups:()=>topText('ss.grpLookups'),firmware:()=>topText('ss.grpFirmware')};
+const SS_TITLES={device:()=>topText('ss.grpDevice'),login:()=>topText('ss.grpLogin'),dashboard:()=>topText('ss.grpDashboard'),'prod.keys':'prod.keys',gameinfo:()=>topText('ss.grpGameinfo'),download:()=>topText('ss.grpDownload'),restart:()=>topText('ss.grpRestart'),sync:()=>topText('ss.grpSync'),inbox:()=>topText('ss.grpInbox'),backups:()=>topText('ss.grpBackups'),names:()=>topText('ss.grpNames'),lookups:()=>topText('ss.grpLookups'),firmware:()=>topText('ss.grpFirmware')};
 const SS_GROUPS=[
   ['device',[
     ['devicePairing','bool',()=>topText('ss.f.devicePairing'),()=>topText('ss.f.devicePairingD')],
@@ -46,6 +46,10 @@ const SS_GROUPS=[
     ['inboxEnabled','bool',()=>topText('ss.f.inboxEnabled'),()=>topText('ss.f.inboxEnabledD')],
     ['inboxMaxBytes','gb',()=>topText('ss.f.inboxMaxBytes'),()=>topText('ss.f.inboxMaxBytesD')],
     ['inboxQuotaBytes','gb',()=>topText('ss.f.inboxQuotaBytes'),()=>topText('ss.f.inboxQuotaBytesD')],
+  ]],
+  ['backups',[
+    ['consoleBackupKeep',[1,2,3,5,10,20].map((n)=>[String(n),()=>topFill('ss.keepN',{n})]),()=>topText('ss.f.consoleBackupKeep'),()=>topText('ss.f.consoleBackupKeepD')],
+    ['consoleBackupQuotaBytes','gb0',()=>topText('ss.f.consoleBackupQuotaBytes'),()=>topText('ss.f.consoleBackupQuotaBytesD')],
   ]],
   ['names',[
     ['extractIcons',[['missing',()=>topText('ss.iconsMissing')],['all',()=>topText('ss.iconsAll')],['off',()=>topText('ss.iconsOff')]],()=>topText('ss.f.extractIcons'),()=>topText('ss.f.extractIconsD')],
@@ -93,7 +97,7 @@ const SS_GROUPS=[
 const ssText=(v)=>typeof v==='function'?v():v;
 const GIB=1024**3;
 const ssGb=(v)=>String(Math.round(v/GIB*1000)/1000);
-const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':typeof v==='boolean'?(v?topText('ov.on'):topText('ov.off')):ssText(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1]||v)||topText('ss.empty');
+const ssShow=(k,v)=>Array.isArray(v)?v.join(','):SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb'?ssGb(v)+' GB':SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1]==='gb0'?(v?ssGb(v)+' GB':topText('ss.unlimited')):typeof v==='boolean'?(v?topText('ov.on'):topText('ov.off')):ssText(SS_GROUPS.flatMap((g)=>g[1]).find((r)=>r[0]===k)?.[1].find?.((o)=>o[0]===String(v))?.[1]||v)||topText('ss.empty');
 // The overview owns the health summary; a standalone settings page has none.
 function ssRefreshHealth(){if(typeof loadHealth==='function')loadHealth();}
 async function ssSave(body,msg,undo){try{const d=await api('/admin/api/server-settings',{method:'POST',body});if(undo)toastUndo(msg,undo);else toast(msg||topText('pp.saved'));ssRender(d);ssRefreshHealth();}
@@ -103,9 +107,10 @@ function ssControl(key,kind,s,ph){
   if(kind==='bool'){const w=el('label',null,'ss-switch');const b=el('input');b.type='checkbox';b.checked=s.value===true;b.setAttribute('aria-label',key);
     const flip=(on)=>ssSave({[key]:on},topText((on?'ss.on.':'ss.off.')+key),on===b.checked?()=>flip(!on):null);
     b.addEventListener('change',()=>flip(b.checked));w.append(b,el('span'));return w;}
-  if(kind==='gb'){const i=el('input');i.type='number';i.min='0.001';i.step='any';i.inputMode='decimal';i.value=ssGb(s.value);i.setAttribute('aria-label',key);
+  if(kind==='gb'||kind==='gb0'){const zero=kind==='gb0';const i=el('input');i.type='number';i.min=zero?'0':'0.001';i.step='any';i.inputMode='decimal';i.value=ssGb(s.value);i.setAttribute('aria-label',key);
     const unit=el('span','GB','muted');
-    i.addEventListener('change',()=>{const v=Math.round(Number(i.value)*GIB);if(!(v>0)){toast(topText('ss.sizePositive'));i.value=ssGb(s.value);return;}ssSave({[key]:v});});
+    // A quota of 0 is no limit; any other size field needs more than nothing.
+    i.addEventListener('change',()=>{const v=Math.round(Number(i.value)*GIB);if(zero?!(v>=0)||i.value==='':!(v>0)){toast(topText(zero?'ss.sizeZeroOrMore':'ss.sizePositive'));i.value=ssGb(s.value);return;}ssSave({[key]:v});});
     const w=el('span');w.style.cssText='display:flex;align-items:center;gap:8px;width:100%';w.append(i,unit);return w;}
   if(kind==='sec'){const i=el('input');i.type='number';i.min='1';i.step='1';i.inputMode='numeric';i.value=String(s.value);i.setAttribute('aria-label',key);
     i.addEventListener('change',()=>{if(!/^[1-9][0-9]*$/.test(i.value)){toast(topText('ss.secPositive'));i.value=String(s.value);return;}ssSave({[key]:i.value});});

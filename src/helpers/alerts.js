@@ -39,6 +39,7 @@ import { downloadSecurityHistory } from "./download-security-history.js";
 /** What can be told, with what the admin page says about each; `on` is the default. */
 export const EVENTS = {
   device: { label: translator("ko")("event.device"), desc: translator("ko")("eventDesc.device"), on: true },
+  deviceApproved: { label: translator("ko")("event.deviceApproved"), desc: translator("ko")("eventDesc.deviceApproved"), on: true },
   account: { label: translator("ko")("event.account"), desc: translator("ko")("eventDesc.account"), on: true },
   lockout: { label: translator("ko")("event.lockout"), desc: translator("ko")("eventDesc.lockout"), on: true },
   probe: { label: translator("ko")("event.probe"), desc: translator("ko")("eventDesc.probe"), on: true },

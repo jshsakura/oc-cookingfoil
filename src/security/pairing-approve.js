@@ -8,6 +8,7 @@ import { generateAccessKey, hashAccessKey, stageAccessKeyDelivery } from "./pair
 import { readPairLink, finishPairLink } from "./pairing-link.js";
 import { accountFull } from "./device-limit.js";
 import { dropRepair, repairRequest } from "./pairing-repair.js";
+import { alertDeviceApproved } from "./device-approved-alert.js";
 
 /**
  * Approve a console that just signed in (COOK_DEVICE_AUTO_APPROVE): its key is
@@ -21,6 +22,7 @@ export function approveSignedInDevice(deviceKey, addedBy) {
   const accessKey = generateAccessKey();
   store.approveDevice(deviceKey, { label: "자동 등록", addedBy, accessKeyHash: hashAccessKey(accessKey) });
   stageAccessKeyDelivery(deviceKey, accessKey);
+  alertDeviceApproved(deviceKey, "auto");
   return true;
 }
 
@@ -92,5 +94,6 @@ export function approvePairLink(token, { label = "", addedBy }) {
   dropRepair(link.deviceKey);
   stageAccessKeyDelivery(link.deviceKey, accessKey);
   finishPairLink(token);
+  alertDeviceApproved(link.deviceKey, "qr");
   return "ok";
 }

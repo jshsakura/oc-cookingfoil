@@ -525,3 +525,24 @@ test("each check keeps whether the file is signed, with only what is known; a re
   assert.deepEqual(calls.filter((c) => c.rel === old), [{ rel: old, hash: false }]);
   assert.deepEqual(q2.signedOf(old), { nca: true });
 });
+
+test("a file dated decades ahead is checked now, and no wait goes past what a timer can hold", async () => {
+  const rel = addFile("ahead.nsp", { ageMs: -71 * 365 * 24 * HOUR });
+  const store = memoryStore();
+  const q = makeQueue(store);
+  await settle(q);
+  calls = [];
+  addFile("ahead-new.nsp", { ageMs: -71 * 365 * 24 * HOUR });
+  const warned = [];
+  const onWarning = (w) => warned.push(w.name);
+  process.on("warning", onWarning);
+  try {
+    await settle(q);
+    await new Promise((r) => setTimeout(r, 50));
+  } finally {
+    process.off("warning", onWarning);
+  }
+  assert.deepEqual(calls.map((c) => c.rel), ["ahead-new.nsp"], "checked now, not held until it is no longer 'just written'");
+  assert.equal(warned.includes("TimeoutOverflowWarning"), false);
+  assert.ok(store.rows()[rel]);
+});

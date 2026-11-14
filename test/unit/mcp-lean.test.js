@@ -92,10 +92,10 @@ test("device_list keeps one line a console, with who approved it and when it was
   const view = {
     waiting: [{ code: "AABBCCDD", name: "새 콘솔", message: null, firstSeenAt: 1, lastSeenAt: 2 }],
     downloads: [],
-    approved: Array.from({ length: 20 }, (_, i) => ({ code: `C0DE000${i}`, label: `콘솔 ${i}`, admin: false, addedBy: i % 2 ? "admin" : "google:user@example.com", addedAt: 3, lastSeenAt: i % 3 ? null : 4 })),
+    approved: Array.from({ length: 20 }, (_, i) => ({ code: `C0DE000${i}`, label: `콘솔 ${i}`, admin: false, platform: i % 4 ? "switch" : "vita", addedBy: i % 2 ? "admin" : "google:user@example.com", addedAt: 3, lastSeenAt: i % 3 ? null : 4 })),
   };
   const out = leanDevices(view);
-  assert.deepEqual(Object.keys(out.approved[0]), ["code", "label", "admin", "addedBy", "lastSeenAt"]);
+  assert.deepEqual(Object.keys(out.approved[0]), ["code", "label", "admin", "platform", "addedBy", "lastSeenAt"]);
   assert.deepEqual(out.waiting, view.waiting);
   assert.ok(bytes(out) < bytes(view));
 });

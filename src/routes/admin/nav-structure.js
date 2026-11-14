@@ -29,6 +29,10 @@ export const NAV_CSS = /* css */ `
 .subtabs.fade-l.fade-r{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--fade),#000 calc(100% - var(--fade)),transparent 100%)}
 .subtabs{scroll-behavior:smooth}
 @media (prefers-reduced-motion:reduce){.subtabs{scroll-behavior:auto}}
+/* A phone shows every tab at once, in rows, instead of a strip that hides the last ones off the edge. */
+@media (max-width:640px){.subtabs{flex-wrap:wrap;overflow:visible;-webkit-mask-image:none!important;mask-image:none!important}
+.adm-rowtabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:0}
+.adm-rowtabs a{justify-content:center;padding:10px 6px;white-space:normal;text-align:center}}
 `;
 
 export const NAV_SCRIPT = /* js */ `

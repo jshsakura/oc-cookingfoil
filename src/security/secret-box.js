@@ -13,6 +13,7 @@
  * as missing, so nothing is regenerated over it.
  */
 import crypto from "crypto";
+import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 
 const PREFIX = "cfsec:v1:";
 const IV_BYTES = 12;
@@ -49,6 +50,7 @@ export function assertKey() {
 /** Tests change the key between cases. */
 export function resetKeyForTests() {
   cachedKey = null;
+  backupKeys = null;
 }
 
 export const isSealed = (text) => typeof text === "string" && text.startsWith(PREFIX);
@@ -72,5 +74,56 @@ export function open(text) {
     return Buffer.concat([decipher.update(raw.subarray(IV_BYTES + TAG_BYTES)), decipher.final()]);
   } catch {
     throw new SecretKeyError("A sealed secret did not open: COOK_SECRET_KEY is not the key this data was made with.");
+  }
+}
+
+/*
+ * Console backup secrets (backups/secrets.js): a Vita's work.bin, .rif and license.db, files bound to its
+ * owner's account. Each is sealed on its own with XChaCha20-Poly1305 under a key drawn from COOK_SECRET_KEY by
+ * HKDF for this use only, and bound by its associated data to where it belongs (the account, platform, unit,
+ * version and path), so a sealed file moved to another place does not open.
+ *
+ *   [format 1][key id, 4 bytes][nonce, 24 bytes][ciphertext and tag]
+ *
+ * The key id says which COOK_SECRET_KEY sealed it: a file sealed under another key is told apart from a damaged
+ * one before anything is tried.
+ */
+const BACKUP_FORMAT = 1;
+const BACKUP_HEAD = 1 + 4 + 24;
+let backupKeys = null;
+
+function backupKey() {
+  if (backupKeys?.of === key()) return backupKeys;
+  const derive = (info, n) => Buffer.from(crypto.hkdfSync("sha256", key(), Buffer.alloc(0), info, n));
+  backupKeys = { of: key(), key: derive("cookingfoil console backup secrets v1", 32), id: derive("cookingfoil console backup key id v1", 4) };
+  return backupKeys;
+}
+
+/** A sealed backup secret that does not open here: another COOK_SECRET_KEY made it, or it was altered. */
+export class SecretLostError extends Error {
+  name = "SecretLostError";
+}
+
+/** Which key seals backup secrets now, as 8 hex digits: a check value, never the key. */
+export const backupKeyId = () => backupKey().id.toString("hex");
+
+const backupAad = (id, place) => Buffer.from(JSON.stringify([BACKUP_FORMAT, id.toString("hex"), ...place]), "utf8");
+
+/** `plain` sealed for `place` (an array of strings naming where it belongs). */
+export function sealBackupSecret(plain, place) {
+  const { key: k, id } = backupKey();
+  const nonce = crypto.randomBytes(24);
+  const sealed = xchacha20poly1305(k, nonce, backupAad(id, place)).encrypt(plain);
+  return Buffer.concat([Buffer.from([BACKUP_FORMAT]), id, nonce, sealed]);
+}
+
+/** The plain bytes of a backup secret sealed for `place`. Throws SecretLostError when it does not open here. */
+export function openBackupSecret(sealed, place) {
+  const { key: k, id } = backupKey();
+  if (sealed.length < BACKUP_HEAD + 16 || sealed[0] !== BACKUP_FORMAT || !sealed.subarray(1, 5).equals(id)) throw new SecretLostError("sealed under another key");
+  try {
+    return Buffer.from(xchacha20poly1305(k, sealed.subarray(5, BACKUP_HEAD), backupAad(id, place)).decrypt(sealed.subarray(BACKUP_HEAD)));
+  } catch {
+    throw new SecretLostError("does not open for this place");
   }
 }

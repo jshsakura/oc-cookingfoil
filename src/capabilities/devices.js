@@ -37,12 +37,14 @@ const APPROVED = obj({
   code: str("8-character code, the device argument of device_set"),
   label: str("name shown on the admin page"),
   admin: bool("may change item settings from the console"),
+  platform: oneOf(["switch", "vita"], "the kind of console"),
   addedBy: nullable(str("account that approved it")),
   lastSeenAt: nullable(int("epoch ms")),
 });
 const WAITING = obj({
   code: str("8-character code, the device argument of device_set"),
   name: nullable(str("the nickname the console sent")),
+  platform: oneOf(["switch", "vita"], "the kind of console it says it is"),
   message: nullable(str("the note it sent")),
   firstSeenAt: nullable(int("epoch ms")),
   lastSeenAt: nullable(int("epoch ms")),
@@ -111,9 +113,9 @@ export const devicesCapabilities = [
       const { approved, pending } = store.devicesSnapshot();
       return leanDevices({
         sends: sends.listBy(approver(ctx)).map(({ deviceKey, items }) => ({ code: deviceCode(deviceKey), items: items.map(sentRow) })),
-        waiting: pending.map((d) => ({ code: deviceCode(d.deviceKey), name: d.name ?? null, message: d.message ?? null, firstSeenAt: d.firstSeenAt ?? null, lastSeenAt: d.lastSeenAt ?? null })),
+        waiting: pending.map((d) => ({ code: deviceCode(d.deviceKey), platform: d.platform, name: d.name ?? null, message: d.message ?? null, firstSeenAt: d.firstSeenAt ?? null, lastSeenAt: d.lastSeenAt ?? null })),
         downloads: enrollTokens.list().filter((t) => t.state === "waiting").map((t) => ({ id: t.id, owner: t.owner, expiresAt: t.expiresAt })),
-        approved: approved.map((d) => ({ code: deviceCode(d.deviceKey), label: d.label, admin: d.admin, addedBy: d.addedBy, addedAt: d.addedAt, lastSeenAt: d.lastSeenAt ?? null })),
+        approved: approved.map((d) => ({ code: deviceCode(d.deviceKey), label: d.label, admin: d.admin, platform: d.platform, addedBy: d.addedBy, addedAt: d.addedAt, lastSeenAt: d.lastSeenAt ?? null })),
         owners: ownerChoices(),
       });
     },

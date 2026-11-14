@@ -161,6 +161,8 @@ import { pickEncoding } from "../helpers/json-compression.js";
 import { achievementSummary, mountAchievements } from "./retro-achievements.js";
 import { RETRO_LABELS, retroLabels } from "../meta/card-labels.js";
 import { packDirOf, packStatus } from "../retro/pack-status.js";
+import { vitaFirmware } from "../retro/vita-firmware.js";
+import { requestPlatform } from "../platforms/switch-only.js";
 import * as coreSettings from "../retro/core-settings.js";
 import { autoCores } from "../retro/auto-cores.js";
 import { filtersOf } from "../retro/filters.js";
@@ -628,8 +630,21 @@ export default function retroRouter() {
     },
   });
 
+  // A Vita is shown the systems it has a core for, and only their games; the files are the same as the Switch's.
+  // Its systems name the Vita core only: coreName is the Switch core's, so a Vita's rows leave it out.
+  const onVita = (req) => requestPlatform(req) === "vita";
+  const forPlatform = (req, cat, games) => (onVita(req) ? games.filter((g) => cat.systems[g.system]?.cores?.vita) : games);
+
   router.get("/systems", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
+    if (onVita(req)) {
+      res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
+      return res.json({
+        systems: catalog.visibleSystems(cat, forPlatform(req, cat, listedGames(cat))).map((s) => ({
+          ...s, coreName: undefined, ...systemIconUrls(s.id, cat.systems[s.id]), defaultCore: cat.systems[s.id].cores.vita, core: { id: cat.systems[s.id].cores.vita },
+        })),
+      });
+    }
     res.set({ "Cache-Control": "private, max-age=0, must-revalidate", Vary: "Accept-Language" });
     // Whether this server can run them: RetroArch itself and each console's core files.
     const pack = packStatus(packDir(), cat.games, cat.systems, coreSettings.off());
@@ -648,7 +663,7 @@ export default function retroRouter() {
     const cat = await catalog.current(retroDir);
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const bySystem = new Map();
-    const listed = listedGames(cat);
+    const listed = forPlatform(req, cat, listedGames(cat));
     const link = forRequest(req);
     const voter = itemVotes.voterOf(req);
     for (const g of listed) bySystem.set(g.system, [...(bySystem.get(g.system) ?? []), g]);
@@ -665,6 +680,27 @@ export default function retroRouter() {
   }));
 
   // The values one system's list can be filtered by, with counts; a value no game has is left out.
+  // The firmware a Vita needs, and each file in that list by its path. Everyone else hears what they did before.
+  const firmwareFor = async (req) => {
+    const cat = await catalog.current(retroDir);
+    const link = forRequest(req);
+    return vitaFirmware({ games: listedGames(cat), systems: cat.systems, retroDir, packDir: packDir(), link: (p) => directUrl(p, link) });
+  };
+  router.get("/requirements", wrap(async (req, res, next) => {
+    if (!onVita(req)) return next();
+    res.set("Cache-Control", "private, no-cache").json((await firmwareFor(req)).body);
+  }));
+  router.get("/requirements/file", wrap(async (req, res, next) => {
+    if (!onVita(req)) return next();
+    const want = typeof req.query.path === "string" ? req.query.path : "";
+    const { body, served } = await firmwareFor(req);
+    const row = body.systems.flatMap((s) => s.files).find((f) => f.url && f.path === want);
+    if (!row) return res.status(404).json({ error: "no such firmware file", code: "path" });
+    // The md5 is worked out again from the file as it is now, so what is sent is what the header says.
+    res.sendFile(served.get(want), { dotfiles: "allow", etag: false, lastModified: false,
+      headers: { "Content-Type": "application/octet-stream", "X-Content-MD5": row.md5, ETag: `"${row.md5}"`, "Cache-Control": "private, no-cache" } });
+  }));
+
   router.get("/systems/:system/facets", wrap(async (req, res) => {
     const cat = await catalog.current(retroDir);
     const id = req.params.system;
@@ -739,7 +775,7 @@ export default function retroRouter() {
     const all = req.query.variants === "all";
     // A search that finds any version of a game shows the game's representative.
     const found = (g) => !search || (all ? gameMatches(g, search) : groupOf(cat, g).members.some((m) => gameMatches(m, search)));
-    const matches = (all ? cat.games : listedGames(cat))
+    const matches = forPlatform(req, cat, all ? cat.games : listedGames(cat))
       .filter((g) => (!system || g.system === system) && found(g) && keep(g) && (!byFacts || byFacts(facts.get(g.id))))
       .sort(sort);
     const link = forRequest(req);

@@ -161,4 +161,43 @@ export const accountsCapabilities = [
       return { done: input.op, account: acct.id, revoked };
     },
   }),
+  defineCapability({
+    id: "backup_stats",
+    area: "admin",
+    title: "Console backups per account",
+    description: "How much each account keeps in console backups: per platform the units, versions, bytes and the number of secret files. Counts only; no unit, title or file is named, and secret files are never shown.",
+    input: { type: "object", properties: {} },
+    output: obj({
+      on: bool("backups are on on this server"),
+      accounts: arr(obj({
+        kind: oneOf(["user", "google"]), name: str("the account's name or address"), bytes: int("everything it keeps on the disk"),
+        platforms: arr(obj({ platform: str(), units: int(), versions: int(), bytes: int("of the newest versions"), secrets: int("secret files in the newest versions") })),
+      })),
+    }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/backups" },
+    handler: async () => (await import("../backups/stats.js")).backupStats(),
+  }),
+  defineCapability({
+    id: "backup_games",
+    area: "admin",
+    title: "Backed-up Vita and PSP games per account",
+    description: "Each account's Vita and PSP games as its console backups tell them: title, region, version, size, units and picture addresses. Secret files are never read.",
+    input: { type: "object", properties: {} },
+    output: obj({
+      on: bool("backups are on on this server"),
+      accounts: arr(obj({
+        kind: oneOf(["user", "google"]), name: str("the account's name or address"), folder: str("the account's backups folder name"),
+        games: arr(obj({
+          id: str("title id, or iso:<file> for a disc image without one"), platform: oneOf(["vita", "psp"]), title: nullable(str()),
+          region: nullable(oneOf(["US", "EU", "JP", "ASIA"])), version: nullable(str()), category: nullable(str()), bytes: int(), updatedAt: int(),
+          lastDevice: nullable(str("the console that backed it up last")), units: arr(str()),
+          icon: nullable(str()), cover: nullable(str()), background: nullable(str()),
+        })),
+      })),
+    }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/backups/games" },
+    handler: async () => (await import("../backups/stats.js")).backupGames(),
+  }),
 ];

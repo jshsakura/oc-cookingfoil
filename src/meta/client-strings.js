@@ -28,6 +28,22 @@ function readJson(name) {
   return JSON.parse(fs.readFileSync(path.join(DIR, name), "utf8"));
 }
 
+const VITA = "vita.";
+
+/** The keys of `strings` a platform is given: one table for every platform, a Vita-only key starts with "vita.". Pure. */
+export const platformStrings = (strings, platform) => (platform === "vita" ? strings : Object.fromEntries(Object.entries(strings).filter(([key]) => !key.startsWith(VITA))));
+
+function answer(value) {
+  const body = Buffer.from(JSON.stringify(value));
+  const etag = `"cs-${crypto.createHash("sha1").update(body).digest("base64url").slice(0, 16)}"`;
+  return {
+    etag,
+    json: body,
+    gzip: zlib.gzipSync(body),
+    br: zlib.brotliCompressSync(body, { params: { [zlib.constants.BROTLI_PARAM_SIZE_HINT]: body.length } }),
+  };
+}
+
 function load() {
   const languages = readJson("languages.json").map(({ code, name, base }) => ({ code, name, base: base ?? null }));
   const locked = new Set(readJson("locked.json"));
@@ -35,14 +51,8 @@ function load() {
   for (const { code, base } of languages) {
     const table = code === "en" ? {} : readJson(`${code}.json`);
     const strings = Object.fromEntries(Object.entries(table).filter(([key]) => !locked.has(key)));
-    const body = Buffer.from(JSON.stringify({ lang: code, base, strings }));
-    const etag = `"cs-${crypto.createHash("sha1").update(body).digest("base64url").slice(0, 16)}"`;
-    answers.set(code, {
-      etag,
-      json: body,
-      gzip: zlib.gzipSync(body),
-      br: zlib.brotliCompressSync(body, { params: { [zlib.constants.BROTLI_PARAM_SIZE_HINT]: body.length } }),
-    });
+    answers.set(code, answer({ lang: code, base, strings: platformStrings(strings, "switch") }));
+    answers.set(`vita:${code}`, answer({ lang: code, base, strings: platformStrings(strings, "vita") }));
   }
   return { languages, answers };
 }
@@ -57,4 +67,4 @@ export const clientLanguages = () => current().languages;
  * One language's answer: its ETag and the same JSON as `json`, `gzip` and `br`
  * bytes; null for a language the server has no table for.
  */
-export const clientStrings = (code) => current().answers.get(code) ?? null;
+export const clientStrings = (code, platform = "switch") => current().answers.get(platform === "vita" ? `vita:${code}` : code) ?? null;

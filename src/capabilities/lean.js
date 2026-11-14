@@ -86,7 +86,7 @@ export function leanDevices(list) {
     downloads: list.downloads,
     sends: list.sends,
     owners: list.owners,
-    approved: list.approved.map(({ code, label, admin, addedBy, lastSeenAt }) => ({ code, label, admin, addedBy, lastSeenAt })),
+    approved: list.approved.map(({ code, label, admin, platform, addedBy, lastSeenAt }) => ({ code, label, admin, platform, addedBy, lastSeenAt })),
   };
 }
 

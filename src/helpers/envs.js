@@ -216,6 +216,11 @@ let uploadsEnabled = envBool("COOK_UPLOADS_ENABLED", false);
 let inboxEnabled = envBool("COOK_INBOX_ENABLED", true);
 let inboxMaxBytes = envNumber("COOK_INBOX_MAX_BYTES", 2 * 1024 ** 3, { min: 1, integer: true });
 let inboxQuotaBytes = envNumber("COOK_INBOX_QUOTA_BYTES", 20 * 1024 ** 3, { min: 1, integer: true });
+// Consoles' own backups (backups/): the folder they go in (none: off), how many versions of a unit are kept, and
+// what one account may hold (0: no limit).
+const backupsDir = pickEnv("COOK_BACKUPS_DIR") ?? null;
+let consoleBackupKeep = envNumber("COOK_BACKUP_KEEP", 2, { min: 1, max: 20, integer: true });
+let consoleBackupQuotaBytes = envNumber("COOK_BACKUP_QUOTA_BYTES", 0, { min: 0, integer: true });
 // CookingFoil's own rating collector: Steam always (no key), IGDB when a Twitch
 // client id and secret are given. On by default; false turns the loop off.
 let ratingSync = envBool("COOK_RATING_SYNC", true);
@@ -430,6 +435,8 @@ const ENV_SETTINGS = Object.freeze({
   inboxEnabled,
   inboxMaxBytes,
   inboxQuotaBytes,
+  consoleBackupKeep,
+  consoleBackupQuotaBytes,
   publicBaseUrl,
   extractIcons,
   langPriority: [...langPriority],
@@ -492,6 +499,8 @@ function applyServerSettings(saved = {}) {
   inboxEnabled = v.inboxEnabled;
   inboxMaxBytes = v.inboxMaxBytes;
   inboxQuotaBytes = v.inboxQuotaBytes;
+  consoleBackupKeep = v.consoleBackupKeep;
+  consoleBackupQuotaBytes = v.consoleBackupQuotaBytes;
   publicBaseUrl = v.publicBaseUrl ? normalizeBaseUrl(v.publicBaseUrl) : null;
   extractIcons = v.extractIcons;
   langPriority = [...v.langPriority];
@@ -609,6 +618,9 @@ export {
   extractedMetaDir,
   uploadMaxBytes,
   uploadsEnabled,
+  backupsDir,
+  consoleBackupKeep,
+  consoleBackupQuotaBytes,
   inboxEnabled,
   inboxMaxBytes,
   inboxQuotaBytes,

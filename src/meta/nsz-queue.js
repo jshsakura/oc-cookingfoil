@@ -57,6 +57,7 @@
  * the work folder is emptied on start. Pause, a setting turned off and a
  * restart stop the child and drop its partial output.
  */
+import { timerDelay } from "../helpers/timer-delay.js";
 import crypto from "crypto";
 import fs from "fs";
 import fsp from "fs/promises";
@@ -317,7 +318,7 @@ export function createNszQueue({
     if (wakeTimer && wakeAt <= at) return;
     clearTimeout(wakeTimer);
     wakeAt = at;
-    wakeTimer = setTimeout(() => { wakeTimer = null; pump(); }, Math.max(0, ms));
+    wakeTimer = setTimeout(() => { wakeTimer = null; pump(); }, timerDelay(ms));
     wakeTimer.unref?.();
   }
 
@@ -611,7 +612,7 @@ export function createNszQueue({
     keepTimer = null;
     const oldest = keptItems()[0];
     if (closed || !oldest) return;
-    keepTimer = setTimeout(() => { keepTimer = null; purgeDue(); }, Math.max(0, dueAt(oldest) - now()));
+    keepTimer = setTimeout(() => { keepTimer = null; purgeDue(); }, timerDelay(dueAt(oldest) - now()));
     keepTimer.unref?.();
   }
 
