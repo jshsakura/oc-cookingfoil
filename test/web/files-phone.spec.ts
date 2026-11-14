@@ -235,7 +235,8 @@ test('with nothing picked the bottom edge offers upload and 파일 메뉴, which
   for (const name of ['새 폴더', '올리기', '폴더 올리기', '정리', '다시 스캔', '속성']) await expect(menu.getByRole('menuitem', { name, exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   const first = await page.locator('#fb-rows tr').first().boundingBox();
-  expect(first!.y).toBeLessThan(305);
+  // The library's six tabs take two rows on a phone so none hides past the edge, and the list starts under them.
+  expect(first!.y).toBeLessThan(350);
   const foot = (await page.locator('#fb-foot').boundingBox())!;
   expect(foot.height).toBeLessThan(72);
   expect(foot.y + foot.height).toBeCloseTo(844, 0);
@@ -411,4 +412,25 @@ test('a session that ended says so on the sign-in page', async ({ page, context 
   await context.clearCookies();
   await page.evaluate(() => (window as any).fbLoad());
   await expect(page.locator('#err')).toContainText('다시 로그인합니다');
+});
+
+test('a second pick leaves every bottom button where it was, rename greyed in its place', async ({ page }) => {
+  const bar = page.locator('#fb-pick-acts');
+  const places = () => bar.getByRole('button').evaluateAll((bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.height)]; }));
+  await row(page, 'loose.nsp').click({ position: { x: 120, y: 10 } });
+  const one = await places();
+  await row(page, LONG).click({ position: { x: 120, y: 10 } });
+  await expect(bar.getByRole('button')).toHaveText(['zip으로 내려받기', '이름 바꾸기', '이동', '휴지통으로', '파일 메뉴']);
+  await expect(bar.getByRole('button', { name: '이름 바꾸기' })).toBeDisabled();
+  expect(await places()).toEqual(one);
+});
+
+test('every library tab is on the screen, none behind the right edge', async ({ page }) => {
+  const tabs = page.locator('nav.adm-rowtabs a');
+  expect(await tabs.count()).toBeGreaterThan(4);
+  for (const t of await tabs.all()) {
+    const b = (await t.boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(390);
+  }
 });

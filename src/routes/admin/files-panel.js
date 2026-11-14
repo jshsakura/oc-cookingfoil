@@ -221,13 +221,18 @@ body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32p
   #fb #fb-pick-all{display:inline-flex}
   #fb .fb-pick-acts button{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;height:auto;min-height:52px;padding:6px 2px;border:0;border-radius:var(--r-md);background:none;color:var(--text);font-size:var(--fs-xs);font-weight:var(--fw-bold);line-height:1.2;white-space:normal;overflow-wrap:anywhere}
   #fb .fb-pick-acts .ico{width:20px;height:20px;flex:none}
+  /* Two lines of label room whatever the label, so a longer one (zip으로 내려받기) does not make the bar taller. */
+  #fb .fb-foot[data-sel] .fb-pick-acts{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-flow:row}
+  #fb .fb-foot[data-sel] .fb-pick-acts button{height:64px;min-height:64px}
+  #fb .fb-foot[data-sel] .fb-pick-acts button span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  #fb .fb-pick-acts button:disabled{opacity:.38}
   #fb .fb-pick-acts button[data-danger]{color:var(--bad)}
   /* The bar has the screen's bottom edge to itself while a pick is held. */
   body:has(#fb-foot[data-sel]) .ch-launch{display:none}
   /* The chat button and a notice stand above the bar. */
-  body:has(#fb-foot) .ch-launch{bottom:76px}
+  body:has(#fb-foot) .ch-launch{bottom:calc(76px + env(safe-area-inset-bottom))}
   body:has(#fb-foot):has(.ch-launch:not([hidden])) .wrap{padding-bottom:132px}
-  body:has(#fb-foot) .toast{bottom:76px}
+  body:has(#fb-foot) .toast{bottom:calc(76px + env(safe-area-inset-bottom))}
   /* The bar stays on the screen's bottom edge however short the list is, with room kept under the last row. */
   #fb .fb-foot{position:fixed;left:0;right:0;bottom:0;z-index:20;padding-bottom:calc(8px + env(safe-area-inset-bottom));background:var(--bg)}
   #fb{padding-bottom:72px}#fb:has(#fb-foot[data-sel]){padding-bottom:136px}
@@ -235,7 +240,7 @@ body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32p
   #tab-library:has(>[data-lib-panel="folder"]:not([hidden]))>.hd{display:none}
   /* While searching, 하위 폴더까지 takes the place of the view buttons instead of adding a line. */
   #fb .fb-bar:has(#fb-q:not(:placeholder-shown)) .fb-views{display:none}
-  body:has(#fb-foot[data-sel]) .toast{bottom:136px}
+  body:has(#fb-foot[data-sel]) .toast{bottom:calc(136px + env(safe-area-inset-bottom))}
   /* The menu is a sheet from the bottom edge, whatever the place it was opened from. */
   #fb-menu{left:0!important;right:0;top:auto!important;bottom:0;max-width:none;max-height:70dvh;overflow:auto;border-width:1px 0 0;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
   #fb-menu button{padding:13px 12px}
@@ -449,7 +454,7 @@ function fbPick(rel,{add=false,range=false}={}){const rels=fbRels();
   fb.focus=rel;fbPaint();}
 function fbFocusRow(){for(const r of document.querySelectorAll('#fb-rows tr'))if(r.dataset.rel===fb.focus){r.focus();r.scrollIntoView({block:'nearest'});return;}}
 function fbCmds(){const n=fb.sel.size;for(const id of ['fb-cut-btn','fb-copy-btn','fb-move-btn','fb-zip-btn','fb-trash-btn'])$(id).disabled=!n||!!fb.busy;
-  for(const b of $('fb-pick-acts').children)b.disabled=!!fb.busy;
+  for(const b of $('fb-pick-acts').children)b.disabled=!!fb.busy||b.dataset.off!=null;
   const one=n===1?fbItem([...fb.sel][0]):null;$('fb-rename-btn').disabled=!one;$('fb-share-btn').disabled=!one;$('fb-tidy-btn').hidden=fb.root==='incoming';$('fb-paste-btn').disabled=!fb.clip;$('fb-undo-btn').disabled=!fb.undos.length;}
 function fbFoot(){fbCmds();const d=fb.data;const foot=$('fb-foot');const n=fb.sel.size;
   if(n)foot.dataset.sel='';else delete foot.dataset.sel;
@@ -799,14 +804,16 @@ function fbActions(){const rels=[...fb.sel];const one=rels.length===1?fbItem(rel
     if(fbPhone()&&fb.root==='games'&&$('rescan'))items.push({label:$('rescan').textContent.trim(),ic:'refresh',fn:()=>$('rescan').click()});
     if(fb.clip){add('fb.paste','paste',fbPaste);add('fb.clipDrop','stop',fbClipDrop);}if(fb.undos.length)add('fb.undo','undo',fbUndo);if(fb.redos.length)add('fb.redo','refresh',fbRedo);add('fb.props','props',fbProps);}
   return items;}
-// A phone's bottom bar: the likeliest three of what the pick allows, the trash, and the whole list behind 파일 메뉴.
-const FB_BAR=['fb.view','fb.download','fb.zip','fb.rename','fb.move'];
+// A phone's bottom bar: one slot each for taking it, renaming, moving and the trash, then 파일 메뉴 with the rest.
+// Each slot keeps its place: one the pick does not allow stays, greyed, so the buttons do not jump as picks change.
+const FB_SLOTS=[['fb.view','fb.download','fb.zip'],['fb.rename'],['fb.move'],['fb.trash']];
 // With nothing picked it offers the one thing a phone does next there, and the same 파일 메뉴 holds the rest.
 const FB_IDLE=['fb.paste','fb.upload'];
+const FB_SLOT_IC={'fb.zip':'zip','fb.rename':'rename','fb.move':'move','fb.trash':'trash'};
 function fbPickBar(){const bar=$('fb-pick-acts');if(!fbPhone()){bar.replaceChildren();return;}
-  const all=fbActions();const top=fb.sel.size?[...FB_BAR.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,3),all.find((a)=>a.key==='fb.trash')]:FB_IDLE.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,1).map((a)=>a.key==='fb.paste'?{...a,label:topText(a.key)+' '+num(fb.clip.rels.length)}:a);
+  const all=fbActions();const top=fb.sel.size?FB_SLOTS.map((keys)=>keys.map((k)=>all.find((a)=>a.key===k)).find(Boolean)??{key:keys[keys.length-1],ic:FB_SLOT_IC[keys[keys.length-1]],off:true,fn:()=>{}}):FB_IDLE.map((k)=>all.find((a)=>a.key===k)).filter(Boolean).slice(0,1).map((a)=>a.key==='fb.paste'?{...a,label:topText(a.key)+' '+num(fb.clip.rels.length)}:a);
   bar.replaceChildren(...[...top,{key:'fb.menu',ic:'more',fn:()=>fbMenu(0,0)}].map((it)=>{
-    const b=el('button');b.type='button';b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',it.label||topText(it.key)));if(it.danger)b.dataset.danger='';
+    const b=el('button');b.type='button';b.innerHTML=FB_ICON[it.ic]||'';b.append(el('span',it.label||topText(it.key)));if(it.danger)b.dataset.danger='';if(it.off){b.dataset.off='';b.disabled=true;}
     // With nothing picked the bar shows icons only; the name stays as the tooltip and the accessible name, and a paste keeps its count.
     if(!fb.sel.size){b.setAttribute('aria-label',it.label||topText(it.key));b.title=it.label||topText(it.key);if(it.key==='fb.paste')b.append(el('b',num(fb.clip.rels.length)));}
     b.addEventListener('click',it.fn);return b;}));}

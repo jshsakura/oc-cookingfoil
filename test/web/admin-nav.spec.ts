@@ -101,9 +101,19 @@ test.describe('on a phone', () => {
       }
     }
 
-    // A row that is clipped fades at the hidden edge, and the open page is brought into view.
-    // The games page has three tabs now and fits a phone, so the retro page's eight tabs are the clipped row.
+    // A phone shows every tab of a long row at once, in rows, with nothing behind the edge and nothing faded.
     const sub = page.locator('#retro-subtabs');
+    await page.goto('/admin/retro');
+    for (const t of await sub.locator('[data-sub]').all()) {
+      if (!(await t.isVisible())) continue;
+      const b = (await t.boundingBox())!;
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    }
+    await expect(sub).not.toHaveClass(/fade-[lr]/);
+
+    // Wider, the row is one line again: a clipped one fades at the hidden edge and the open page is brought into view.
+    await page.setViewportSize({ width: 700, height: 900 });
     await page.goto('/admin/retro');
     await expect(sub).toHaveClass(/fade-r/);
     await page.goto('/admin/retro?view=sets');
