@@ -1,6 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { lstatSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -19,7 +19,7 @@ mkdirSync(backups, { recursive: true });
 const ux0 = makeCard(path.join(root, "card"));
 const env = {
   COOK_DATA_DIR: data, COOK_GAMES_DIR: path.join(root, "games"), COOK_BACKUPS_DIR: backups,
-  COOK_AUTH_USERS: "alice:alice-password", COOK_TITLEDB_AUTO_FETCH: "false",
+  COOK_AUTH_USERS: "alice:alice-password,bob:bob-password", COOK_TITLEDB_AUTO_FETCH: "false",
 };
 Object.assign(process.env, env);
 const { importUx0 } = await import("../../src/backups/import.js");
@@ -155,4 +155,26 @@ test("the sweep of unused bodies keeps a used body's CRC and takes an unused one
   assert.equal(statSync(blob, { throwIfNoEntry: false }), undefined);
   assert.equal(statSync(`${blob}.crc32`, { throwIfNoEntry: false }), undefined);
   assert.equal(files(backups).filter((f) => f.endsWith(".crc32")).length, before - 1);
+});
+
+test("a linked import keeps each body as a link to the card copy's file, the same manifests, and secrets sealed", async () => {
+  const bob = accountNamed("bob");
+  const totals = await importUx0({ ux0, accountId: bob.id, link: true });
+  assert.equal(totals.added, FIXTURE.length);
+  const stored = [];
+  for (const unit of await scanUx0(ux0)) stored.push(JSON.stringify((await store.unitVersions(bob.id, "vita", `${unit.kind}:${unit.id}`))[0].manifest));
+  assert.deepEqual(stored, FIXTURE, "the same manifests as a copied import");
+  const blobs = readdirSync(path.join(store.accountDir(bob.id), "blobs"), { recursive: true, withFileTypes: true })
+    .filter((e) => !e.isDirectory() && !e.name.endsWith(".crc32")).map((e) => path.join(e.parentPath, e.name));
+  assert.ok(blobs.length > 0);
+  for (const b of blobs) {
+    assert.ok(lstatSync(b).isSymbolicLink(), "a link, not a copy");
+    assert.ok(readlinkSync(b).startsWith(ux0), "to the card copy");
+  }
+  const secretFiles = files(store.accountDir(bob.id)).filter((f) => f.includes(`${path.sep}secrets${path.sep}`));
+  assert.ok(secretFiles.length > 0);
+  for (const f of secretFiles) assert.equal(lstatSync(f).isSymbolicLink(), false, "a secret is a sealed copy, never a link to the plain file");
+  assert.equal((await readSecret(bob.id, "vita", "app:PCSE00001", 1, "sce_sys/package/work.bin")).toString(), FAKE_WORK);
+  assert.ok(await store.usedBytes(bob.id) < 64 * 1024, "the links take no room");
+  assert.equal((await importUx0({ ux0, accountId: bob.id, link: true })).added, 0, "again adds nothing");
 });

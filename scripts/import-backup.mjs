@@ -2,7 +2,10 @@
 // The first backup of a console from a copy of its card on the server (src/backups/import.js). Run it where the
 // server runs, with the server's own environment, so COOK_SECRET_KEY comes from the same .env:
 //
-//   node scripts/import-backup.mjs --platform vita --account <account> [--kinds app,patch,...] [--dry]
+//   node scripts/import-backup.mjs --platform vita --account <account> [--kinds app,patch,...] [--link] [--dry]
+//
+// --link keeps each file as a link to the card copy instead of a copy: nothing is written but the links and the
+// sealed secrets, and the card copy must stay where it is for as long as those backups are kept.
 //
 //   COOK_IMPORT_SOURCE   the card copy to read (only read)
 //   COOK_BACKUPS_DIR     where the backups are
@@ -11,7 +14,7 @@
 import { parseArgs } from "node:util";
 
 const { values } = parseArgs({
-  options: { platform: { type: "string" }, account: { type: "string" }, kinds: { type: "string" }, dry: { type: "boolean", default: false } },
+  options: { platform: { type: "string" }, account: { type: "string" }, kinds: { type: "string" }, link: { type: "boolean", default: false }, dry: { type: "boolean", default: false } },
   strict: true,
 });
 const fail = (text) => {
@@ -50,7 +53,7 @@ let shown = 0;
 process.on("uncaughtException", (err) => fail(`stopped: ${err.code ?? err.name ?? "error"}`));
 process.on("unhandledRejection", (err) => fail(`stopped: ${err?.code ?? err?.name ?? "error"}`));
 const totals = await importUx0({
-  ux0: source, accountId: account.id, kinds, dry: values.dry,
+  ux0: source, accountId: account.id, kinds, dry: values.dry, link: values.link,
   report: ({ done, of }) => {
     if (done === of || Date.now() - shown > 10_000) {
       shown = Date.now();
