@@ -6,6 +6,8 @@
  *   GET  /unit?key=        a unit's versions with their manifests
  *   GET  /games            a Vita's account's games, told from its backups (backups/games.js; ETag)
  *   GET  /games/:id/:art   a game's icon, cover or background, as a shrunk jpg (ETag)
+ *   POST /games/:id/art/:art  a Vita sends a game's picture as it reads it (PNG or JPEG, 2 MB): 201, or 204 when
+ *                          it is already the one kept
  *   POST /begin            { key, manifest } → { upload, need, needSecrets }
  *   PUT  /upload/:id       ?path=&offset=  a file's bytes from offset (a secret whole, at offset 0)
  *   HEAD /upload/:id       ?path=          X-Received: how much of it the server holds
@@ -25,7 +27,7 @@ import { accountOf } from "../security/link-identity.js";
 import { parseUnitKey } from "../backups/manifest.js";
 import * as store from "../backups/store.js";
 import * as uploads from "../backups/uploads.js";
-import { ART_SIZES, artPath, listGames, noteUnitQuietly, gameRow, sendArt } from "../backups/games.js";
+import { ART_SIZES, SENT_ART_MAX, artPath, keepGameArt, listGames, noteUnitQuietly, gameRow, sendArt } from "../backups/games.js";
 import { readSecret, SecretLostError } from "../backups/secrets.js";
 import * as devices from "../security/store.js";
 import debug from "../debug.js";
@@ -46,6 +48,7 @@ const MESSAGES = {
   mismatch: "some files did not arrive whole",
   upload: "no such upload",
   "secret-lost": "this secret no longer opens on this server; back it up again from the console",
+  picture: "that is not a PNG or JPEG picture",
 };
 
 function send(res, err) {
@@ -132,6 +135,31 @@ export default function backupsRouter() {
     if (c.platform !== "vita" || !(req.params.art in ART_SIZES)) throw new BackupError(404, "unit");
     const game = (await listGames(c.accountId)).find((g) => g.id === req.params.id);
     sendArt(req, res, game && artPath(c.accountId, game.art[req.params.art]));
+  }));
+
+  // Who sends it is checked before a body is read.
+  const consoleFirst = (req, res, next) => {
+    try {
+      who(req);
+      next();
+    } catch (err) {
+      send(res, err);
+    }
+  };
+  router.post("/games/:id/art/:art", consoleFirst, express.raw({ type: () => true, limit: SENT_ART_MAX }), handle(async (req, res) => {
+    const c = who(req);
+    if (c.platform !== "vita") throw new BackupError(404, "unit");
+    let out;
+    try {
+      out = await keepGameArt(c.accountId, req.params.id, req.params.art, req.body);
+    } catch (err) {
+      if (err.code === "unit") throw new BackupError(404, "unit");
+      if (err.code === "picture") throw new BackupError(415, "picture");
+      throw err;
+    }
+    res.set("Cache-Control", "no-store");
+    if (out === "same") return res.status(204).end();
+    res.status(201).json({ url: `/api/backups/games/${encodeURIComponent(req.params.id)}/${req.params.art}` });
   }));
 
   router.get("/unit", handle(async (req, res) => {

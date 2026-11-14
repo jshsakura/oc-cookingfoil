@@ -6,6 +6,10 @@
  *
  *   <account>/vita/facts/<unit folder>.json   { key, version, kind, bytes, updatedAt, by, facts, art: { role: name } }
  *   <account>/vita/art/<name>.jpg            shrunk pictures, named by the source body and role
+ *   <account>/vita/game-art/<game>-<role>    the name of a picture the console sent for a game (keepGameArt)
+ *
+ * A retail game's sce_sys pictures are encrypted on a card copy, so the console sends them as it reads them; a
+ * picture it sent comes before one told from the backups.
  */
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -28,6 +32,11 @@ const VERSION_RANK = { patch: 0, app: 1, "psp-game": 2, "psp-iso": 3 };
 const factsDir = (accountId) => path.join(store.accountDir(accountId), PLATFORM, "facts");
 const artDir = (accountId) => path.join(store.accountDir(accountId), PLATFORM, "art");
 const factsFile = (accountId, key) => path.join(factsDir(accountId), `${store.unitFolder(key)}.json`);
+const sentDir = (accountId) => path.join(store.accountDir(accountId), PLATFORM, "game-art");
+const gameFolder = (id) => crypto.createHash("sha256").update(id).digest("hex").slice(0, 16);
+const SENT_NAME = /^([0-9a-f]{16})-(icon|cover|background)$/;
+export const SENT_ART_MAX = 2 * 1024 * 1024;
+const isPicture = (b) => b.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex")) || b.subarray(0, 3).equals(Buffer.from("ffd8ff", "hex"));
 
 /** Bytes of one file at `where(file)`: a kept body, or a file on a card. What game-facts.js reads. */
 export const fileReader = (where) => async (file, offset, length) => {
@@ -154,9 +163,53 @@ export function gatherGames(records) {
   return games.sort((a, b) => order(a) - order(b) || (a.title ?? "\uffff").localeCompare(b.title ?? "\uffff") || a.id.localeCompare(b.id));
 }
 
+// The pictures consoles sent, by game folder: { <folder>: { role: name } }.
+async function sentArt(accountId) {
+  const out = {};
+  for (const n of await fsp.readdir(sentDir(accountId)).catch(() => [])) {
+    const m = SENT_NAME.exec(n);
+    const name = m && (await fsp.readFile(path.join(sentDir(accountId), n), "utf8").catch(() => "")).trim();
+    if (name && ART_NAME.test(name)) (out[m[1]] ??= {})[m[2]] = name;
+  }
+  return out;
+}
+
 /** The account's games; each `art` names a kept picture or is null. */
 export async function listGames(accountId) {
-  return gatherGames(await unitRecords(accountId));
+  const games = gatherGames(await unitRecords(accountId));
+  const sent = await sentArt(accountId);
+  return games.map((g) => (sent[gameFolder(g.id)] ? { ...g, art: { ...g.art, ...sent[gameFolder(g.id)] } } : g));
+}
+
+/**
+ * Keeps a picture a console sent for one of the account's games (`bytes`: a PNG or JPEG). A background is the
+ * game's pic0, which is also what its cover was told from, so it makes the cover too. "same" when that picture is
+ * already the game's, "kept" when it is now; throws { code: "unit" } for a game the account has no backup of and
+ * { code: "picture" } for bytes that are not a picture.
+ */
+export async function keepGameArt(accountId, id, role, bytes) {
+  if (!(role in ART_SIZES)) throw Object.assign(new Error("no such picture"), { code: "unit" });
+  if (!(await listGames(accountId)).some((g) => g.id === id)) throw Object.assign(new Error("no such game"), { code: "unit" });
+  if (!Buffer.isBuffer(bytes) || !bytes.length || bytes.length > SENT_ART_MAX || !isPicture(bytes)) throw Object.assign(new Error("not a picture"), { code: "picture" });
+  const roles = role === "background" ? ["background", "cover"] : [role];
+  const digest = crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 16);
+  const pointer = (r) => path.join(sentDir(accountId), `${gameFolder(id)}-${r}`);
+  const same = await Promise.all(roles.map(async (r) => {
+    const name = `${digest}-${r}.jpg`;
+    return (await fsp.readFile(pointer(r), "utf8").catch(() => "")).trim() === name && fs.existsSync(path.join(artDir(accountId), name));
+  }));
+  if (same.every(Boolean)) return "same";
+  for (const r of roles) {
+    const name = `${digest}-${r}.jpg`;
+    const [width, height] = ART_SIZES[r];
+    try {
+      await ingest({ input: bytes, spec: { format: "jpeg", width, height, quality: 82, mozjpeg: true, failOn: "none" }, dest: path.join(artDir(accountId), name) });
+    } catch {
+      throw Object.assign(new Error("not a picture"), { code: "picture" });
+    }
+    await writeAtomic(pointer(r), name);
+  }
+  return "kept";
 }
 
 /**
