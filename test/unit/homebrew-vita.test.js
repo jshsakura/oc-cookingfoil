@@ -46,6 +46,15 @@ const RETRO = zipStore([
 ], new Date(2024, 0, 1), { deflate: true });
 put("retroarch/RetroArch.vpk", RETRO);
 put("retroarch/.cookingfoil.json", JSON.stringify({ platform: "vita", display_version: " 1.22.2 " }));
+const PLUGIN = Buffer.from("SCE\0 a plugin body");
+put("lanl/livearea_nolimits.suprx", PLUGIN);
+put("lanl/.cookingfoil.json", JSON.stringify({ platform: "vita", kind: "plugin", file: "livearea_nolimits.suprx", sections: ["*main"],
+  name: "LiveArea No Limits", display_version: "2.1.0", required: true, source_url: "https://github.com/example/plugin/releases/tag/v2.1.0" }));
+for (const [folder, bad] of [["escape", { install_path: "ur0:tai/../../id.dat" }], ["elsewhere", { install_path: "ux0:data/x.suprx" }],
+  ["nosection", { sections: [] }], ["badsection", { sections: ["main\n*KERNEL"] }], ["outside", { file: "../lanl/livearea_nolimits.suprx" }]]) {
+  put(`${folder}/x.suprx`, "x");
+  put(`${folder}/.cookingfoil.json`, JSON.stringify({ platform: "vita", kind: "plugin", file: "x.suprx", sections: ["*main"], ...bad }));
+}
 put("broken/broken.vpk", "not a zip");
 put("broken/.cookingfoil.json", JSON.stringify({ platform: "vita" }));
 
@@ -132,4 +141,31 @@ test("a Switch, and the web with no console, get the Switch apps only, and no .v
   assert.equal((await fetch(`${base}/api/homebrew/${nro.id}/download`, { headers: SWITCH })).status, 200);
   const escape = await fetch(`${base}/api/homebrew/m-..%2F..%2Fetc/download`, { headers: VITA });
   assert.ok([400, 404].includes(escape.status), `an id is never a path: ${escape.status}`);
+});
+
+test("a Vita that asks gets its plugins after its apps, with where each goes and under which sections", async () => {
+  assert.equal((await list(VITA)).some((r) => r.install_type === "plugin"), false, "not without ?with=plugins: an older client would take it for an app");
+  const rows = await list(VITA, "?with=plugins");
+  const plugins = rows.filter((r) => r.install_type === "plugin");
+  assert.deepEqual(plugins.map((r) => r.file_name), ["livearea_nolimits.suprx"], "a plugin whose manifest a console may not trust is left out");
+  assert.equal(rows.at(-1).install_type, "plugin", "after the apps");
+  const [p] = plugins;
+  assert.deepEqual(
+    { name: p.name, sections: p.sections, install_path: p.install_path, kernel: p.kernel, required: p.required, display_version: p.display_version, source_url: p.source_url, size: p.size, version: p.version, title_id: p.title_id, icon_url: p.icon_url },
+    { name: "LiveArea No Limits", sections: ["*main"], install_path: "ur0:tai/livearea_nolimits.suprx", kernel: false, required: true, display_version: "2.1.0", source_url: "https://github.com/example/plugin/releases/tag/v2.1.0", size: PLUGIN.length, version: null, title_id: null, icon_url: null },
+  );
+  assert.equal(p.hash, crypto.createHash("sha256").update(PLUGIN).digest("hex"));
+  const piece = await fetch(base + p.download_url, { headers: { ...VITA, Range: "bytes=0-3" } });
+  assert.equal(piece.status, 206);
+  assert.equal(piece.headers.get("etag"), `"${p.hash}"`);
+  assert.ok(Buffer.from(await piece.arrayBuffer()).equals(PLUGIN.subarray(0, 4)));
+});
+
+test("a Switch and the web never see a plugin, even asking, and cannot fetch one", async () => {
+  const [p] = (await list(VITA, "?with=plugins")).filter((r) => r.install_type === "plugin");
+  for (const [who, headers] of [["a Switch", SWITCH], ["the web", WEB]]) {
+    const rows = (await (await fetch(`${base}/api/homebrew?with=plugins,titles`, { headers })).json()).homebrew;
+    assert.equal(rows.some((r) => r.install_type === "plugin"), false, who);
+    assert.equal((await fetch(base + p.download_url, { headers })).status, 404, who);
+  }
 });

@@ -32,8 +32,9 @@
 
  * The list is the asking console's platform's: a Vita gets the apps whose folder manifest says platform "vita"
  * (install_type "vpk": title_id, name and version from the .vpk's param.sfo, size and hash of the .vpk, the
- * Switch's install fields null), with or without ?with=titles; a Switch, and the web with no console, get the
- * rest. An app of the other platform answers 404 on every address under it.
+ * Switch's install fields null), with or without ?with=titles, and with ?with=plugins its taiHEN plugins after
+ * them (install_type "plugin": install_path, sections, kernel, required; meta/homebrew-vita-plugin.js); a Switch,
+ * and the web with no console, get the rest. An app of the other platform answers 404 on every address under it.
  *
  * `install_type` is "file" (copied to the card at install_path) or "title": an
  * app built as an installable NSP (nx.js apps and the like), installed from
@@ -117,8 +118,8 @@ import { mountPictures } from "../helpers/send-picture.js";
 import { requestPlatform } from "../platforms/switch-only.js";
 import { vpkIcon } from "../meta/homebrew-vpk.js";
 
-/** The platform an app is for: a .vpk is a Vita's, everything else a Switch's. Pure. */
-export const platformOfApp = (e) => (e.install_type === "vpk" ? "vita" : "switch");
+/** The platform an app is for: a .vpk or a plugin is a Vita's, everything else a Switch's. Pure. */
+export const platformOfApp = (e) => (e.install_type === "vpk" || e.install_type === "plugin" ? "vita" : "switch");
 /** Whose apps a request sees: a console its own platform's, the web and every request with no console a Switch's. */
 const viewerPlatform = (platform) => platform ?? "switch";
 
@@ -300,7 +301,7 @@ async function iconNro(id) {
   const version = media.iconVersion(id);
   if (!version || !fs.existsSync(media.iconPath(id))) return null;
   const src = await nroSource(id);
-  if (!src || /\.vpk$/i.test(src.path)) return null;
+  if (!src || /\.(vpk|suprx|skprx)$/i.test(src.path)) return null;
   let st;
   try {
     st = fs.statSync(src.path);
@@ -317,7 +318,7 @@ async function iconNro(id) {
 
 /** An entry as listed, its .nro's size and sha256 (and `hash`) those of the copy with the uploaded icon. */
 async function withIconNro(e) {
-  if (e.install_type === "title" || e.install_type === "vpk" || e.archive) return e;
+  if (e.install_type === "title" || platformOfApp(e) === "vita" || e.archive) return e;
   const copy = await iconNro(e.id);
   if (!copy) return e;
   if (copy.rel) {
@@ -360,7 +361,7 @@ export const defaultService = {
   },
   /** forwarder_title_id and forwarder_key. */
   shortcutInfo(e) {
-    if (e.install_type === "vpk") return NO_SHORTCUT;
+    if (platformOfApp(e) === "vita") return NO_SHORTCUT;
     const spec = shortcutSpec(shortcutApp(e));
     return spec ? { forwarder_title_id: spec.titleId, forwarder_key: spec.key } : NO_SHORTCUT;
   },
@@ -371,6 +372,7 @@ export const defaultService = {
     if (!file) return null;
     if (/\.nsp$/i.test(file)) return manualNspIcon(file).catch(() => null);
     if (/\.vpk$/i.test(file)) return vpkIcon(file);
+    if (/\.(suprx|skprx)$/i.test(file)) return null;
     return (await parseAssets(file).catch(() => null))?.icon ?? null;
   },
   async download(id) {
@@ -529,6 +531,21 @@ const vpkRow = (e, link, voter) => ({
   ...votes.fields("homebrew", e.id, voter),
 });
 
+/** A Vita plugin as the list gives it: where it goes and the config.txt sections it is added under. */
+const pluginRow = (e, link) => ({
+  description: null,
+  ...e,
+  title_id: null,
+  version: null,
+  app: null,
+  files: null,
+  archive: null,
+  bundle_url: null,
+  icon_url: null,
+  ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
+  ...NO_SHORTCUT,
+});
+
 export function homebrewRouter({ service = defaultService, platformOf = requestPlatform } = {}) {
   const router = express.Router();
 
@@ -541,8 +558,13 @@ export function homebrewRouter({ service = defaultService, platformOf = requestP
     const voter = votes.voterOf(req);
     const viewer = viewerPlatform(platformOf(req));
     const apps = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && platformOfApp(e) === viewer);
-    // A Vita's list is its .vpk apps, with or without ?with=titles.
-    const list = viewer === "vita" ? apps.map(({ enabled: _on, ...e }) => vpkRow(e, link, voter)) : apps.filter((e) => titles || e.install_type !== "title").map(({ enabled: _on, ...e }) => ({ ...(e.install_type === "title" ? {
+    // A Vita's list is its .vpk apps, with or without ?with=titles, and its plugins after them when it asks
+    // (?with=plugins): a client from before plugins would take one for an app.
+    const plugins = String(req.query.with ?? "").split(",").includes("plugins");
+    const list = viewer === "vita" ? [
+      ...apps.filter((e) => e.install_type === "vpk").map(({ enabled: _on, ...e }) => vpkRow(e, link, voter)),
+      ...(plugins ? apps.filter((e) => e.install_type === "plugin").map(({ enabled: _on, ...e }) => pluginRow(e, link)) : []),
+    ] : apps.filter((e) => titles || e.install_type !== "title").map(({ enabled: _on, ...e }) => ({ ...(e.install_type === "title" ? {
       description: null,
       install_dir: null,
       ...e,
