@@ -10,6 +10,7 @@ import vita from "../platforms/vita.js";
 
 const byBytes = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));
 const isTitleId = (name) => /^[A-Z0-9]{9}$/.test(name);
+const isPspTitleId = (name) => /^[A-Z]{4}[0-9]{5}$/.test(name);
 const lower = (s) => s.toLowerCase();
 
 // A folder's entries in name order: files and folders only, as lstat sees them.
@@ -112,6 +113,23 @@ async function titles(ux0, at, kind, sfo, out) {
   }
 }
 
+// A PSP game keeps its saves in several folders named after it (ULJS00001, ULJS00001DATA00, ...): every folder
+// whose first nine characters are a PSP title id (four capitals, five digits) is one unit for that id,
+// rooted at SAVEDATA so each file keeps its folder's full name.
+async function pspSaves(ux0, out) {
+  const at = "pspemu/PSP/SAVEDATA";
+  const byTitle = new Map();
+  for (const node of await list(path.join(ux0, at))) {
+    if (!node.dir || !isPspTitleId(node.name.slice(0, 9))) continue;
+    const files = byTitle.get(node.name.slice(0, 9)) ?? [];
+    await walk(path.join(ux0, at, node.name), node.name, "psp-save", files);
+    byTitle.set(node.name.slice(0, 9), files);
+  }
+  for (const id of [...byTitle.keys()].sort(byBytes)) {
+    out.push({ kind: "psp-save", id, root: at, title: "", version: "", category: "", files: sortFiles(byTitle.get(id)) });
+  }
+}
+
 async function group(ux0, at, kind, id, names, out) {
   const files = [];
   for (const node of await list(path.join(ux0, at))) {
@@ -152,7 +170,7 @@ export async function scanUx0(ux0) {
       files: [{ path: disc.name, size: disc.size, mtime: disc.mtime, secret: false, source: path.join(ux0, "pspemu/ISO", disc.name) }] });
   }
   await titles(ux0, "pspemu/PSP/GAME", "psp-game", false, out);
-  await titles(ux0, "pspemu/PSP/SAVEDATA", "psp-save", false, out);
+  await pspSaves(ux0, out);
   await group(ux0, "pspemu/seplugins", "psp-config", "seplugins", [], out);
   const ra = "data/retroarch";
   await group(ux0, ra, "ra-save", "savefiles", ["savefiles"], out);

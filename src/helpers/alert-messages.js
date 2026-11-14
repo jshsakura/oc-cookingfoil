@@ -29,6 +29,7 @@ const M = {
   },
   // Titles, after the event's emoji (alerts.js EVENT_ICON)
   "event.device": { ko: "기기 승인 요청", en: "Console approval request", ja: "本体の承認リクエスト", zh: "主机批准请求" },
+  "event.deviceApproved": { ko: "기기 승인", en: "Console approved", ja: "本体の承認", zh: "主机已批准" },
   "event.account": { ko: "구글 계정 승인 요청", en: "Google account approval request", ja: "Google アカウントの承認リクエスト", zh: "Google 账号批准请求" },
   "event.lockout": { ko: "로그인 실패 잠금", en: "Sign-in lockout", ja: "ログイン失敗によるロック", zh: "登录失败锁定" },
   "event.probe": { ko: "위험한 접근", en: "Suspicious access", ja: "危険なアクセス", zh: "可疑访问" },
@@ -81,6 +82,12 @@ const M = {
     en: "Tells you when a console you have not seen before is waiting for approval. It also sends the message the console left, the address the request came from, and the accounts that recently connected from that address.",
     ja: "初めて見る本体が承認を待っているときに知らせます。本体が残したメッセージ、リクエストを送ったアドレス、そのアドレスから最近接続したアカウントも一緒に送ります。",
     zh: "从未见过的主机在等待批准时通知。同时发送主机留下的消息、发出请求的地址，以及最近从该地址连接过的账号。",
+  },
+  "eventDesc.deviceApproved": {
+    ko: "관리자를 거치지 않고 기기가 승인되면 알립니다. 계정이 QR 로 승인했을 때, 다운로드로 등록됐을 때, 로그인으로 자동 승인됐을 때입니다. 어느 계정의 어떤 기기인지와 기종을 함께 보냅니다.",
+    en: "Tells you when a console is approved without you: an account approving it by QR, a download enrolling it, or a sign-in approving it automatically. It also sends whose console it is, its name and its platform.",
+    ja: "管理者を通さずに本体が承認されたときに知らせます。アカウントが QR で承認したとき、ダウンロードで登録されたとき、ログインで自動承認されたときです。どのアカウントのどの本体か、機種も一緒に送ります。",
+    zh: "主机未经管理员批准即被批准时通知：账号通过二维码批准、通过下载注册，或登录时自动批准。同时发送是哪个账号的哪台主机及其机型。",
   },
   "eventDesc.account": {
     ko: "새 구글 계정이 들어와 승인을 기다릴 때 알립니다. 메일 주소는 앞 두 글자와 도메인만 보냅니다.",
@@ -233,6 +240,15 @@ const M = {
     ja: ({ code, note, lines }) => `🔢 本体コード ${code}\n${note ? `💬 メッセージ: ${note}\n` : ""}${lines}本体の画面のコードと同じか確かめてから承認します。`,
     zh: ({ code, note, lines }) => `🔢 主机代码 ${code}\n${note ? `💬 留言：${note}\n` : ""}${lines}请确认与主机屏幕上的代码一致后再批准。`,
   },
+  deviceApproved: {
+    ko: ({ account, name, platform, how }) => `✅ 기기를 승인했습니다 (${how}).\n👤 계정: ${account ?? "없음"}\n${name ? `🏷️ 기기 이름: ${name}\n` : ""}🎮 기종: ${platform}`,
+    en: ({ account, name, platform, how }) => `✅ A console was approved (${how}).\n👤 Account: ${account ?? "none"}\n${name ? `🏷️ Console name: ${name}\n` : ""}🎮 Platform: ${platform}`,
+    ja: ({ account, name, platform, how }) => `✅ 本体を承認しました（${how}）。\n👤 アカウント: ${account ?? "なし"}\n${name ? `🏷️ 本体の名前: ${name}\n` : ""}🎮 機種: ${platform}`,
+    zh: ({ account, name, platform, how }) => `✅ 主机已批准（${how}）。\n👤 账号：${account ?? "无"}\n${name ? `🏷️ 主机名称：${name}\n` : ""}🎮 机型：${platform}`,
+  },
+  "approvedHow.qr": { ko: "계정의 QR 승인", en: "approved by its account's QR", ja: "アカウントの QR 承認", zh: "账号二维码批准" },
+  "approvedHow.download": { ko: "다운로드로 등록", en: "enrolled by a download", ja: "ダウンロードで登録", zh: "通过下载注册" },
+  "approvedHow.auto": { ko: "로그인으로 자동 승인", en: "approved automatically at sign-in", ja: "ログインで自動承認", zh: "登录时自动批准" },
   deviceName: { ko: ({ name }) => `🏷️ 기기 이름: ${name}`, en: ({ name }) => `🏷️ Console name: ${name}`, ja: ({ name }) => `🏷️ 本体の名前: ${name}`, zh: ({ name }) => `🏷️ 主机名称：${name}` },
   deviceOwner: {
     ko: ({ owner, how }) => `👤 받은 계정: ${owner} (${how})`,

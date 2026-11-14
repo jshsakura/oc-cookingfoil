@@ -94,6 +94,7 @@
  * (security/pairing-delivery.js). Mounted OUTSIDE the sign-in wall but
  * INSIDE rate-limiting + the probe access-guard.
  */
+import { alertDeviceApproved } from "../security/device-approved-alert.js";
 import { clientVersionOf } from "../security/client-version.js";
 import express from "express";
 import { bindingOf } from "../security/device-owner.js";
@@ -180,6 +181,7 @@ function enrollFromRequest(req, deviceKey) {
   const accessKey = generateAccessKey();
   store.approveDevice(deviceKey, { label: consoleName(req) ?? FROM_DOWNLOAD, addedBy: spent.owner, accessKeyHash: hashAccessKey(accessKey), version: clientVersionOf(req) });
   stageAccessKeyDelivery(deviceKey, accessKey);
+  alertDeviceApproved(deviceKey, "download");
   debug.log("pair: %s… enrolled by %s's download %s (from its request) [client %s]", deviceKey.slice(0, 12), spent.owner, spent.id, clientVersionOf(req) ?? "?");
   return {};
 }
@@ -440,6 +442,7 @@ export default function pairRouter() {
       addedBy: keeps ? undefined : spent.owner,
       accessKeyHash: hashAccessKey(accessKey),
     });
+    if (fresh) alertDeviceApproved(deviceKey, "download");
     if (binds) debug.log("pair: %s… was the system's; now bound to %s [client %s]", deviceKey.slice(0, 12), spent.owner, clientVersionOf(req) ?? "?");
     store.clearPairSecret(deviceKey);
     dropRepair(deviceKey);
