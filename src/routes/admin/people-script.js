@@ -157,7 +157,7 @@ function renderApproved(){const d=devicesShown;if(!d)return;
   for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+topFill('pp.count',{n:counts[group]})+(a.suspended?' · '+topText(a.suspended==='account-gone'?'pp.suspendedGone':a.suspended==='no-account'?'pp.suspendedNone':'pp.suspendedOff'):''));c.colSpan=8;h.append(c);rows.push(h);}
     const tr=el('tr');
     const ipc=td(a.lastIp?null:'—',a.lastIp?'':'dim');if(a.lastIp)ipc.append(ipButton(a.lastIp,'acc.ipHistory',()=>openDeviceIps(a)));
-    const name=td(a.label||'—');name.append(el('div',platformName(a.platform),'dim'));
+    const name=td('');name.append(el('div',a.label||'—'),el('div',platformName(a.platform),'dim'));
     tr.append(name,seenCell(a),ipc,td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     // An admin device may change item settings from the console; off by default.

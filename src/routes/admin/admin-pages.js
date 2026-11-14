@@ -12,7 +12,7 @@
  * page's language script swaps every [data-top] span on load and on change.
  */
 import { icon } from "../../views/icons.js";
-import { top } from "./top-i18n.js";
+import { top, topLabel } from "./top-i18n.js";
 
 /**
  * A page: the section (tab) it opens, the sub-view inside it when there is one, and its sidebar icon.
@@ -118,7 +118,7 @@ export function sidebarNav(current, withIds = true) {
 export function drawerHtml(current) {
   return `<dialog id="adm-drawer" class="adm-drawer" data-top-label="nav">
 <div class="adm-drawer-hd"><img class="logo brand-motion" src="/assets/cookingfoil.svg" alt="" width="28" height="28"><span class="wm">cookingfoil<span class="dot">.</span></span>
-<button type="button" id="adm-drawer-close" data-top-label="acc.close">✕</button></div>
+<button type="button" id="adm-drawer-close" ${topLabel("acc.close")}>${icon("x")}</button></div>
 <nav class="adm-side-in" data-top-label="nav">${sidebarNav(current, false)}</nav></dialog>`;
 }
 
@@ -196,6 +196,7 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
 .adm-drawer-hd .wm .dot{color:var(--accent)}
 .adm-drawer-hd .logo{display:block}
 #adm-drawer-close{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--panel);color:var(--text);font-size:var(--fs-sm);line-height:1;cursor:pointer}
+#adm-drawer-close .ico{width:20px;height:20px;vertical-align:0}
 #adm-drawer-close:hover{background:var(--sunk);color:var(--text)}
 @media (prefers-reduced-motion:no-preference){.adm-drawer[open]{animation:adm-drawer-in .18s ease-out}
 @keyframes adm-drawer-in{from{transform:translateX(-14px)}to{transform:none}}}
