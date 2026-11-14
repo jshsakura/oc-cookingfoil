@@ -19,6 +19,28 @@ import { countCardGames, noteUnitQuietly } from "./games.js";
 
 const PLATFORM = "vita";
 
+// A body linked, not copied: read once for its hash and CRC, then kept as a link to the card copy's own file.
+// The card copy must then stay where it is; a body the account already has is left as it is.
+async function linkBody(accountId, file) {
+  const hash = crypto.createHash("sha256");
+  let crc = 0;
+  for await (const chunk of fs.createReadStream(file, { highWaterMark: 4 * 1024 ** 2 })) {
+    hash.update(chunk);
+    crc = zlib.crc32(chunk, crc);
+  }
+  const sha256 = hash.digest("hex");
+  const blob = store.blobPath(accountId, sha256);
+  if (!store.hasBlob(accountId, sha256)) {
+    await fsp.mkdir(path.dirname(blob), { recursive: true });
+    const tmp = `${blob}.${process.pid}.link`;
+    await fsp.rm(tmp, { force: true });
+    await fsp.symlink(path.resolve(file), tmp);
+    await fsp.rename(tmp, blob);
+  }
+  await store.noteBlobCrc(accountId, sha256, crc);
+  return sha256;
+}
+
 // A body read once: hashed while it is copied in, kept when the account lacks it.
 async function takeBody(accountId, file) {
   const tmpDir = path.join(store.accountDir(accountId), "blobs", `.import-${process.pid}`);
@@ -45,7 +67,7 @@ async function takeBody(accountId, file) {
   return sha256;
 }
 
-async function importUnit(accountId, unit) {
+async function importUnit(accountId, unit, link) {
   const key = `${unit.kind}:${unit.id}`;
   const [latest] = await store.unitVersions(accountId, PLATFORM, key);
   // A file the newest version already has, same size and time, is not read again.
@@ -53,7 +75,7 @@ async function importUnit(accountId, unit) {
   const hash = async (f) => {
     const was = known.get(f.path);
     if (was && was.size === f.size && was.mtime === f.mtime && store.hasBlob(accountId, was.sha256)) return was.sha256;
-    return takeBody(accountId, f.source);
+    return link ? linkBody(accountId, f.source) : takeBody(accountId, f.source);
   };
   const manifest = normalizeManifest(PLATFORM, key, await manifestOf(unit, hash));
   if (!manifest) throw new Error("a unit on the card does not make a manifest this server takes");
@@ -76,10 +98,11 @@ async function importUnit(accountId, unit) {
 }
 
 /**
- * Imports the card copy at `ux0` into `accountId`'s Vita backups (only `kinds`, when given). `dry` scans and
+ * Imports the card copy at `ux0` into `accountId`'s Vita backups (only `kinds`, when given). `link` keeps each
+ * body as a link to the card copy's file instead of a copy (secrets are still sealed copies). `dry` scans and
  * counts without writing. `report` is told the counts as it goes.
  */
-export async function importUx0({ ux0, accountId, kinds = null, dry = false, report = () => {} }) {
+export async function importUx0({ ux0, accountId, kinds = null, dry = false, link = false, report = () => {} }) {
   const units = (await scanUx0(ux0)).filter((u) => !kinds || kinds.includes(u.kind));
   const totals = { units: units.length, files: 0, secrets: 0, bytes: 0, added: 0, kept: 0 };
   for (const unit of units) {
@@ -90,7 +113,7 @@ export async function importUx0({ ux0, accountId, kinds = null, dry = false, rep
   if (dry) return { ...totals, games: await countCardGames(units) };
   let done = 0;
   for (const unit of units) {
-    const { added } = await importUnit(accountId, unit);
+    const { added } = await importUnit(accountId, unit, link);
     if (added) totals.added++;
     else totals.kept++;
     report({ done: ++done, of: units.length });
