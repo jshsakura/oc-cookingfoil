@@ -43,11 +43,15 @@ export function readPluginManifest(manifest, names) {
   if (typeof installPath !== "string" || !INSTALL_RE.test(installPath)) return { error: "install_path" };
   if (extOf(installPath) !== extOf(file)) return { error: "install_path" };
   for (const flag of ["kernel", "required"]) if (manifest[flag] != null && typeof manifest[flag] !== "boolean") return { error: flag };
+  const kernel = manifest.kernel ?? extOf(file) === "skprx";
+  // taiHEN loads a kernel plugin only under *KERNEL, and a user plugin never there: the Vita client drops a row
+  // that mixes them, so it is left out here first.
+  if (kernel ? sections.length !== 1 || sections[0] !== "*KERNEL" : sections.includes("*KERNEL")) return { error: "sections" };
   return {
     file,
     sections: [...sections],
     install_path: installPath,
-    kernel: manifest.kernel ?? extOf(file) === "skprx",
+    kernel,
     required: manifest.required ?? false,
     name: text(manifest.name, 80),
     description: text(manifest.description, 1000),
