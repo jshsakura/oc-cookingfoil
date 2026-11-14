@@ -144,6 +144,11 @@ const keep = (write) => {
     debug.error("homebrew: could not keep the list: %s", err.message);
   }
 };
+// Which reading of the folder the kept list came from: raised whenever a scan lists something an older one
+// left out (a new kind of app), so the list kept by the older server is read again on start.
+export const MANUAL_FORMAT = 2;
+const formatStore = catalogStore(appDb(), "homebrew-manual-format");
+let keptFormat = formatStore.load()?.items[0]?.v ?? 0;
 const kept = manualStore.load();
 // In folder order, as a scan lists them.
 let manual = kept ? { at: kept.at, entries: kept.items.sort((a, b) => (a.folder < b.folder ? -1 : a.folder > b.folder ? 1 : 0)) } : { at: 0, entries: [] };
@@ -173,7 +178,11 @@ export function refreshManual() {
     .then((entries) => {
       const before = manual.entries;
       manual = { at: Date.now(), entries };
-      keep(() => manualStore.replace(entries, manual.at));
+      keep(() => {
+        manualStore.replace(entries, manual.at);
+        formatStore.replace([{ id: "format", v: MANUAL_FORMAT }], manual.at);
+      });
+      keptFormat = MANUAL_FORMAT;
       // Not on the first scan: the list kept from before a restart says nothing changed.
       if (before.length) rebuildChanged(before, entries);
     })
@@ -195,11 +204,12 @@ export async function refreshManualApp(folder) {
 }
 
 /**
- * Whether a kept list predates what the server now serves, so it is read again on start: file keys
+ * Whether a kept list predates what the server now serves, so it is read again on start: kept by an older
+ * reading (`format` below MANUAL_FORMAT, 0 when none was noted), file keys
  * without ctime (a same-size overwrite could keep an old hash), no nacp_version, or a Vita app with no
  * display_version (listed before the server read it). Hashes stay cached. Pure.
  */
-export const keptListOutdated = (entries) => entries.some((e) => !("nacp_version" in e)
+export const keptListOutdated = (entries, format = MANUAL_FORMAT) => format !== MANUAL_FORMAT || entries.some((e) => !("nacp_version" in e)
   || (e.install_type === "vpk" && !("display_version" in e))
   || [e.key, ...(e.files ?? []).map((f) => f.key)].some((k) => k && k.split(":").length === 3));
 
@@ -424,7 +434,7 @@ export function start() {
   // and reading every app again on each restart kept a busy disk busy for minutes.
   // A list kept with the keys before ctime joined them (three parts) is read again once, so no
   // download meets an old key and is turned away while its app is read again.
-  if (!manual.at || keptListOutdated(manual.entries) || Date.now() - manual.at > MANUAL_STALE_MS) {
+  if (!manual.at || keptListOutdated(manual.entries, keptFormat) || Date.now() - manual.at > MANUAL_STALE_MS) {
     refreshManual().catch((err) => debug.error("homebrew: scan failed: %s", err.message));
   }
   // An app copied into the folder by hand, or any file changed deep inside one, is read again
