@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
-import { changedApps, homebrewRouter, keptListOutdated, readsFilesUrl } from "../../src/routes/homebrew.js";
+import { changedApps, homebrewRouter, keptListOutdated, MANUAL_FORMAT, readsFilesUrl } from "../../src/routes/homebrew.js";
 
 const ID = "gh-0123456789ab";
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -250,6 +250,8 @@ test("a kept list is read again on start when it lacks ctime keys, nacp_version 
   assert.equal(keptListOutdated([{ id: "m-1", key: "1:2:3:4" }]), true);
   assert.equal(keptListOutdated([{ ...now, files: [{ key: "1:2:4" }] }]), true);
   assert.equal(keptListOutdated([]), false);
+  assert.equal(keptListOutdated([now], 0), true, "a list kept by a server before the list's format was noted");
+  assert.equal(keptListOutdated([now], MANUAL_FORMAT - 1), true, "one kept by an older reading, which may have left a kind out");
   const vpk = { ...now, install_type: "vpk", files: undefined };
   assert.equal(keptListOutdated([{ ...vpk, display_version: null }]), false);
   assert.equal(keptListOutdated([vpk]), true, "a Vita app kept before display_version was read");
