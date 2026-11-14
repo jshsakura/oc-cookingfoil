@@ -78,7 +78,7 @@ test("the tool prints counts only: no title, path, hash or secret", () => {
   const dry = execFileSync(process.execPath, ["scripts/import-backup.mjs", "--platform", "vita", "--account", "alice", "--dry"], {
     cwd: path.join(import.meta.dirname, "../.."), env: { ...process.env, ...env, COOK_IMPORT_SOURCE: ux0 }, encoding: "utf8",
   });
-  assert.match(dry, /^would import: units 17, files \d+, secret files 4, [\d.]+ GiB\n$/);
+  assert.match(dry, /^would import: units 17, files \d+, secret files 4, [\d.]+ GiB\ngames \d+ \(vita \d+, psp \d+\), named \d+, with icon \d+, with cover \d+\n$/);
 });
 
 test("the tool stops on a key other than the server's", () => {

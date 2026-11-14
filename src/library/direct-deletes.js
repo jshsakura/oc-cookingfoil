@@ -9,6 +9,7 @@
  * file uses discard().
  */
 export const DIRECT_DELETES = Object.freeze({
+  "src/backups/games.js": { count: 1, why: "a backup unit's game facts once the unit has no version left; made again from its backups" },
   "src/backups/import.js": { count: 2, why: "the import's own work copies of a file the account already has; the card copy is only read" },
   "src/backups/store.js": { count: 2, why: "console backup versions past their 30 days in removed/, and bodies no version uses; backups never go to the library's trash" },
   "src/backups/uploads.js": { count: 4, why: "half-sent backup uploads: their parts, a body cut past its size, and an upload once finished or abandoned" },

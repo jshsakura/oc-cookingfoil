@@ -9,9 +9,10 @@ import * as googleAccounts from "../security/google-accounts.js";
 import { PLATFORMS } from "../platforms/index.js";
 import { accountFolder, accountOfOwner } from "./account.js";
 import * as store from "./store.js";
+import { ART_SIZES, artPath, gameRow, listGames } from "./games.js";
 
 /** Every account the server knows, as { kind, name, id }. */
-function accounts() {
+export function accounts() {
   const out = [];
   for (const u of users.list()) {
     const a = accountOfOwner({ kind: "user", id: u.name });
@@ -22,6 +23,31 @@ function accounts() {
     if (a) out.push({ kind: "google", name: g.email ?? g.sub, id: a.id });
   }
   return out;
+}
+
+/**
+ * Each account's Vita and PSP games, for the admin: { on, accounts: [{ kind, name, folder, games }] } with the
+ * pictures' addresses under the admin's own, accounts with games only.
+ */
+export async function backupGames() {
+  const root = store.backupsRoot();
+  if (!root) return { on: false, accounts: [] };
+  const out = [];
+  for (const a of accounts()) {
+    const folder = accountFolder(a.id);
+    if (!fs.existsSync(path.join(root, folder))) continue;
+    const games = await listGames(a.id);
+    if (games.length) out.push({ kind: a.kind, name: a.name, folder, games: games.map((g) => gameRow(g, `/admin/api/backups/games/${folder}`)) });
+  }
+  return { on: true, accounts: out };
+}
+
+/** A game's kept picture for the admin, by the account's folder name; null when there is none. */
+export async function backupGameArt(folder, id, role) {
+  if (!store.backupsRoot() || !(role in ART_SIZES)) return null;
+  const a = accounts().find((x) => accountFolder(x.id) === folder);
+  const game = a && (await listGames(a.id)).find((g) => g.id === id);
+  return game ? artPath(a.id, game.art[role]) : null;
 }
 
 /** { on, accounts: [{ kind, name, bytes, platforms: [{ platform, units, versions, bytes, secrets }] }] }, accounts with backups only. */

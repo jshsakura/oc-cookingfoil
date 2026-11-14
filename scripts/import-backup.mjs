@@ -60,4 +60,8 @@ const totals = await importUx0({
 });
 process.stdout.write(`${values.dry ? "would import" : "imported"}: units ${totals.units}, files ${totals.files}, secret files ${totals.secrets}, ${gib(totals.bytes)}`
   + (values.dry ? "\n" : `; new versions ${totals.added}, unchanged ${totals.kept}\n`));
+if (totals.games) {
+  const g = totals.games;
+  process.stdout.write(`games ${g.games} (vita ${g.vita}, psp ${g.psp}), named ${g.named}, with icon ${g.icons}, with cover ${g.covers}\n`);
+}
 process.exit(0);

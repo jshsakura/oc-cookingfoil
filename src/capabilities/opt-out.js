@@ -33,6 +33,9 @@ export const OPT_OUT = {
   // A console's own backups (routes/backups.js): the console sends and reads them; the admin sees counts only.
   "GET /api/backups/": "console-backup",
   "GET /api/backups/unit": "console-backup",
+  "GET /api/backups/games": "console-backup",
+  "GET /api/backups/games/:id/:art": "console-backup",
+  "GET /admin/api/backups/games/:folder/:id/:art": "browser-only",
   "POST /api/backups/begin": "console-backup",
   "HEAD /api/backups/upload/:id": "console-backup",
   "PUT /api/backups/upload/:id": "console-backup",

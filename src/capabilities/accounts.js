@@ -178,4 +178,26 @@ export const accountsCapabilities = [
     http: { method: "GET", path: "/admin/api/backups" },
     handler: async () => (await import("../backups/stats.js")).backupStats(),
   }),
+  defineCapability({
+    id: "backup_games",
+    area: "admin",
+    title: "Backed-up Vita and PSP games per account",
+    description: "Each account's Vita and PSP games as its console backups tell them: title, region, version, size, units and picture addresses. Secret files are never read.",
+    input: { type: "object", properties: {} },
+    output: obj({
+      on: bool("backups are on on this server"),
+      accounts: arr(obj({
+        kind: oneOf(["user", "google"]), name: str("the account's name or address"), folder: str("the account's backups folder name"),
+        games: arr(obj({
+          id: str("title id, or iso:<file> for a disc image without one"), platform: oneOf(["vita", "psp"]), title: nullable(str()),
+          region: nullable(oneOf(["US", "EU", "JP", "ASIA"])), version: nullable(str()), category: nullable(str()), bytes: int(), updatedAt: int(),
+          lastDevice: nullable(str("the console that backed it up last")), units: arr(str()),
+          icon: nullable(str()), cover: nullable(str()), background: nullable(str()),
+        })),
+      })),
+    }),
+    safety: "read",
+    http: { method: "GET", path: "/admin/api/backups/games" },
+    handler: async () => (await import("../backups/stats.js")).backupGames(),
+  }),
 ];

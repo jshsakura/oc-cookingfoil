@@ -15,6 +15,7 @@ import { normalizeManifest } from "./manifest.js";
 import * as store from "./store.js";
 import { sealSecret, secretName, secretPlace } from "./secrets.js";
 import { SECRET_MAX_BYTES } from "./uploads.js";
+import { countCardGames, noteUnitQuietly } from "./games.js";
 
 const PLATFORM = "vita";
 
@@ -70,6 +71,7 @@ async function importUnit(accountId, unit) {
     }
   }
   await store.commitVersion(accountId, PLATFORM, key, version, manifest, { label: "import" });
+  await noteUnitQuietly(accountId, PLATFORM, key);
   return { added: true, manifest };
 }
 
@@ -85,7 +87,7 @@ export async function importUx0({ ux0, accountId, kinds = null, dry = false, rep
     totals.secrets += unit.files.filter((f) => f.secret).length;
     totals.bytes += unit.files.reduce((n, f) => n + f.size, 0);
   }
-  if (dry) return totals;
+  if (dry) return { ...totals, games: await countCardGames(units) };
   let done = 0;
   for (const unit of units) {
     const { added } = await importUnit(accountId, unit);
