@@ -196,3 +196,39 @@ test("the admin sees every account's games and pictures; nobody else does", asyn
   assert.equal((await fetch(base + one.icon, { headers: A })).status, 200);
   assert.notEqual((await fetch(base + one.icon)).status, 200);
 });
+
+test("a Vita sends a game's picture as it reads it; it comes first, and sending it again changes nothing", async () => {
+  const send = (id, role, body, device = ALICE_VITA) => fetch(`${base}/api/backups/games/${id}/art/${role}`, { method: "POST", headers: { ...device, "Content-Type": "image/png" }, body });
+  const shell = async () => (await games(ALICE_VITA)).games.find((g) => g.id === "VITASHELL");
+  assert.deepEqual([(await shell()).icon, (await shell()).cover], [null, null], "the card gave none");
+
+  const icon = await png(128, 128, 10);
+  const first = await send("VITASHELL", "icon", icon);
+  assert.equal(first.status, 201);
+  assert.equal((await first.json()).url, "/api/backups/games/VITASHELL/icon");
+  assert.equal((await send("VITASHELL", "icon", icon)).status, 204, "the same picture again");
+  const got = await fetch(`${base}/api/backups/games/VITASHELL/icon`, { headers: ALICE_VITA });
+  assert.equal(got.headers.get("content-type"), "image/jpeg");
+
+  const bg = await sharp({ create: { width: 960, height: 544, channels: 3, background: "#204060" } }).jpeg().toBuffer();
+  assert.equal((await send("VITASHELL", "background", bg)).status, 201);
+  const one = await shell();
+  assert.deepEqual([one.background, one.cover], ["/api/backups/games/VITASHELL/background", "/api/backups/games/VITASHELL/cover"], "pic0 makes the cover too");
+  const cover = await sharp(Buffer.from(await (await fetch(`${base}/api/backups/games/VITASHELL/cover`, { headers: ALICE_VITA })).arrayBuffer())).metadata();
+  assert.deepEqual([cover.width, cover.height], [480, 272]);
+
+  const before = (await games(ALICE_VITA)).games.find((g) => g.id === "PCSE00001").icon;
+  const etag = (await fetch(`${base}/api/backups/games/PCSE00001/icon`, { headers: ALICE_VITA })).headers.get("etag");
+  assert.equal((await send("PCSE00001", "icon", await png(128, 128, 250))).status, 201);
+  assert.equal((await games(ALICE_VITA)).games.find((g) => g.id === "PCSE00001").icon, before);
+  assert.notEqual((await fetch(`${base}/api/backups/games/PCSE00001/icon`, { headers: ALICE_VITA })).headers.get("etag"), etag, "the sent one comes before the card's");
+
+  assert.equal((await send("VITASHELL", "icon", Buffer.from("not a picture"))).status, 415);
+  assert.equal((await send("PCSZ99999", "icon", icon)).status, 404, "a game the account has no backup of");
+  assert.equal((await send("VITASHELL", "secret", icon)).status, 404);
+  assert.equal((await send("VITASHELL", "icon", icon, BOB_VITA)).status, 404, "another account's game");
+  assert.equal((await send("VITASHELL", "icon", icon, ALICE_SWITCH)).status, 404);
+  assert.equal((await send("VITASHELL", "icon", icon, {})).status, 401);
+  const big = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.alloc(2 * 1024 * 1024)]);
+  assert.equal((await send("VITASHELL", "icon", big)).status, 413);
+});
