@@ -48,7 +48,8 @@ const TEXT = {
     optional: "(선택)",
     approve: "연결을 승인합니다",
     doneTitle: "연결을 승인했습니다",
-    doneLead: "기기가 곧 자동으로 서버에 연결합니다. 이 창은 닫아도 됩니다.",
+    home: "대시보드로 돌아가기",
+    doneLead: "기기가 곧 자동으로 서버에 연결합니다.",
     expiredTitle: "연결 시간이 지났습니다",
     expiredLead: "기기에서 새 QR을 띄워 다시 찍습니다.",
     errNotFound: "그 코드로 기다리는 기기가 없습니다. 기기 화면의 코드를 확인합니다.",
@@ -87,7 +88,8 @@ const TEXT = {
     optional: "(optional)",
     approve: "Approve the connection",
     doneTitle: "Connection approved",
-    doneLead: "The console connects on its own in a moment. You can close this page.",
+    home: "Back to the dashboard",
+    doneLead: "The console connects on its own in a moment.",
     expiredTitle: "This link has expired",
     expiredLead: "Show a new QR on the console and scan it again.",
     errNotFound: "No console is waiting with that code. Check the code on its screen.",
@@ -126,7 +128,8 @@ const TEXT = {
     optional: "（任意）",
     approve: "接続を承認します",
     doneTitle: "接続を承認しました",
-    doneLead: "本体はまもなく自動でサーバーに接続します。このページは閉じてかまいません。",
+    home: "ダッシュボードに戻る",
+    doneLead: "本体はまもなく自動でサーバーに接続します。",
     expiredTitle: "接続の期限が切れました",
     expiredLead: "本体に新しい QR を表示して、もう一度読み取ります。",
     errNotFound: "そのコードで待っている本体はありません。本体の画面のコードを確認します。",
@@ -165,7 +168,8 @@ const TEXT = {
     optional: "（可选）",
     approve: "批准连接",
     doneTitle: "已批准连接",
-    doneLead: "主机很快会自动连接到服务器。可以关闭此页面。",
+    home: "返回仪表板",
+    doneLead: "主机很快会自动连接到服务器。",
     expiredTitle: "连接已过期",
     expiredLead: "请在主机上显示新的二维码并重新扫描。",
     errNotFound: "没有主机在用这个设备码等待。请核对主机屏幕上的设备码。",
@@ -194,6 +198,7 @@ ${ICON_CSS}
 ${BRAND_MOTION_CSS}
 h1{font-size:22px;line-height:1.3;margin:0 0 8px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 p{font-size:16px;line-height:1.6;color:var(--muted);margin:0 0 24px;overflow-wrap:anywhere}:lang(ko) p{word-break:keep-all}p b{color:var(--ink);word-break:break-all}
+.done-badge{display:flex;align-items:center;justify-content:center;width:56px;height:56px;margin:4px auto 20px;border-radius:50%;background:rgba(46,160,67,.14);color:#2EA043}.done-badge .ico,.done-badge svg{width:30px;height:30px}
 .device-code{display:block;font:700 28px monospace;letter-spacing:3px;padding:16px;text-align:center;background:var(--soft);border-radius:12px;margin:0 0 24px}
 form{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;text-align:left}.field{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 label{display:block;font-size:14px;font-weight:600}label span{color:var(--muted);font-weight:400}
@@ -284,7 +289,7 @@ catch{error.textContent=E.net;}finally{button.disabled=false;}});${SIGN_OUT_SCRI
 export function devicePage({ lang = "ko", view = "code", code = "", token = "", user = "", csrf = "", repair = null } = {}) {
   const t = textFor(lang);
   if (view === "expired") return shell(lang, t.expiredTitle, `<p>${escapeHtml(t.expiredLead)}</p>`);
-  if (view === "done") return shell(lang, t.doneTitle, `<p>${escapeHtml(t.doneLead)}</p>${whoBar(t, user, csrf)}`, SIGN_OUT_SCRIPT);
+  if (view === "done") return shell(lang, t.doneTitle, `<span class="done-badge">${icon("check")}</span><p>${escapeHtml(t.doneLead)}</p><a class="button" href="/">${icon("dashboard")}<span>${escapeHtml(t.home)}</span></a>${whoBar(t, user, csrf)}`, SIGN_OUT_SCRIPT);
   const name = `<div class="field"><label for="label">${escapeHtml(t.nameLabel)} <span>${escapeHtml(t.optional)}</span></label><input id="label" maxlength="64" placeholder="${escapeHtml(t.namePlaceholder)}" autocomplete="off"></div>`;
   const approve = `<button type="submit">${icon("check")}<span>${escapeHtml(t.approve)}</span></button>`;
   const body = view === "confirm"
