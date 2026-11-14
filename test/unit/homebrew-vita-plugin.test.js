@@ -10,6 +10,10 @@ const read = (over) => readPluginManifest({ file: "a.suprx", sections: ["*main"]
 test("a plain manifest gets the defaults: ur0:tai/<file>, kernel by extension, not required", () => {
   assert.deepEqual(read({}), { file: "a.suprx", sections: ["*main"], install_path: "ur0:tai/a.suprx", kernel: false, required: false, name: null, description: null, display_version: null, source_url: null });
   assert.equal(readPluginManifest({ file: "k.skprx", sections: ["*KERNEL"] }, names).kernel, true);
+  for (const m of [{ file: "k.skprx", sections: ["*main"] }, { file: "k.skprx", sections: ["*KERNEL", "*main"] }, { file: "a.suprx", sections: ["*KERNEL"] },
+    { file: "a.suprx", sections: ["*main", "*KERNEL"] }, { file: "a.suprx", sections: ["*KERNEL"], kernel: false }]) {
+    assert.deepEqual(readPluginManifest(m, names), { error: "sections" }, JSON.stringify(m));
+  }
   assert.deepEqual(read({ sections: ["*main", "*NPXS10015"] }).sections, ["*main", "*NPXS10015"]);
   assert.equal(read({ install_path: "ux0:tai/sub/a.suprx" }).install_path, "ux0:tai/sub/a.suprx");
 });
