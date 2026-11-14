@@ -587,6 +587,10 @@ async function metadataEntries(dir) {
  * A folder whose manifest says platform "vita": its .vpk (the manifest's `vpk`, else the first), listed for Vita
  * consoles only, by the title id, name and APP_VER of its param.sfo. A .vpk that is no Vita app is left out.
  */
+// What the screen shows as a Vita app's version when its APP_VER says nothing (RetroArch ships every release as
+// 00.00): the operator's own words from .cookingfoil.json. Installs are still judged by APP_VER and the hash.
+const displayVersion = (v) => (typeof v === "string" && /^[^\p{Cc}]{1,32}$/u.test(v.trim()) ? v.trim() : null);
+
 async function readManualVpk(dir, folder, names, manifest, seen) {
   const file = manifest.vpk && names.includes(manifest.vpk) ? manifest.vpk : names.filter((f) => /\.vpk$/i.test(f)).sort()[0];
   if (!file) return null;
@@ -607,6 +611,7 @@ async function readManualVpk(dir, folder, names, manifest, seen) {
     id: idFor("manual", folder),
     name: sfo.name ?? folder,
     version: sfo.version,
+    display_version: displayVersion(manifest.display_version),
     nacp_version: null,
     author: null,
     size: st.size,
