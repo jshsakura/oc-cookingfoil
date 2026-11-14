@@ -243,11 +243,14 @@ test("an app whose files changed on disk is picked for its icon copy and shortcu
   assert.deepEqual(changedApps(before, after), ["m-bbbbbbbbbbbb"]);
 });
 
-test("a kept list is read again on start when it lacks ctime keys or nacp_version", () => {
+test("a kept list is read again on start when it lacks ctime keys, nacp_version or a Vita app's display_version", () => {
   const now = { id: "m-1", key: "1:2:3:4", nacp_version: "1.0", files: [{ key: "1:2:3:4" }] };
   assert.equal(keptListOutdated([now]), false);
   assert.equal(keptListOutdated([{ ...now, nacp_version: null }]), false);
   assert.equal(keptListOutdated([{ id: "m-1", key: "1:2:3:4" }]), true);
   assert.equal(keptListOutdated([{ ...now, files: [{ key: "1:2:4" }] }]), true);
   assert.equal(keptListOutdated([]), false);
+  const vpk = { ...now, install_type: "vpk", files: undefined };
+  assert.equal(keptListOutdated([{ ...vpk, display_version: null }]), false);
+  assert.equal(keptListOutdated([vpk]), true, "a Vita app kept before display_version was read");
 });
