@@ -26,8 +26,8 @@ test('the top tabs are Switch, PS Vita and retro, and PS Vita lists what the acc
   await page.locator('.tabs [data-tab="vita"]').click();
   await expect(page).toHaveURL(/#vita$/);
   await expect(page.locator('#subtabs [data-view]')).toHaveText(['게임', '세이브', '홈브류', '플러그인']);
-  await expect(page.locator('#vita-games-list .game .name')).toHaveText(['PSP Game', 'Vita Game']);
-  await expect(page.locator('#vita-games-list .game .pill').first()).toHaveText('PSP');
+  await expect(page.locator('#vita-games-list .game .name')).toHaveText(['Vita Game']);
+  await expect(page.locator('#vita-games-list .game .pill')).toHaveCount(0);
   await page.locator('#subtabs [data-view="vita-saves"]').click();
   await expect(page.locator('#vita-saves-list .xname')).toHaveText(['Vita Game']);
   await page.locator('#subtabs [data-view="vita-homebrew"]').click();
@@ -56,7 +56,7 @@ test('PS Vita games lists the library first, and a backed-up game the library al
   await page.route('**/api/homebrew?*', (r) => r.fulfill({ json: { homebrew: [] } }));
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/#vita');
-  await expect(page.locator('#vita-games-list .game .name')).toHaveText(['Library Only', 'PSP Game', 'Vita Game']);
+  await expect(page.locator('#vita-games-list .game .name')).toHaveText(['Library Only', 'Vita Game']);
   await expect(page.locator('#vita-games-list .game').last().locator('.pill')).toHaveText(['업데이트']);
   await expect(page.locator('#vita-games-list .game').last().locator('.size-badge')).toHaveText('3.00 MB');
 });
