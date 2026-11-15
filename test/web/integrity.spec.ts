@@ -81,3 +81,21 @@ test('the overview link to damaged files opens the check on the damaged files al
   await page.locator('#lv-cards button.card', { hasText: '수정' }).click();
   await expect(rows).toHaveCount(3);
 });
+
+test('a flagged file with help draws its row and its tip', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  const flagged = [{ path: 'Patched [0100000000020000][v0].nsp', verdict: 'modified', reason: 'signature-fail', label: '수정됨', help: { title: '서명이 맞지 않습니다', body: '한글 패치처럼 원본과 다른 파일입니다.' } }];
+  await page.route('**/admin/api/library/verify', (route) => route.fulfill({ json: {
+    status: 'idle', pending: 0, hashPending: 0, total: 1, counts: { ok: 0, modified: 1, damaged: 0, unchecked: 0, misnamed: 0 }, flagged, flaggedTotal: 1,
+  } }));
+  await signIn(page);
+  await page.goto('/admin/games?view=verify#library/verify');
+  const row = page.locator('#lv-list [role="row"]', { hasText: '다시 검사' });
+  await expect(row).toHaveCount(1);
+  const tip = row.locator('button.lv-tip');
+  await expect(tip).toHaveAttribute('aria-label', '서명이 맞지 않습니다');
+  await tip.hover();
+  await expect(page.locator('#lv-pop')).toContainText('한글 패치처럼');
+  expect(errors).toEqual([]);
+});

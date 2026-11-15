@@ -27,6 +27,13 @@ export const LIBRARY_FILES_CSS = /* css */ `
 #sg-list .sg-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 #lv-list .lv-why{display:inline-flex;align-items:center;gap:6px;max-width:100%}
 #lv-list .lv-why-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lv-tip{flex:none;display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:help}
+.lv-tip:hover,.lv-tip:focus-visible{background:var(--sunk);color:var(--text)}
+.lv-tip svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.lv-pop{position:fixed;z-index:60;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);color:var(--text);box-shadow:0 10px 30px var(--shadow);font-size:var(--fs-sm);line-height:1.55;pointer-events:none}
+.lv-pop b{display:block;margin-bottom:6px;font-size:var(--fs-sm)}
+.lv-pop p{margin:0 0 6px;color:var(--muted)}
+.lv-pop p:last-child{margin-bottom:0}
 #lv-cards button.card{font:inherit;color:inherit;text-align:left;cursor:pointer}
 #lv-cards button.card[aria-pressed="true"]{background:rgba(var(--accent-rgb),.16);border-color:rgba(var(--accent-rgb),.55)}
 `;
@@ -50,6 +57,21 @@ function lvShow(){const d=lvData;if(!d)return;
   table('lv-list',[topText('lo.colFile'),topText('lv.colResult'),topText('lo.colReason'),''],(d.flagged||[]).filter((f)=>!only||lvKind(f)===only).map((f)=>{const tr=el('tr');const n=td();n.append(el('b',f.path.split('/').pop()));n.append(el('div',f.path,'muted'));
     const again=btn(topText('lv.recheck'),()=>lvRecheck(f));again.setAttribute('aria-label',topFill('lv.recheckAria',{path:f.path}));const a=td();a.append(again);
     tr.append(n,td(f.label||(f.verdict&&topText('lv.v.'+f.verdict))||f.verdict),lvReason(f),a);return tr;}),topText('lv.none'));}
+const LV_INFO='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
+let lvTip=null;
+function lvTipShow(owner,help){
+  if(!lvTip){lvTip=el('div',null,'lv-pop');lvTip.setAttribute('role','tooltip');lvTip.id='lv-pop';document.body.append(lvTip);
+    document.addEventListener('click',(e)=>{if(!lvTip.contains(e.target))lvTipHide();});
+    document.addEventListener('keydown',(e)=>{if(e.key==='Escape')lvTipHide();});
+    window.addEventListener('scroll',lvTipHide,true);}
+  lvTip.replaceChildren(el('b',help.title));for(const para of help.body.split('\\n\\n'))lvTip.append(el('p',para));
+  lvTip.owner=owner;owner.setAttribute('aria-describedby','lv-pop');lvTip.hidden=false;
+  const r=owner.getBoundingClientRect(),gap=8,vw=document.documentElement.clientWidth,vh=window.innerHeight;
+  const w=Math.min(380,vw-24);lvTip.style.width=w+'px';
+  const h=lvTip.offsetHeight;const below=r.bottom+gap+h<=vh-12;
+  lvTip.style.top=Math.max(12,below?r.bottom+gap:r.top-gap-h)+'px';
+  lvTip.style.left=Math.min(Math.max(12,r.left+r.width/2-w/2),vw-w-12)+'px';}
+function lvTipHide(){if(!lvTip||lvTip.hidden)return;lvTip.hidden=true;lvTip.owner&&lvTip.owner.removeAttribute('aria-describedby');}
 // The reason on one line; the help the server wrote in the admin's language opens beside it, over the table, on hover, focus or tap.
 function lvReason(f){const c=td();const text=(f.help&&f.help.title)||((f.reason&&topText('lv.r.'+f.reason))||f.reason||'—')+(f.contentId?'. '+topFill('lv.contentId',{id:f.contentId}):'');
   const w=el('span',null,'lv-why');w.append(el('span',text,'lv-why-t'));
