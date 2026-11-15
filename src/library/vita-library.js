@@ -10,6 +10,9 @@
  * app's work.bin is bound to: "fake" (NoNpDrm's), "free" (account 0) or "none" (no work.bin: the game needs
  * the console's own licence). Only those words leave here, never the licence's bytes or path.
  *
+ * A card copy's icon0.png is encrypted: the app has an icon only when it reads as a picture, else `fallbackIcon(id)`
+ * (the one a console sent with its backups) stands in.
+ *
  * Each file's CRC-32 is read once in the background, one file at a time, and kept by fileKey; it is null
  * until then.
  */
@@ -30,13 +33,15 @@ const TITLE_ID_RE = /^[A-Z]{4}\d{5}$/;
 const SFO_MAX = 64 * 1024;
 const ICON_MAX = 1024 * 1024;
 const LICENSE_HEAD = 16;
-const FAKE_ACCOUNT = Buffer.from("0123456789abcdef", "hex");
+// The account id is a little-endian u64: NoNpDrm's 0x0123456789ABCDEF is ef cd ab 89 67 45 23 01 on disk.
+const FAKE_ACCOUNT = Buffer.from("0123456789abcdef", "hex").reverse();
 const NO_ACCOUNT = Buffer.alloc(8);
 const READ_CHUNK = 8 * 1024 * 1024;
 // A game folder, and loose files at the top: deeper folders are not read.
 const MAX_DEPTH = 2;
 // Files put in by hand (not through the admin's browser) show after at most this long.
 const RESCAN_MS = 5 * 60 * 1000;
+const isPicture = (b) => Boolean(b) && (b.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex")) || b.subarray(0, 3).equals(Buffer.from("ffd8ff", "hex")));
 const REGIONS = { UP: "US", EP: "EU", JP: "JP", HP: "AS", KP: "KR" };
 
 /** Which kind a file name is, or null. Pure. */
@@ -79,7 +84,7 @@ async function readApp(abs) {
     name: sfo.TITLE || null,
     version: sfo.APP_VER || null,
     region: REGIONS[String(sfo.CONTENT_ID ?? "").slice(0, 2)] ?? null,
-    icon: entries.some((e) => e.name === "sce_sys/icon0.png"),
+    icon: isPicture(await entryBytes(abs, entries, "sce_sys/icon0.png", ICON_MAX).catch(() => null)),
     license: licenseOf(head),
   };
 }
@@ -126,7 +131,7 @@ async function walk(dir, rel, depth, out) {
  *   fillCrcs()        reads the CRC of every file that has none yet, one at a time
  *   known()           the games of the last read, without reading (for the file browser's facts)
  */
-export function createVitaLibrary({ dir, crcs, now = Date.now }) {
+export function createVitaLibrary({ dir, crcs, now = Date.now, fallbackIcon = async () => null }) {
   // Each file's facts, kept by its fileKey so a rescan reads only what changed.
   const facts = new Map();
   let games = null;
@@ -184,10 +189,25 @@ export function createVitaLibrary({ dir, crcs, now = Date.now }) {
   }
 
   async function icon(id) {
-    const f = await file(id, "app");
-    if (!f) return null;
-    const entries = await zipDirectory(f.abs).catch(() => []);
-    return entryBytes(f.abs, entries, "sce_sys/icon0.png", ICON_MAX).catch(() => null);
+    const g = (await list()).find((x) => x.id === id);
+    if (!g) return null;
+    if (g.files.app.icon) {
+      const entries = await zipDirectory(g.files.app.abs).catch(() => []);
+      const own = await entryBytes(g.files.app.abs, entries, "sce_sys/icon0.png", ICON_MAX).catch(() => null);
+      if (isPicture(own)) return own;
+    }
+    return fallbackIcon(id).catch(() => null);
+  }
+
+  // Whether a game has an icon to fetch, its own or a stand-in, kept a minute so a list doesn't read them all again.
+  const iconSeen = new Map();
+  async function hasIcon(g) {
+    if (g.files.app.icon) return true;
+    const hit = iconSeen.get(g.id);
+    if (hit && now() - hit.at < 60_000) return hit.has;
+    const has = Boolean(await fallbackIcon(g.id).catch(() => null));
+    iconSeen.set(g.id, { at: now(), has });
+    return has;
   }
 
   async function crcFile(abs) {
@@ -223,9 +243,13 @@ export function createVitaLibrary({ dir, crcs, now = Date.now }) {
     games = null;
   }
 
-  return { list, file, icon, fillCrcs, invalidate, crcOf, known: () => games ?? [] };
+  return { list, file, icon, hasIcon, fillCrcs, invalidate, crcOf, known: () => games ?? [] };
 }
 
 let shared = null;
 /** The server's one library over the vita folder. */
-export const vitaLibrary = () => (shared ??= createVitaLibrary({ dir: () => vitaDir, crcs: hashStore(appDb(), "vita-crc") }));
+export const vitaLibrary = () => (shared ??= createVitaLibrary({
+  dir: () => vitaDir,
+  crcs: hashStore(appDb(), "vita-crc"),
+  fallbackIcon: async (id) => (await import("../backups/games.js")).sentIconOf(id),
+}));

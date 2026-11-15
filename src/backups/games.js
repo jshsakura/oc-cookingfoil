@@ -265,3 +265,20 @@ export function sendArt(req, res, file) {
 export function artPath(accountId, name) {
   return ART_NAME.test(String(name ?? "")) ? path.join(artDir(accountId), name) : null;
 }
+
+/**
+ * The icon a console sent for game `id` (a jpg), from whichever account has one, or null. The Vita library's own
+ * .vpk files hold the encrypted icon0.png of a card copy, so this is the picture it shows instead.
+ */
+export async function sentIconOf(id) {
+  const root = store.backupsRoot();
+  if (!root) return null;
+  for (const folder of await store.accountFolders()) {
+    const dir = path.join(root, folder, PLATFORM);
+    const name = (await fsp.readFile(path.join(dir, "game-art", `${gameFolder(id)}-icon`), "utf8").catch(() => "")).trim();
+    if (!ART_NAME.test(name)) continue;
+    const bytes = await fsp.readFile(path.join(dir, "art", name)).catch(() => null);
+    if (bytes) return bytes;
+  }
+  return null;
+}

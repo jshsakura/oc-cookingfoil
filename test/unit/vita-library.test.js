@@ -18,13 +18,14 @@ const put = (rel, body) => {
   writeFileSync(path.join(root, rel), body);
 };
 const when = new Date(2024, 0, 1);
-const workBin = (account) => Buffer.concat([Buffer.alloc(8), Buffer.from(account, "hex"), Buffer.alloc(496)]);
+// The account id as NoNpDrm writes it: a little-endian u64.
+const workBin = (account) => Buffer.concat([Buffer.alloc(8), Buffer.from(account, "hex").reverse(), Buffer.alloc(496)]);
 const appSfo = (id, title, ver) => sfo([["TITLE", title], ["TITLE_ID", id], ["APP_VER", ver], ["CONTENT_ID", `UP0001-${id}_00-0000000000000000`]]);
 
 put("Alpha [PCSE00001]/Alpha [PCSE00001].vpk", zipStore([
   { name: "eboot.bin", data: Buffer.from("alpha") },
   { name: "sce_sys/param.sfo", data: appSfo("PCSE00001", "Alpha", "01.00") },
-  { name: "sce_sys/icon0.png", data: Buffer.from("icon") },
+  { name: "sce_sys/icon0.png", data: Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("icon")]) },
   { name: "sce_sys/package/work.bin", data: workBin("0123456789abcdef") },
 ], when));
 put("Alpha [PCSE00001]/Alpha [PCSE00001] [Patch].zip", zipStore([
@@ -68,6 +69,7 @@ test("a work.bin is fake, free or bound to an account by its account bytes", () 
   assert.equal(licenseOf(workBin("0000000000000000")), "free");
   assert.equal(licenseOf(workBin("1122334455667788")), "none");
   assert.equal(licenseOf(null), "none");
+  assert.equal(licenseOf(Buffer.concat([Buffer.alloc(8), Buffer.from("0123456789abcdef", "hex"), Buffer.alloc(496)])), "none", "the big-endian bytes are another account");
 });
 
 test("the library lists each game with an app, its patch and DLC beside it, and skips what it cannot read", async () => {
@@ -167,4 +169,21 @@ test("a file put in by hand shows once the list is old enough to be read again",
   assert.equal((await lib.list()).length, before);
   clock += 5 * 60 * 1000;
   assert.equal((await lib.list()).length, before + 1);
+});
+
+test("an encrypted icon0.png is no icon, and the icon a console sent stands in for it", async () => {
+  put("Sealed [PCSE00005]/Sealed [PCSE00005].vpk", zipStore([
+    { name: "eboot.bin", data: Buffer.from("sealed") },
+    { name: "sce_sys/param.sfo", data: appSfo("PCSE00005", "Sealed", "01.00") },
+    { name: "sce_sys/icon0.png", data: Buffer.from("not a picture, the bytes of an encrypted one") },
+  ], when));
+  const SENT = Buffer.concat([Buffer.from("ffd8ffe0", "hex"), Buffer.from("jpg")]);
+  const lib = createVitaLibrary({ dir: () => root, crcs: crcStore(), fallbackIcon: async (id) => (id === "PCSE00005" ? SENT : null) });
+  const sealed = (await lib.list()).find((g) => g.id === "PCSE00005");
+  assert.equal(sealed.files.app.icon, false);
+  assert.equal(await lib.hasIcon(sealed), true);
+  assert.deepEqual(await lib.icon("PCSE00005"), SENT);
+  const beta = (await lib.list()).find((g) => g.id === "PCSB00002");
+  assert.equal(await lib.hasIcon(beta), false);
+  assert.equal(await lib.icon("PCSB00002"), null);
 });

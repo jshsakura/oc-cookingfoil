@@ -83,6 +83,7 @@ html:has(#fb){scroll-padding-top:calc(var(--adm-hdr-h,0px) + 48px);scroll-paddin
 #fb .fb-name button,#fb .fb-name span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fb .fb-name button{border:0;background:none;padding:0;color:var(--text);font-weight:700;text-align:left}
 #fb .fb-name button:hover{text-decoration:underline}
+#fb:not(.grid) .fb-name>button>span{display:block}
 #fb .fb-id{flex:0 0 auto;color:var(--faint);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
 /* While a folder loads, rows of the real shape wait in its place: the box, the icon, a name of some length, its size
    and date; in the grid, tiles. One light sweeps across all of them together (the gradient is fixed to the screen). */
@@ -207,7 +208,7 @@ body:has(#fb) .toast{z-index:30;bottom:84px;max-width:min(720px,calc(100vw - 32p
   #fb:not(.grid) .fb-name{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;justify-items:start}
   #fb:not(.grid) .fb-name>:first-child{grid-row:1/span 6}
   #fb:not(.grid) .fb-name>*:not(:first-child){grid-column:2;max-width:100%}
-  #fb:not(.grid) .fb-name>button,#fb:not(.grid) .fb-name>span:nth-child(2){white-space:normal;overflow-wrap:anywhere}
+  #fb:not(.grid) .fb-name>button,#fb:not(.grid) .fb-name>button>span,#fb:not(.grid) .fb-name>span:nth-child(2){white-space:normal;overflow-wrap:anywhere}
   /* A tap on a row decides what happens to it, so the name inside is not a second, different target. */
   #fb .fb-name>button:not(.fb-at){pointer-events:none}
   #fb .fb-name>button.fb-at{min-height:32px}
@@ -424,7 +425,7 @@ function fbRow(f){const tr=el('tr');tr.dataset.rel=f.rel;tr.setAttribute('aria-s
   if(f.type==='dir')fbDropTarget(tr,()=>!fb.drag?.includes(f.rel)&&f.rel);
   const cn=td(null,'c-name');const n=el('div',null,'fb-name');const ic=el('span');ic.innerHTML=f.type==='dir'?FB_ICON.dir:FB_ICON.file;n.append(ic.firstChild);
   // A title id folder reads as its game, the id beside it; a file keeps its own name first.
-  if(f.type==='dir'){const b=el('button',f.title||f.name);b.type='button';b.title=f.title?f.title+' ('+f.name+')':f.name;b.addEventListener('click',()=>fbGo(fb.root,f.rel));n.append(b);if(f.title)n.append(el('span',f.name,'fb-id'));}
+  if(f.type==='dir'){const b=el('button');b.append(el('span',f.title||f.name));b.type='button';b.title=f.title?f.title+' ('+f.name+')':f.name;b.addEventListener('click',()=>fbGo(fb.root,f.rel));n.append(b);if(f.title)n.append(el('span',f.name,'fb-id'));}
   else{const s=el('span',f.name);s.title=f.name;n.append(s);if(f.title)n.append(el('span',f.title,'fb-where'));}
   // A search through folders below names where each find is.
   const at=f.rel.split('/').slice(0,-1).join('/');if(fb.data?.deep&&at!==fb.path){const w=el('button',at,'fb-where fb-at');w.type='button';w.title=at;w.addEventListener('click',()=>{fb.reveal=f.rel;fbGo(fb.root,at);});n.append(w);}
