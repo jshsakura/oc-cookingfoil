@@ -67,7 +67,8 @@ const pfOnVita=(g)=>g.platform==='vita'||g.platform==='psp';
 const pfKind=(g)=>g.platform==='psp'?['PSP']:[];
 // A game of the card has a Sony title id; the apps put on it by hand (VitaShell, emulators, ports) are its homebrew.
 const pfRetail=(g)=>/^[A-Z]{4}[0-9]{5}$/.test(g.id)&&/^PCS/.test(g.id);
-const pfVitaGame=(g)=>pfOnVita(g)&&(g.platform==='psp'||pfRetail(g))&&['app','patch','psp-game','psp-iso'].some((k)=>pfHas(g,k));
+// A PSP game backed up from it is a retro game (the retro list holds it), so the Vita's games leave it out.
+const pfVitaGame=(g)=>g.platform==='vita'&&pfRetail(g)&&['app','patch'].some((k)=>pfHas(g,k));
 const pfVitaBackedHomebrew=(g)=>g.platform==='vita'&&!pfRetail(g)&&pfHas(g,'app');
 const pfVitaSave=(g)=>pfOnVita(g)&&(pfHas(g,'savedata')||pfHas(g,'psp-save'));
 // The library's games (the vita folder) come first, then each account's backups.

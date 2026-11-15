@@ -426,7 +426,7 @@ test('addresses read plainly: this server, mapped v4, private ranges chipped, em
   expect(await read('')).toMatchObject({ text: '—', chip: false });
 });
 
-test('the PS Vita pages show the games, saves and apps of a Vita, its PSP games among them', async ({ page }) => {
+test('the PS Vita pages show the games, saves and apps of a Vita, its PSP games left to the retro list', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const games = [
@@ -452,8 +452,8 @@ test('the PS Vita pages show the games, saves and apps of a Vita, its PSP games 
   await expect(page.locator('#vita-games-subtabs [data-sub="folder"]')).toHaveAttribute('aria-selected', 'true');
   await page.locator('#vita-games-subtabs [data-sub="list"]').click();
   await expect(page.locator('#pf-list .bg-account').first()).toHaveText('PS Vita · 1');
-  await expect(page.locator('#pf-list .bg-title')).toHaveText(['Library Game', 'Vita Game', 'PSP Game']);
-  await expect(page.locator('#pf-list .pf-tag')).toHaveText(['PSP']);
+  await expect(page.locator('#pf-list .bg-title')).toHaveText(['Library Game', 'Vita Game']);
+  await expect(page.locator('#pf-list .pf-tag')).toHaveCount(0);
   await expect(page.locator('#adm-crumb')).toHaveText(/PS Vita\s*게임/);
   await page.goto('/admin/vita/saves');
   await expect(page.locator('#pf-list .pf-name')).toHaveText(['Vita Game', 'PSP Save Only']);

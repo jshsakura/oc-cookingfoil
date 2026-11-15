@@ -5823,8 +5823,8 @@
           "vita-games": () => [
             ...(library ?? []).map((g) => ({ card: true, icon: g.icon_url && g.icon_url + "?size=lg", name: g.name, size: g.size,
               pills: [g.patch_version && [t("pill.update"), "update"], g.dlc_count && ["DLC " + g.dlc_count, "dlc"]] })),
-            ...(games ?? []).filter((g) => !(library ?? []).some((l) => l.id === g.id) && ["app", "patch", "psp-game", "psp-iso"].some((k) => has(g, k)))
-              .map((g) => ({ card: true, icon: g.icon, name: g.title || g.id, size: g.bytes, pills: [psp(g) && [psp(g), "dlc"]] })),
+            ...(games ?? []).filter((g) => g.platform !== "psp" && !(library ?? []).some((l) => l.id === g.id) && ["app", "patch"].some((k) => has(g, k)))
+              .map((g) => ({ card: true, icon: g.icon, name: g.title || g.id, size: g.bytes, pills: [] })),
           ],
           "vita-saves": () => (games ?? []).filter((g) => has(g, "savedata") || has(g, "psp-save"))
             .map((g) => ({ icon: g.icon, name: g.title || g.id, meta: [psp(g), t("vita.savedAt", ymd(g.updatedAt))] })),
