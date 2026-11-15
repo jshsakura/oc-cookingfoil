@@ -133,13 +133,11 @@ export const SPLIT_PAGES = {
   "/admin/chat": bundle({ css: CHAT_CSS, body: CHAT_HTML, script: CHAT_SCRIPT, init: "loadChat();" }),
   "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
-  // The PS Vita and PSP rows of the library (platform-pages.js).
+  // The PS Vita row of the library (platform-pages.js).
   "/admin/vita/games": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaGames, script: PLATFORM_SCRIPT, init: "loadVitaGames();" }),
   "/admin/vita/homebrew": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaHomebrew, script: PLATFORM_SCRIPT, init: "loadVitaHomebrew();" }),
   "/admin/vita/plugins": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaPlugins, script: PLATFORM_SCRIPT, init: "loadVitaPlugins();" }),
   "/admin/vita/saves": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaSaves, script: PLATFORM_SCRIPT, init: "loadVitaSaves();" }),
-  "/admin/psp/games": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.pspGames, script: PLATFORM_SCRIPT, init: "loadPspGames();" }),
-  "/admin/psp/saves": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.pspSaves, script: PLATFORM_SCRIPT, init: "loadPspSaves();" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
   // The holding area: what is being uploaded, what people left in the temp share, and the temp folder the sorter
   // empties, one under the other. An old address or "#upload", "#inbox", "#organize" lands on its part.

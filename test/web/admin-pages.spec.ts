@@ -323,16 +323,15 @@ test('the sidebar holds its entries in the agreed order, and each entry opens it
   await page.goto('/admin');
   const side = page.locator('aside.adm-side > nav');
   const hrefs = (loc: ReturnType<typeof page.locator>) => loc.evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-  expect(await hrefs(side.locator('a.adm-item'))).toEqual(['/admin', '/admin/incoming', '/admin/games', '/admin/vita/games', '/admin/psp/games', '/admin/retro', '/admin/trash', '/admin/metadata/review', '/admin/users', '/admin/featured', '/admin/convert', '/admin/settings/server']);
+  expect(await hrefs(side.locator('a.adm-item'))).toEqual(['/admin', '/admin/incoming', '/admin/games', '/admin/vita/games', '/admin/retro', '/admin/trash', '/admin/metadata/review', '/admin/users', '/admin/featured', '/admin/convert', '/admin/settings/server']);
   await expect(side.locator('.adm-group')).toHaveText('라이브러리');
-  await expect(side.locator('a.adm-item.adm-sub [data-top]')).toHaveText(['Switch', 'PS Vita', 'PSP', '레트로', '휴지통']);
+  await expect(side.locator('a.adm-item.adm-sub [data-top]')).toHaveText(['Switch', 'PS Vita', '레트로', '휴지통']);
   await expect(side.locator('a.adm-item[href="/admin/incoming"] [data-top]')).toHaveText('업로드');
   await expect(side.locator('a.adm-item[href="/admin/convert"] [data-top]')).toHaveText('시스템');
   await expect(side.locator('a.adm-item[href="/admin/metadata/review"] [data-top]')).toHaveText('메타데이터');
   const tabs: [string, string[]][] = [
     ['/admin/games', ['/admin/games', '/admin/homebrew', '/admin/patches', '/admin/saves']],
     ['/admin/vita/games', ['/admin/vita/games', '/admin/vita/homebrew', '/admin/vita/plugins', '/admin/vita/saves']],
-    ['/admin/psp/games', ['/admin/psp/games', '/admin/psp/saves']],
     ['/admin/metadata/review', ['/admin/metadata/review', '/admin/metadata/artwork', '/admin/metadata/titles']],
     ['/admin/users', ['/admin/users', '/admin/devices', '/admin/client']],
     ['/admin/convert', ['/admin/convert', '/admin/system/requirements', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']],
@@ -414,7 +413,7 @@ test('addresses read plainly: this server, mapped v4, private ranges chipped, em
   expect(await read('')).toMatchObject({ text: '—', chip: false });
 });
 
-test('the PS Vita and PSP pages show each platform its own games, saves and apps', async ({ page }) => {
+test('the PS Vita pages show the games, saves and apps of a Vita, its PSP games among them', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const games = [
@@ -423,28 +422,21 @@ test('the PS Vita and PSP pages show each platform its own games, saves and apps
     { id: 'ULUS00002', platform: 'psp', title: 'PSP Save Only', region: 'US', version: null, bytes: 1024, updatedAt: Date.now(), units: ['psp-save:ULUS00002'], icon: null, cover: null },
   ];
   await page.route('**/admin/api/backups/games', (r) => r.fulfill({ json: { on: true, accounts: [{ kind: 'google', name: 'owner@example.com', folder: 'a1', games }] } }));
-  await page.route('**/admin/api/retro-art/system-games?system=psp', (r) => r.fulfill({ json: { games: [{ id: 'psp-0000000001', name: 'Retro PSP', title: null, size: 2048, boxart: false }] } }));
   await page.route('**/admin/api/homebrew/apps', (r) => r.fulfill({ json: { held: [], apps: [
     { id: 'manual:vapp', platform: 'vita', plugin: false, name: 'Vita App', version: '01.00', display_version: null, size: 10, title_id: 'VAPP00001' },
     { id: 'manual:vplug', platform: 'vita', plugin: true, name: 'Vita Plugin', version: null, size: 10, sections: ['*main'], required: true, kernel: false },
   ] } }));
   await signIn(page);
   await page.goto('/admin/vita/games');
-  await expect(page.locator('#pf-list .bg-title')).toHaveText(['Vita Game']);
+  await expect(page.locator('#pf-list .bg-title')).toHaveText(['Vita Game', 'PSP Game']);
+  await expect(page.locator('#pf-list .pf-tag')).toHaveText(['PSP']);
   await expect(page.locator('#adm-crumb')).toHaveText(/PS Vita\s*게임/);
   await page.goto('/admin/vita/saves');
-  await expect(page.locator('#pf-list .pf-name')).toHaveText(['Vita Game']);
+  await expect(page.locator('#pf-list .pf-name')).toHaveText(['Vita Game', 'PSP Save Only']);
   await page.goto('/admin/vita/homebrew');
   await expect(page.locator('#pf-list .pf-name')).toHaveText(['Vita App']);
   await page.goto('/admin/vita/plugins');
   await expect(page.locator('#pf-list .pf-name')).toHaveText(['Vita Plugin']);
   await expect(page.locator('#pf-list .pf-tag')).toHaveText(['*main', '필수']);
-  await page.goto('/admin/psp/games');
-  await expect(page.locator('#pf-retro .pf-name')).toHaveText(['Retro PSP']);
-  await expect(page.locator('#pf-retro .pf-tag')).toHaveText(['Switch 레트로']);
-  await expect(page.locator('#pf-list .bg-title')).toHaveText(['PSP Game']);
-  await expect(page.locator('#pf-list .pf-tag')).toHaveText(['Vita 실기']);
-  await page.goto('/admin/psp/saves');
-  await expect(page.locator('#pf-list .pf-name')).toHaveText(['PSP Save Only']);
   expect(errors).toEqual([]);
 });

@@ -324,16 +324,6 @@ export function mountRetroArtApi(router, requireSession) {
     res.json({ key, edit });
   }));
 
-  // One console's games, every one, for the library page of that platform (the PSP page lists retro/psp).
-  router.get("/api/retro-art/system-games", guarded(async (req, res) => {
-    const system = String(req.query.system ?? "");
-    const catalog = await retroCatalog.current(retroDir);
-    const games = catalog.games
-      .filter((g) => g.system === system)
-      .map((g) => ({ id: g.id, name: g.name, title: retroNames.get(g.id), size: g.size, boxart: Boolean(g.icon) }));
-    res.json({ games });
-  }));
-
   router.get("/api/retro-art/games", guarded(async (req, res) => {
     const q = String(req.query.q ?? "").trim().toLowerCase().slice(0, 100);
     if (!q) return res.json({ games: [] });

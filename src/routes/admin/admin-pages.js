@@ -25,7 +25,7 @@ export const ADMIN_PAGES = [
   { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat", offMenu: true },
   // Uploading, the temp share and the temp folder, on one page.
   { path: "/admin/incoming", tab: "incoming", label: "mn.upload", icon: "upload", count: "inbox-count" },
-  // the library: one row per platform, its jobs as tabs; a PSP game is retro on a Switch and installed on a Vita
+  // the library: one row per platform, its jobs as tabs
   { path: "/admin/games", tab: "library", label: "m.grpGames", row: "switch", group: "library", icon: "grid" },
   { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", row: "switch", group: "library", icon: "package", param: "tab" },
   { path: "/admin/patches", tab: "patches", label: "m.patches", row: "switch", group: "library", icon: "puzzle", param: "tab" },
@@ -34,8 +34,6 @@ export const ADMIN_PAGES = [
   { path: "/admin/vita/homebrew", tab: "vita-homebrew", label: "g.homebrew", row: "vita", group: "library", icon: "package" },
   { path: "/admin/vita/plugins", tab: "vita-plugins", label: "mn.plugins", row: "vita", group: "library", icon: "puzzle" },
   { path: "/admin/vita/saves", tab: "vita-saves", label: "m.saves", row: "vita", group: "library", icon: "save" },
-  { path: "/admin/psp/games", tab: "psp-games", label: "m.grpGames", row: "psp", group: "library", icon: "grid" },
-  { path: "/admin/psp/saves", tab: "psp-saves", label: "m.saves", row: "psp", group: "library", icon: "save" },
   { path: "/admin/retro", tab: "retro", label: "mn.retro", group: "library", icon: "joystick" },
   { path: "/admin/trash", tab: "trash", label: "m.trash", group: "library", icon: "trash" },
   // metadata: what the library shows about its items, the kind chosen with a filter on each page
@@ -70,7 +68,6 @@ export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 const ROWS = {
   switch: { label: "mn.switch", icon: "monitor" },
   vita: { label: "mn.vita", icon: "device" },
-  psp: { label: "mn.psp", icon: "joystick" },
   meta: { label: "mn.meta", icon: "image" },
   people: { label: "mn.users", icon: "users" },
   ops: { label: "mn.system", icon: "monitor" },

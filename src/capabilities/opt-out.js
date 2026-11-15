@@ -143,10 +143,6 @@ export const OPT_OUT = {
   "GET /admin/vita/homebrew": "browser-only",
   "GET /admin/vita/plugins": "browser-only",
   "GET /admin/vita/saves": "browser-only",
-  "GET /admin/psp/games": "browser-only",
-  "GET /admin/psp/saves": "browser-only",
-  // The PSP page's list of the retro folder's PSP games; the retro tool already lists a console's games.
-  "GET /admin/api/retro-art/system-games": "browser-only",
   "GET /admin/metadata/review": "browser-only",
   "GET /admin/metadata/artwork": "browser-only",
   "GET /admin/metadata/titles": "browser-only",
