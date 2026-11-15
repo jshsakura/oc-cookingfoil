@@ -524,8 +524,18 @@ function changedSinceScan(res, id) {
   return res.status(503).json({ error: "the files changed since they were listed; list again in a few seconds" });
 }
 
+// Whether a Vita app has an icon to fetch (an uploaded one, or icon0.png in its .vpk), kept per build: a .vpk
+// without one lists no icon address, so a Vita does not ask for it at every start.
+const vpkIcons = new Map();
+async function hasVpkIcon(service, e) {
+  if (media.iconVersion(e.id) && fs.existsSync(media.iconPath(e.id))) return true;
+  const key = `${e.id}\0${e.hash ?? ""}`;
+  if (!vpkIcons.has(key)) vpkIcons.set(key, Boolean(await service.icon(e.id).catch(() => null)));
+  return vpkIcons.get(key);
+}
+
 /** A Vita app as the list gives it: what a Vita installs it by, the Switch's install fields null. */
-const vpkRow = (e, link, voter) => ({
+const vpkRow = (e, link, voter, hasIcon) => ({
   description: null,
   ...e,
   install_dir: null,
@@ -534,7 +544,7 @@ const vpkRow = (e, link, voter) => ({
   files: null,
   archive: null,
   bundle_url: null,
-  icon_url: iconUrlOf(e),
+  icon_url: hasIcon ? iconUrlOf(e) : null,
   ...pictures(e.id),
   ...withDirect("download_url", `/api/homebrew/${e.id}/download`, link),
   ...NO_SHORTCUT,
@@ -571,8 +581,10 @@ export function homebrewRouter({ service = defaultService, platformOf = requestP
     // A Vita's list is its .vpk apps, with or without ?with=titles, and its plugins after them when it asks
     // (?with=plugins): a client from before plugins would take one for an app.
     const plugins = String(req.query.with ?? "").split(",").includes("plugins");
+    const vpks = viewer === "vita" ? apps.filter((e) => e.install_type === "vpk") : [];
+    const icons = await Promise.all(vpks.map((e) => hasVpkIcon(service, e)));
     const list = viewer === "vita" ? [
-      ...apps.filter((e) => e.install_type === "vpk").map(({ enabled: _on, ...e }) => vpkRow(e, link, voter)),
+      ...vpks.map(({ enabled: _on, ...e }, i) => vpkRow(e, link, voter, icons[i])),
       ...(plugins ? apps.filter((e) => e.install_type === "plugin").map(({ enabled: _on, ...e }) => pluginRow(e, link)) : []),
     ] : apps.filter((e) => titles || e.install_type !== "title").map(({ enabled: _on, ...e }) => ({ ...(e.install_type === "title" ? {
       description: null,
