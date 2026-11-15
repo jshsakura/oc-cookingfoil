@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import sharp from "sharp";
 import { sfo, FAKE_WORK, FAKE_RIF } from "./fixtures/vita-card.js";
-import { adminSession } from "../support/web-session.js";
+import { adminSession, webSession } from "../support/web-session.js";
 
 // A Vita's games as its backups tell them: names, versions, regions and pictures read from the backed-up files
 // once, when a version is committed, and never again for a list or a picture. Each account sees its own; the
@@ -159,6 +159,20 @@ test("each account sees its own games, a Switch none, and a caller with no conso
   assert.equal((await fetch(`${base}/api/backups/games/PCSE00001/icon`, { headers: BOB_VITA })).status, 404);
   assert.equal((await fetch(`${base}/api/backups/games/PCSE00001/secret`, { headers: ALICE_VITA })).status, 404);
   assert.equal((await fetch(`${base}/api/backups/games`)).status, 401, "no console, no account");
+});
+
+test("the web signed in reads its own account's Vita games and pictures, and nothing else of the backups", async () => {
+  const [alice, bob] = [await webSession(base, "alice", "alice-password"), await webSession(base, "bob", "bob-password")];
+  const mine = await (await fetch(`${base}/api/backups/games?platform=vita`, { headers: alice })).json();
+  assert.deepEqual(mine.games.map((g) => g.id), (await games(ALICE_VITA)).games.map((g) => g.id), "the same list the account's Vita gets");
+  assert.ok(mine.games.length > 0);
+  assert.equal((await fetch(`${base}/api/backups/games/PCSE00001/icon`, { headers: alice })).status, 200);
+  assert.deepEqual((await (await fetch(`${base}/api/backups/games?platform=vita`, { headers: bob })).json()).games, []);
+  assert.equal((await fetch(`${base}/api/backups/games/PCSE00001/icon`, { headers: bob })).status, 404, "another account's picture");
+  assert.equal((await fetch(`${base}/api/backups/games`, { headers: alice })).status, 403, "without ?platform=vita the web is no console");
+  assert.equal((await fetch(`${base}/api/backups/games?platform=switch`, { headers: alice })).status, 403);
+  assert.equal((await fetch(`${base}/api/backups`, { headers: alice })).status, 403, "the units stay a console's");
+  assert.equal((await fetch(`${base}/api/backups/games/PCSE00001/art/icon`, { method: "POST", headers: { ...alice, "Content-Type": "image/png" }, body: "x" })).status, 403);
 });
 
 test("removing a unit tells its game again from what is left", async () => {

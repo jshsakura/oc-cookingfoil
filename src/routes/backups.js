@@ -81,6 +81,18 @@ function principal(req) {
   return { deviceKey, account: signedIn && bound?.id === signedIn.id ? bound : null };
 }
 
+/**
+ * The web signed in, reading its own account's Vita games and their pictures: never the units, a body or a
+ * secret, which stay a console's. Null when the request names a console or no account is signed in.
+ */
+function webReader(req) {
+  if (req.pairedDevice || (req.sessionLane && req.sessionDevice)) return null;
+  const account = accountOfOwner(accountOf(req));
+  if (!account) return null;
+  if (!store.backupsRoot()) throw new BackupError(404, "backups-off");
+  return { accountId: account.id, platform: "vita" };
+}
+
 // What the logs call a console: its name, never its key.
 const shown = (deviceKey) => devices.deviceLabel(deviceKey) || "a console";
 
@@ -121,7 +133,7 @@ export default function backupsRouter() {
   }));
 
   router.get("/games", handle(async (req, res) => {
-    const c = who(req);
+    const c = (req.query.platform === "vita" && webReader(req)) || who(req);
     const games = c.platform === "vita" ? (await listGames(c.accountId)).map((g) => gameRow(g)) : [];
     const body = JSON.stringify({ games });
     const etag = `"${crypto.createHash("sha1").update(body).digest("base64url")}"`;
@@ -131,7 +143,7 @@ export default function backupsRouter() {
   }));
 
   router.get("/games/:id/:art", handle(async (req, res) => {
-    const c = who(req);
+    const c = webReader(req) ?? who(req);
     if (c.platform !== "vita" || !(req.params.art in ART_SIZES)) throw new BackupError(404, "unit");
     const game = (await listGames(c.accountId)).find((g) => g.id === req.params.id);
     sendArt(req, res, game && artPath(c.accountId, game.art[req.params.art]));

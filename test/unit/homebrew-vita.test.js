@@ -166,6 +166,17 @@ test("a Vita that asks gets its plugins after its apps, with where each goes and
   assert.ok(Buffer.from(await piece.arrayBuffer()).equals(PLUGIN.subarray(0, 4)));
 });
 
+test("the web that asks for the Vita sees what a Vita sees, with its icons, but fetches no .vpk", async () => {
+  const rows = await list(WEB, "?platform=vita&with=plugins");
+  const vita = await list(VITA, "?with=plugins");
+  assert.deepEqual(rows.map((r) => r.id), vita.map((r) => r.id));
+  const app = rows.find((r) => r.title_id === "FREETV001");
+  assert.equal((await fetch(base + app.icon_url, { headers: WEB })).status, 200);
+  assert.equal((await fetch(base + app.download_url, { headers: WEB })).status, 404);
+  assert.deepEqual((await list(WEB, "?platform=nope")).map((r) => r.name), ["Tool"], "any other value is the Switch");
+  assert.deepEqual((await list(SWITCH, "?platform=vita")).map((r) => r.name), ["Tool"], "a console sees its own platform whatever it asks");
+});
+
 test("a Switch and the web never see a plugin, even asking, and cannot fetch one", async () => {
   const [p] = (await list(VITA, "?with=plugins")).filter((r) => r.install_type === "plugin");
   for (const [who, headers] of [["a Switch", SWITCH], ["the web", WEB]]) {

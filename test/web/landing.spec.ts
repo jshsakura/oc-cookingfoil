@@ -112,7 +112,7 @@ test('genre chips filter the library by English key and follow the page language
   await expect(party).toContainText('Party');
   await pickLang(page, 'ja');
   await expect(party).toContainText('パーティー');
-  await expect(page.locator('.tabs [data-tab="games"]')).toHaveText('すべてのゲーム');
+  await expect(page.locator('.tabs [data-tab="games"]')).toHaveText('Switch');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
   await pickLang(page, 'zh');
   await expect(party).toContainText('派對');
@@ -454,7 +454,7 @@ test('while the library loads, placeholders in the cards\' shape hold the grid, 
   release();
   await expect(page.locator('.skel')).toHaveCount(0);
   await expect(page.locator('#hero')).not.toHaveClass(/skel/);
-  await page.locator('#subtabs button', { hasText: '전체' }).click();
+  await page.locator('#subtabs button', { hasText: '게임' }).click();
   await expect(page.locator('#games')).toHaveAttribute('aria-busy', 'false');
   const card = page.locator('#games .game').first();
   await expect(card).toBeVisible();
