@@ -20,8 +20,6 @@ export const RETRO_ART_HTML = `<section id="tab-retro" hidden>
   <nav class="subtabs hide-bar" id="retro-subtabs" role="tablist" ${topLabel("g.retro")}>
     <button type="button" role="tab" data-sub="folder">${icon("folder")}${top("m.files")}</button>
     <button type="button" role="tab" data-sub="ratings">${icon("star")}${top("rt.ratings")}</button>
-    <button type="button" role="tab" data-sub="cores">${icon("package")}${top("ra.coresTitle")}</button>
-    <button type="button" role="tab" data-sub="raconf">${icon("sliders")}${top("rcf.tab")}</button>
     <button type="button" role="tab" data-sub="patch">${icon("upload")}${top("rpt.tab")}</button>
     <button type="button" role="tab" data-sub="dups">${icon("copy")}${top("rv.title")}</button>
     <button type="button" role="tab" data-sub="sets">${icon("monitor")}${top("rt.sets")}</button>
@@ -169,8 +167,14 @@ function retroOpen(){
   // Box art and Korean names moved to 메타데이터; their old addresses land there.
   const moved={art:'/admin/metadata/artwork?kind=retro',names:'/admin/metadata/titles?kind=retro'}[window.__admRetro];
   if(moved){location.replace(moved);return;}
+  // The cores and RetroArch settings are per platform now: the Switch's are under Switch › RetroArch.
+  if(['cores','raconf'].includes(window.__admRetro)){location.replace('/admin/switch/retroarch');return;}
   if(window.__admRetro){if(RETRO_SUBS.includes(window.__admRetro))retroSub=window.__admRetro;window.__admRetro=null;}
   loadRetroArt();if(['dups','sets'].includes(retroSub))rvView=retroSub;retroShowSub(retroSub);rvShow();loadRetroVariants();}
+// Switch › RetroArch: the Switch's cores and RetroArch settings, one under the other, on a page of their own.
+function retroArchOpen(){$('tab-retro').hidden=false;$('retro-subtabs').hidden=true;
+  for(const p of document.querySelectorAll('#tab-retro [data-sub-panel]'))p.hidden=!['cores','raconf'].includes(p.dataset.subPanel);
+  loadRetroCores();api('/admin/api/retro-pack').then((d)=>rpLast(d.job)).catch(()=>{});loadRetroConfig();}
 function raCell(node){const c=el('td');c.append(node);return c;}
 const rcWord=(w)=>typeof w==='function'?w():w;
 const RC_ORIGIN={official:[()=>topText('rc.official'),'on'],modified:[()=>topText('rc.modified'),'warn'],extra:[()=>topText('rc.extra'),'']};

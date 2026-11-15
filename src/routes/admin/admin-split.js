@@ -138,6 +138,9 @@ export const SPLIT_PAGES = {
   "/admin/vita/homebrew": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaHomebrew, script: PLATFORM_SCRIPT, init: "loadVitaHomebrew();" }),
   "/admin/vita/plugins": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaPlugins, script: PLATFORM_SCRIPT, init: "loadVitaPlugins();" }),
   "/admin/vita/saves": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaSaves, script: PLATFORM_SCRIPT, init: "loadVitaSaves();" }),
+  "/admin/vita/retroarch": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaRetroArch, script: PLATFORM_SCRIPT, init: "loadVitaRetroArch();" }),
+  // Switch › RetroArch: the retro page's cores and RetroArch settings, without its other views.
+  "/admin/switch/retroarch": withFolder({ css: RETRO_ART_CSS, body: RETRO_ART_HTML, script: RETRO_ART_SCRIPT, init: "setTimeout(retroArchOpen,0);" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
   // The holding area: what is being uploaded, what people left in the temp share, and the temp folder the sorter
   // empties, one under the other. An old address or "#upload", "#inbox", "#organize" lands on its part.

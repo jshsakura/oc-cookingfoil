@@ -14,6 +14,7 @@ const section = (tab, title, lead, body) => /* html */ `<section id="tab-${tab}"
 export const PLATFORM_HTML = {
   vitaGames: section("vita-games", "m.grpGames", "pf.vitaGamesLead", `<div id="pf-list" data-skel></div>`),
   vitaSaves: section("vita-saves", "m.saves", "pf.vitaSavesLead", `<div id="pf-list" data-skel></div>`),
+  vitaRetroArch: section("vita-retroarch", "mn.retroarch", "pf.raLead", `<div id="pf-list" data-skel></div>`),
   vitaHomebrew: section("vita-homebrew", "g.homebrew", "pf.vitaHbLead", `<div id="pf-list" data-skel></div>`),
   vitaPlugins: section("vita-plugins", "mn.plugins", "pf.pluginsLead", `<div id="pf-list" data-skel></div>`),
 };
@@ -77,6 +78,16 @@ async function pfVitaApps(plugins){const box=$('pf-list');
   for(const a of apps){const meta=[a.display_version||a.version,a.title_id,pfSize(a.size)].filter(Boolean).join(' · ');
     const tags=plugins?[...(a.sections||[]),...(a.required?[topText('pf.required')]:[]),...(a.kernel?[topText('pf.kernel')]:[])]:[];
     list.append(pfRow(a.name,meta,null,tags));}
+  box.append(list);}
+// Each system with games: the core the Vita's RetroArch runs it on, and the firmware the server lacks for it.
+async function loadVitaRetroArch(){const box=$('pf-list');
+  const d=await api('/admin/api/retro-art/vita');box.replaceChildren();
+  if(!(d.systems||[]).length)return pfEmpty(box,'pf.none');
+  const list=el('div','','pf-rows');
+  for(const s of d.systems){const name=(s.names&&(s.names[document.documentElement.lang]||s.names.en))||s.id;
+    const fw=s.firmware.needed?topFill(s.firmware.missing?'pf.fwMissing':'pf.fwOk',{n:s.firmware.missing}):null;
+    const meta=[s.core?s.core+'_libretro':topText('pf.noCore'),topFill('pf.gameCount',{n:s.romCount}),fw].filter(Boolean).join(' · ');
+    list.append(pfRow(name,meta,null,s.core?[]:[topText('pf.notOnVita')]));}
   box.append(list);}
 const loadVitaHomebrew=()=>pfVitaApps(false);
 const loadVitaPlugins=()=>pfVitaApps(true);

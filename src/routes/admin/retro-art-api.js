@@ -38,6 +38,7 @@ import * as retroCatalog from "../../retro/catalog.js";
 import { firmwareDir, listFirmware, missingBios } from "../../retro/bios.js";
 import { packDirOf, packStatus } from "../../retro/pack-status.js";
 import { requirements } from "../../retro/requirements.js";
+import { vitaFirmware } from "../../retro/vita-firmware.js";
 import { unreadReasons } from "../../retro/systems.js";
 import * as retroNames from "../../retro/names.js";
 import { retroMetaKey } from "../../retro/game-view.js";
@@ -322,6 +323,19 @@ export function mountRetroArtApi(router, requireSession) {
     const edit = metaEdits.set(key, req.body ?? {});
     debug.log("admin: retro game %s details %s", key, edit ? "edited" : "back to collected");
     res.json({ key, edit });
+  }));
+
+  // PS Vita › RetroArch: each system with games, the Vita core that runs it (null for none), and its firmware.
+  router.get("/api/retro-art/vita", guarded(async (req, res) => {
+    const catalog = await retroCatalog.current(retroDir);
+    const { body } = await vitaFirmware({ games: catalog.games, systems: catalog.systems, retroDir, packDir: packDirOf(retroDir) });
+    const firmware = new Map(body.systems.map((s) => [s.id, s.files]));
+    const systems = retroCatalog.visibleSystems(catalog).map((s) => {
+      const files = firmware.get(s.id) ?? [];
+      return { id: s.id, names: s.names, romCount: s.romCount, core: catalog.systems[s.id].cores?.vita ?? null,
+        firmware: { needed: files.filter((f) => f.required).length, missing: files.filter((f) => f.required && !f.url).length } };
+    });
+    res.json({ systems });
   }));
 
   router.get("/api/retro-art/games", guarded(async (req, res) => {

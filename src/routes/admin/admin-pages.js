@@ -30,10 +30,12 @@ export const ADMIN_PAGES = [
   { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", row: "switch", group: "library", icon: "package", param: "tab" },
   { path: "/admin/patches", tab: "patches", label: "m.patches", row: "switch", group: "library", icon: "puzzle", param: "tab" },
   { path: "/admin/saves", tab: "saves", label: "m.saves", row: "switch", group: "library", icon: "save", param: "tab" },
+  { path: "/admin/switch/retroarch", tab: "switch-retroarch", label: "mn.retroarch", row: "switch", group: "library", icon: "joystick" },
   { path: "/admin/vita/games", tab: "vita-games", label: "m.grpGames", row: "vita", group: "library", icon: "grid" },
   { path: "/admin/vita/homebrew", tab: "vita-homebrew", label: "g.homebrew", row: "vita", group: "library", icon: "package" },
   { path: "/admin/vita/plugins", tab: "vita-plugins", label: "mn.plugins", row: "vita", group: "library", icon: "puzzle" },
   { path: "/admin/vita/saves", tab: "vita-saves", label: "m.saves", row: "vita", group: "library", icon: "save" },
+  { path: "/admin/vita/retroarch", tab: "vita-retroarch", label: "mn.retroarch", row: "vita", group: "library", icon: "joystick" },
   { path: "/admin/retro", tab: "retro", label: "mn.retro", group: "library", icon: "joystick" },
   { path: "/admin/trash", tab: "trash", label: "m.trash", group: "library", icon: "trash" },
   // metadata: what the library shows about its items, the kind chosen with a filter on each page

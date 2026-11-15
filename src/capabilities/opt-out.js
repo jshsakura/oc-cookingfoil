@@ -143,6 +143,10 @@ export const OPT_OUT = {
   "GET /admin/vita/homebrew": "browser-only",
   "GET /admin/vita/plugins": "browser-only",
   "GET /admin/vita/saves": "browser-only",
+  "GET /admin/vita/retroarch": "browser-only",
+  "GET /admin/switch/retroarch": "browser-only",
+  // PS Vita › RetroArch's list of systems and their Vita cores; the console reads its own from /api/retro/systems.
+  "GET /admin/api/retro-art/vita": "browser-only",
   "GET /admin/metadata/review": "browser-only",
   "GET /admin/metadata/artwork": "browser-only",
   "GET /admin/metadata/titles": "browser-only",

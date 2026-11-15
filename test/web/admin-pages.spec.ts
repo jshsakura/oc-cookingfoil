@@ -50,16 +50,29 @@ test('every page opens its own section, marks the sidebar and keeps its address 
   }
 });
 
-test('the retro page lists its seven jobs as tabs, the files first, and keeps the chosen one in its address', async ({ page }) => {
+test('the retro page lists its five shared jobs as tabs, the files first, and keeps the chosen one in its address', async ({ page }) => {
   await signIn(page);
-  await page.goto('/admin/retro?view=cores');
+  await page.goto('/admin/retro?view=dups');
   await expect(page.locator('#tab-retro')).toBeVisible();
   await expect(page.locator('aside.adm-side > nav a[aria-current="page"]')).toHaveText('레트로');
-  await expect(page.locator('#retro-subtabs [data-sub="cores"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#retro-subtabs [data-sub="dups"]')).toHaveAttribute('aria-selected', 'true');
   const items = page.locator('#retro-subtabs [data-sub]');
-  await expect(items).toHaveCount(7);
+  await expect(items).toHaveCount(5);
   await expect(items.first()).toHaveAttribute('data-sub', 'folder');
   await expect(items.last()).toHaveAttribute('data-sub', 'sets');
+});
+
+test('the cores and RetroArch settings live per platform: the old retro addresses land on Switch › RetroArch', async ({ page }) => {
+  await signIn(page);
+  for (const view of ['cores', 'raconf']) {
+    await page.goto(`/admin/retro?view=${view}`);
+    await expect(page).toHaveURL(/\/admin\/switch\/retroarch$/);
+  }
+  await expect(page.locator('#retro-subtabs')).toBeHidden();
+  await expect(page.locator('#tab-retro [data-sub-panel="cores"]')).toBeVisible();
+  await expect(page.locator('#tab-retro [data-sub-panel="raconf"]')).toBeVisible();
+  await expect(page.locator('#tab-retro [data-sub-panel="versions"]')).toBeHidden();
+  await expect(page.locator('#adm-crumb')).toHaveText(/Switch\s*RetroArch/);
 });
 
 test('a settings page opens its own area', async ({ page }) => {
@@ -130,7 +143,7 @@ test('an in-page hash link pushes the matching page, and back returns', async ({
 
 test('a page starts at its own title: brand and menu in the sidebar, upload, language and account in the header band', async ({ page }) => {
   await signIn(page);
-  for (const path of ['/admin', '/admin/games', '/admin/retro?view=cores', '/admin/settings/server']) {
+  for (const path of ['/admin', '/admin/games', '/admin/switch/retroarch', '/admin/settings/server']) {
     await page.goto(path);
     await expect(page.locator('body.adm-shell > .wrap header.adm-hdr'), path).toHaveCount(0);
     for (const id of ['#up-entry', '#lang-btn', '#acct-btn']) await expect(page.locator(`aside.adm-side ${id}`), `${path} ${id}`).toBeVisible();
@@ -330,8 +343,8 @@ test('the sidebar holds its entries in the agreed order, and each entry opens it
   await expect(side.locator('a.adm-item[href="/admin/convert"] [data-top]')).toHaveText('시스템');
   await expect(side.locator('a.adm-item[href="/admin/metadata/review"] [data-top]')).toHaveText('메타데이터');
   const tabs: [string, string[]][] = [
-    ['/admin/games', ['/admin/games', '/admin/homebrew', '/admin/patches', '/admin/saves']],
-    ['/admin/vita/games', ['/admin/vita/games', '/admin/vita/homebrew', '/admin/vita/plugins', '/admin/vita/saves']],
+    ['/admin/games', ['/admin/games', '/admin/homebrew', '/admin/patches', '/admin/saves', '/admin/switch/retroarch']],
+    ['/admin/vita/games', ['/admin/vita/games', '/admin/vita/homebrew', '/admin/vita/plugins', '/admin/vita/saves', '/admin/vita/retroarch']],
     ['/admin/metadata/review', ['/admin/metadata/review', '/admin/metadata/artwork', '/admin/metadata/titles']],
     ['/admin/users', ['/admin/users', '/admin/devices', '/admin/client']],
     ['/admin/convert', ['/admin/convert', '/admin/system/requirements', '/admin/logs/downloads', '/admin/logs/clients', '/admin/logs/security', '/admin/logs/alerts']],
@@ -426,6 +439,10 @@ test('the PS Vita pages show the games, saves and apps of a Vita, its PSP games 
     { id: 'manual:vapp', platform: 'vita', plugin: false, name: 'Vita App', version: '01.00', display_version: null, size: 10, title_id: 'VAPP00001' },
     { id: 'manual:vplug', platform: 'vita', plugin: true, name: 'Vita Plugin', version: null, size: 10, sections: ['*main'], required: true, kernel: false },
   ] } }));
+  await page.route('**/admin/api/retro-art/vita', (r) => r.fulfill({ json: { systems: [
+    { id: 'gb', names: { en: 'Game Boy' }, romCount: 3, core: 'gambatte', firmware: { needed: 0, missing: 0 } },
+    { id: 'n64', names: { en: 'Nintendo 64' }, romCount: 1, core: null, firmware: { needed: 0, missing: 0 } },
+  ] } }));
   await signIn(page);
   await page.goto('/admin/vita/games');
   await expect(page.locator('#pf-list .bg-title')).toHaveText(['Vita Game', 'PSP Game']);
@@ -438,5 +455,9 @@ test('the PS Vita pages show the games, saves and apps of a Vita, its PSP games 
   await page.goto('/admin/vita/plugins');
   await expect(page.locator('#pf-list .pf-name')).toHaveText(['Vita Plugin']);
   await expect(page.locator('#pf-list .pf-tag')).toHaveText(['*main', '필수']);
+  await page.goto('/admin/vita/retroarch');
+  await expect(page.locator('#pf-list .pf-name')).toHaveText(['Game Boy', 'Nintendo 64']);
+  await expect(page.locator('#pf-list .bg-meta').first()).toHaveText(/gambatte_libretro/);
+  await expect(page.locator('#pf-list .pf-tag')).toHaveText(['비타에 안 나옴']);
   expect(errors).toEqual([]);
 });

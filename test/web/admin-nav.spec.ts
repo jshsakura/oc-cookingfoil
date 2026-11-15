@@ -113,13 +113,15 @@ test.describe('on a phone', () => {
     await expect(sub).not.toHaveClass(/fade-[lr]/);
 
     // Wider, the row is one line again: a clipped one fades at the hidden edge and the open page is brought into view.
+    // The settings row is the longest one.
+    const row = page.locator('main nav.adm-rowtabs');
     await page.setViewportSize({ width: 700, height: 900 });
-    await page.goto('/admin/retro');
-    await expect(sub).toHaveClass(/fade-r/);
-    await page.goto('/admin/retro?view=sets');
-    await expect(sub).toHaveClass(/fade-l/);
+    await page.goto('/admin/settings/server');
+    await expect(row).toHaveClass(/fade-r/);
+    await page.goto('/admin/settings/automation');
+    await expect(row).toHaveClass(/fade-l/);
     // The row scrolls smoothly to it, so wait for the end of the move.
-    await expect.poll(() => page.locator('#retro-subtabs [data-sub="sets"]').evaluate((b) => {
+    await expect.poll(() => row.locator('[aria-current="page"]').evaluate((b) => {
       const r = b.getBoundingClientRect(), p = b.parentElement!.getBoundingClientRect();
       return r.left >= p.left - 1 && r.right <= p.right + 1;
     })).toBe(true);
