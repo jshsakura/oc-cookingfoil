@@ -86,6 +86,7 @@ import clientUpdateRouter, { clientUpdateOpenRouter } from "./routes/client-upda
 import { dropboxSessionsRouter, dropboxCallback, BRIDGE_PATH } from "./routes/dropbox-bridge.js";
 import patchesRouter from "./routes/patches.js";
 import { homebrewRouter, start as startHomebrew } from "./routes/homebrew.js";
+import { vitaLibraryRouter, start as startVitaLibrary } from "./routes/vita-library.js";
 import { firmwareRouter, start as startFirmware } from "./routes/firmware.js";
 import * as folderSync from "./meta/folder-sync.js";
 import * as backups from "./db/backup.js";
@@ -255,6 +256,7 @@ expressApp.use((_req, _res, next) => {
 const downloadRouters = {
   "/api/patches": patchesRouter(),
   "/api/homebrew": homebrewRouter(),
+  "/api/vita/library": vitaLibraryRouter(),
   "/api/saves": savesRouter(),
   "/api/client": clientUpdateRouter(),
   "/api/retro": retroRouter(),
@@ -321,7 +323,7 @@ expressApp.use("/assets", webAssets);
 // Keep admin approval and clean configuration export reachable for onboarding.
 // The Switch library is a Switch console's: another platform's console is refused there.
 expressApp.use(SWITCH_ONLY_PATHS, switchOnly());
-expressApp.use(["/api/library", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/firmware", "/api/retro", "/api/saves", "/api/client", "/api/plugins", BRIDGE_PATH], deviceContentGuard());
+expressApp.use(["/api/library", "/api/title", "/api/uploads", "/api/art", "/api/patches", "/api/homebrew", "/api/firmware", "/api/retro", "/api/saves", "/api/client", "/api/plugins", "/api/vita", BRIDGE_PATH], deviceContentGuard());
 
 // ── routes ──────────────────────────────────────────────────────────────
 // Authenticated upload tray (disabled by default — flip COOK_UPLOADS_ENABLED).
@@ -365,6 +367,8 @@ expressApp.use(Object.keys(downloadRouters), trackTransfers({ match: (p) => lane
 expressApp.use("/api/patches", downloadRouters["/api/patches"]);
 // Homebrew (.nro apps): hand-placed ones and the latest GitHub releases.
 expressApp.use("/api/homebrew", downloadRouters["/api/homebrew"]);
+// PS Vita games: plain files in the vita folder, a Vita's and the web page's (off until COOK_VITA_DIR exists).
+expressApp.use("/api/vita/library", downloadRouters["/api/vita/library"]);
 // Firmware releases followed from GitHub (off until the firmwareRepo setting names one).
 expressApp.use("/api/firmware", firmwareRouter());
 
@@ -494,6 +498,8 @@ libraryCache.init().catch((err) =>
 userPatches.start({ onChange: () => libraryCache.invalidate() });
 // Homebrew repositories: checked now, then each at most once per COOK_HOMEBREW_CHECK_HOURS.
 startHomebrew();
+// The Vita library: read now, then the CRC of each file once, one at a time.
+startVitaLibrary();
 // Firmware releases: the list read a few seconds after start, then every firmwareHours (nothing while no source is set).
 startFirmware();
 // The direct address: checked now, then while requests come in; a change is only told (log, Telegram).

@@ -75,6 +75,7 @@ const DOWNLOAD_ROUTES = [
   /^\/api\/patches\/[^/]+\/download$/,
   /^\/api\/homebrew\/[^/]+\/(download|file|archive|bundle)$/,
   /^\/api\/saves\/[^/]+\/download$/,
+  /^\/api\/vita\/library\/[^/]+\/(app|patch|dlc)$/,
   /^\/api\/client\/cookingfoil\.nro$/,
 ];
 

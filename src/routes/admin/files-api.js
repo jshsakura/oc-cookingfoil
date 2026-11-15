@@ -43,6 +43,7 @@ import { actorOf } from "../../library/trash-service.js";
 import { TrashError } from "../../library/trash.js";
 import { requestLang } from "../../meta/langs.js";
 import { createFileFacts, titleLabel } from "../../library/file-facts.js";
+import { vitaLibrary } from "../../library/vita-library.js";
 import { fileShares } from "../../library/file-shares.js";
 import { publicBaseUrl } from "../../helpers/envs.js";
 import { resolveOrigin } from "../../helpers/origin.js";
@@ -88,7 +89,7 @@ function withConsoles(items, retroDir, lang) {
   });
 }
 
-export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir, facts = createFileFacts(), warmSizes = true, shares = fileShares() } = {}) {
+export function mountFilesApi(router, requireSession, files = createFileRoots(), { dropDir = chunks.dropChunksDir, facts = createFileFacts({ vita: () => vitaLibrary().known() }), warmSizes = true, shares = fileShares() } = {}) {
   const handle = (fn) => async (req, res) => {
     if (!requireSession(req, res)) return;
     res.set("Cache-Control", "no-store");

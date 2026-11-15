@@ -443,9 +443,16 @@ test('the PS Vita pages show the games, saves and apps of a Vita, its PSP games 
     { id: 'gb', names: { en: 'Game Boy' }, romCount: 3, core: 'gambatte', firmware: { needed: 0, missing: 0 } },
     { id: 'n64', names: { en: 'Nintendo 64' }, romCount: 1, core: null, firmware: { needed: 0, missing: 0 } },
   ] } }));
+  await page.route('**/api/vita/library', (r) => r.fulfill({ json: { success: true, data: { games: [
+    { id: 'PCSE00009', name: 'Library Game', version: '01.00', patch_version: '01.02', region: 'JP', size: 2097152, icon_url: null, dlc_count: 0, files: [] },
+  ] }, error: null, meta: { total: 1 } } }));
   await signIn(page);
   await page.goto('/admin/vita/games');
-  await expect(page.locator('#pf-list .bg-title')).toHaveText(['Vita Game', 'PSP Game']);
+  await expect(page.locator('#vita-games-subtabs [data-sub]')).toHaveText(['파일', '목록']);
+  await expect(page.locator('#vita-games-subtabs [data-sub="folder"]')).toHaveAttribute('aria-selected', 'true');
+  await page.locator('#vita-games-subtabs [data-sub="list"]').click();
+  await expect(page.locator('#pf-list .bg-account').first()).toHaveText('PS Vita · 1');
+  await expect(page.locator('#pf-list .bg-title')).toHaveText(['Library Game', 'Vita Game', 'PSP Game']);
   await expect(page.locator('#pf-list .pf-tag')).toHaveText(['PSP']);
   await expect(page.locator('#adm-crumb')).toHaveText(/PS Vita\s*게임/);
   await page.goto('/admin/vita/saves');

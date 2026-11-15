@@ -8,6 +8,7 @@
  *     latest   an update: whether it is the newest titledb knows (null when titledb does not say)
  *     check    "damaged" | "modified" when the integrity check found the file so
  *     why      that finding's label, whether the install surely fails, and its help, in `lang`
+ * In the vita folder a [PCSE00123] in a name is the game (its icon), and a listed .vpk, patch or DLC zip its kind and version.
  * Pure over the library cache, the integrity findings and titledb; nothing is read from disk.
  */
 import * as libraryCache from "../meta/library-cache.js";
@@ -18,6 +19,8 @@ import { baseTitleIdOf } from "../meta/image-cache.js";
 import { namesOf } from "../meta/titledb-store.js";
 
 const TITLE_ID_RE = /^([0-9a-f]{16})(?=$|[ ._\-[(])/i;
+const VITA_ID_RE = /\[([A-Z]{4}\d{5})\]/;
+const VITA_KIND = { app: "base", patch: "update", dlc: "dlc" };
 const CHECKS = new Set(["damaged", "modified"]);
 
 /** The title id a name starts with, upper case, or null. */
@@ -37,8 +40,9 @@ export function titleLabel(lang, names = namesOf) {
   };
 }
 
-export function createFileFacts({ files = libraryCache.files, integrity = findingOf, latest = latestVersion } = {}) {
+export function createFileFacts({ files = libraryCache.files, integrity = findingOf, latest = latestVersion, vita = () => [] } = {}) {
   return (key, items, lang = "en") => {
+    if (key === "vita") return vitaFacts(items, vita());
     const byRel = new Map();
     const dirBase = new Map();
     if (key === "games") {
@@ -74,4 +78,15 @@ export function createFileFacts({ files = libraryCache.files, integrity = findin
       return base ? { ...item, titleId: base, ...(item.type === "file" && named ? { ownId: named } : {}) } : item;
     });
   };
+}
+
+/** The vita folder's items with the game a [PCSE00123] in their name stands for, and a listed file's kind and version. Pure. */
+function vitaFacts(items, games) {
+  const byRel = new Map(games.flatMap((g) => Object.values(g.files).map((f) => [f.rel, f])));
+  return items.map((item) => {
+    const id = VITA_ID_RE.exec(item.name)?.[1];
+    if (!id) return item;
+    const f = item.type === "file" ? byRel.get(item.rel) : null;
+    return f ? { ...item, titleId: id, kind: VITA_KIND[f.kind], version: f.kind === "dlc" ? null : f.version } : { ...item, titleId: id };
+  });
 }

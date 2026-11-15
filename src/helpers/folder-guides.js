@@ -463,6 +463,7 @@ export function folderGuides({ layout, systems, runnable = [], retroDir, packDir
 const ROLE_TEXT = {
   incoming: "Drop box. Files left here are sorted into the folders below once they stop changing. Retro ROMs go in a folder named after their system (incoming/snes/Game.zip).",
   games: "Switch games (.nsp .nsz .xci .xcz), one folder per game with update/ and DLC/ inside.",
+  vita: "PS Vita games, one folder per game: <Title> [ID].vpk, with <Title> [ID] [Patch].zip and [DLC].zip beside it.",
   homebrew: "Homebrew apps: .nro files and app folders.",
   retro: "Retro ROMs, their art and the RetroArch pack (see below).",
   patches: "Patches, one folder per base title id.",

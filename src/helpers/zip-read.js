@@ -1,7 +1,8 @@
 /**
  * Reads one file out of a zip archive: enough to hash the ROM inside a
- * cartridge zip. Only stored and deflated entries, no zip64, no encryption;
- * anything else is null.
+ * cartridge zip, or a param.sfo out of a Vita's .vpk. Only stored and deflated
+ * entries and no encryption; anything else is null. A zip64 archive (a .vpk past
+ * 4 GB) is read from the file (zipDirectory, entryStream), not from a buffer.
  */
 import fs from "fs/promises";
 import { createReadStream } from "fs";
@@ -11,6 +12,11 @@ import zlib from "zlib";
 const EOCD_SIG = 0x06054b50;
 const CENTRAL_SIG = 0x02014b50;
 const LOCAL_SIG = 0x04034b50;
+const ZIP64_LOCATOR_SIG = 0x07064b50;
+const ZIP64_EOCD_SIG = 0x06064b50;
+const ZIP64_EXTRA = 0x0001;
+const U16_MAX = 0xffff;
+const U32_MAX = 0xffffffff;
 const EOCD_MIN = 22;
 const EOCD_SEARCH = EOCD_MIN + 0xffff;
 const CENTRAL_MIN = 46;
@@ -32,7 +38,8 @@ function centralEntries(buf, at, count) {
   for (let n = 0; n < count && at + 46 <= buf.length; n++) {
     if (buf.readUInt32LE(at) !== CENTRAL_SIG) break;
     const nameLen = buf.readUInt16LE(at + 28);
-    out.push({
+    const extraLen = buf.readUInt16LE(at + 30);
+    const entry = {
       flags: buf.readUInt16LE(at + 8),
       method: buf.readUInt16LE(at + 10),
       crc32: buf.readUInt32LE(at + 16).toString(16).padStart(8, "0"),
@@ -40,10 +47,32 @@ function centralEntries(buf, at, count) {
       size: buf.readUInt32LE(at + 24),
       offset: buf.readUInt32LE(at + 42),
       name: buf.toString("utf8", at + 46, at + 46 + nameLen),
-    });
-    at += 46 + nameLen + buf.readUInt16LE(at + 30) + buf.readUInt16LE(at + 32);
+    };
+    out.push(withZip64(entry, buf.subarray(at + 46 + nameLen, at + 46 + nameLen + extraLen)));
+    at += 46 + nameLen + extraLen + buf.readUInt16LE(at + 32);
   }
   return out;
+}
+
+/** `entry` with the 64-bit size, compressed size and offset its zip64 extra field holds for any that read 0xffffffff. Pure. */
+function withZip64(entry, extra) {
+  for (let at = 0; at + 4 <= extra.length; ) {
+    const id = extra.readUInt16LE(at);
+    const len = extra.readUInt16LE(at + 2);
+    if (id === ZIP64_EXTRA) {
+      let p = at + 4;
+      const end = p + len;
+      for (const field of ["size", "compressed", "offset"]) {
+        if (entry[field] !== U32_MAX) continue;
+        if (p + 8 > end || p + 8 > extra.length) break;
+        entry[field] = Number(extra.readBigUInt64LE(p));
+        p += 8;
+      }
+      return entry;
+    }
+    at += 4 + len;
+  }
+  return entry;
 }
 
 /** The central directory entries of a zip held in `buf`: [{ name, method, flags, crc32, compressed, size, offset }]. Pure. */
@@ -65,9 +94,14 @@ export async function zipDirectory(abs) {
     await fh.read(tail, 0, tailLen, size - tailLen);
     const eocd = eocdAt(tail);
     if (eocd < 0) return [];
-    const count = tail.readUInt16LE(eocd + 10);
-    const dirLen = tail.readUInt32LE(eocd + 12);
-    const dirAt = tail.readUInt32LE(eocd + 16);
+    let count = tail.readUInt16LE(eocd + 10);
+    let dirLen = tail.readUInt32LE(eocd + 12);
+    let dirAt = tail.readUInt32LE(eocd + 16);
+    if (count === U16_MAX || dirLen === U32_MAX || dirAt === U32_MAX) {
+      const big = await zip64End(fh, tail, eocd, size - tailLen);
+      if (!big) return [];
+      ({ count, dirLen, dirAt } = big);
+    }
     if (dirAt + dirLen > size || dirLen > DIR_MAX || dirLen < count * CENTRAL_MIN || dirLen > count * CENTRAL_MAX) return [];
     const dir = Buffer.alloc(dirLen);
     await fh.read(dir, 0, dirLen, dirAt);
@@ -75,6 +109,17 @@ export async function zipDirectory(abs) {
   } finally {
     await fh.close();
   }
+}
+
+/** The zip64 end record's entry count, directory length and offset, found through the locator just before `eocd`, or null. */
+async function zip64End(fh, tail, eocd, tailAt) {
+  const loc = eocd - 20;
+  if (loc < 0 || tail.readUInt32LE(loc) !== ZIP64_LOCATOR_SIG) return null;
+  const at = Number(tail.readBigUInt64LE(loc + 8));
+  const rec = Buffer.alloc(56);
+  const { bytesRead } = at + 56 <= tailAt + loc ? await fh.read(rec, 0, 56, at) : { bytesRead: 0 };
+  if (bytesRead !== 56 || rec.readUInt32LE(0) !== ZIP64_EOCD_SIG) return null;
+  return { count: Number(rec.readBigUInt64LE(32)), dirLen: Number(rec.readBigUInt64LE(40)), dirAt: Number(rec.readBigUInt64LE(48)) };
 }
 
 /** Passes at most `max` bytes on; one more fails the stream (a zip bomb, or a size the directory lied about). */

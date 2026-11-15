@@ -43,8 +43,8 @@ const TAKEN_ANSWERS = new Set(["keep", "replace"]);
 const KEEP_BOTH_MAX = 999;
 const TITLE_ID_RE = /^[0-9A-F]{16}$/i;
 // Roots no Switch game file belongs in: a game there is never read as a game, and leaves the games list.
-const NO_GAMES_ROOTS = new Set(["retro", "patches", "saves"]);
-export const FILE_ROOT_KEYS = Object.freeze(["games", "incoming", "retro", "homebrew", "patches", "saves"]);
+const NO_GAMES_ROOTS = new Set(["retro", "patches", "saves", "vita"]);
+export const FILE_ROOT_KEYS = Object.freeze(["games", "incoming", "vita", "retro", "homebrew", "patches", "saves"]);
 /**
  * What the server makes and keeps at the top of a root: pictures it fetched, the RetroArch pack it hands out,
  * its own lists. The list marks them and everything inside them `server: true`, so the page can say whose they are.

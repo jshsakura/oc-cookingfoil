@@ -34,6 +34,7 @@ const KEYS = [
   "fb.pasteCopyAsk", "fb.pasteMoveAsk",
   "fb.upResume", "fb.copyStart",
   "fb.intoItself", "fb.sortBy",
+  "fb.root.vita",
 ];
 
 const ROWS = {
@@ -71,6 +72,7 @@ const ROWS = {
     "{from}에서 복사한 {n}개를 {to}에 붙여 넣습니다.", "{from}에서 잘라 낸 {n}개를 {to}(으)로 옮깁니다. {from}에서는 빠집니다.",
     "{name} 이어서 올리기", "복사를 시작합니다",
     "폴더는 자기 안으로 옮기거나 복사할 수 없습니다.", "정렬",
+    "PS Vita",
   ],
   en: [
     "Files", "Storage", "Games", "Temp folder", "Retro games", "Homebrew", "Patches", "Saves",
@@ -106,6 +108,7 @@ const ROWS = {
     "Paste {n} items copied from {from} into {to}.", "Move {n} items cut from {from} into {to}. They leave {from}.",
     "Resume {name}", "Starting the copy",
     "A folder cannot go into itself.", "Sort",
+    "PS Vita",
   ],
   ja: [
     "ファイル", "保存場所", "ゲーム", "一時フォルダー", "レトロゲーム", "Homebrew", "パッチ", "セーブ",
@@ -141,6 +144,7 @@ const ROWS = {
     "{from} でコピーした {n} 件を {to} に貼り付けます。", "{from} で切り取った {n} 件を {to} に移動します。{from} からはなくなります。",
     "{name} の続きをアップロード", "コピーを始めます",
     "フォルダーをそれ自身の中へ移動やコピーはできません。", "並べ替え",
+    "PS Vita",
   ],
   zh: [
     "文件", "存储位置", "游戏", "临时文件夹", "复古游戏", "自制软件", "补丁", "存档",
@@ -176,6 +180,7 @@ const ROWS = {
     "将从{from}复制的 {n} 项粘贴到{to}。", "将从{from}剪切的 {n} 项移到{to}，它们会从{from}移除。",
     "继续上传 {name}", "正在开始复制",
     "文件夹不能移入或复制到它自身里面。", "排序",
+    "PS Vita",
   ],
   "zh-Hant": [
     "檔案", "儲存位置", "遊戲", "暫存資料夾", "復古遊戲", "自製軟體", "修補檔", "存檔",
@@ -211,6 +216,7 @@ const ROWS = {
     "將從{from}複製的 {n} 項貼到{to}。", "將從{from}剪下的 {n} 項移到{to}，它們會從{from}移除。",
     "繼續上傳 {name}", "正在開始複製",
     "資料夾不能移入或複製到它自身裡面。", "排序",
+    "PS Vita",
   ],
   es: [
     "Archivos", "Almacenamiento", "Juegos", "Carpeta temporal", "Juegos retro", "Homebrew", "Parches", "Partidas guardadas",
@@ -246,6 +252,7 @@ const ROWS = {
     "Pegar en {to} {n} elementos copiados de {from}.", "Mover a {to} {n} elementos cortados de {from}. Saldrán de {from}.",
     "Reanudar {name}", "Empezando a copiar",
     "Una carpeta no puede ir dentro de sí misma.", "Ordenar",
+    "PS Vita",
   ],
   fr: [
     "Fichiers", "Stockage", "Jeux", "Dossier temporaire", "Jeux rétro", "Homebrew", "Patchs", "Sauvegardes",
@@ -281,6 +288,7 @@ const ROWS = {
     "Coller dans {to} {n} éléments copiés depuis {from}.", "Déplacer vers {to} {n} éléments coupés dans {from}. Ils quittent {from}.",
     "Reprendre {name}", "Début de la copie",
     "Un dossier ne peut pas aller dans lui-même.", "Trier",
+    "PS Vita",
   ],
   de: [
     "Dateien", "Speicherort", "Spiele", "Temporärer Ordner", "Retro-Spiele", "Homebrew", "Patches", "Spielstände",
@@ -316,6 +324,7 @@ const ROWS = {
     "{n} aus {from} kopierte Einträge in {to} einfügen.", "{n} aus {from} ausgeschnittene Einträge nach {to} verschieben. Sie verlassen {from}.",
     "{name} fortsetzen", "Kopieren startet",
     "Ein Ordner kann nicht in sich selbst.", "Sortieren",
+    "PS Vita",
   ],
   it: [
     "File", "Archivio", "Giochi", "Cartella temporanea", "Giochi retro", "Homebrew", "Patch", "Salvataggi",
@@ -351,6 +360,7 @@ const ROWS = {
     "Incolla in {to} {n} elementi copiati da {from}.", "Sposta in {to} {n} elementi tagliati da {from}. Lasciano {from}.",
     "Riprendi {name}", "Avvio della copia",
     "Una cartella non può andare dentro se stessa.", "Ordina",
+    "PS Vita",
   ],
   pt: [
     "Arquivos", "Armazenamento", "Jogos", "Pasta temporária", "Jogos retrô", "Homebrew", "Patches", "Saves",
@@ -386,6 +396,7 @@ const ROWS = {
     "Colar em {to} {n} itens copiados de {from}.", "Mover para {to} {n} itens recortados de {from}. Eles saem de {from}.",
     "Retomar {name}", "Iniciando a cópia",
     "Uma pasta não pode ir para dentro de si mesma.", "Ordenar",
+    "PS Vita",
   ],
   nl: [
     "Bestanden", "Opslag", "Games", "Tijdelijke map", "Retrogames", "Homebrew", "Patches", "Saves",
@@ -421,6 +432,7 @@ const ROWS = {
     "{n} items gekopieerd uit {from} plakken in {to}.", "{n} items geknipt uit {from} verplaatsen naar {to}. Ze verdwijnen uit {from}.",
     "{name} hervatten", "Kopiëren begint",
     "Een map kan niet in zichzelf.", "Sorteren",
+    "PS Vita",
   ],
   ru: [
     "Файлы", "Хранилище", "Игры", "Временная папка", "Ретро-игры", "Homebrew", "Патчи", "Сохранения",
@@ -456,6 +468,7 @@ const ROWS = {
     "Вставить в «{to}» {n} элементов, скопированных из «{from}».", "Переместить в «{to}» {n} элементов, вырезанных из «{from}». Из «{from}» они уйдут.",
     "Продолжить загрузку {name}", "Начинаем копирование",
     "Папку нельзя поместить внутрь неё самой.", "Сортировка",
+    "PS Vita",
   ],
 };
 

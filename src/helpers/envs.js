@@ -277,6 +277,8 @@ const retroDir = layout.dirs.retro;
 // ("owner/name" or github.com addresses, separated by commas or spaces).
 // /api/library/info lists the "homebrew" feature only while at least one app is listed.
 const homebrewDir = layout.dirs.homebrew;
+// PS Vita games (library/vita-library.js): <Title> [ID]/ holding its .vpk, [Patch].zip and [DLC].zip. Off until the folder exists.
+const vitaDir = layout.dirs.vita;
 const homebrewRepos = envString("COOK_HOMEBREW_REPOS", "")
   .split(/[\s,]+/)
   .filter(Boolean);
@@ -634,6 +636,7 @@ export {
   retroDir,
   savesDir,
   homebrewDir,
+  vitaDir,
   homebrewRepos,
   githubToken,
   chatLlmBaseUrl,

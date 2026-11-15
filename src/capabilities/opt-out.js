@@ -35,6 +35,8 @@ export const OPT_OUT = {
   "GET /api/backups/unit": "console-backup",
   "GET /api/backups/games": "console-backup",
   "GET /api/backups/games/:id/:art": "console-backup",
+  "GET /api/vita/library/:id/icon": "console-ui",
+  "GET /api/vita/library/:id/:kind": "console-ui",
   "POST /api/backups/games/:id/art/:art": "console-backup",
   "GET /admin/api/backups/games/:folder/:id/:art": "browser-only",
   "POST /api/backups/begin": "console-backup",
