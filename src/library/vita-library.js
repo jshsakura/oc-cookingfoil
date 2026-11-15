@@ -30,7 +30,8 @@ const TITLE_ID_RE = /^[A-Z]{4}\d{5}$/;
 const SFO_MAX = 64 * 1024;
 const ICON_MAX = 1024 * 1024;
 const LICENSE_HEAD = 16;
-const FAKE_ACCOUNT = Buffer.from("0123456789abcdef", "hex");
+// The account id is a little-endian u64: NoNpDrm's 0x0123456789ABCDEF is ef cd ab 89 67 45 23 01 on disk.
+const FAKE_ACCOUNT = Buffer.from("0123456789abcdef", "hex").reverse();
 const NO_ACCOUNT = Buffer.alloc(8);
 const READ_CHUNK = 8 * 1024 * 1024;
 // A game folder, and loose files at the top: deeper folders are not read.

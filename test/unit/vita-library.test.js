@@ -18,7 +18,8 @@ const put = (rel, body) => {
   writeFileSync(path.join(root, rel), body);
 };
 const when = new Date(2024, 0, 1);
-const workBin = (account) => Buffer.concat([Buffer.alloc(8), Buffer.from(account, "hex"), Buffer.alloc(496)]);
+// The account id as NoNpDrm writes it: a little-endian u64.
+const workBin = (account) => Buffer.concat([Buffer.alloc(8), Buffer.from(account, "hex").reverse(), Buffer.alloc(496)]);
 const appSfo = (id, title, ver) => sfo([["TITLE", title], ["TITLE_ID", id], ["APP_VER", ver], ["CONTENT_ID", `UP0001-${id}_00-0000000000000000`]]);
 
 put("Alpha [PCSE00001]/Alpha [PCSE00001].vpk", zipStore([
@@ -68,6 +69,7 @@ test("a work.bin is fake, free or bound to an account by its account bytes", () 
   assert.equal(licenseOf(workBin("0000000000000000")), "free");
   assert.equal(licenseOf(workBin("1122334455667788")), "none");
   assert.equal(licenseOf(null), "none");
+  assert.equal(licenseOf(Buffer.concat([Buffer.alloc(8), Buffer.from("0123456789abcdef", "hex"), Buffer.alloc(496)])), "none", "the big-endian bytes are another account");
 });
 
 test("the library lists each game with an app, its patch and DLC beside it, and skips what it cannot read", async () => {
