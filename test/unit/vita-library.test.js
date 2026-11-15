@@ -187,3 +187,15 @@ test("an encrypted icon0.png is no icon, and the icon a console sent stands in f
   assert.equal(await lib.hasIcon(beta), false);
   assert.equal(await lib.icon("PCSB00002"), null);
 });
+
+test("an icon stored as sce_sys/ICON0.PNG counts, as a console's file system does not tell the case apart", async () => {
+  put("Caps [PCSE00006]/Caps [PCSE00006].vpk", zipStore([
+    { name: "eboot.bin", data: Buffer.from("caps") },
+    { name: "sce_sys/param.sfo", data: appSfo("PCSE00006", "Caps", "01.00") },
+    { name: "sce_sys/ICON0.PNG", data: Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("icon")]) },
+  ], when));
+  const lib = createVitaLibrary({ dir: () => root, crcs: crcStore() });
+  const caps = (await lib.list()).find((g) => g.id === "PCSE00006");
+  assert.equal(caps.files.app.icon, true);
+  assert.ok((await lib.icon("PCSE00006"))?.length > 8);
+});

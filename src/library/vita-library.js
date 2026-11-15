@@ -62,7 +62,8 @@ export function licenseOf(head) {
 }
 
 async function entryBytes(abs, entries, name, max) {
-  const entry = entries.find((e) => e.name === name);
+  // A .vpk may name its files in capitals (sce_sys/ICON0.PNG): a console's file system does not tell them apart.
+  const entry = entries.find((e) => e.name.toLowerCase() === name.toLowerCase());
   if (!entry || entry.size > max) return null;
   const stream = await entryStream(abs, entry);
   if (!stream) return null;
