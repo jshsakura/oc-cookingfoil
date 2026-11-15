@@ -126,6 +126,11 @@ test("a Vita takes its .vpk whole or in pieces, under the ETag of its hash, and 
   assert.equal((await fetch(base + app.icon_url, { headers: VITA })).status, 200);
 });
 
+test("a .vpk with no icon0.png lists no icon address, so a Vita never asks for one that is not there", async () => {
+  const retro = (await list(VITA)).find((r) => r.title_id === "RETROVITA");
+  assert.equal(retro.icon_url, null);
+});
+
 test("a Switch, and the web with no console, get the Switch apps only, and no .vpk to fetch", async () => {
   const vpk = (await list(VITA)).find((r) => r.title_id === "FREETV001");
   for (const [who, headers] of [["a Switch", SWITCH], ["the web", WEB]]) {
