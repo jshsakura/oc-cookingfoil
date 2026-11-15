@@ -65,7 +65,10 @@ const pfSaves=(games)=>{const list=el('div','','pf-rows');
 // What the Vita holds, its PSP games among them: a PSP game names its platform on its card.
 const pfOnVita=(g)=>g.platform==='vita'||g.platform==='psp';
 const pfKind=(g)=>g.platform==='psp'?['PSP']:[];
-const pfVitaGame=(g)=>pfOnVita(g)&&['app','patch','psp-game','psp-iso'].some((k)=>pfHas(g,k));
+// A game of the card has a Sony title id; the apps put on it by hand (VitaShell, emulators, ports) are its homebrew.
+const pfRetail=(g)=>/^[A-Z]{4}[0-9]{5}$/.test(g.id)&&/^PCS/.test(g.id);
+const pfVitaGame=(g)=>pfOnVita(g)&&(g.platform==='psp'||pfRetail(g))&&['app','patch','psp-game','psp-iso'].some((k)=>pfHas(g,k));
+const pfVitaBackedHomebrew=(g)=>g.platform==='vita'&&!pfRetail(g)&&pfHas(g,'app');
 const pfVitaSave=(g)=>pfOnVita(g)&&(pfHas(g,'savedata')||pfHas(g,'psp-save'));
 // The library's games (the vita folder) come first, then each account's backups.
 const pfLibCard=(g)=>({id:g.id,title:g.name,icon:g.icon_url,region:g.region,version:g.patch_version||g.version,bytes:g.size});
@@ -93,6 +96,14 @@ async function loadVitaRetroArch(){const box=$('pf-list');
     const meta=[s.core?s.core+'_libretro':topText('pf.noCore'),topFill('pf.gameCount',{n:s.romCount}),fw].filter(Boolean).join(' · ');
     list.append(pfRow(name,meta,null,s.core?[]:[topText('pf.notOnVita')]));}
   box.append(list);}
-const loadVitaHomebrew=()=>pfVitaApps(false);
+// The server's homebrew first, then each account's backed-up homebrew (what was put on the card, not a card game).
+async function loadVitaHomebrew(){await pfVitaApps(false);const box=$('pf-list');
+  const d=await api('/admin/api/backups/games').catch(()=>null);
+  for(const a of (d&&d.accounts)||[]){const apps=a.games.filter(pfVitaBackedHomebrew);if(!apps.length)continue;
+    box.querySelectorAll(':scope>p.muted').forEach((n)=>n.remove());
+    box.append(el('div',topFill('pp.gamesOf',{name:a.name,n:apps.length}),'bg-account'));
+    const list=el('div','','pf-rows');
+    for(const g of apps)list.append(pfRow(g.title||g.id,[g.version,g.id,pfSize(g.bytes)].filter(Boolean).join(' · '),g.icon,[]));
+    box.append(list);}}
 const loadVitaPlugins=()=>pfVitaApps(true);
 `;
