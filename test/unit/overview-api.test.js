@@ -23,6 +23,7 @@ function overviewWith(over = {}) {
     patches: () => [],
     nameOf: () => null,
     namesMissing: () => false,
+    retroarch: async () => null,
     now: () => t,
     ...over,
   });
@@ -135,4 +136,10 @@ test("a patch edit shows at once: the kept answer is read again when the patch i
   rev = 2;
   await o.read();
   assert.equal(calls.files, 2);
+});
+
+test("the PS Vita's RetroArch pack is listed under retroarch.psv, and a failed read leaves it null", async () => {
+  const pack = { name: "RetroArch", version: "1.0", size: 5, cores: 124, url: "/admin/api/files/download?root=homebrew&path=ra%2FRetroArch.vpk" };
+  assert.deepEqual((await overviewWith({ retroarch: async () => pack }).o.read()).retroarch, { psv: pack });
+  assert.deepEqual((await overviewWith({ retroarch: async () => { throw new Error("no"); } }).o.read()).retroarch, { psv: null });
 });

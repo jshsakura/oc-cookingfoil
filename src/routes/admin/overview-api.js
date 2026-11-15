@@ -10,7 +10,8 @@
  *                                                       line, body the whole message (capped) for the detail view
  *       added:  { games: [{ name, kind, titleId, version, at }],
  *                 patches: [{ id, name, game, titleId, at, ...what the patch edit dialog fills and posts back }] }
- *               the newest game files and patches in the library, newest first }
+ *               the newest game files and patches in the library, newest first
+ *       retroarch: { psv: { name, version, size, cores, url } | null }   the PS Vita's RetroArch pack with its cores, as one download }
  *
  * Everything here is already kept in memory by its owner, so a read only counts. The answer is kept
  * for a few seconds anyway: the page asks every 15 seconds and several tabs may be open. A patch edit
@@ -28,6 +29,7 @@ import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
 import { gameOf } from "../../meta/game-info.js";
 import { requestLang } from "../../meta/langs.js";
+import { vitaRetroArch } from "./overview-retroarch.js";
 
 const FRESH_MS = 10_000;
 const RECENT_MAX = 8;
@@ -94,6 +96,8 @@ export function createOverview({
   disks = () => Promise.all([diskOf("games", romsDirPath), diskOf("data", dataDir)]),
   // Korean names come only from a plugin: a server that reads Korean first is told when none is on.
   namesMissing = () => langPriority[0] === "ko" && koreanNameSources() === 0,
+  // The Vita's RetroArch pack, or null: read from the homebrew list when this is the server's own overview.
+  retroarch = async () => vitaRetroArch((await import("../homebrew.js")).defaultService),
   now = Date.now,
 } = {}) {
   let kept = null;
@@ -128,6 +132,7 @@ export function createOverview({
       },
       recent: recentAlerts().slice(0, RECENT_MAX),
       added: addedOf(all, await Promise.resolve(patches()).catch(() => []), nameOf),
+      retroarch: { psv: await Promise.resolve(retroarch()).catch(() => null) },
     };
   }
 

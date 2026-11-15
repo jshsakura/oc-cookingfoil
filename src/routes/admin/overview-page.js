@@ -16,6 +16,10 @@ export const OVERVIEW_HTML = /* html */ `<section id="tab-overview">
   </div>
   <h3 class="ov-h" data-top="ov.statusH">${ko("ov.statusH")}</h3>
   <div class="cards" id="ov-status"></div>
+  <section id="ov-ra" hidden>
+    <h3 class="ov-h" data-top="ov.raH">${ko("ov.raH")}</h3>
+    <div class="ov-ra" id="ov-ra-box"></div>
+  </section>
   <dl class="ov-facts" id="lanes"></dl>
   <dl class="ov-facts" id="health"></dl>
   <p class="muted" id="health-hint" hidden></p>
@@ -64,6 +68,10 @@ export const OVERVIEW_CSS = /* css */ `
 .ov-col{border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel);overflow:hidden;min-width:0}
 .ov-col-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:var(--fs-sm)}
 .ov-col-h a{color:var(--muted);font-size:var(--fs-xs);text-decoration:none;white-space:nowrap}.ov-col-h a:hover{color:var(--text)}
+.ov-ra{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-2xl);background:var(--panel)}
+.ov-ra .nm{flex:1;min-width:0;display:grid;gap:2px}
+.ov-ra .nm b{display:flex;align-items:center;gap:8px;font-size:var(--fs-md)}
+.ov-ra .nm span{color:var(--muted);font-size:var(--fs-xs)}
 .ov-list{list-style:none;margin:0;padding:0}
 .ov-list li{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--line);font-size:var(--fs-sm);min-width:0}
 .ov-list li:first-child{border-top:0}
@@ -190,9 +198,16 @@ function renderAdded(a){
     const e=tbtn('edit','hb.editBtn',()=>ctOpen('patch',{...x,title_id:x.titleId},loadOverview),'pt-edit');e.setAttribute('aria-label',topFill('hb.editAria',{name:x.name}));
     li.append(e);p.append(li);}
   if(!p.children.length)p.append(el('li',topText('ov.addedPatchesNone'),'none'));}
+// The PS Vita's RetroArch with its cores, one download.
+function renderRetroArch(ra){const p=ra&&ra.psv;$('ov-ra').hidden=!p;if(!p)return;
+  const box=$('ov-ra-box');box.replaceChildren();
+  const nm=el('div',null,'nm');const b=el('b',p.name);b.append(pill(topText('ov.raPsv'),''));
+  nm.append(b,el('span',[p.version,topFill('ov.raSub',{n:num(p.cores),size:ovBytes(p.size)})].filter(Boolean).join(' · ')));
+  const a=el('a',topText('pp.download'),'btn primary');a.href=p.url;a.setAttribute('download','');
+  box.append(nm,a);}
 function renderOverview(d){
   $('ts').textContent=topFill('overview.asOf',{at:fmt(d.generatedAt)});
-  renderWarnings(d.todo||[]);if(d.lanes)renderLanes(d.lanes);renderAdded(d.added);renderStatus(d.status);renderRecent(d.recent||[]);}
+  renderWarnings(d.todo||[]);if(d.lanes)renderLanes(d.lanes);renderAdded(d.added);renderStatus(d.status);renderRetroArch(d.retroarch);renderRecent(d.recent||[]);}
 function showLibraryUrl(){$('library-url').textContent=location.origin.replace(/[/]$/,'');}
 $('library-url-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('library-url').textContent);toast(topText('ov.copied'));}catch{toast(topText('ov.copyFail'));}});
 showLibraryUrl();
