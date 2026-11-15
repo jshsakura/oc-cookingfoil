@@ -108,21 +108,6 @@ async function loadBackups(){
     const who=td(String(a.name));who.append(el('div',topFill('pp.bkTotal',{size:sizeText(a.bytes)}),'dim'));
     tr.append(who,td(platformName(p.platform)),td(String(p.units)),td(String(p.versions)),td(sizeText(p.bytes)),td(topFill('pp.bkSecretsN',{n:p.secrets}),p.secrets?'':'dim'));rows.push(tr);}
   table('backups',[topText('pp.bkAccount'),topText('pp.bkPlatform'),topText('pp.bkUnits'),topText('pp.bkVersions'),topText('pp.bkBytes'),topText('pp.bkSecrets')],rows,d.on?topText('pp.backupsNone'):'');}
-// Each account's backed-up Vita and PSP games, as cards: cover (else icon), title, region, version and size.
-async function loadBackupGames(){
-  const box=$('backupgames');if(!box)return;
-  const d=await api('/admin/api/backups/games');box.replaceChildren();
-  if(!(d.accounts||[]).length){box.append(el('p',topText('pp.gamesNone'),'muted'));return;}
-  for(const a of d.accounts){
-    box.append(el('div',topFill('pp.gamesOf',{name:a.name,n:a.games.length}),'bg-account'));
-    const grid=el('div','','bg-grid');
-    for(const g of a.games){const card=el('div','','bg-card'),cover=el('div','','bg-cover');
-      const pic=g.cover||g.icon;if(pic){const img=document.createElement('img');img.src=pic;img.alt='';img.loading='lazy';if(!g.cover)img.className='bg-icon';cover.append(img);}
-      const body=el('div','','bg-body'),title=el('div','','bg-title');
-      if(g.platform==='psp')title.append(el('span','PSP','bg-psp'));title.append(document.createTextNode(g.title||g.id));
-      body.append(title,el('div',[g.region,g.version,sizeText(g.bytes)].filter(Boolean).join(' · '),'bg-meta'));
-      card.append(cover,body);grid.append(card);}
-    box.append(grid);}}
 async function loadAccounts(){
   const d=await api('/admin/api/accounts');accountsLoaded=true;const list=d.accounts||[];
   const hint=$('accounthint');if(hint)hint.textContent=d.enabled?topText('pp.googleLead')
@@ -172,7 +157,7 @@ function renderApproved(){const d=devicesShown;if(!d)return;
   for(const a of slice){if(whose(a)!==group){group=whose(a);const h=el('tr',null,'group');const c=td(group+' · '+topFill('pp.count',{n:counts[group]})+(a.suspended?' · '+topText(a.suspended==='account-gone'?'pp.suspendedGone':a.suspended==='no-account'?'pp.suspendedNone':'pp.suspendedOff'):''));c.colSpan=8;h.append(c);rows.push(h);}
     const tr=el('tr');
     const ipc=td(a.lastIp?null:'—',a.lastIp?'':'dim');if(a.lastIp)ipc.append(ipButton(a.lastIp,'acc.ipHistory',()=>openDeviceIps(a)));
-    const name=td('');name.append(el('div',a.label||'—'),el('div',platformName(a.platform),'dim'));
+    const name=td('');const kind=el('div');kind.append(pill(platformName(a.platform),a.platform==='vita'?'on':''));name.append(el('div',a.label||'—'),kind);
     tr.append(name,seenCell(a),ipc,td(topFill('acc.daysN',{n:a.activeDays30||0}),a.activeDays30?'':'dim'),td(fmt(a.addedAt)));
     const k=td(a.deviceKey.slice(0,16)+'…','ip');k.title=a.deviceKey;tr.append(k);
     // An admin device may change item settings from the console; off by default.
@@ -256,7 +241,7 @@ async function loadPeople(){
     const d=await api('/admin/api/stats');
     me=d.me||null;
     // The accounts page: the local-user table and the Google approval list.
-    if($('users')){renderUsers(d.users||[]);await loadAccounts();loadBackups().catch(()=>{});loadBackupGames().catch(()=>{});}
+    if($('users')){renderUsers(d.users||[]);await loadAccounts();loadBackups().catch(()=>{});}
     // The devices page: the pending, approved and issued-clients areas.
     if($('devices')||$('pending'))await loadDevices();
   }catch(err){if(err.message!=='session')toast(errText(err));}}

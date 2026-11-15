@@ -1,0 +1,92 @@
+/**
+ * The library pages of the PS Vita and PSP rows (admin-pages.js): games and saves read from console backups, a
+ * Vita's homebrew and plugins from the homebrew folder, and the PSP games of the retro folder. A PSP game is
+ * retro on a Switch and installed on a Vita, so its page names where each one runs.
+ */
+import { top } from "./top-i18n.js";
+
+const section = (tab, title, lead, body) => /* html */ `<section id="tab-${tab}">
+  <div class="hd"><h2 class="first">${top(title)}</h2></div>
+  <p class="muted">${top(lead)}</p>
+  ${body}
+</section>`;
+
+export const PLATFORM_HTML = {
+  vitaGames: section("vita-games", "m.grpGames", "pf.vitaGamesLead", `<div id="pf-list" data-skel></div>`),
+  vitaSaves: section("vita-saves", "m.saves", "pf.vitaSavesLead", `<div id="pf-list" data-skel></div>`),
+  vitaHomebrew: section("vita-homebrew", "g.homebrew", "pf.vitaHbLead", `<div id="pf-list" data-skel></div>`),
+  vitaPlugins: section("vita-plugins", "mn.plugins", "pf.pluginsLead", `<div id="pf-list" data-skel></div>`),
+  pspGames: section("psp-games", "m.grpGames", "pf.pspGamesLead",
+    `<h3>${top("pf.retroFolder")}</h3><div id="pf-retro" data-skel></div><h3>${top("pf.fromBackups")}</h3><div id="pf-list" data-skel></div>`),
+  pspSaves: section("psp-saves", "m.saves", "pf.pspSavesLead", `<div id="pf-list" data-skel></div>`),
+};
+
+/** The backed-up games' cards and the rows of a list; the people page used the same cards before. */
+export const PLATFORM_CSS = /* css */ `
+.bg-account{margin:16px 0 8px;font-weight:var(--fw-bold)}
+.bg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.bg-card{border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--panel)}
+.bg-cover{aspect-ratio:480/272;background:var(--bg);display:flex;align-items:center;justify-content:center}
+.bg-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.bg-cover img.bg-icon{width:64px;height:64px;border-radius:var(--r-lg);object-fit:cover}
+.bg-body{padding:8px 12px 12px}
+.bg-title{font-weight:var(--fw-bold);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.bg-meta{font-size:var(--fs-sm);color:var(--muted);margin-top:4px}
+.pf-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.pf-tag{font-size:var(--fs-2xs);font-weight:var(--fw-bold);border:1px solid var(--line);border-radius:var(--r-sm);padding:0 6px}
+.pf-rows{display:grid;gap:8px}
+.pf-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel)}
+.pf-row img{width:40px;height:40px;border-radius:var(--r-md);object-fit:cover;flex:none}
+.pf-row .pf-main{min-width:0;flex:1}
+.pf-row .pf-name{font-weight:var(--fw-bold);overflow-wrap:anywhere}`;
+
+export const PLATFORM_SCRIPT = /* js */ `
+const pfSize=(n)=>n>=1073741824?(n/1073741824).toFixed(1)+' GB':n>=1048576?(n/1048576).toFixed(1)+' MB':Math.ceil((n||0)/1024)+' KB';
+const pfTags=(words)=>{const t=el('div','','pf-tags');for(const w of words)t.append(el('span',w,'pf-tag'));return t;};
+// A game's card: its cover (else its icon), title, what it is, and where it runs.
+function pfCard(g,meta,tags){const card=el('div','','bg-card'),cover=el('div','','bg-cover');
+  const pic=g.cover||g.icon;if(pic){const img=document.createElement('img');img.src=pic;img.alt='';img.loading='lazy';if(!g.cover)img.className='bg-icon';cover.append(img);}
+  const body=el('div','','bg-body');body.append(el('div',g.title||g.id,'bg-title'),el('div',meta,'bg-meta'));
+  if(tags&&tags.length)body.append(pfTags(tags));card.append(cover,body);return card;}
+function pfRow(name,meta,pic,tags){const row=el('div','','pf-row');
+  if(pic){const img=document.createElement('img');img.src=pic;img.alt='';img.loading='lazy';row.append(img);}
+  const main=el('div','','pf-main');main.append(el('div',name,'pf-name'),el('div',meta,'bg-meta'));if(tags&&tags.length)main.append(pfTags(tags));
+  row.append(main);return row;}
+const pfEmpty=(box,key)=>{box.replaceChildren(el('p',topText(key),'muted'));};
+// Each account's backed-up games of one platform, as cards or rows, by the pick and draw given.
+async function pfBackups(pick,draw,none){const box=$('pf-list');
+  const d=await api('/admin/api/backups/games');box.replaceChildren();
+  const accounts=(d.accounts||[]).map((a)=>({...a,games:a.games.filter(pick)})).filter((a)=>a.games.length);
+  if(!accounts.length)return pfEmpty(box,none);
+  for(const a of accounts){box.append(el('div',topFill('pp.gamesOf',{name:a.name,n:a.games.length}),'bg-account'));box.append(draw(a.games));}}
+const pfHas=(g,kind)=>(g.units||[]).some((u)=>u.startsWith(kind+':'));
+const pfGrid=(tags)=>(games)=>{const grid=el('div','','bg-grid');
+  for(const g of games)grid.append(pfCard(g,[g.region,g.version,pfSize(g.bytes)].filter(Boolean).join(' · '),tags));return grid;};
+const pfSaves=(games)=>{const list=el('div','','pf-rows');
+  for(const g of games)list.append(pfRow(g.title||g.id,topFill('pf.savedAt',{when:fmt(g.updatedAt)}),g.icon));return list;};
+const pfVitaGame=(g)=>g.platform==='vita'&&(pfHas(g,'app')||pfHas(g,'patch'));
+const pfPspGame=(g)=>g.platform==='psp'&&(pfHas(g,'psp-game')||pfHas(g,'psp-iso'));
+async function loadVitaGames(){await pfBackups(pfVitaGame,pfGrid([]),'pp.gamesNone');}
+async function loadVitaSaves(){await pfBackups((g)=>g.platform==='vita'&&pfHas(g,'savedata'),pfSaves,'pf.savesNone');}
+async function loadPspSaves(){await pfBackups((g)=>g.platform==='psp'&&pfHas(g,'psp-save'),pfSaves,'pf.savesNone');}
+// The retro folder's PSP games run on a Switch; the Vita backups' run on the Vita that holds them.
+async function loadPspGames(){
+  const box=$('pf-retro');const d=await api('/admin/api/retro-art/system-games?system=psp');box.replaceChildren();
+  if(!(d.games||[]).length)pfEmpty(box,'pf.retroNone');
+  else{const list=el('div','','pf-rows');
+    for(const g of d.games)list.append(pfRow((g.title&&(g.title.ko||g.title.en))||g.name,pfSize(g.size),g.boxart?'/api/retro/games/'+encodeURIComponent(g.id)+'/icon?size=sm':null,[topText('pf.onSwitch')]));
+    box.append(list);}
+  await pfBackups(pfPspGame,pfGrid([topText('pf.onVita')]),'pp.gamesNone');}
+// A Vita's apps or plugins, from the homebrew list the Switch's page reads too.
+async function pfVitaApps(plugins){const box=$('pf-list');
+  const d=await api('/admin/api/homebrew/apps');box.replaceChildren();
+  const apps=(d.apps||[]).filter((a)=>a.platform==='vita'&&a.plugin===plugins);
+  if(!apps.length)return pfEmpty(box,'pf.none');
+  const list=el('div','','pf-rows');
+  for(const a of apps){const meta=[a.display_version||a.version,a.title_id,pfSize(a.size)].filter(Boolean).join(' · ');
+    const tags=plugins?[...(a.sections||[]),...(a.required?[topText('pf.required')]:[]),...(a.kernel?[topText('pf.kernel')]:[])]:[];
+    list.append(pfRow(a.name,meta,null,tags));}
+  box.append(list);}
+const loadVitaHomebrew=()=>pfVitaApps(false);
+const loadVitaPlugins=()=>pfVitaApps(true);
+`;

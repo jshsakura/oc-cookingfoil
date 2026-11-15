@@ -14,9 +14,9 @@ test("every sidebar page and task has an icon that exists", () => {
   }
 });
 
-test("the sidebar holds eight entries and draws an icon in front of every link and tab", () => {
+test("the sidebar holds twelve entries and draws an icon in front of every link and tab", () => {
   const links = sidebarNav(null).match(/<a class="adm-item[^"]*"[^>]*>(.*?)<\/a>/g) ?? [];
-  assert.equal(links.length, 8);
+  assert.equal(links.length, 12);
   const tabs = ADMIN_PAGES.flatMap((p) => rowTabsHtml(p).match(/<a [^>]*>(.*?)<\/a>/g) ?? []);
   assert.ok(tabs.length > 20);
   for (const a of [...links, ...tabs]) assert.match(a, /<svg class="ico"/, a);
@@ -28,4 +28,14 @@ test("the alert settings live under the settings and what was sent under the rec
   assert.equal(settings.row, "set");
   assert.equal(history.path, "/admin/logs/alerts");
   assert.equal(history.row, "ops");
+});
+
+test("the library is a heading over one entry per platform, then retro and the trash", () => {
+  const nav = sidebarNav(null);
+  assert.equal((nav.match(/class="adm-group"/g) ?? []).length, 1);
+  const under = [...nav.slice(nav.indexOf('class="adm-group"')).matchAll(/<a class="adm-item adm-sub" href="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(under, ["/admin/games", "/admin/vita/games", "/admin/psp/games", "/admin/retro", "/admin/trash"]);
+  const tabs = (row) => ADMIN_PAGES.filter((p) => p.row === row).map((p) => p.path);
+  assert.deepEqual(tabs("vita"), ["/admin/vita/games", "/admin/vita/homebrew", "/admin/vita/plugins", "/admin/vita/saves"]);
+  assert.deepEqual(tabs("psp"), ["/admin/psp/games", "/admin/psp/saves"]);
 });

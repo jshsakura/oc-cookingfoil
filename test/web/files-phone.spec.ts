@@ -427,7 +427,7 @@ test('a second pick leaves every bottom button where it was, rename greyed in it
 
 test('every library tab is on the screen, none behind the right edge', async ({ page }) => {
   const tabs = page.locator('nav.adm-rowtabs a');
-  expect(await tabs.count()).toBeGreaterThan(4);
+  expect(await tabs.count()).toBe(4);
   for (const t of await tabs.all()) {
     const b = (await t.boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);

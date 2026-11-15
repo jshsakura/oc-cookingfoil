@@ -25,13 +25,19 @@ export const ADMIN_PAGES = [
   { path: "/admin/chat", tab: "chat", label: "m.chat", icon: "chat", offMenu: true },
   // Uploading, the temp share and the temp folder, on one page.
   { path: "/admin/incoming", tab: "incoming", label: "mn.upload", icon: "upload", count: "inbox-count" },
-  // the libraries: each page holds its own jobs as tabs
-  { path: "/admin/games", tab: "library", label: "m.grpGames", row: "library", icon: "grid" },
-  { path: "/admin/retro", tab: "retro", label: "mn.retro", row: "library", icon: "joystick" },
-  { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", row: "library", icon: "package", param: "tab" },
-  { path: "/admin/patches", tab: "patches", label: "m.patches", row: "library", icon: "puzzle", param: "tab" },
-  { path: "/admin/saves", tab: "saves", label: "m.saves", row: "library", icon: "save", param: "tab" },
-  { path: "/admin/trash", tab: "trash", label: "m.trash", row: "library", icon: "trash" },
+  // the library: one row per platform, its jobs as tabs; a PSP game is retro on a Switch and installed on a Vita
+  { path: "/admin/games", tab: "library", label: "m.grpGames", row: "switch", group: "library", icon: "grid" },
+  { path: "/admin/homebrew", tab: "homebrew", label: "g.homebrew", row: "switch", group: "library", icon: "package", param: "tab" },
+  { path: "/admin/patches", tab: "patches", label: "m.patches", row: "switch", group: "library", icon: "puzzle", param: "tab" },
+  { path: "/admin/saves", tab: "saves", label: "m.saves", row: "switch", group: "library", icon: "save", param: "tab" },
+  { path: "/admin/vita/games", tab: "vita-games", label: "m.grpGames", row: "vita", group: "library", icon: "grid" },
+  { path: "/admin/vita/homebrew", tab: "vita-homebrew", label: "g.homebrew", row: "vita", group: "library", icon: "package" },
+  { path: "/admin/vita/plugins", tab: "vita-plugins", label: "mn.plugins", row: "vita", group: "library", icon: "puzzle" },
+  { path: "/admin/vita/saves", tab: "vita-saves", label: "m.saves", row: "vita", group: "library", icon: "save" },
+  { path: "/admin/psp/games", tab: "psp-games", label: "m.grpGames", row: "psp", group: "library", icon: "grid" },
+  { path: "/admin/psp/saves", tab: "psp-saves", label: "m.saves", row: "psp", group: "library", icon: "save" },
+  { path: "/admin/retro", tab: "retro", label: "mn.retro", group: "library", icon: "joystick" },
+  { path: "/admin/trash", tab: "trash", label: "m.trash", group: "library", icon: "trash" },
   // metadata: what the library shows about its items, the kind chosen with a filter on each page
   { path: "/admin/metadata/review", tab: "metaReview", label: "mn.review", row: "meta", icon: "check" },
   { path: "/admin/metadata/artwork", tab: "metaArt", label: "mn.artwork", row: "meta", icon: "image" },
@@ -62,7 +68,9 @@ export const ADMIN_PAGES = [
 export const ADMIN_PAGE_BY_PATH = new Map(ADMIN_PAGES.map((p) => [p.path, p]));
 
 const ROWS = {
-  library: { label: "m.library", icon: "layers" },
+  switch: { label: "mn.switch", icon: "monitor" },
+  vita: { label: "mn.vita", icon: "device" },
+  psp: { label: "mn.psp", icon: "joystick" },
   meta: { label: "mn.meta", icon: "image" },
   people: { label: "mn.users", icon: "users" },
   ops: { label: "mn.system", icon: "monitor" },
@@ -79,10 +87,14 @@ export const PATH_FOR_TAB = {
 
 const countSpan = (id, withIds) => `<span class="count"${withIds ? ` id="${id}"` : ` data-count-id="${id}"`} hidden></span>`;
 
+/** The sidebar headings that hold several entries, and the label each shows. */
+const GROUPS = { library: "m.library" };
+const sub = (page) => (page.group ? " adm-sub" : "");
+
 const item = (page, current, withIds) => {
   const on = current?.path === page.path;
   const count = page.count ? countSpan(page.count, withIds) : "";
-  return `<a class="adm-item" href="${page.path}"${on ? ' aria-current="page"' : ""}>${page.icon ? icon(page.icon) : ""}${top(page.label)}${count}</a>`;
+  return `<a class="adm-item${sub(page)}" href="${page.path}"${on ? ' aria-current="page"' : ""}>${page.icon ? icon(page.icon) : ""}${top(page.label)}${count}</a>`;
 };
 
 /** A row that stands for several pages: it opens the first, and is the current row on any of them. */
@@ -92,7 +104,7 @@ const rowItem = (key, pages, current, withIds) => {
   const counts = pages.filter((p) => p.count).map((p) => countSpan(p.count, withIds)).join("");
   // The panels show and hide their own count spans; inside the hidden holder they only feed the row's sum.
   const sum = counts ? `<span class="adm-srcs" hidden>${counts}</span><span class="count" data-sum hidden></span>` : "";
-  return `<a class="adm-item" href="${pages[0].path}" data-paths="${pages.map((p) => p.path).join(" ")}"${on ? ' aria-current="page"' : ""}>${icon(r.icon)}${top(r.label)}${sum}</a>`;
+  return `<a class="adm-item${sub(pages[0])}" href="${pages[0].path}" data-paths="${pages.map((p) => p.path).join(" ")}"${on ? ' aria-current="page"' : ""}>${icon(r.icon)}${top(r.label)}${sum}</a>`;
 };
 
 /** The tabs over a page that shares a sidebar row with others: one link per page, the open one marked. */
@@ -113,6 +125,10 @@ export function sidebarNav(current, withIds = true) {
   const seen = new Set();
   for (const page of ADMIN_PAGES) {
     if (page.offMenu) continue;
+    if (page.group && !seen.has(`group:${page.group}`)) {
+      seen.add(`group:${page.group}`);
+      rows.push(`<div class="adm-group">${top(GROUPS[page.group])}</div>`);
+    }
     if (!page.row) rows.push(item(page, current, withIds));
     else if (!seen.has(page.row)) {
       seen.add(page.row);
@@ -185,6 +201,9 @@ body.adm-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height
   color:var(--text);font-weight:var(--fw-bold);font-size:var(--fs-sm);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adm-item:not([aria-current]):hover{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
 .adm-side-in>.adm-item{font-size:var(--fs-md);font-weight:700}
+/* A heading over the platforms; its rows sit indented under it. */
+.adm-group{padding:12px 14px 2px;color:var(--muted);font-size:var(--fs-sm);font-weight:var(--fw-bold)}
+.adm-side-in>.adm-item.adm-sub{padding-left:26px}
 .adm-rowtabs .count{margin-left:2px}
 .adm-item[aria-current="page"]{background:var(--text);color:var(--bg)}
 .adm-item[aria-current="page"] .count{background:var(--bg);color:var(--text)}

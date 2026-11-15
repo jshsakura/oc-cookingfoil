@@ -41,23 +41,7 @@ export const USERS_HTML = /* html */ `<section id="tab-users" hidden>
   <h3 data-top="pp.backupsTitle">${ko("pp.backupsTitle")}</h3>
   <p class="muted" id="backupshint" data-top="pp.backupsLead">${ko("pp.backupsLead")}</p>
   <div class="scroll" id="backups" data-skel></div>
-  <h3 data-top="pp.gamesTitle">${ko("pp.gamesTitle")}</h3>
-  <p class="muted" data-top="pp.gamesLead">${ko("pp.gamesLead")}</p>
-  <div id="backupgames"></div>
 </section>`;
-
-/** The backed-up games' cards: a cover, then the title and what it is. */
-export const BACKUP_GAMES_CSS = /* css */ `
-.bg-account{margin:16px 0 8px;font-weight:var(--fw-bold)}
-.bg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
-.bg-card{border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--panel)}
-.bg-cover{aspect-ratio:480/272;background:var(--bg);display:flex;align-items:center;justify-content:center}
-.bg-cover img{width:100%;height:100%;object-fit:cover;display:block}
-.bg-cover img.bg-icon{width:64px;height:64px;border-radius:var(--r-lg);object-fit:cover}
-.bg-body{padding:8px 12px 12px}
-.bg-title{font-weight:var(--fw-bold);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.bg-meta{font-size:var(--fs-sm);color:var(--muted);margin-top:4px}
-.bg-psp{font-size:var(--fs-2xs);font-weight:var(--fw-bold);border:1px solid var(--line);border-radius:var(--r-sm);padding:0 4px;margin-right:4px}`;
 
 /** The devices section: pending, approved and issued-clients areas. */
 export function devicesHtml() { return /* html */ `<section id="tab-devices" hidden>

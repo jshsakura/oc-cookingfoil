@@ -52,7 +52,7 @@ test('switched to ja, en or zh, the landing shows no Korean on any tab, the clie
 
 test('the admin top area follows the language picked on the web, and its account menu changes it', async ({ page }) => {
   await signIn(page);
-  const games = page.locator('aside.adm-side a[href="/admin/games"] [data-top]');
+  const games = page.locator('aside.adm-side .adm-group [data-top]');
   await expect(games).toHaveText('라이브러리');
 
   await page.goto('/');
