@@ -177,31 +177,52 @@ async function sentArt(accountId) {
 
 // Telling an account's games reads every unit's facts (740 files for one Vita card), and a screen of icons asks
 // for each picture by game, so a told list is kept a moment. What this process keeps drops it at once; an import
-// run as its own process is seen within LIST_FRESH_MS.
+// run as its own process is seen within LIST_FRESH_MS. Askers that come while a list is being told share that one
+// reading (a screen of icons once started a hundred of them at the same time), and an old list answers at once
+// while the new one is read.
 const LIST_FRESH_MS = 30_000;
 const told = new Map();
-const forget = (accountId) => told.delete(accountId);
+const telling = new Map();
+const forget = (accountId) => {
+  told.delete(accountId);
+  telling.delete(accountId);
+};
+
+async function tellGames(accountId) {
+  const games = gatherGames(await unitRecords(accountId));
+  const sent = await sentArt(accountId);
+  return games.map((g) => (sent[gameFolder(g.id)] ? { ...g, art: { ...g.art, ...sent[gameFolder(g.id)] } } : g));
+}
 
 /** The account's games; each `art` names a kept picture or is null. */
 export async function listGames(accountId) {
   const kept = told.get(accountId);
   if (kept && Date.now() - kept.at < LIST_FRESH_MS) return kept.games;
-  const games = gatherGames(await unitRecords(accountId));
-  const sent = await sentArt(accountId);
-  const out = games.map((g) => (sent[gameFolder(g.id)] ? { ...g, art: { ...g.art, ...sent[gameFolder(g.id)] } } : g));
-  told.set(accountId, { at: Date.now(), games: out });
-  return out;
+  let reading = telling.get(accountId);
+  if (!reading) {
+    reading = tellGames(accountId).then((games) => {
+      if (telling.get(accountId) === reading) told.set(accountId, { at: Date.now(), games });
+      return games;
+    }).finally(() => {
+      if (telling.get(accountId) === reading) telling.delete(accountId);
+    });
+    telling.set(accountId, reading);
+  }
+  if (!kept) return reading;
+  reading.catch(() => {});
+  return kept.games;
 }
 
 /**
  * Keeps a picture a console sent for one of the account's games (`bytes`: a PNG or JPEG). A background is the
  * game's pic0, which is also what its cover was told from, so it makes the cover too. "same" when that picture is
  * already the game's, "kept" when it is now; throws { code: "unit" } for a game the account has no backup of and
- * { code: "picture" } for bytes that are not a picture.
+ * { code: "picture" } for bytes that are not a picture. A game the account has no backup of is kept too when
+ * `alsoKnown(id)` says the server has it (the library's games, installed on the console).
  */
-export async function keepGameArt(accountId, id, role, bytes) {
+export async function keepGameArt(accountId, id, role, bytes, { alsoKnown = async () => false } = {}) {
   if (!(role in ART_SIZES)) throw Object.assign(new Error("no such picture"), { code: "unit" });
-  if (!(await listGames(accountId)).some((g) => g.id === id)) throw Object.assign(new Error("no such game"), { code: "unit" });
+  if (!(await listGames(accountId)).some((g) => g.id === id) && !(await alsoKnown(id))) throw Object.assign(new Error("no such game"), { code: "unit" });
   if (!Buffer.isBuffer(bytes) || !bytes.length || bytes.length > SENT_ART_MAX || !isPicture(bytes)) throw Object.assign(new Error("not a picture"), { code: "picture" });
   const roles = role === "background" ? ["background", "cover"] : [role];
   const digest = crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 16);
