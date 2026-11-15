@@ -25,7 +25,7 @@ const appSfo = (id, title, ver) => sfo([["TITLE", title], ["TITLE_ID", id], ["AP
 put("Alpha [PCSE00001]/Alpha [PCSE00001].vpk", zipStore([
   { name: "eboot.bin", data: Buffer.from("alpha") },
   { name: "sce_sys/param.sfo", data: appSfo("PCSE00001", "Alpha", "01.00") },
-  { name: "sce_sys/icon0.png", data: Buffer.from("icon") },
+  { name: "sce_sys/icon0.png", data: Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.from("icon")]) },
   { name: "sce_sys/package/work.bin", data: workBin("0123456789abcdef") },
 ], when));
 put("Alpha [PCSE00001]/Alpha [PCSE00001] [Patch].zip", zipStore([
@@ -169,4 +169,21 @@ test("a file put in by hand shows once the list is old enough to be read again",
   assert.equal((await lib.list()).length, before);
   clock += 5 * 60 * 1000;
   assert.equal((await lib.list()).length, before + 1);
+});
+
+test("an encrypted icon0.png is no icon, and the icon a console sent stands in for it", async () => {
+  put("Sealed [PCSE00005]/Sealed [PCSE00005].vpk", zipStore([
+    { name: "eboot.bin", data: Buffer.from("sealed") },
+    { name: "sce_sys/param.sfo", data: appSfo("PCSE00005", "Sealed", "01.00") },
+    { name: "sce_sys/icon0.png", data: Buffer.from("not a picture, the bytes of an encrypted one") },
+  ], when));
+  const SENT = Buffer.concat([Buffer.from("ffd8ffe0", "hex"), Buffer.from("jpg")]);
+  const lib = createVitaLibrary({ dir: () => root, crcs: crcStore(), fallbackIcon: async (id) => (id === "PCSE00005" ? SENT : null) });
+  const sealed = (await lib.list()).find((g) => g.id === "PCSE00005");
+  assert.equal(sealed.files.app.icon, false);
+  assert.equal(await lib.hasIcon(sealed), true);
+  assert.deepEqual(await lib.icon("PCSE00005"), SENT);
+  const beta = (await lib.list()).find((g) => g.id === "PCSB00002");
+  assert.equal(await lib.hasIcon(beta), false);
+  assert.equal(await lib.icon("PCSB00002"), null);
 });

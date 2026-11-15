@@ -25,7 +25,7 @@ const TITLE_ID_RE = /^[A-Z]{4}\d{5}$/;
 export { vitaLibrary };
 
 /** A game as the list gives it. Pure but for `crcOf`. */
-export function gameRow(g, link, crcOf) {
+export function gameRow(g, link, crcOf, hasIcon = g.files.app.icon) {
   const app = g.files.app;
   const base = `/api/vita/library/${g.id}`;
   return {
@@ -35,7 +35,7 @@ export function gameRow(g, link, crcOf) {
     patch_version: g.files.patch?.version ?? null,
     region: app.region,
     size: VITA_KINDS.reduce((n, k) => n + (g.files[k]?.size ?? 0), 0),
-    icon_url: app.icon ? `${base}/icon` : null,
+    icon_url: hasIcon ? `${base}/icon` : null,
     dlc_count: g.files.dlc?.count ?? 0,
     files: VITA_KINDS.filter((k) => g.files[k]).map((k) => ({
       kind: k,
@@ -60,7 +60,9 @@ export function vitaLibraryRouter({ library = vitaLibrary, platformOf = requestP
   router.get("/", wrap(async (req, res) => {
     const lib = library();
     const link = forRequest(req);
-    const games = (await lib.list()).map((g) => gameRow(g, link, lib.crcOf));
+    const all = await lib.list();
+    const icons = await Promise.all(all.map((g) => lib.hasIcon(g)));
+    const games = all.map((g, i) => gameRow(g, link, lib.crcOf, icons[i]));
     const body = JSON.stringify({ success: true, data: { games }, error: null, meta: { total: games.length } });
     res.set({
       "Content-Type": "application/json",
