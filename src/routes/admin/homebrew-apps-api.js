@@ -29,7 +29,7 @@ import * as userPatches from "../../meta/user-patches.js";
 import * as patchInfo from "../../meta/patch-info.js";
 import { patchesDir, savesDir, homebrewDir } from "../../helpers/envs.js";
 import { savesCatalog, savesEnabled } from "../saves.js";
-import { defaultService, manualApps, refreshManual } from "../homebrew.js";
+import { defaultService, manualApps, platformOfApp, refreshManual } from "../homebrew.js";
 import { forgetZipCopies, heldManual, installPathFor } from "../../meta/homebrew.js";
 import * as media from "../../meta/homebrew-media.js";
 import * as integrations from "../../security/integrations.js";
@@ -103,11 +103,21 @@ export function mountHomebrewAppsApi(router, requireSession) {
     // A hand-placed .nro or .nsp takes a new build in place; a kept release zip does not.
     const replaceable = new Set((await manualApps()).filter((m) => !m.archive).map((m) => m.id));
     res.json({
-      apps: apps.map(({ id, name, version, author, size, kind, forwarder_cores, verified, enabled, source, repo_url, install_path, file_name, install_type, title_id }) => {
+      apps: apps.map(({ id, name, version, display_version, author, size, kind, forwarder_cores, verified, enabled, source, repo_url, install_path, file_name, install_type, title_id, sections, kernel, required }) => {
         // The switch/<app>/ folder name, as the public listing gives it; an installable title (.nsp) has none.
         const title = install_type === "title";
+        const platform = platformOfApp({ install_type });
+        // A Vita's app and plugin have no switch/<app>/ folder, and only a plugin has its sections.
+        if (platform === "vita") {
+          const plugin = install_type === "plugin";
+          return {
+            id, platform, name, version, display_version: display_version ?? null, size, source, title_id: title_id ?? null, file_name,
+            plugin, ...(plugin ? { sections, kernel: kernel === true, required: required === true, install_path } : {}),
+          };
+        }
         const app = title ? null : (install_path ?? installPathFor(file_name)).split("/")[1];
         return {
+          platform,
           id, app, name, version, author, size, kind, cores: forwarder_cores ?? 3, verified: verified === true, enabled: enabled !== false, source, repo_url,
           install_type: title ? "title" : "file", title_id: title ? title_id : null, replaceable: replaceable.has(id),
           ...media.urls(id), media: { banner: media.record(id).banner?.source ?? null, shots: media.record(id).shots?.source ?? null },

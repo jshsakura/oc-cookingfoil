@@ -74,7 +74,7 @@ test('the retro page keeps its other views and sends its old names address to ì 
   await signIn(page);
   await page.goto('/admin/retro');
   await expect(page.locator('#retro-subtabs [data-sub="art"], #retro-subtabs [data-sub="names"]')).toHaveCount(0);
-  await expect(page.locator('#retro-subtabs [data-sub="cores"]')).toBeVisible();
+  await expect(page.locator('#retro-subtabs [data-sub="dups"]')).toBeVisible();
   await page.goto('/admin/retro?view=names');
   await expect(page).toHaveURL(/\/admin\/metadata\/titles\?kind=retro/);
   await expect(page.locator('#rk-guesses')).toBeVisible();

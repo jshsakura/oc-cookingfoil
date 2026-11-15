@@ -249,7 +249,7 @@ test('removing a core that games use asks again by the refusal code, whatever la
     // English text on purpose: the page must branch on the code, not on the words.
     return force ? route.fulfill({ json: { core: 'mgba', using: 3, entry: 'x' } }) : route.fulfill({ status: 409, json: { error: '3 games use this core', code: 'coreInUse', using: 3 } });
   });
-  await page.goto('/admin/retro?view=cores');
+  await page.goto('/admin/switch/retroarch');
   await page.getByRole('button', { name: 'mgba 지우기' }).click();
   await page.locator('#ask-ok').click();
   await expect(page.locator('#ask-dialog')).toContainText('3 games use this core');

@@ -46,7 +46,7 @@ import { PLUGINS_CSS, PLUGINS_HTML, PLUGINS_SCRIPT } from "./plugins-panel.js";
 import { TRANSFERS_CSS, TRANSFERS_HTML, TRANSFERS_SCRIPT } from "./transfers-panel.js";
 import { LOGS_CLIENT_HTML, LOGS_CSS, LOGS_SCRIPT, LOGS_SECURITY_HTML } from "./logs-pages.js";
 import { PEOPLE_SCRIPT } from "./people-script.js";
-import { BACKUP_GAMES_CSS, CRED_DIALOG_HTML, devicesHtml, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
+import { CRED_DIALOG_HTML, devicesHtml, IP_DIALOG_HTML, USERS_HTML } from "./people-pages.js";
 import { ALERTS_CSS, ALERTS_SCRIPT, ALERTS_HTML } from "./alerts-panel.js";
 import { SERVER_SETTINGS_CSS, SERVER_SETTINGS_HTML, SERVER_SETTINGS_SCRIPT } from "./server-settings-panel.js";
 import { INTEGRATIONS_CSS, INTEGRATIONS_HTML, INTEGRATIONS_SCRIPT } from "./integrations-panel.js";
@@ -56,6 +56,7 @@ import { METADATA_CSS, METADATA_REVIEW_HTML, METADATA_REVIEW_SCRIPT, METADATA_AR
 import { PIC_SLOT_CSS } from "./picture-slot.js";
 import { RQ_CSS, RQ_PAGE_HTML, RQ_PAGE_SCRIPT, RQ_SCRIPT } from "./retro-requirements-panel.js";
 import { CLIENT_RELEASE_HTML, CLIENT_RELEASE_SCRIPT } from "./client-release-panel.js";
+import { PLATFORM_CSS, PLATFORM_HTML, PLATFORM_SCRIPT } from "./platform-pages.js";
 
 /** One split page: its own styles, body and scripts around the shared shell. */
 function splitPage(page, { css = "", body = "", script = "", init = "" }, view = "") {
@@ -132,6 +133,14 @@ export const SPLIT_PAGES = {
   "/admin/chat": bundle({ css: CHAT_CSS, body: CHAT_HTML, script: CHAT_SCRIPT, init: "loadChat();" }),
   "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
+  // The PS Vita row of the library (platform-pages.js).
+  "/admin/vita/games": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaGames, script: PLATFORM_SCRIPT, init: "loadVitaGames();" }),
+  "/admin/vita/homebrew": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaHomebrew, script: PLATFORM_SCRIPT, init: "loadVitaHomebrew();" }),
+  "/admin/vita/plugins": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaPlugins, script: PLATFORM_SCRIPT, init: "loadVitaPlugins();" }),
+  "/admin/vita/saves": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaSaves, script: PLATFORM_SCRIPT, init: "loadVitaSaves();" }),
+  "/admin/vita/retroarch": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaRetroArch, script: PLATFORM_SCRIPT, init: "loadVitaRetroArch();" }),
+  // Switch › RetroArch: the retro page's cores and RetroArch settings, without its other views.
+  "/admin/switch/retroarch": withFolder({ css: RETRO_ART_CSS, body: RETRO_ART_HTML, script: RETRO_ART_SCRIPT, init: "setTimeout(retroArchOpen,0);" }),
   "/admin/trash": bundle({ css: TRASH_CSS, body: TRASH_HTML, script: TRASH_SCRIPT, init: "loadTrash();" }),
   // The holding area: what is being uploaded, what people left in the temp share, and the temp folder the sorter
   // empties, one under the other. An old address or "#upload", "#inbox", "#organize" lands on its part.
@@ -203,7 +212,6 @@ export const SPLIT_PAGES = {
   "/admin/system/requirements": bundle({ css: RQ_CSS, body: RQ_PAGE_HTML, script: RQ_SCRIPT + RQ_PAGE_SCRIPT, init: "loadRequirements();" }),
   // Second bundle: the people pages carry their own credential and IP dialogs.
   "/admin/users": bundle({
-    css: BACKUP_GAMES_CSS,
     body: USERS_HTML + CRED_DIALOG_HTML + IP_DIALOG_HTML, script: PEOPLE_SCRIPT,
     init: "admInterval(loadPeople,15000);",
   }),

@@ -135,7 +135,7 @@ async function loadHbApps(){let d;try{d=await api('/admin/api/homebrew/apps');}c
       if(type==='patch'){const e=tbtn('edit','hb.editBtn',()=>ctOpen('patch',it,loadHbApps));e.setAttribute('aria-label',topFill('hb.editAria',{name:it.name}));line.append(e);}
       const x=tbtn('delete','pp.delete',()=>removeHbExtra(type,it.id,it.name),'danger');x.setAttribute('aria-label',it.name+' '+topText('pp.delete'));line.append(x);c.append(line);}
     return c;};
-  paged($('hb-apps'),{key:'hb-apps',label:topText('ht.apps'),def:24,items:d.apps||[],
+  paged($('hb-apps'),{key:'hb-apps',label:topText('ht.apps'),def:24,items:(d.apps||[]).filter((a)=>a.platform!=='vita'),
     match:(a,q)=>((a.name||'')+' '+(a.app||'')+' '+(a.repo_url||'')+' '+(a.title_id||'')).toLowerCase().includes(q),
     render:(rows,list,q)=>{const m=$('hb-apps');
       if(!rows.length){m.replaceChildren(el('div',q?topText('hb.appNoMatch'):topText('hb.appNone'),'empty'));return;}
