@@ -13,7 +13,7 @@ const retro = dir("retro");
 const GBA_BIOS = "fake gba bios bytes";
 const files = {
   "roms/snes/Sample Quest (Korea).sfc": "rom", "roms/gba/Pocket Tale (Korea).gba": "rom", "roms/n64/Heavy Racer (USA).z64": "rom",
-  "roms/pcecd/Disc Story (Japan).cue": "cue", "retroarch/system/gba_bios.bin": GBA_BIOS,
+  "roms/pcecd/Disc Story (Japan).cue": "cue", "roms/psp/Portable Quest [ULJM00000].iso": "iso", "retroarch/system/gba_bios.bin": GBA_BIOS,
 };
 for (const [rel, body] of Object.entries(files)) {
   mkdirSync(path.dirname(path.join(retro, rel)), { recursive: true });
@@ -49,7 +49,7 @@ const json = async (headers, url) => (await get(headers, url)).json();
 // The catalog is scanned in the background; ask until the games are in.
 async function ready() {
   for (let i = 0; i < 100; i++) {
-    if ((await json(SWITCH, "/api/retro/games")).total === 4) return;
+    if ((await json(SWITCH, "/api/retro/games")).total === 5) return;
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error("the retro catalog never listed the games");
@@ -58,7 +58,8 @@ await ready();
 
 test("a Vita sees only the systems with a Vita core, and their games and home rows", async () => {
   const vita = await json(VITA, "/api/retro/systems");
-  assert.deepEqual(vita.systems.map((s) => s.id).sort(), ["gba", "pcecd", "snes"]);
+  assert.deepEqual(vita.systems.map((s) => s.id).sort(), ["gba", "pcecd", "psp", "snes"]);
+  assert.equal(vita.systems.find((s) => s.id === "psp").core.id, "psp", "PSP runs on the Vita's own emulator, named psp");
   assert.equal(vita.systems.find((s) => s.id === "snes").core.id, "snes9x2005");
   assert.ok(vita.systems.every((s) => !("coreName" in s)), "no Switch core name on a Vita's rows");
   assert.equal(vita.retroarch, undefined, "the Switch's RetroArch pack is not the Vita's");
@@ -68,13 +69,13 @@ test("a Vita sees only the systems with a Vita core, and their games and home ro
   assert.equal(sw.systems.find((s) => s.id === "snes").coreName, "Snes9x");
 
   const games = await json(VITA, "/api/retro/games");
-  assert.equal(games.total, 3);
+  assert.equal(games.total, 4);
   assert.ok(games.games.every((g) => g.system !== "n64"));
   const swGame = (await json(SWITCH, "/api/retro/games?system=snes")).games[0];
   const vitaGame = (await json(VITA, "/api/retro/games?system=snes")).games[0];
   assert.equal(vitaGame.url, swGame.url, "the same file");
   assert.equal((await json(VITA, "/api/retro/games?system=n64")).total, 0);
-  assert.deepEqual((await json(VITA, "/api/retro/home")).systems.map((s) => s.id).sort(), ["gba", "pcecd", "snes"]);
+  assert.deepEqual((await json(VITA, "/api/retro/home")).systems.map((s) => s.id).sort(), ["gba", "pcecd", "psp", "snes"]);
 });
 
 test("a Vita reads the firmware its systems need and downloads only those files, each with its md5", async () => {
