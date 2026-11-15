@@ -130,7 +130,11 @@
       .tabs button {
         background: transparent; border: none; color: var(--secondary); white-space: nowrap;
         padding: 6px 14px; border-radius: 100px; font: 600 13px var(--font-body); cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       }
+      .tabs button[hidden] { display: none; }
+      .tabs .tab-ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+      .tabs button > span { overflow: hidden; text-overflow: ellipsis; }
       .tabs button:hover:not(.active) { color: var(--ink); }
       .tabs button.active { background: var(--ink); color: var(--ground); }
       /* SUBTABS: list or preview, patches or saves, inside the open view */
@@ -1327,9 +1331,9 @@
           <span class="wordmark">cookingfoil<span class="dot">.</span></span>
         </a>
         <nav class="tabs" role="tablist" aria-label="views">
-          <button type="button" role="tab" data-tab="games" data-i18n="tab.switch"></button>
-          <button type="button" role="tab" data-tab="vita" data-i18n="tab.vita" id="vita-tab" hidden></button>
-          <button type="button" role="tab" data-tab="retro" data-i18n="tab.retro" id="retro-tab" hidden></button>
+          <button type="button" role="tab" data-tab="games"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="5" height="12" rx="2.5"/><rect x="17" y="6" width="5" height="12" rx="2.5"/><rect x="7" y="6" width="10" height="12"/></svg><span data-i18n="tab.switch"></span></button>
+          <button type="button" role="tab" data-tab="vita" id="vita-tab" hidden><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="6.5" width="21" height="11" rx="5.5"/><rect x="7.5" y="9" width="9" height="6" rx="1"/></svg><span data-i18n="tab.vita"></span></button>
+          <button type="button" role="tab" data-tab="retro" id="retro-tab" hidden><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="6"/><path d="M6.5 12h4M8.5 10v4"/><circle cx="15" cy="12.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/></svg><span data-i18n="tab.retro"></span></button>
         </nav>
         <div class="lang-menu" id="lang-menu">
           <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
@@ -1508,7 +1512,7 @@
         <div data-tab-panel="vita-games" hidden>
           <h2><span data-i18n="tab.games"></span><span class="rule"></span><span class="count" id="vita-games-count">0</span></h2>
           <div class="toolbar"><input class="search" id="vita-games-search" type="search" autocomplete="off" /></div>
-          <div class="xlist" id="vita-games-list" aria-busy="true"></div>
+          <div class="games" id="vita-games-list" aria-busy="true"></div>
           <p class="empty" id="vita-games-empty" hidden></p>
         </div>
 
@@ -5791,10 +5795,11 @@
         };
       })();
 
-      // PS Vita: what the account's Vita gets, from the same addresses the Vita reads: its backed-up games and
-      // saves (a PSP game backed up from it among them), and the Vita's homebrew and plugins.
+      // PS Vita: what the account's Vita gets, from the same addresses the Vita reads: the library's games and its
+      // backed-up ones and saves (a PSP game backed up from it among them), and the Vita's homebrew and plugins.
       const vita = (() => {
         let games = null;
+        let library = null;
         let apps = null;
         const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
         const has = (g, kind) => (g.units ?? []).some((u) => u.startsWith(kind + ":"));
@@ -5806,6 +5811,7 @@
         };
         async function loadGames() {
           if (!games) games = (await getJson("/api/backups/games?platform=vita"))?.games ?? null;
+          if (!library) library = (await getJson("/api/vita/library"))?.data?.games ?? [];
           return games;
         }
         async function loadApps() {
@@ -5814,8 +5820,12 @@
         }
         const psp = (g) => (g.platform === "psp" ? "PSP" : null);
         const ROWS = {
-          "vita-games": () => (games ?? []).filter((g) => ["app", "patch", "psp-game", "psp-iso"].some((k) => has(g, k)))
-            .map((g) => ({ icon: g.icon, name: g.title || g.id, meta: [psp(g), g.region, g.version && "v" + g.version, fmtBytes(g.bytes)] })),
+          "vita-games": () => [
+            ...(library ?? []).map((g) => ({ card: true, icon: g.icon_url && g.icon_url + "?size=lg", name: g.name, size: g.size,
+              pills: [g.patch_version && [t("pill.update"), "update"], g.dlc_count && ["DLC " + g.dlc_count, "dlc"]] })),
+            ...(games ?? []).filter((g) => !(library ?? []).some((l) => l.id === g.id) && ["app", "patch", "psp-game", "psp-iso"].some((k) => has(g, k)))
+              .map((g) => ({ card: true, icon: g.icon, name: g.title || g.id, size: g.bytes, pills: [psp(g) && [psp(g), "dlc"]] })),
+          ],
           "vita-saves": () => (games ?? []).filter((g) => has(g, "savedata") || has(g, "psp-save"))
             .map((g) => ({ icon: g.icon, name: g.title || g.id, meta: [psp(g), t("vita.savedAt", ymd(g.updatedAt))] })),
           "vita-homebrew": () => (apps ?? []).filter((a) => a.install_type === "vpk")
@@ -5823,7 +5833,25 @@
           "vita-plugins": () => (apps ?? []).filter((a) => a.install_type === "plugin")
             .map((a) => ({ icon: null, name: a.name, meta: [a.display_version, ...(a.sections ?? [])], line: a.description })),
         };
+        // A game as the Switch's games grid draws one: its icon filling the square, the size on it, then name and pills.
+        function card(it) {
+          const c = document.createElement("div"); c.className = "game";
+          const poster = document.createElement("div"); poster.className = "poster";
+          const cover = document.createElement("img"); cover.className = "cover"; cover.alt = ""; cover.loading = "lazy"; cover.decoding = "async";
+          cover.src = it.icon || coverPlaceholder();
+          cover.onerror = () => { cover.onerror = null; cover.src = coverPlaceholder(); };
+          poster.append(cover);
+          if (it.size) { const b = document.createElement("span"); b.className = "poster-badge size-badge"; b.textContent = fmtBytes(it.size); poster.append(b); }
+          const meta = document.createElement("div"); meta.className = "meta";
+          const name = document.createElement("div"); name.className = "name"; name.textContent = it.name; name.title = it.name;
+          const sub = document.createElement("div"); sub.className = "sub";
+          for (const p of it.pills.filter(Boolean)) { const e = document.createElement("span"); e.className = "pill " + p[1]; e.textContent = p[0]; sub.append(e); }
+          meta.append(name, sub);
+          c.append(poster, meta);
+          return c;
+        }
         function row(it) {
+          if (it.card) return card(it);
           const g = document.createElement("section"); g.className = "xgroup";
           const r = document.createElement("div"); r.className = "xrow xapp";
           const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
@@ -5856,6 +5884,7 @@
         async function probe() {
           const [g, a] = await Promise.all([loadGames(), loadApps()]);
           if (g) { available.add("vita-games"); available.add("vita-saves"); }
+          if (library?.length) available.add("vita-games");
           if (a.some((x) => x.install_type === "vpk")) available.add("vita-homebrew");
           if (a.some((x) => x.install_type === "plugin")) available.add("vita-plugins");
           $("vita-tab").hidden = !GROUPS.vita.some((v) => available.has(v));

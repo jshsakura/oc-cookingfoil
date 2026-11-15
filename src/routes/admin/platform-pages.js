@@ -12,7 +12,7 @@ const section = (tab, title, lead, body) => /* html */ `<section id="tab-${tab}"
 </section>`;
 
 export const PLATFORM_HTML = {
-  vitaGames: section("vita-games", "m.grpGames", "pf.vitaGamesLead", `<div id="pf-list" data-skel></div>`),
+  vitaGamesList: `<p class="muted">${top("pf.vitaGamesLead")}</p><div id="pf-list" data-skel></div>`,
   vitaSaves: section("vita-saves", "m.saves", "pf.vitaSavesLead", `<div id="pf-list" data-skel></div>`),
   vitaRetroArch: section("vita-retroarch", "mn.retroarch", "pf.raLead", `<div id="pf-list" data-skel></div>`),
   vitaHomebrew: section("vita-homebrew", "g.homebrew", "pf.vitaHbLead", `<div id="pf-list" data-skel></div>`),
@@ -52,10 +52,10 @@ function pfRow(name,meta,pic,tags){const row=el('div','','pf-row');
   row.append(main);return row;}
 const pfEmpty=(box,key)=>{box.replaceChildren(el('p',topText(key),'muted'));};
 // Each account's backed-up games of one platform, as cards or rows, by the pick and draw given.
-async function pfBackups(pick,draw,none){const box=$('pf-list');
-  const d=await api('/admin/api/backups/games');box.replaceChildren();
+async function pfBackups(pick,draw,none,lead=[]){const box=$('pf-list');
+  const d=await api('/admin/api/backups/games');box.replaceChildren(...lead);
   const accounts=(d.accounts||[]).map((a)=>({...a,games:a.games.filter(pick)})).filter((a)=>a.games.length);
-  if(!accounts.length)return pfEmpty(box,none);
+  if(!accounts.length){if(!lead.length)pfEmpty(box,none);return;}
   for(const a of accounts){box.append(el('div',topFill('pp.gamesOf',{name:a.name,n:a.games.length}),'bg-account'));box.append(draw(a.games));}}
 const pfHas=(g,kind)=>(g.units||[]).some((u)=>u.startsWith(kind+':'));
 const pfGrid=(games)=>{const grid=el('div','','bg-grid');
@@ -67,7 +67,11 @@ const pfOnVita=(g)=>g.platform==='vita'||g.platform==='psp';
 const pfKind=(g)=>g.platform==='psp'?['PSP']:[];
 const pfVitaGame=(g)=>pfOnVita(g)&&['app','patch','psp-game','psp-iso'].some((k)=>pfHas(g,k));
 const pfVitaSave=(g)=>pfOnVita(g)&&(pfHas(g,'savedata')||pfHas(g,'psp-save'));
-async function loadVitaGames(){await pfBackups(pfVitaGame,pfGrid,'pp.gamesNone');}
+// The library's games (the vita folder) come first, then each account's backups.
+const pfLibCard=(g)=>({id:g.id,title:g.name,icon:g.icon_url,region:g.region,version:g.patch_version||g.version,bytes:g.size});
+async function pfVitaLibrary(){const d=await api('/api/vita/library').catch(()=>null);const games=(d&&d.data&&d.data.games)||[];
+  return games.length?[el('div',topText('mn.vita')+' · '+games.length,'bg-account'),pfGrid(games.map(pfLibCard))]:[];}
+async function loadVitaGames(){await pfBackups(pfVitaGame,pfGrid,'pp.gamesNone',await pfVitaLibrary());}
 async function loadVitaSaves(){await pfBackups(pfVitaSave,pfSaves,'pf.savesNone');}
 // A Vita's apps or plugins, from the homebrew list the Switch's page reads too.
 async function pfVitaApps(plugins){const box=$('pf-list');

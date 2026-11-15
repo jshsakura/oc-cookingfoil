@@ -134,7 +134,16 @@ export const SPLIT_PAGES = {
   "/admin/featured": bundle({ body: FEATURED_HTML, script: FEATURED_SCRIPT, init: "loadFeatured();" }),
   "/admin/settings/plugins": bundle({ css: PLUGINS_CSS, body: PLUGINS_HTML, script: PLUGINS_SCRIPT, init: "loadPlugins();" }),
   // The PS Vita row of the library (platform-pages.js).
-  "/admin/vita/games": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaGames, script: PLATFORM_SCRIPT, init: "loadVitaGames();" }),
+  // As the Switch's games page: the vita folder's files first, then the games as cards.
+  "/admin/vita/games": withFolder({
+    css: PLATFORM_CSS,
+    body: `<section id="tab-vita-games"><nav class="subtabs hide-bar" id="vita-games-subtabs" role="tablist" data-top-label="mn.vita">
+    <button type="button" role="tab" data-sub="folder" aria-selected="true">${icon("folder")}${top("m.files")}</button>
+    <button type="button" role="tab" data-sub="list" aria-selected="false">${icon("grid")}${top("m.list")}</button></nav>
+  <div data-sub-panel="folder">${FOLDER_MARK}</div><div data-sub-panel="list" hidden>${PLATFORM_HTML.vitaGamesList}</div></section>`,
+    script: PLATFORM_SCRIPT,
+    init: "fbTabs('vita-games','vita');loadVitaGames();",
+  }),
   "/admin/vita/homebrew": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaHomebrew, script: PLATFORM_SCRIPT, init: "loadVitaHomebrew();" }),
   "/admin/vita/plugins": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaPlugins, script: PLATFORM_SCRIPT, init: "loadVitaPlugins();" }),
   "/admin/vita/saves": bundle({ css: PLATFORM_CSS, body: PLATFORM_HTML.vitaSaves, script: PLATFORM_SCRIPT, init: "loadVitaSaves();" }),

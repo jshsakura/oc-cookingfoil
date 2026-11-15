@@ -30,9 +30,10 @@ import { alertsCapabilities } from "./alerts.js";
 import { integrationsCapabilities } from "./integrations.js";
 import { pluginsCapabilities } from "./plugins.js";
 import { firmwareCapabilities } from "./firmware.js";
+import { vitaLibraryCapabilities } from "./vita-library.js";
 
 // Area modules, each exporting an array of defineCapability() results.
-const ENTRIES = [...pluginsCapabilities, ...serverCapabilities, ...gamesCapabilities, ...gameArtCapabilities, ...patchesCapabilities, ...libraryCapabilities, ...libraryFilesCapabilities, ...filesCapabilities, ...retroCapabilities, ...retroConfigCapabilities, ...retroGamesCapabilities, ...retroArtCapabilities, ...trashCapabilities, ...devicesCapabilities, ...wishlistCapabilities, ...chatGamesCapabilities, ...accountsCapabilities, ...serverAdminCapabilities, ...alertsCapabilities, ...integrationsCapabilities, ...firmwareCapabilities];
+const ENTRIES = [...pluginsCapabilities, ...serverCapabilities, ...gamesCapabilities, ...gameArtCapabilities, ...patchesCapabilities, ...libraryCapabilities, ...libraryFilesCapabilities, ...filesCapabilities, ...retroCapabilities, ...retroConfigCapabilities, ...retroGamesCapabilities, ...retroArtCapabilities, ...trashCapabilities, ...devicesCapabilities, ...wishlistCapabilities, ...chatGamesCapabilities, ...accountsCapabilities, ...serverAdminCapabilities, ...alertsCapabilities, ...integrationsCapabilities, ...firmwareCapabilities, ...vitaLibraryCapabilities];
 
 /** A registry over checked capabilities. Throws listing every duplicate. */
 export function buildRegistry(entries) {

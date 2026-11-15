@@ -96,7 +96,8 @@ export const LIBRARY_CSS = /* css */ `
 export const LIBRARY_SCRIPT = /* js */ `
 // ── what the library knows, on each row ─────────────────────────────
 const FB_KIND={base:'fb.k.base',update:'fb.k.update',dlc:'fb.k.dlc'};
-const fbIconUrl=(id,size)=>'/api/library/icon/'+encodeURIComponent(id)+'?size='+size;
+// A Vita title id (PCSE00123) has its icon in its .vpk, from the Vita library.
+const fbIconUrl=(id,size)=>(/^[A-Z]{4}[0-9]{5}$/.test(id)?'/api/vita/library/'+id+'/icon':'/api/library/icon/'+encodeURIComponent(id))+'?size='+size;
 function fbBadge(text,tone){const b=el('span',text,'fb-badge');if(tone)b.dataset.tone=tone;return b;}
 function fbBadges(f){const out=[];
   if(f.kind&&FB_KIND[f.kind])out.push(fbBadge(topText(FB_KIND[f.kind])+(f.kind!=='base'&&f.version!=null?' v'+f.version:'')));

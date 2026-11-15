@@ -7,6 +7,7 @@
  *   incoming   the drop box: files waiting to be sorted (meta/library-organize.js)
  *   games      sorted Switch games, one folder per game with update/ and DLC/
  *   homebrew   .nro apps and app folders
+ *   vita       PS Vita games: one folder per game with its .vpk, patch zip and DLC zip
  *   retro      retro ROMs, art and the RetroArch base pack
  *   patches    patches by base title id
  *   saves      save files by title id
@@ -26,12 +27,13 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-export const ROLES = Object.freeze(["incoming", "games", "homebrew", "retro", "patches", "saves", "keys", "data"]);
+export const ROLES = Object.freeze(["incoming", "games", "vita", "homebrew", "retro", "patches", "saves", "keys", "data"]);
 
 const ROLE_ENV = Object.freeze({
   incoming: ["COOK_INCOMING_DIR"],
   games: ["COOK_GAMES_DIR", "ROMS_DIR_FULLPATH"],
   homebrew: ["COOK_HOMEBREW_DIR"],
+  vita: ["COOK_VITA_DIR"],
   retro: ["COOK_RETRO_DIR"],
   patches: ["COOK_PATCHES_DIR"],
   saves: ["COOK_SAVES_DIR"],
@@ -83,7 +85,7 @@ export function resolveLayout(env = process.env, fsCheck = { isDir, hasEntries }
   const dirs = {};
   const from = {};
   // data before retro, games before incoming: their old defaults sit inside those.
-  for (const role of ["data", "games", "keys", "homebrew", "retro", "patches", "saves", "incoming"]) {
+  for (const role of ["data", "games", "vita", "keys", "homebrew", "retro", "patches", "saves", "incoming"]) {
     const named = ROLE_ENV[role].map((k) => env[k]).find((v) => v !== undefined && v !== "");
     if (named) {
       dirs[role] = path.resolve(named);

@@ -26,19 +26,21 @@ import { sweepPartials } from "./safe-move.js";
 
 // data: the server's own folder (uploaded art and prod.keys, the drop box's notes, uploads). The
 // mounted keys folder is the operator's and never deleted from, so it is not a root.
-export const ROOT_KEYS = Object.freeze(["games", "incoming", "patches", "saves", "homebrew", "retro", "data"]);
+export const ROOT_KEYS = Object.freeze(["games", "incoming", "vita", "patches", "saves", "homebrew", "retro", "data"]);
 const OWN_ROOTS = ["data"];
+// Folders that are off while missing (the Vita library): absent is not a missing disk either.
+const OFF_WHEN_MISSING = ["vita"];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The library folders as { key, dir }, each folder once (the first key that names it). */
 export function libraryRoots() {
-  const dirs = { games: env.romsDirPath, incoming: env.incomingDir, patches: env.patchesDir, saves: env.savesDir, homebrew: env.homebrewDir, retro: env.retroDir, data: env.dataDir };
+  const dirs = { games: env.romsDirPath, incoming: env.incomingDir, vita: env.vitaDir, patches: env.patchesDir, saves: env.savesDir, homebrew: env.homebrewDir, retro: env.retroDir, data: env.dataDir };
   const seen = new Set();
   const out = [];
   for (const key of ROOT_KEYS) {
     const dir = dirs[key] ? path.resolve(dirs[key]) : null;
     // The server's folders are not always there (no keys uploaded yet): absent is not a missing disk.
-    if (!dir || seen.has(dir) || (OWN_ROOTS.includes(key) && !fs.existsSync(dir))) continue;
+    if (!dir || seen.has(dir) || ([...OWN_ROOTS, ...OFF_WHEN_MISSING].includes(key) && !fs.existsSync(dir))) continue;
     seen.add(dir);
     out.push({ key, dir });
   }
@@ -72,6 +74,7 @@ export const job = (name) => ({ type: "job", name });
 const REFRESH = {
   games: async () => (await import("../meta/library-cache.js")).invalidate({ rescan: true }),
   incoming: async () => {},
+  vita: async () => (await import("./vita-library.js")).vitaLibrary().invalidate(),
   patches: async () => (await import("../meta/user-patches.js")).scan(),
   saves: async () => (await import("../routes/saves.js")).savesCatalog().invalidate(),
   homebrew: async () => (await import("../routes/homebrew.js")).refreshManual(),

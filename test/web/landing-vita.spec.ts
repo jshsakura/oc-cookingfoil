@@ -22,11 +22,12 @@ test('the top tabs are Switch, PS Vita and retro, and PS Vita lists what the acc
   await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
   await page.goto('/');
   await expect(page.locator('.tabs [data-tab]:visible')).toHaveText(['Switch', 'PS Vita', '레트로']);
+  await expect(page.locator('.tabs [data-tab]:visible .tab-ico')).toHaveCount(3);
   await page.locator('.tabs [data-tab="vita"]').click();
   await expect(page).toHaveURL(/#vita$/);
   await expect(page.locator('#subtabs [data-view]')).toHaveText(['게임', '세이브', '홈브류', '플러그인']);
-  await expect(page.locator('#vita-games-list .xname')).toHaveText(['PSP Game', 'Vita Game']);
-  await expect(page.locator('#vita-games-list .xmeta').first()).toContainText('PSP');
+  await expect(page.locator('#vita-games-list .game .name')).toHaveText(['PSP Game', 'Vita Game']);
+  await expect(page.locator('#vita-games-list .game .pill').first()).toHaveText('PSP');
   await page.locator('#subtabs [data-view="vita-saves"]').click();
   await expect(page.locator('#vita-saves-list .xname')).toHaveText(['Vita Game']);
   await page.locator('#subtabs [data-view="vita-homebrew"]').click();
@@ -43,4 +44,19 @@ test('without backups or Vita apps there is no PS Vita tab, and an old #vita lin
   await page.goto('/#vita');
   await expect(page.locator('.tabs [data-tab="vita"]')).toBeHidden();
   await expect(page.locator('.tabs [data-tab="games"]')).toHaveClass(/active/);
+});
+
+test('PS Vita games lists the library first, and a backed-up game the library already has only once', async ({ page }) => {
+  const LIBRARY = [
+    { id: 'PCSE00001', name: 'Vita Game', version: '01.00', patch_version: '01.05', region: 'US', size: 3145728, icon_url: null, dlc_count: 0, files: [] },
+    { id: 'PCSE00002', name: 'Library Only', version: '01.00', patch_version: null, region: 'EU', size: 1024, icon_url: null, dlc_count: 0, files: [] },
+  ];
+  await page.route('**/api/backups/games?platform=vita', (r) => r.fulfill({ json: { games: GAMES } }));
+  await page.route('**/api/vita/library', (r) => r.fulfill({ json: { success: true, data: { games: LIBRARY }, error: null, meta: { total: 2 } } }));
+  await page.route('**/api/homebrew?*', (r) => r.fulfill({ json: { homebrew: [] } }));
+  await page.addInitScript(() => { try { localStorage.setItem('cookingfoil:lang', 'ko'); } catch { /* none */ } });
+  await page.goto('/#vita');
+  await expect(page.locator('#vita-games-list .game .name')).toHaveText(['Library Only', 'PSP Game', 'Vita Game']);
+  await expect(page.locator('#vita-games-list .game').last().locator('.pill')).toHaveText(['업데이트']);
+  await expect(page.locator('#vita-games-list .game').last().locator('.size-badge')).toHaveText('3.00 MB');
 });
