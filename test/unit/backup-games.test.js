@@ -246,3 +246,15 @@ test("a Vita sends a game's picture as it reads it; it comes first, and sending 
   const big = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.alloc(2 * 1024 * 1024)]);
   assert.equal((await send("VITASHELL", "icon", big)).status, 413);
 });
+
+test("an icon is taken for a game the server has but the account never backed up, and askers share one list", async () => {
+  const games = await import("../../src/backups/games.js");
+  const bytes = await png(128, 128, 77);
+  await assert.rejects(games.keepGameArt(alice().id, "PCSZ88888", "icon", bytes), { code: "unit" });
+  const known = { alsoKnown: async (id) => id === "PCSZ88888" };
+  assert.equal(await games.keepGameArt(alice().id, "PCSZ88888", "icon", bytes, known), "kept");
+  assert.equal(await games.keepGameArt(alice().id, "PCSZ88888", "icon", bytes, known), "same");
+  assert.ok(await games.sentIconOf("PCSZ88888"), "the library's icon is the one sent");
+  const [a, b] = await Promise.all([games.listGames(alice().id), games.listGames(alice().id)]);
+  assert.equal(a, b, "one reading told both");
+});

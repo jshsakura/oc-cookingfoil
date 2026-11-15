@@ -27,6 +27,7 @@ import { accountOf } from "../security/link-identity.js";
 import { parseUnitKey } from "../backups/manifest.js";
 import * as store from "../backups/store.js";
 import * as uploads from "../backups/uploads.js";
+import { vitaLibrary } from "../library/vita-library.js";
 import { ART_SIZES, SENT_ART_MAX, artPath, keepGameArt, listGames, noteUnitQuietly, gameRow, sendArt } from "../backups/games.js";
 import { readSecret, SecretLostError } from "../backups/secrets.js";
 import * as devices from "../security/store.js";
@@ -163,7 +164,7 @@ export default function backupsRouter() {
     if (c.platform !== "vita") throw new BackupError(404, "unit");
     let out;
     try {
-      out = await keepGameArt(c.accountId, req.params.id, req.params.art, req.body);
+      out = await keepGameArt(c.accountId, req.params.id, req.params.art, req.body, { alsoKnown: async (id) => (await vitaLibrary().list()).some((g) => g.id === id) });
     } catch (err) {
       if (err.code === "unit") throw new BackupError(404, "unit");
       if (err.code === "picture") throw new BackupError(415, "picture");
