@@ -35,7 +35,7 @@ test('switched to ja, en or zh, the landing shows no Korean on any tab, the clie
   for (const [lang, version] of [['ja', 'バージョン 0.4.1'], ['en', 'Version 0.4.1'], ['zh', '版本 0.4.1']]) {
     await pickLang(page, lang);
     await expect(page.locator('#client-meta')).toContainText(version);
-    for (const tab of ['games', 'retro', 'extras', 'homebrew']) {
+    for (const tab of ['games', 'retro']) {
       const button = page.locator(`.tabs [data-tab="${tab}"]`);
       await expect(button).toBeVisible();
       await button.click();

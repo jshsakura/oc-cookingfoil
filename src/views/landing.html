@@ -1327,10 +1327,9 @@
           <span class="wordmark">cookingfoil<span class="dot">.</span></span>
         </a>
         <nav class="tabs" role="tablist" aria-label="views">
-          <button type="button" role="tab" data-tab="games" data-i18n="tab.games"></button>
+          <button type="button" role="tab" data-tab="games" data-i18n="tab.switch"></button>
+          <button type="button" role="tab" data-tab="vita" data-i18n="tab.vita" id="vita-tab" hidden></button>
           <button type="button" role="tab" data-tab="retro" data-i18n="tab.retro" id="retro-tab" hidden></button>
-          <button type="button" role="tab" data-tab="extras" data-i18n="tab.extras" id="extras-tab" hidden></button>
-          <button type="button" role="tab" data-tab="homebrew" data-i18n="tab.homebrew" id="homebrew-tab" hidden></button>
         </nav>
         <div class="lang-menu" id="lang-menu">
           <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="menu" aria-expanded="false">
@@ -1505,6 +1504,34 @@
           <div class="xlist" id="ports-list" aria-busy="true"></div>
           <p class="empty" id="ports-empty" hidden></p>
         </div>
+
+        <div data-tab-panel="vita-games" hidden>
+          <h2><span data-i18n="tab.games"></span><span class="rule"></span><span class="count" id="vita-games-count">0</span></h2>
+          <div class="toolbar"><input class="search" id="vita-games-search" type="search" autocomplete="off" /></div>
+          <div class="xlist" id="vita-games-list" aria-busy="true"></div>
+          <p class="empty" id="vita-games-empty" hidden></p>
+        </div>
+
+        <div data-tab-panel="vita-saves" hidden>
+          <h2><span data-i18n="tab.saves"></span><span class="rule"></span><span class="count" id="vita-saves-count">0</span></h2>
+          <div class="toolbar"><input class="search" id="vita-saves-search" type="search" autocomplete="off" /></div>
+          <div class="xlist" id="vita-saves-list" aria-busy="true"></div>
+          <p class="empty" id="vita-saves-empty" hidden></p>
+        </div>
+
+        <div data-tab-panel="vita-homebrew" hidden>
+          <h2><span data-i18n="tab.homebrew"></span><span class="rule"></span><span class="count" id="vita-homebrew-count">0</span></h2>
+          <div class="toolbar"><input class="search" id="vita-homebrew-search" type="search" autocomplete="off" /></div>
+          <div class="xlist" id="vita-homebrew-list" aria-busy="true"></div>
+          <p class="empty" id="vita-homebrew-empty" hidden></p>
+        </div>
+
+        <div data-tab-panel="vita-plugins" hidden>
+          <h2><span data-i18n="tab.plugins"></span><span class="rule"></span><span class="count" id="vita-plugins-count">0</span></h2>
+          <div class="toolbar"><input class="search" id="vita-plugins-search" type="search" autocomplete="off" /></div>
+          <div class="xlist" id="vita-plugins-list" aria-busy="true"></div>
+          <p class="empty" id="vita-plugins-empty" hidden></p>
+        </div>
       </div>
 
       <div class="footer">
@@ -1667,7 +1694,7 @@
           "hero.desc": "버터처럼 어디에도 잘 어울리는 파일 매니저.<br>파일·메타·아트워크를 한 번에 인증된 호스트에서, 디스크에 캐싱하면서 서빙합니다.",
           "section.connect": "서버 연결",
           "section.stats": "현황",
-          "section.library": "모든 게임",
+          "section.library": "게임",
           "client.title": "CookingFoil 클라이언트",
           "client.hint": (n) => `SD 카드 최상위(루트)에 압축을 풀고 앱을 실행하면 바로 연결됩니다.\n설치 후 1시간 안에 기기 ${n}대까지 자동으로 연결되고, 그 이상은 QR 로 승인합니다.`,
           "client.get": "다운로드",
@@ -1685,7 +1712,7 @@
           "send.waiting": (n) => `${n}에서 받기를 기다리고 있습니다`,
           "send.cancel": "취소",
           "send.cancelled": "보낸 요청을 취소했습니다.",
-          "tab.games": "모든 게임",
+          "tab.games": "게임",
           "tab.pair": "기기 승인",
           "tab.admin": "서버 관리",
           "tab.preview": "미리보기",
@@ -1700,6 +1727,15 @@
           "ports.none": "<strong>아직 등록된 포트가 없습니다.</strong>관리자가 홈브류 폴더에 포트를 넣으면 여기에 나타납니다.",
           "retro.none": "<strong>아직 등록된 레트로 게임이 없습니다.</strong>관리자가 레트로 롬 폴더에 기종별로 넣으면 여기에 나타납니다.",
           "tab.extras": "패치·세이브",
+          "tab.switch": "Switch",
+          "tab.vita": "PS Vita",
+          "tab.plugins": "플러그인",
+          "vita.search": "게임 이름으로 찾기…",
+          "vita.savedAt": (when) => `${when} 백업`,
+          "vita-games.none": "<strong>아직 백업한 비타 게임이 없습니다.</strong>비타 클라이언트로 게임을 백업하면 여기에 나타납니다.",
+          "vita-saves.none": "<strong>아직 백업한 비타 세이브가 없습니다.</strong>비타 클라이언트로 세이브를 백업하면 여기에 나타납니다.",
+          "vita-homebrew.none": "<strong>아직 등록된 비타 홈브류가 없습니다.</strong>관리자가 홈브류 폴더에 .vpk 를 넣으면 여기에 나타납니다.",
+          "vita-plugins.none": "<strong>아직 등록된 비타 플러그인이 없습니다.</strong>관리자가 홈브류 폴더에 플러그인을 넣으면 여기에 나타납니다.",
           "tab.list": "전체",
           "tab.patches": "패치",
           "tab.saves": "세이브",
@@ -2022,7 +2058,7 @@
           "hero.desc": "The file manager that fits anywhere, smooth as butter.<br>Files, metadata and artwork served from a single auth-gated host, all cached on disk.",
           "section.connect": "Server URL",
           "section.stats": "Stats",
-          "section.library": "All games",
+          "section.library": "Games",
           "client.title": "CookingFoil client",
           "client.hint": (n) => `Extract to the SD card root and launch the app to connect automatically.\nUp to ${n} consoles connect on their own within 1 hour of installing; approve any more by QR.`,
           "client.get": "Download",
@@ -2041,7 +2077,7 @@
           "send.cancel": "Cancel",
           "send.cancelled": "The request was cancelled.",
           "section.recent": "Recently added",
-          "tab.games": "All games",
+          "tab.games": "Games",
           "tab.pair": "Devices",
           "tab.admin": "Server admin",
           "tab.preview": "Preview",
@@ -2056,6 +2092,15 @@
           "ports.none": "<strong>No ports yet.</strong>They show up here once the admin puts ports in the homebrew folder.",
           "retro.none": "<strong>No retro games yet.</strong>They show up here once the admin puts ROMs in the retro folder, one folder per system.",
           "tab.extras": "Patches & saves",
+          "tab.switch": "Switch",
+          "tab.vita": "PS Vita",
+          "tab.plugins": "Plugins",
+          "vita.search": "Search by game name…",
+          "vita.savedAt": (when) => `Backed up ${when}`,
+          "vita-games.none": "<strong>No Vita games backed up yet.</strong>They show up here once the Vita client backs a game up.",
+          "vita-saves.none": "<strong>No Vita saves backed up yet.</strong>They show up here once the Vita client backs a save up.",
+          "vita-homebrew.none": "<strong>No Vita homebrew yet.</strong>It shows up here once the admin puts a .vpk in the homebrew folder.",
+          "vita-plugins.none": "<strong>No Vita plugins yet.</strong>They show up here once the admin puts a plugin in the homebrew folder.",
           "tab.list": "All",
           "tab.patches": "Mods",
           "tab.saves": "Saves",
@@ -2377,7 +2422,7 @@
           "hero.desc": "バターのようにどこにでもなじむファイルマネージャー。<br>ファイル・メタデータ・アートワークを認証付きの単一ホストから、ディスクにキャッシュしながら配信します。",
           "section.connect": "サーバーURL",
           "section.stats": "状況",
-          "section.library": "すべてのゲーム",
+          "section.library": "ゲーム",
           "client.title": "CookingFoil クライアント",
           "client.hint": (n) => `SD カードのルート（最上位）に解凍してアプリを起動すると自動接続されます。\nインストールから1時間以内なら本体${n}台まで自動で接続され、それ以上は QR で承認します。`,
           "client.get": "ダウンロード",
@@ -2396,7 +2441,7 @@
           "send.cancel": "取り消す",
           "send.cancelled": "送信を取り消しました。",
           "section.recent": "最近の追加",
-          "tab.games": "すべてのゲーム",
+          "tab.games": "ゲーム",
           "tab.pair": "デバイス承認",
           "tab.admin": "サーバー管理",
           "tab.preview": "プレビュー",
@@ -2411,6 +2456,15 @@
           "ports.none": "<strong>移植作品はまだありません。</strong>管理者が Homebrew フォルダーに入れると、ここに表示されます。",
           "retro.none": "<strong>レトロゲームはまだありません。</strong>管理者が機種ごとにレトロ ROM フォルダーへ入れると、ここに表示されます。",
           "tab.extras": "パッチ・セーブ",
+          "tab.switch": "Switch",
+          "tab.vita": "PS Vita",
+          "tab.plugins": "プラグイン",
+          "vita.search": "ゲーム名で探す…",
+          "vita.savedAt": (when) => `${when} バックアップ`,
+          "vita-games.none": "<strong>バックアップした Vita のゲームはまだありません。</strong>Vita クライアントでゲームをバックアップするとここに表示されます。",
+          "vita-saves.none": "<strong>バックアップした Vita のセーブはまだありません。</strong>Vita クライアントでセーブをバックアップするとここに表示されます。",
+          "vita-homebrew.none": "<strong>Vita の自作アプリはまだありません。</strong>管理者が自作アプリのフォルダーに .vpk を入れるとここに表示されます。",
+          "vita-plugins.none": "<strong>Vita のプラグインはまだありません。</strong>管理者が自作アプリのフォルダーにプラグインを入れるとここに表示されます。",
           "tab.list": "すべて",
           "tab.patches": "パッチ",
           "tab.saves": "セーブ",
@@ -2732,7 +2786,7 @@
           "hero.desc": "像奶油一樣百搭的檔案管理器。<br>檔案、中繼資料與圖片由單一需驗證的主機提供，並快取在磁碟上。",
           "section.connect": "伺服器網址",
           "section.stats": "狀態",
-          "section.library": "所有遊戲",
+          "section.library": "游戏",
           "client.title": "CookingFoil 客戶端",
           "client.hint": (n) => `解壓至 SD 卡根目錄並開啟應用即可自動連線。\n安裝後 1 小時內最多 ${n} 台主機會自動連線，更多主機請以 QR 核准。`,
           "client.get": "下載",
@@ -2751,7 +2805,7 @@
           "send.cancel": "取消",
           "send.cancelled": "已取消傳送。",
           "section.recent": "最近新增",
-          "tab.games": "所有遊戲",
+          "tab.games": "游戏",
           "tab.pair": "设备批准",
           "tab.admin": "服务器管理",
           "tab.preview": "預覽",
@@ -2766,6 +2820,15 @@
           "ports.none": "<strong>還沒有移植作品。</strong>管理員將移植作品放入自製軟體資料夾後，會顯示在這裡。",
           "retro.none": "<strong>還沒有復古遊戲。</strong>管理員依機種放入復古 ROM 資料夾後，會顯示在這裡。",
           "tab.extras": "補丁・存檔",
+          "tab.switch": "Switch",
+          "tab.vita": "PS Vita",
+          "tab.plugins": "插件",
+          "vita.search": "按游戏名称查找…",
+          "vita.savedAt": (when) => `${when} 备份`,
+          "vita-games.none": "<strong>还没有备份的 Vita 游戏。</strong>用 Vita 客户端备份游戏后会显示在这里。",
+          "vita-saves.none": "<strong>还没有备份的 Vita 存档。</strong>用 Vita 客户端备份存档后会显示在这里。",
+          "vita-homebrew.none": "<strong>还没有 Vita 自制软件。</strong>管理员把 .vpk 放进自制软件文件夹后会显示在这里。",
+          "vita-plugins.none": "<strong>还没有 Vita 插件。</strong>管理员把插件放进自制软件文件夹后会显示在这里。",
           "tab.list": "全部",
           "tab.patches": "補丁",
           "tab.saves": "存檔",
@@ -3144,6 +3207,8 @@
         $("saves-search").placeholder = t("extras.search");
         $("tools-search").placeholder = t("homebrew.search");
         $("ports-search").placeholder = t("homebrew.search");
+        for (const v of ["vita-games", "vita-saves"]) $(v + "-search").placeholder = t("vita.search");
+        for (const v of ["vita-homebrew", "vita-plugins"]) $(v + "-search").placeholder = t("homebrew.search");
         $("acct-btn").setAttribute("aria-label", t("action.menu"));
         $("acct-btn").title = t("action.menu");
         $("share-memo").placeholder = t("share.memo_ph");
@@ -3595,9 +3660,7 @@
           if (features.includes("user-patches")) available.add("patches");
           if (features.includes("library-saves")) available.add("saves");
           $("retro-tab").hidden = !available.has("retro");
-          $("extras-tab").hidden = !available.has("patches") && !available.has("saves");
           if (features.includes("homebrew")) { available.add("tools"); available.add("ports"); }
-          $("homebrew-tab").hidden = !available.has("tools");
           // A link (or the remembered view) that only now turned out to exist.
           if (requestedTab && requestedTab !== current && available.has(requestedTab)) showTab(requestedTab);
         })
@@ -5728,16 +5791,93 @@
         };
       })();
 
+      // PS Vita: what the account's Vita gets, from the same addresses the Vita reads: its backed-up games and
+      // saves (a PSP game backed up from it among them), and the Vita's homebrew and plugins.
+      const vita = (() => {
+        let games = null;
+        let apps = null;
+        const folded = (x) => String(x ?? "").normalize("NFC").toLowerCase();
+        const has = (g, kind) => (g.units ?? []).some((u) => u.startsWith(kind + ":"));
+        const getJson = async (url) => {
+          try {
+            const r = await fetch(url, { headers: { Accept: "application/json" } });
+            return r.ok ? await r.json() : null;
+          } catch { return null; }
+        };
+        async function loadGames() {
+          if (!games) games = (await getJson("/api/backups/games?platform=vita"))?.games ?? null;
+          return games;
+        }
+        async function loadApps() {
+          if (!apps) apps = (await getJson(`/api/homebrew?platform=vita&with=plugins&lang=${encodeURIComponent(lang)}`))?.homebrew ?? [];
+          return apps;
+        }
+        const psp = (g) => (g.platform === "psp" ? "PSP" : null);
+        const ROWS = {
+          "vita-games": () => (games ?? []).filter((g) => ["app", "patch", "psp-game", "psp-iso"].some((k) => has(g, k)))
+            .map((g) => ({ icon: g.icon, name: g.title || g.id, meta: [psp(g), g.region, g.version && "v" + g.version, fmtBytes(g.bytes)] })),
+          "vita-saves": () => (games ?? []).filter((g) => has(g, "savedata") || has(g, "psp-save"))
+            .map((g) => ({ icon: g.icon, name: g.title || g.id, meta: [psp(g), t("vita.savedAt", ymd(g.updatedAt))] })),
+          "vita-homebrew": () => (apps ?? []).filter((a) => a.install_type === "vpk")
+            .map((a) => ({ icon: a.icon_url, name: a.name, meta: [a.display_version || a.version, a.title_id, fmtBytes(a.size)], line: a.description })),
+          "vita-plugins": () => (apps ?? []).filter((a) => a.install_type === "plugin")
+            .map((a) => ({ icon: null, name: a.name, meta: [a.display_version, ...(a.sections ?? [])], line: a.description })),
+        };
+        function row(it) {
+          const g = document.createElement("section"); g.className = "xgroup";
+          const r = document.createElement("div"); r.className = "xrow xapp";
+          const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+          if (it.icon) img.src = it.icon; else img.style.visibility = "hidden";
+          img.addEventListener("error", () => { img.style.visibility = "hidden"; });
+          const info = document.createElement("div");
+          const name = document.createElement("div"); name.className = "xname"; name.textContent = it.name;
+          const meta = document.createElement("div"); meta.className = "xmeta"; meta.textContent = it.meta.filter(Boolean).join(" · ");
+          info.append(name, meta);
+          if (it.line) { const line = document.createElement("div"); line.className = "xline"; line.textContent = it.line.split("\n")[0]; info.append(line); }
+          r.append(img, info);
+          g.append(r);
+          return g;
+        }
+        function render(view) {
+          const q = folded($(view + "-search").value.trim());
+          const list = ROWS[view]().filter((it) => !q || folded(it.name).includes(q))
+            .sort((a, b) => String(a.name).localeCompare(String(b.name), lang, { numeric: true }));
+          $(view + "-list").replaceChildren(...list.map(row));
+          $(view + "-count").textContent = list.length.toLocaleString();
+          $(view + "-empty").hidden = list.length > 0;
+          $(view + "-empty").innerHTML = t(q ? "homebrew.empty" : view + ".none");
+          $(view + "-list").setAttribute("aria-busy", "false");
+        }
+        async function open(view) {
+          await (view === "vita-games" || view === "vita-saves" ? loadGames() : loadApps());
+          if (current === view) render(view);
+        }
+        // Which views this account has: its backups when the server keeps them, the Vita apps when there are any.
+        async function probe() {
+          const [g, a] = await Promise.all([loadGames(), loadApps()]);
+          if (g) { available.add("vita-games"); available.add("vita-saves"); }
+          if (a.some((x) => x.install_type === "vpk")) available.add("vita-homebrew");
+          if (a.some((x) => x.install_type === "plugin")) available.add("vita-plugins");
+          $("vita-tab").hidden = !GROUPS.vita.some((v) => available.has(v));
+          if (requestedTab && requestedTab !== current && available.has(requestedTab)) showTab(requestedTab);
+        }
+        for (const view of Object.keys(ROWS)) $(view + "-search").addEventListener("input", debounce(() => render(view), 120));
+        return { open, probe, relabel() { apps = null; if (current?.startsWith("vita-")) open(current); } };
+      })();
+
       // All games or the client preview: one at a time, remembered and linkable (#all, #preview).
       // The address uses "all", not "games": #games is the grid's id, and a
       // fragment naming an element makes the browser jump to it on load.
       // Top tabs open a group; the views inside a group are its sub-tabs.
       const TAB_KEY = "cookingfoil:tab";
-      const GROUPS = { games: ["games", "preview"], retro: ["retro", "retro-home"], extras: ["patches", "saves"], homebrew: ["tools", "ports"] };
-      const SUB_LABEL = { games: "tab.list", preview: "tab.preview", retro: "tab.list", "retro-home": "tab.preview", patches: "tab.patches", saves: "tab.saves", tools: "tab.tools", ports: "tab.ports" };
-      const TAB_HASH = { games: "all", preview: "preview", retro: "retro", "retro-home": "retro-home", patches: "patches", saves: "saves", tools: "tools", ports: "ports" };
+      // One group a platform, as each console's client shows it; retro runs on RetroArch on both, so it is its own.
+      const GROUPS = { games: ["games", "preview", "patches", "saves", "tools", "ports"], vita: ["vita-games", "vita-saves", "vita-homebrew", "vita-plugins"], retro: ["retro", "retro-home"] };
+      const SUB_LABEL = { games: "tab.games", preview: "tab.preview", retro: "tab.list", "retro-home": "tab.preview", patches: "tab.patches", saves: "tab.saves", tools: "tab.tools", ports: "tab.ports",
+        "vita-games": "tab.games", "vita-saves": "tab.saves", "vita-homebrew": "tab.homebrew", "vita-plugins": "tab.plugins" };
+      const TAB_HASH = { games: "all", preview: "preview", retro: "retro", "retro-home": "retro-home", patches: "patches", saves: "saves", tools: "tools", ports: "ports",
+        "vita-games": "vita", "vita-saves": "vita-saves", "vita-homebrew": "vita-homebrew", "vita-plugins": "vita-plugins" };
       const groupOf = (name) => Object.keys(GROUPS).find((g) => GROUPS[g].includes(name));
-      const tabFromHash = (h) => (h === "all" || h === "games" ? "games" : h);
+      const tabFromHash = (h) => (h === "all" || h === "games" ? "games" : h === "vita" ? "vita-games" : h);
       // Views this server offers; the rest arrive with /api/library/info's features.
       const available = new Set(["games", "preview"]);
       let current = null;
@@ -5775,6 +5915,7 @@
         if (name === "retro-home") retro.openHome();
         if (name === "patches" || name === "saves") extras.open(name);
         if (name === "tools" || name === "ports") homebrew.open(name);
+        if (name.startsWith("vita-")) vita.open(name);
       }
       document.querySelector(".tabs").addEventListener("click", (e) => {
         const b = e.target.closest("[data-tab]");
@@ -5790,6 +5931,7 @@
       for (const id of ["genre-chips", "steam-chips", "retro-systems", "modal-screens", "xm-screens"]) scrollRow($(id));
       const requestedTab = tabFromHash(location.hash.slice(1)) || (() => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } })();
       showTab(requestedTab);
+      vita.probe();
 
       // Turns on its own every six seconds unless the pointer or focus is on it.
       setInterval(() => {
@@ -6939,6 +7081,7 @@
         extras.relabel();
         activityMenu.relabel();
         homebrew.relabel();
+        vita.relabel();
         share.relabel();
         if (current) renderSubtabs(current);
       });

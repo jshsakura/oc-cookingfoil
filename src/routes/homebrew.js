@@ -122,6 +122,9 @@ import { vpkIcon } from "../meta/homebrew-vpk.js";
 export const platformOfApp = (e) => (e.install_type === "vpk" || e.install_type === "plugin" ? "vita" : "switch");
 /** Whose apps a request sees: a console its own platform's, the web and every request with no console a Switch's. */
 const viewerPlatform = (platform) => platform ?? "switch";
+/** The web, which is no console, may list the Vita's apps by asking (?platform=vita); a console never chooses. */
+const webAsks = (req) => (req.query.platform === "vita" ? "vita" : null);
+const PICTURE_PATH = /^\/[^/]+\/(icon|banner|screenshot)(\/|$)/;
 
 const ID_RE = /^(gh|m)-[0-9a-f]{12}$/;
 const POLL_MS = 15 * 60 * 1000; // the tracker itself asks GitHub once per COOK_HOMEBREW_CHECK_HOURS
@@ -576,7 +579,7 @@ export function homebrewRouter({ service = defaultService, platformOf = requestP
     const titles = String(req.query.with ?? "").split(",").includes("titles");
     const lazy = readsFilesUrl(req.get("user-agent"));
     const voter = votes.voterOf(req);
-    const viewer = viewerPlatform(platformOf(req));
+    const viewer = viewerPlatform(platformOf(req) ?? webAsks(req));
     const apps = (await service.list(requestLang(req))).filter((e) => e.enabled !== false && platformOfApp(e) === viewer);
     // A Vita's list is its .vpk apps, with or without ?with=titles, and its plugins after them when it asks
     // (?with=plugins): a client from before plugins would take one for an app.
@@ -634,7 +637,10 @@ export function homebrewRouter({ service = defaultService, platformOf = requestP
     // An app of another platform is not there for this console: a Vita never gets a .nro, nor a Switch a .vpk.
     service.list().then((list) => {
       const e = list.find((x) => x.id === id);
-      if (e && platformOfApp(e) !== viewerPlatform(platformOf(req))) return res.status(404).json({ error: "no such homebrew" });
+      // The web, which may list either platform, still fetches only its pictures of the other one.
+      const viewer = platformOf(req);
+      const picture = viewer == null && PICTURE_PATH.test(req.path);
+      if (e && platformOfApp(e) !== viewerPlatform(viewer) && !picture) return res.status(404).json({ error: "no such homebrew" });
       next();
     }, next);
   });
