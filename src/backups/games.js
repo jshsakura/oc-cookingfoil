@@ -73,6 +73,7 @@ async function shrink(accountId, role, where, read) {
 
 /** Works out and keeps one unit's facts from its newest version; drops them when the unit has none left. */
 export async function noteUnit(accountId, key) {
+  forget(accountId);
   const [latest] = await store.unitVersions(accountId, PLATFORM, key);
   if (!latest) {
     await fsp.rm(factsFile(accountId, key), { force: true });
@@ -174,11 +175,22 @@ async function sentArt(accountId) {
   return out;
 }
 
+// Telling an account's games reads every unit's facts (740 files for one Vita card), and a screen of icons asks
+// for each picture by game, so a told list is kept a moment. What this process keeps drops it at once; an import
+// run as its own process is seen within LIST_FRESH_MS.
+const LIST_FRESH_MS = 30_000;
+const told = new Map();
+const forget = (accountId) => told.delete(accountId);
+
 /** The account's games; each `art` names a kept picture or is null. */
 export async function listGames(accountId) {
+  const kept = told.get(accountId);
+  if (kept && Date.now() - kept.at < LIST_FRESH_MS) return kept.games;
   const games = gatherGames(await unitRecords(accountId));
   const sent = await sentArt(accountId);
-  return games.map((g) => (sent[gameFolder(g.id)] ? { ...g, art: { ...g.art, ...sent[gameFolder(g.id)] } } : g));
+  const out = games.map((g) => (sent[gameFolder(g.id)] ? { ...g, art: { ...g.art, ...sent[gameFolder(g.id)] } } : g));
+  told.set(accountId, { at: Date.now(), games: out });
+  return out;
 }
 
 /**
@@ -209,6 +221,7 @@ export async function keepGameArt(accountId, id, role, bytes) {
     }
     await writeAtomic(pointer(r), name);
   }
+  forget(accountId);
   return "kept";
 }
 
