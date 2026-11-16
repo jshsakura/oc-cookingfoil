@@ -15,6 +15,11 @@ const files = {
   "roms/snes/Sample Quest (Korea).sfc": "rom", "roms/gba/Pocket Tale (Korea).gba": "rom", "roms/n64/Heavy Racer (USA).z64": "rom",
   "roms/pcecd/Disc Story (Japan).cue": "cue", "roms/psp/Portable Quest [ULJM00000].iso": "iso", "retroarch/system/gba_bios.bin": GBA_BIOS,
 };
+// Enough titles per system for the home to deal rows (retro/menu.js MENU_MIN), n64 having no Vita core.
+for (let i = 1; i <= 9; i++) {
+  files[`roms/snes/Filler Snes ${i} (Korea).sfc`] = "rom";
+  files[`roms/n64/Filler N64 ${i} (USA).z64`] = "rom";
+}
 for (const [rel, body] of Object.entries(files)) {
   mkdirSync(path.dirname(path.join(retro, rel)), { recursive: true });
   writeFileSync(path.join(retro, rel), body);
@@ -49,7 +54,7 @@ const json = async (headers, url) => (await get(headers, url)).json();
 // The catalog is scanned in the background; ask until the games are in.
 async function ready() {
   for (let i = 0; i < 100; i++) {
-    if ((await json(SWITCH, "/api/retro/games")).total === 5) return;
+    if ((await json(SWITCH, "/api/retro/games")).total === 23) return;
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error("the retro catalog never listed the games");
@@ -69,13 +74,17 @@ test("a Vita sees only the systems with a Vita core, and their games and home ro
   assert.equal(sw.systems.find((s) => s.id === "snes").coreName, "Snes9x");
 
   const games = await json(VITA, "/api/retro/games");
-  assert.equal(games.total, 4);
+  assert.equal(games.total, 13);
   assert.ok(games.games.every((g) => g.system !== "n64"));
   const swGame = (await json(SWITCH, "/api/retro/games?system=snes")).games[0];
   const vitaGame = (await json(VITA, "/api/retro/games?system=snes")).games[0];
   assert.equal(vitaGame.url, swGame.url, "the same file");
   assert.equal((await json(VITA, "/api/retro/games?system=n64")).total, 0);
   assert.deepEqual((await json(VITA, "/api/retro/home")).systems.map((s) => s.id).sort(), ["gba", "pcecd", "psp", "snes"]);
+  const vitaIds = new Set(["snes", "gba", "pcecd", "psp"]);
+  const themed = (await json(VITA, "/api/retro/themes")).themes.flatMap((t) => t.games);
+  assert.ok(themed.length > 0 && themed.every((g) => vitaIds.has(g.system)), "the home rows hold only games of Vita systems");
+  assert.ok((await json(VITA, "/api/retro/themes")).themes.every((t) => t.games.length), "no empty row");
 });
 
 test("a Vita reads the firmware its systems need and downloads only those files, each with its md5", async () => {

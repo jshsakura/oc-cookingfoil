@@ -741,12 +741,16 @@ export default function retroRouter() {
     res.set({ "Cache-Control": "no-store", Vary: "Accept-Language" });
     res.json({
       labels: RETRO_LABELS,
-      themes: rows.map((r) => ({
-        id: r.id,
-        name: r.name(lang),
-        icon: rowIcon(r.id),
-        games: r.games.slice(0, per).map((f) => publicGame(byId.get(f.id), cat.systems, lang, { cat, link, voter })),
-      })),
+      themes: rows
+        .map((r) => ({
+          id: r.id,
+          name: r.name(lang),
+          icon: rowIcon(r.id),
+          games: forPlatform(req, cat, r.games.map((f) => byId.get(f.id)).filter(Boolean))
+            .slice(0, per)
+            .map((g) => publicGame(g, cat.systems, lang, { cat, link, voter })),
+        }))
+        .filter((t) => t.games.length),
     });
   }));
 
