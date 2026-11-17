@@ -249,8 +249,10 @@ const SYSTEMS = {
 // A built-in system's folder is its id unless it names one; without a Bezel
 // Project folder its SD overlay folder is the id too.
 // The Vita's RetroArch core for each system it runs, as named in libretro's Vita nightly builds. A system left
-// out has no Vita core or is too heavy for the Vita (PSP games run on the Vita itself).
+// out has no Vita core. PSP has none either: its games run on the Vita's own PSP emulator, so "psp" names that
+// emulator (not a RetroArch core) and the Vita client lists those games without looking for a core file.
 const VITA_CORES = {
+  psp: "psp",
   nes: "fceumm", snes: "snes9x2005", gb: "gambatte", gbc: "gambatte", gba: "mgba", md: "genesis_plus_gx", sms: "genesis_plus_gx",
   gg: "genesis_plus_gx", sg: "genesis_plus_gx", segacd: "genesis_plus_gx", "32x": "picodrive", pce: "mednafen_pce_fast",
   pcecd: "mednafen_pce_fast", ps1: "pcsx_rearmed", ngp: "mednafen_ngp", ws: "mednafen_wswan", vb: "mednafen_vb", arcade: "fbneo",

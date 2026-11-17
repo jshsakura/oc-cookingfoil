@@ -307,7 +307,7 @@
       .mp-group h4 .count { font-weight: 600; color: var(--secondary); font-size: 12px; }
       .mp-group .mp-note { margin: 4px 0 0; font-size: 12px; color: var(--secondary); }
       .mp-group .xitem:first-of-type { border-top: none; margin-top: 4px; }
-      .stats-panel { margin-bottom: 30px; }
+      .stats-panel, .vita-stats { margin-bottom: 30px; }
       [data-tab-panel][hidden] { display: none; }
 
       /* HERO: the newest arrival on the dark band the client opens with */
@@ -1227,6 +1227,10 @@
         .client-icon { width: 52px; height: 52px; border-radius: 12px; }
         .client-get { width: 100%; }
       }
+      /* The menu before the server says which views it has: pills in the real ones' places. */
+      .menu-skel { display: inline-block; height: 30px; width: 68px; border-radius: 100px; vertical-align: middle; }
+      .tabs .menu-skel { height: 34px; width: 84px; }
+      .menu-skel + .menu-skel { margin-left: 2px; }
       .toast-rack { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200; pointer-events: none; }
       .toast {
         display: flex; align-items: center; gap: 9px; width: max-content; max-width: calc(100vw - 32px); margin-inline: auto;
@@ -1291,10 +1295,12 @@
         .tabs button { flex: 1 1 auto; min-width: 0; padding: 8px 4px; font-size: clamp(11px, 3.3vw, 13px); overflow: hidden; text-overflow: ellipsis; }
         .tabs::-webkit-scrollbar { display: none; }
         .subtabs { display: flex; width: 100%; }
-        /* The switch and the title count share one row. */
+        /* The views get the whole row; the title count would cut them off. */
         .subtab-row { flex-wrap: nowrap; }
-        .subtab-row .subtabs { width: auto; flex: 1 1 auto; min-width: 0; }
-        .subtab-row .badge { flex-shrink: 0; padding: 7px 12px; }
+        .subtab-row .subtabs { width: auto; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+        .subtab-row .subtabs::-webkit-scrollbar { display: none; }
+        .subtab-row .subtabs button { flex: 1 0 auto; white-space: nowrap; }
+        .subtab-row .badge { display: none; }
         .subtabs button { flex: 1; }
         .xgroup { padding: 14px 12px; border-radius: 16px; }
         body { padding: 16px 16px 80px; }
@@ -1331,6 +1337,7 @@
           <span class="wordmark">cookingfoil<span class="dot">.</span></span>
         </a>
         <nav class="tabs" role="tablist" aria-label="views">
+          <span class="sk menu-skel" id="tabs-skel" aria-hidden="true"></span><span class="sk menu-skel" id="tabs-skel2" aria-hidden="true"></span>
           <button type="button" role="tab" data-tab="games"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="5" height="12" rx="2.5"/><rect x="17" y="6" width="5" height="12" rx="2.5"/><rect x="7" y="6" width="10" height="12"/></svg><span data-i18n="tab.switch"></span></button>
           <button type="button" role="tab" data-tab="vita" id="vita-tab" hidden><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="6.5" width="21" height="11" rx="5.5"/><rect x="7.5" y="9" width="9" height="6" rx="1"/></svg><span data-i18n="tab.vita"></span></button>
           <button type="button" role="tab" data-tab="retro" id="retro-tab" hidden><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="6"/><path d="M6.5 12h4M8.5 10v4"/><circle cx="15" cy="12.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/></svg><span data-i18n="tab.retro"></span></button>
@@ -1507,6 +1514,27 @@
           </div>
           <div class="xlist" id="ports-list" aria-busy="true"></div>
           <p class="empty" id="ports-empty" hidden></p>
+        </div>
+
+        <div data-tab-panel="vita-home" hidden>
+          <section class="client-card" id="vita-client-card" hidden aria-labelledby="vita-client-title">
+            <img class="client-icon" id="vita-client-icon" alt="" width="96" height="96" decoding="async">
+            <div class="client-text">
+              <b id="vita-client-title" data-i18n="client.vitaTitle"></b>
+              <span class="client-meta" id="vita-client-meta"></span>
+              <span class="client-hint" data-i18n="client.vitaHint"></span>
+            </div>
+            <button type="button" class="client-get" id="vita-client-get" data-i18n="client.get"></button>
+          </section>
+          <section class="panel vita-stats">
+            <h3><span data-i18n="section.stats"></span><span class="rule"></span></h3>
+            <div class="stats">
+              <div class="stat"><div class="label" data-i18n="tab.games"></div><div class="value sk" id="vita-stat-games">—</div></div>
+              <div class="stat"><div class="label" data-i18n="tab.saves"></div><div class="value sk" id="vita-stat-saves">—</div></div>
+              <div class="stat"><div class="label" data-i18n="tab.homebrew"></div><div class="value sk" id="vita-stat-homebrew">—</div></div>
+              <div class="stat"><div class="label" data-i18n="tab.plugins"></div><div class="value sk" id="vita-stat-plugins">—</div></div>
+            </div>
+          </section>
         </div>
 
         <div data-tab-panel="vita-games" hidden>
@@ -1733,6 +1761,9 @@
           "tab.extras": "패치·세이브",
           "tab.switch": "Switch",
           "tab.vita": "PS Vita",
+          "tab.dashboard": "대시보드",
+          "client.vitaTitle": "CookingFoil 클라이언트 (PS Vita)",
+          "client.vitaHint": "VPK 를 받아 Vita 에 설치하면 앱 안에서 이 서버로 연결해 게임, 홈브류, 플러그인, 레트로를 받습니다.",
           "tab.plugins": "플러그인",
           "vita.search": "게임 이름으로 찾기…",
           "vita.savedAt": (when) => `${when} 백업`,
@@ -2098,6 +2129,9 @@
           "tab.extras": "Patches & saves",
           "tab.switch": "Switch",
           "tab.vita": "PS Vita",
+          "tab.dashboard": "Dashboard",
+          "client.vitaTitle": "CookingFoil client (PS Vita)",
+          "client.vitaHint": "Install the VPK on your Vita; the app connects to this server for games, homebrew, plugins and retro.",
           "tab.plugins": "Plugins",
           "vita.search": "Search by game name…",
           "vita.savedAt": (when) => `Backed up ${when}`,
@@ -2462,6 +2496,9 @@
           "tab.extras": "パッチ・セーブ",
           "tab.switch": "Switch",
           "tab.vita": "PS Vita",
+          "tab.dashboard": "ダッシュボード",
+          "client.vitaTitle": "CookingFoil クライアント (PS Vita)",
+          "client.vitaHint": "VPK を Vita にインストールすると、アプリがこのサーバーに接続してゲームや自作アプリ、プラグイン、レトロを受け取れます。",
           "tab.plugins": "プラグイン",
           "vita.search": "ゲーム名で探す…",
           "vita.savedAt": (when) => `${when} バックアップ`,
@@ -2826,6 +2863,9 @@
           "tab.extras": "補丁・存檔",
           "tab.switch": "Switch",
           "tab.vita": "PS Vita",
+          "tab.dashboard": "儀表板",
+          "client.vitaTitle": "CookingFoil 用戶端 (PS Vita)",
+          "client.vitaHint": "把 VPK 安裝到 Vita 後，應用程式會連到此伺服器下載遊戲、自製軟體、外掛與復古遊戲。",
           "tab.plugins": "插件",
           "vita.search": "按游戏名称查找…",
           "vita.savedAt": (when) => `${when} 备份`,
@@ -3654,7 +3694,7 @@
       // ─── features and session ─────────────────────────────────────────────
       // The library address and how to connect live on the admin page's overview now.
       // Show the device page only when this library pairs consoles.
-      fetch("/api/library/info", { headers: { Accept: "application/json" } })
+      const libraryInfo = fetch("/api/library/info", { headers: { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
         .then((info) => {
           const features = info?.features ?? [];
@@ -5877,9 +5917,25 @@
           $(view + "-list").setAttribute("aria-busy", "false");
         }
         async function open(view) {
+          if (view === "vita-home") { await dashboard(); return; }
           await (view === "vita-games" || view === "vita-saves" ? loadGames() : loadApps());
           if (current === view) render(view);
         }
+        // The dashboard: the Vita client's download and what the account's Vita can get.
+        async function dashboard() {
+          const [, a, b] = await Promise.all([loadGames(), loadApps(), getJson("/api/client/latest?platform=vita")]);
+          const mine = (kind) => ROWS[kind]().length;
+          for (const [id, n] of [["games", mine("vita-games")], ["saves", mine("vita-saves")], ["homebrew", mine("vita-homebrew")], ["plugins", mine("vita-plugins")]]) {
+            const el = $("vita-stat-" + id); el.classList.remove("sk"); animateCount(el, n);
+          }
+          if (b?.version) {
+            const meta = () => { $("vita-client-meta").textContent = t("client.version", b.version, (b.size / 1048576).toFixed(1)); };
+            meta(); onLang.push(meta);
+            $("vita-client-icon").src = `/api/client/icon?v=${encodeURIComponent((b.sha256 || "").slice(0, 12))}`;
+            $("vita-client-card").hidden = false;
+          }
+        }
+        $("vita-client-get").addEventListener("click", () => { location.href = "/api/client/cookingfoil.vpk"; });
         // Which views this account has: its backups when the server keeps them, the Vita apps when there are any.
         async function probe() {
           const [g, a] = await Promise.all([loadGames(), loadApps()]);
@@ -5887,6 +5943,7 @@
           if (library?.length) available.add("vita-games");
           if (a.some((x) => x.install_type === "vpk")) available.add("vita-homebrew");
           if (a.some((x) => x.install_type === "plugin")) available.add("vita-plugins");
+          if (["vita-games", "vita-saves", "vita-homebrew", "vita-plugins"].some((v) => available.has(v))) available.add("vita-home");
           $("vita-tab").hidden = !GROUPS.vita.some((v) => available.has(v));
           if (requestedTab && requestedTab !== current && available.has(requestedTab)) showTab(requestedTab);
         }
@@ -5900,18 +5957,24 @@
       // Top tabs open a group; the views inside a group are its sub-tabs.
       const TAB_KEY = "cookingfoil:tab";
       // One group a platform, as each console's client shows it; retro runs on RetroArch on both, so it is its own.
-      const GROUPS = { games: ["games", "preview", "patches", "saves", "tools", "ports"], vita: ["vita-games", "vita-saves", "vita-homebrew", "vita-plugins"], retro: ["retro", "retro-home"] };
+      const GROUPS = { games: ["games", "preview", "patches", "saves", "tools", "ports"], vita: ["vita-home", "vita-games", "vita-saves", "vita-homebrew", "vita-plugins"], retro: ["retro", "retro-home"] };
       const SUB_LABEL = { games: "tab.games", preview: "tab.preview", retro: "tab.list", "retro-home": "tab.preview", patches: "tab.patches", saves: "tab.saves", tools: "tab.tools", ports: "tab.ports",
-        "vita-games": "tab.games", "vita-saves": "tab.saves", "vita-homebrew": "tab.homebrew", "vita-plugins": "tab.plugins" };
+        "vita-home": "tab.dashboard", "vita-games": "tab.games", "vita-saves": "tab.saves", "vita-homebrew": "tab.homebrew", "vita-plugins": "tab.plugins" };
       const TAB_HASH = { games: "all", preview: "preview", retro: "retro", "retro-home": "retro-home", patches: "patches", saves: "saves", tools: "tools", ports: "ports",
-        "vita-games": "vita", "vita-saves": "vita-saves", "vita-homebrew": "vita-homebrew", "vita-plugins": "vita-plugins" };
+        "vita-home": "vita-home", "vita-games": "vita", "vita-saves": "vita-saves", "vita-homebrew": "vita-homebrew", "vita-plugins": "vita-plugins" };
       const groupOf = (name) => Object.keys(GROUPS).find((g) => GROUPS[g].includes(name));
       const tabFromHash = (h) => (h === "all" || h === "games" ? "games" : h === "vita" ? "vita-games" : h);
       // Views this server offers; the rest arrive with /api/library/info's features.
       const available = new Set(["games", "preview"]);
       let current = null;
+      // Until the server has said which views it has (the features and the Vita's lists), the menu is placeholders.
+      let menuPending = true;
       function renderSubtabs(name) {
         const box = $("subtabs");
+        if (menuPending) {
+          box.replaceChildren(...[0, 1, 2].map(() => { const i = document.createElement("span"); i.className = "sk menu-skel"; i.setAttribute("aria-hidden", "true"); return i; }));
+          return;
+        }
         const views = GROUPS[groupOf(name)].filter((v) => available.has(v));
         box.replaceChildren(...(views.length > 1 ? views : []).map((v) => {
           const b = document.createElement("button");
@@ -5960,7 +6023,11 @@
       for (const id of ["genre-chips", "steam-chips", "retro-systems", "modal-screens", "xm-screens"]) scrollRow($(id));
       const requestedTab = tabFromHash(location.hash.slice(1)) || (() => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } })();
       showTab(requestedTab);
-      vita.probe();
+      Promise.allSettled([libraryInfo, vita.probe()]).then(() => {
+        menuPending = false;
+        for (const id of ["tabs-skel", "tabs-skel2"]) $(id)?.remove();
+        renderSubtabs(current);
+      });
 
       // Turns on its own every six seconds unless the pointer or focus is on it.
       setInterval(() => {
