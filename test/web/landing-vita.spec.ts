@@ -23,9 +23,14 @@ test('the top tabs are Switch, PS Vita and retro, and PS Vita lists what the acc
   await page.goto('/');
   await expect(page.locator('.tabs [data-tab]:visible')).toHaveText(['Switch', 'PS Vita', '레트로']);
   await expect(page.locator('.tabs [data-tab]:visible .tab-ico')).toHaveCount(3);
+  await page.route('**/api/client/latest?platform=vita', (r) => r.fulfill({ json: { version: '00.32', size: 4782027, sha256: 'a'.repeat(64), url: '/api/client/cookingfoil.vpk' } }));
   await page.locator('.tabs [data-tab="vita"]').click();
-  await expect(page).toHaveURL(/#vita$/);
-  await expect(page.locator('#subtabs [data-view]')).toHaveText(['게임', '세이브', '홈브류', '플러그인']);
+  await expect(page).toHaveURL(/#vita-home$/);
+  await expect(page.locator('#subtabs [data-view]')).toHaveText(['대시보드', '게임', '세이브', '홈브류', '플러그인']);
+  await expect(page.locator('#vita-stat-games')).toHaveText('1');
+  await expect(page.locator('#vita-stat-homebrew')).toHaveText('1');
+  await expect(page.locator('#vita-client-meta')).toContainText('00.32');
+  await page.locator('#subtabs [data-view="vita-games"]').click();
   await expect(page.locator('#vita-games-list .game .name')).toHaveText(['Vita Game']);
   await expect(page.locator('#vita-games-list .game .pill')).toHaveCount(0);
   await page.locator('#subtabs [data-view="vita-saves"]').click();
